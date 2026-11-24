@@ -25,6 +25,9 @@ declare global {
       load(): Promise<Approval>
       approve(id: string, typedName?: string): Promise<{ ok: boolean; transactionId?: string; error?: string }>
       cancel(id: string): Promise<boolean>
+      revealLoad(): Promise<{ label: string; publicKey: string }>
+      revealShow(password: string): Promise<string>
+      revealCopy(password: string): Promise<boolean>
     }
   }
 }
@@ -172,4 +175,90 @@ function Confirm(): React.JSX.Element {
   )
 }
 
-createRoot(document.getElementById('root')!).render(<Confirm />)
+function Reveal(): React.JSX.Element {
+  const [info, setInfo] = useState<{ label: string; publicKey: string } | null>(null)
+  const [pw, setPw] = useState('')
+  const [shown, setShown] = useState('')
+  const [left, setLeft] = useState(0)
+  const [error, setError] = useState('')
+  const [note, setNote] = useState('')
+
+  useEffect(() => {
+    window.confirmation.revealLoad().then(setInfo).catch(() => setError('Nothing to show.'))
+  }, [])
+
+  useEffect(() => {
+    if (!shown) return
+    setLeft(30)
+    const t = setInterval(() => {
+      setLeft((l) => {
+        if (l <= 1) {
+          setShown('')
+          clearInterval(t)
+          return 0
+        }
+        return l - 1
+      })
+    }, 1000)
+    return () => clearInterval(t)
+  }, [shown])
+
+  const show = async (): Promise<void> => {
+    setError('')
+    try {
+      setShown(await window.confirmation.revealShow(pw))
+    } catch {
+      setError('Wrong password')
+    }
+  }
+  const copy = async (): Promise<void> => {
+    setError('')
+    try {
+      await window.confirmation.revealCopy(pw)
+      setNote('Copied. The clipboard is cleared in 30 seconds if it still holds the key.')
+    } catch {
+      setError('Wrong password')
+    }
+  }
+
+  return (
+    <div className="c-page">
+      <div className="c-header mainnet">
+        <div className="c-title">Show private key</div>
+        <div>Anyone who sees this key controls the accounts it signs for.</div>
+      </div>
+      <div className="c-body">
+        {info && (
+          <>
+            <Row label="Label">{info.label || '(no label)'}</Row>
+            <Row label="Public key" mono>{info.publicKey}</Row>
+          </>
+        )}
+        <div className="field" style={{ marginTop: 12 }}>
+          <label>Vault password</label>
+          <input className="input" type="password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void show()} />
+        </div>
+        {shown && (
+          <Row label={`Private key (${left} s)`} mono>
+            {shown}
+          </Row>
+        )}
+        {note && <div className="hint">{note}</div>}
+        {error && <div className="error-text">{error}</div>}
+      </div>
+      <div className="c-foot">
+        <button className="btn" onClick={() => window.close()}>
+          Close
+        </button>
+        <button className="btn" disabled={!pw} onClick={() => void copy()}>
+          Copy
+        </button>
+        <button className="btn red" disabled={!pw} onClick={() => void show()}>
+          Show for 30 seconds
+        </button>
+      </div>
+    </div>
+  )
+}
+
+createRoot(document.getElementById('root')!).render(window.location.hash === '#reveal' ? <Reveal /> : <Confirm />)

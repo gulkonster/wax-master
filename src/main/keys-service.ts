@@ -1,0 +1,191 @@
+// Vault and signer instances, automatic locking, and the Manage Keypairs calls.
+
+import { app, BrowserWindow, clipboard, dialog, ipcMain, powerMonitor, type IpcMainInvokeEvent } from 'electron'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { arr, str } from '../shared/validate'
+import { handle } from './ipc'
+import { dataDir } from './paths'
+import { Vault, MIN_PASSWORD_LENGTH, type VaultFile } from './vault'
+import { Signer, defaultDeps } from './signer'
+import { registerConfirmWindow } from './confirm-window'
+import { getSettings } from './store'
+import { chain } from './rpc'
+import { currentNetwork, readCall } from './networks'
+import { APP_ORIGIN, isAllowedOrigin, secureWebPreferences } from './security'
+import { log } from './log'
+
+let vaultInstance: Vault | null = null
+let signerInstance: Signer | null = null
+
+export function vault(): Vault {
+  if (!vaultInstance) vaultInstance = Vault.inDir(dataDir())
+  return vaultInstance
+}
+
+export function signer(): Signer {
+  if (!signerInstance) signerInstance = new Signer(defaultDeps(vault()))
+  return signerInstance
+}
+
+export interface VaultStatus {
+  exists: boolean
+  unlocked: boolean
+  keys: number
+}
+
+function status(): VaultStatus {
+  const v = vault()
+  let keys = 0
+  try {
+    keys = v.list().length
+  } catch {
+    keys = 0
+  }
+  return { exists: v.exists(), unlocked: v.isUnlocked(), keys }
+}
+
+/** Locks on suspend, workstation lock (both always on), inactivity and quit. */
+function startAutoLock(): void {
+  powerMonitor.on('suspend', () => vault().lock())
+  powerMonitor.on('lock-screen', () => vault().lock())
+  setInterval(() => {
+    const v = vault()
+    if (!v.isUnlocked()) return
+    const minutes = getSettings().autoLockMinutes
+    if (powerMonitor.getSystemIdleTime() >= minutes * 60) {
+      log.info('Vault locked after inactivity')
+      v.lock()
+    }
+  }, 30_000).unref()
+  app.on('before-quit', () => vault().lock())
+}
+
+// Clipboard: a copied private key is cleared after 30 seconds if it is still there.
+function copySecretBriefly(text: string): void {
+  clipboard.writeText(text)
+  setTimeout(async () => {
+    if (String(await clipboard.readText()) === text) clipboard.clear()
+  }, 30_000).unref()
+}
+
+// Reveal: the password prompt and the key are shown only in a separate window.
+const revealWindows = new Map<number, string>()
+
+function openRevealWindow(parent: BrowserWindow | null, keyId: string): void {
+  const win = new BrowserWindow({
+    parent: parent ?? undefined,
+    width: 620,
+    height: 380,
+    resizable: false,
+    show: false,
+    title: 'Show private key',
+    backgroundColor: '#1e1f21',
+    autoHideMenuBar: true,
+    webPreferences: secureWebPreferences(join(__dirname, '../preload/confirm.js'))
+  })
+  win.setMenu(null)
+  revealWindows.set(win.webContents.id, keyId)
+  win.on('closed', () => revealWindows.delete(win.webContents.id))
+  win.once('ready-to-show', () => win.show())
+  const devUrl = process.env.ELECTRON_RENDERER_URL
+  const base = !app.isPackaged && devUrl ? `${devUrl.replace(/\/$/, '')}/confirm.html` : `${APP_ORIGIN}/confirm.html`
+  void win.loadURL(`${base}#reveal`)
+}
+
+function fromRevealWindow(e: IpcMainInvokeEvent): string | null {
+  const id = revealWindows.get(e.sender.id)
+  const url = e.senderFrame?.url ?? ''
+  if (!id || e.senderFrame !== e.sender.mainFrame || !isAllowedOrigin(url)) return null
+  if (!new URL(url).pathname.endsWith('/confirm.html')) return null
+  return id
+}
+
+export function registerKeys(getWindow: () => BrowserWindow | null): void {
+  startAutoLock()
+  registerConfirmWindow(signer())
+  vault().onChange(() => {
+    const w = getWindow()
+    if (w && !w.isDestroyed()) w.webContents.send('vault-changed', status())
+  })
+
+  handle('keys:status', () => status())
+  handle('keys:create', async (_e, pw, pw2) => {
+    const a = str(pw, 'password', 1024)
+    if (a !== str(pw2, 'password', 1024)) throw new Error('The two passwords are not the same')
+    if (a.length < MIN_PASSWORD_LENGTH) throw new Error(`The password needs at least ${MIN_PASSWORD_LENGTH} characters`)
+    await vault().create(a)
+    return status()
+  })
+  handle('keys:unlock', async (_e, pw) => {
+    await vault().unlock(str(pw, 'password', 1024))
+    return status()
+  })
+  handle('keys:lock', () => {
+    vault().lock()
+    return status()
+  })
+  handle('keys:list', () => vault().list())
+  handle('keys:generate', (_e, label) => vault().generateKey(str(label, 'label', 64)))
+  handle('keys:import', (_e, key, label) => vault().addKey(str(key, 'privateKey', 200), str(label, 'label', 64)))
+  handle('keys:setLabel', (_e, id, label) => vault().setLabel(str(id, 'id', 64), str(label, 'label', 64)))
+  handle('keys:remove', (_e, id) => vault().removeKey(str(id, 'id', 64)))
+  handle('keys:reveal', (_e, id) => {
+    const keyId = str(id, 'id', 64)
+    if (!vault().list().some((k) => k.id === keyId)) throw new Error('Unknown key')
+    openRevealWindow(getWindow(), keyId)
+  })
+  handle('keys:accounts', async (_e, keys) => {
+    const list = arr(keys, 'keys', 200).map((k, i) => str(k, `keys[${i}]`, 120))
+    if (list.length === 0) return []
+    const r = await readCall((ep) => chain.getAccountsByAuthorizers(ep, list))
+    return (r.accounts ?? []).map((a) => ({
+      account: String(a.account_name),
+      permission: String(a.permission_name),
+      key: String(a.authorizing_key ?? ''),
+      network: currentNetwork().id
+    }))
+  })
+  handle('keys:exportVault', async () => {
+    const win = getWindow()
+    const opts = { title: 'Export vault', defaultPath: 'wax-master-vault.json', filters: [{ name: 'Vault', extensions: ['json'] }] }
+    const r = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+    if (r.canceled || !r.filePath) return false
+    writeFileSync(r.filePath, JSON.stringify(vault().exportFile(), null, 2), 'utf8')
+    return true
+  })
+  handle('keys:importVault', async (_e, otherPassword) => {
+    const pw = str(otherPassword, 'password', 1024)
+    const win = getWindow()
+    const opts: Electron.OpenDialogOptions = { title: 'Import vault', properties: ['openFile'], filters: [{ name: 'Vault', extensions: ['json'] }] }
+    const r = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
+    if (r.canceled || r.filePaths.length === 0) return null
+    let other: VaultFile
+    try {
+      other = JSON.parse(readFileSync(r.filePaths[0], 'utf8').slice(0, 5 * 1024 * 1024)) as VaultFile
+    } catch {
+      throw new Error('This file is not a WAX Master vault file')
+    }
+    return vault().importFile(other, pw)
+  })
+
+  // Reveal window calls (only from that window).
+  ipcMain.handle('reveal:load', (e) => {
+    const id = fromRevealWindow(e)
+    if (!id) throw new Error('Refused')
+    const k = vault().list().find((x) => x.id === id)
+    if (!k) throw new Error('Unknown key')
+    return { label: k.label, publicKey: k.publicKey }
+  })
+  ipcMain.handle('reveal:show', async (e, pw: unknown) => {
+    const id = fromRevealWindow(e)
+    if (!id || typeof pw !== 'string' || pw.length > 1024) throw new Error('Refused')
+    return vault().revealPrivateKey(id, pw)
+  })
+  ipcMain.handle('reveal:copy', async (e, pw: unknown) => {
+    const id = fromRevealWindow(e)
+    if (!id || typeof pw !== 'string' || pw.length > 1024) throw new Error('Refused')
+    copySecretBriefly(await vault().revealPrivateKey(id, pw))
+    return true
+  })
+}
