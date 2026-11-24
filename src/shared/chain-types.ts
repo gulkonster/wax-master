@@ -178,3 +178,24 @@ export interface DeployPlan {
   ramAvailable: number
   missingFeatures: { name: string; feature: string }[]
 }
+
+/** Status mark of the selected network: `checking` until the first answer. */
+export type NetworkStatusLevel = 'checking' | 'green' | 'orange' | 'red'
+
+/** State of the selected network's endpoint, from the main process's get_info checks. */
+export interface NetworkStatus {
+  networkId: string
+  endpoint: string
+  level: NetworkStatusLevel
+  /** "Checking", "Working", "Slow or behind", "Not reachable" or "Wrong chain". */
+  label: string
+  /** Why the level is not green (empty when working). */
+  reasons: string[]
+  /** One line for tooltips: the label, the reasons and the numbers. */
+  summary: string
+  headBlock: number | null
+  lib: number | null
+  latencyMs: number | null
+  /** Time of the last check (ms since 1970), null before the first. */
+  checkedAt: number | null
+}

@@ -18,6 +18,12 @@ const h = vi.hoisted(() => ({
   frameSent: [] as { channel: string; args: unknown[] }[],
   editorSent: [] as { channel: string; args: unknown[] }[],
   savePath: '',
+  /** Runs while the system Save dialog is open (a lock during the dialog). */
+  onSave: null as null | (() => void),
+  /** The button index of the next native questions (0 = Cancel). */
+  answer: 0,
+  clip: '',
+  appListeners: new Map<string, (() => void)[]>(),
   dark: true,
   nextId: 100
 }))
@@ -29,7 +35,8 @@ interface FakeWin {
   visible: boolean
   focused: boolean
   destroyed: boolean
-  emit(ev: string): void
+  title: string
+  emit(ev: string, ...args: unknown[]): void
 }
 
 vi.mock('electron', () => {
@@ -39,10 +46,12 @@ vi.mock('electron', () => {
     visible = false
     focused = false
     destroyed = false
+    title: string
     options: FakeWin['options']
-    private listeners = new Map<string, (() => void)[]>()
+    private listeners = new Map<string, ((...a: unknown[]) => void)[]>()
     constructor(options: FakeWin['options']) {
       this.options = options
+      this.title = (options as { title?: string }).title ?? ''
       this.webContents = {
         id: h.nextId++,
         send: (channel: string, ...args: unknown[]) => h.sent.push({ channel, args }),
@@ -53,15 +62,18 @@ vi.mock('electron', () => {
     }
     setMenu(): void {}
     setBackgroundColor(): void {}
-    on(ev: string, fn: () => void): this {
+    setTitle(title: string): void {
+      this.title = title
+    }
+    on(ev: string, fn: (...a: unknown[]) => void): this {
       this.listeners.set(ev, [...(this.listeners.get(ev) ?? []), fn])
       return this
     }
-    once(ev: string, fn: () => void): this {
+    once(ev: string, fn: (...a: unknown[]) => void): this {
       return this.on(ev, fn)
     }
-    emit(ev: string): void {
-      for (const fn of this.listeners.get(ev) ?? []) fn()
+    emit(ev: string, ...args: unknown[]): void {
+      for (const fn of this.listeners.get(ev) ?? []) fn(...args)
     }
     loadURL(url: string): Promise<void> {
       this.url = url
@@ -103,15 +115,27 @@ vi.mock('electron', () => {
       getPath: () => h.dataDir,
       getAppPath: () => h.dataDir,
       getVersion: () => '0.0.0',
-      on: () => undefined
+      on: (ev: string, fn: () => void) => h.appListeners.set(ev, [...(h.appListeners.get(ev) ?? []), fn])
     },
     ipcMain: { handle: (ch: string, fn: Fn) => h.handlers.set(ch, fn) },
     powerMonitor: { on: () => undefined, getSystemIdleTime: () => 0 },
-    clipboard: { writeText: () => undefined, readText: () => '', clear: () => undefined },
+    // A clipboard stand-in that keeps its text.
+    clipboard: {
+      writeText: (text: string) => {
+        h.clip = text
+      },
+      readText: () => h.clip,
+      clear: () => {
+        h.clip = ''
+      }
+    },
     dialog: {
-      showMessageBox: async () => ({ response: 0 }),
+      showMessageBox: async () => ({ response: h.answer }),
       showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
-      showSaveDialog: async () => (h.savePath ? { canceled: false, filePath: h.savePath } : { canceled: true })
+      showSaveDialog: async () => {
+        h.onSave?.()
+        return h.savePath ? { canceled: false, filePath: h.savePath } : { canceled: true }
+      }
     },
     shell: {},
     protocol: {},
@@ -146,7 +170,7 @@ import { handle } from '../../src/main/ipc'
 import { setLogSink } from '../../src/main/log'
 import { chain } from '../../src/main/rpc'
 import { FILE_EXISTS } from '../../src/main/key-backup'
-import { WRONG_SECRET } from '../../src/main/vault'
+import { WRONG_CODE, WRONG_PASSWORD } from '../../src/main/vault'
 
 const PW = 'correct horse battery staple'
 const EDITOR_ID = 1
@@ -564,7 +588,7 @@ describe('recovery code, recovery password and key backup stay out of the editor
   it('a new recovery code is shown only in its own window; every other sender is refused', async () => {
     await call('keys:unlock', editor(), PW).catch(() => undefined)
     const status = await fromEditor('keys:newRecoveryCode', PW)
-    expect(Object.keys(status as object).sort()).toEqual(['exists', 'keys', 'noBackup', 'recovery', 'unlocked'])
+    expect(Object.keys(status as object).sort()).toEqual(['exists', 'keptCopies', 'keys', 'noBackup', 'recovery', 'unlocked'])
     const codeWin = lastWindow()
     expect(codeWin.url).toMatch(/confirm\.html#code$/)
     const { code } = (await call('keywin:load', winEvent(codeWin))) as { code: string }
@@ -583,7 +607,7 @@ describe('recovery code, recovery password and key backup stay out of the editor
     expectHidden(code)
   })
 
-  it('forgot password: the code and the new password go only to the recovery window; a wrong code is the wrong-password error', async () => {
+  it('forgot password: the code and the new password go only to the recovery window; each form answers with its own text', async () => {
     await fromEditor('keys:newRecoveryCode', PW)
     const codeWin = lastWindow()
     const { code } = (await call('keywin:load', winEvent(codeWin))) as { code: string }
@@ -603,15 +627,15 @@ describe('recovery code, recovery password and key backup stay out of the editor
     expect(await call('keywin:load', winEvent(recoverWin))).toMatchObject({ mode: 'recover', recovery: true })
     const wrongCode = await call('keywin:recover', winEvent(recoverWin), 'ABCDE-FGHJK-MNPQR-STVWX-YZ012', NEW_PW, NEW_PW).catch((e) => e.message)
     const wrongPw = await call('keys:unlock', editor(), 'not the password').catch((e) => e.message)
-    expect(wrongCode).toBe(WRONG_SECRET)
-    expect(wrongPw).toBe(WRONG_SECRET)
+    expect(wrongCode).toBe(WRONG_CODE)
+    expect(wrongPw).toBe(WRONG_PASSWORD)
     await expect(call('keywin:recover', winEvent(recoverWin), code, NEW_PW, 'different')).rejects.toThrow(/not the same/)
     expect(vault().isUnlocked()).toBe(false)
 
     const r = (await call('keywin:recover', winEvent(recoverWin), code.toLowerCase(), NEW_PW, NEW_PW)) as { code: string }
     expect(vault().isUnlocked()).toBe(true)
     // The same window now shows the new code; it is its own (code mode) and refuses recovery calls.
-    expect(await call('keywin:load', winEvent(recoverWin))).toEqual({ mode: 'code', code: r.code })
+    expect(await call('keywin:load', winEvent(recoverWin))).toEqual({ mode: 'code', code: r.code, hidden: false })
     await expect(call('keywin:recover', winEvent(recoverWin), r.code, NEW_PW, NEW_PW)).rejects.toThrow('Refused')
     await call('keywin:codeDone', winEvent(recoverWin))
     editorSaw.push(await fromEditor('keys:status'))
@@ -622,7 +646,7 @@ describe('recovery code, recovery password and key backup stay out of the editor
     // Every message the editor got is the vault status, nothing else.
     for (const m of h.editorSent) {
       expect(m.channel).toBe('vault-changed')
-      expect(Object.keys(m.args[0] as object).sort()).toEqual(['exists', 'keys', 'noBackup', 'recovery', 'unlocked'])
+      expect(Object.keys(m.args[0] as object).sort()).toEqual(['exists', 'keptCopies', 'keys', 'noBackup', 'recovery', 'unlocked'])
     }
     // Back to the suite's password.
     await call('keys:changePassword', editor(), NEW_PW, PW, PW)
@@ -644,7 +668,7 @@ describe('recovery code, recovery password and key backup stay out of the editor
       await expect(call('keywin:backupSave', e, PW)).rejects.toThrow('Refused')
     }
     expect(existsSync(h.savePath)).toBe(false)
-    await expect(call('keywin:backupSave', winEvent(backupWin), 'wrong password')).rejects.toThrow(WRONG_SECRET)
+    await expect(call('keywin:backupSave', winEvent(backupWin), 'wrong password')).rejects.toThrow(WRONG_PASSWORD)
     expect(existsSync(h.savePath)).toBe(false)
     expect(await call('keywin:backupSave', winEvent(backupWin), PW)).toBe('saved')
     const text = readFileSync(h.savePath, 'utf8')
@@ -691,5 +715,206 @@ describe('recovery code, recovery password and key backup stay out of the editor
     expect(vault().isUnlocked()).toBe(false)
     // The suite's vault again (other suites of this file ran before).
     await call('keys:create', editor(), PW, PW)
+  })
+})
+
+describe('the recovery code after a lock, a newer code, and the backup window after a lock', () => {
+  const lastWindow = (): FakeWin => h.windows[h.windows.length - 1]
+  const winEvent = (w: FakeWin): unknown => frameEvent(w.webContents.id, 'app://bundle/confirm.html')
+  const lockNow = (): unknown => h.handlers.get('keys:lock')!(editor())
+
+  afterEach(async () => {
+    h.onSave = null
+    h.savePath = ''
+    h.answer = 0
+    if (!vault().isUnlocked()) await call('keys:unlock', editor(), PW)
+  })
+
+  async function codeWindow(): Promise<{ win: FakeWin; code: string }> {
+    await call('keys:newRecoveryCode', editor(), PW)
+    const win = lastWindow()
+    const { code } = (await call('keywin:load', winEvent(win))) as { code: string }
+    expect(code).toMatch(/^[0-9A-Z]{5}(-[0-9A-Z]{5}){4}$/)
+    return { win, code }
+  }
+
+  it('keys:lock wipes the code: load, copy and save of that window give no code; the window stays and closes without the question', async () => {
+    const { win, code } = await codeWindow()
+    win.url = ''
+    await call('keys:lock', editor())
+    expect(win.destroyed).toBe(false)
+    // The page is loaded again and then shows the locked text.
+    expect(win.url).toMatch(/confirm\.html#code$/)
+    const loaded = await call('keywin:load', winEvent(win))
+    expect(loaded).toEqual({ mode: 'code', code: '', hidden: true })
+    h.clip = ''
+    await expect(call('keywin:codeCopy', winEvent(win))).rejects.toThrow('No code')
+    expect(h.clip).toBe('')
+    const dir = mkdtempSync(join(tmpdir(), 'wm-code-'))
+    h.savePath = join(dir, 'code.txt')
+    await expect(call('keywin:codeSave', winEvent(win))).rejects.toThrow('No code')
+    expect(existsSync(h.savePath)).toBe(false)
+    expect(JSON.stringify(loaded)).not.toContain(code)
+    // Closing asks nothing (the question would need the close event to be stopped).
+    expect(() => win.emit('close')).not.toThrow()
+  })
+
+  it('the vault locking by itself hides the code too, also a code made while the vault was locked', async () => {
+    const first = await codeWindow()
+    vault().lock()
+    expect(await call('keywin:load', winEvent(first.win))).toEqual({ mode: 'code', code: '', hidden: true })
+    // New recovery code works with the password on a locked vault; Lock hides it again.
+    const second = await codeWindow()
+    expect(vault().isUnlocked()).toBe(false)
+    await call('keys:lock', editor())
+    expect(await call('keywin:load', winEvent(second.win))).toEqual({ mode: 'code', code: '', hidden: true })
+  })
+
+  it('a second keys:newRecoveryCode closes the first code window; Remove recovery code closes the second', async () => {
+    const first = await codeWindow()
+    const second = await codeWindow()
+    expect(first.win.destroyed).toBe(true)
+    expect(second.win.destroyed).toBe(false)
+    await expect(call('keywin:load', winEvent(first.win))).rejects.toThrow('Refused')
+    h.answer = 1
+    await call('keys:removeRecoveryCode', editor(), PW)
+    expect(second.win.destroyed).toBe(true)
+    // Back to a vault with a code for the next cases.
+    await call('keys:newRecoveryCode', editor(), PW)
+    ;(lastWindow() as unknown as { close(): void }).close()
+  })
+
+  it('a recovery with the code closes older code windows and keeps its own; the forgot-password window stays open on a lock', async () => {
+    const older = await codeWindow()
+    const current = await call('keys:newRecoveryCode', editor(), PW).then(async () => {
+      const w = lastWindow()
+      return { win: w, ...((await call('keywin:load', winEvent(w))) as { code: string }) }
+    })
+    expect(older.win.destroyed).toBe(true)
+    await call('keys:lock', editor())
+    await call('keys:forgot', editor())
+    const recoverWin = lastWindow()
+    expect(recoverWin.title).toBe('Forgot password')
+    // A code window that is still open (its code hidden by the lock) closes after the recovery.
+    expect(current.win.destroyed).toBe(false)
+    vault().lock()
+    await call('keys:lock', editor())
+    expect(recoverWin.destroyed).toBe(false)
+    const r = (await call('keywin:recover', winEvent(recoverWin), current.code, PW, PW)) as { code: string }
+    expect(current.win.destroyed).toBe(true)
+    expect(recoverWin.destroyed).toBe(false)
+    expect(recoverWin.title).toBe('Vault recovery code')
+    expect(await call('keywin:load', winEvent(recoverWin))).toEqual({ mode: 'code', code: r.code, hidden: false })
+    await call('keys:lock', editor())
+    expect(recoverWin.url).toMatch(/confirm\.html#code$/)
+    expect(await call('keywin:load', winEvent(recoverWin))).toEqual({ mode: 'code', code: '', hidden: true })
+  })
+
+  it('the code window locked while the Save dialog was open writes nothing', async () => {
+    const { win } = await codeWindow()
+    const dir = mkdtempSync(join(tmpdir(), 'wm-code-'))
+    h.savePath = join(dir, 'code.txt')
+    h.onSave = () => void lockNow()
+    expect(await call('keywin:codeSave', winEvent(win))).toBe('cancelled')
+    expect(existsSync(h.savePath)).toBe(false)
+  })
+
+  it('the backup window closed by a lock while the Save dialog was open writes no file and keeps the note', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wm-backup-lock-'))
+    h.savePath = join(dir, 'backup.txt')
+    const entry = (await call('keys:import', editor(), privateKeyToString(generatePrivateKey(), 'wif'), 'lock during dialog')) as { id: string }
+    vault().setBackup(entry.id, 'none')
+    const outcome = call('keys:backup', editor(), entry.id)
+    await new Promise((r) => setTimeout(r, 0))
+    const backupWin = lastWindow()
+    h.onSave = () => void lockNow()
+    expect(await call('keywin:backupSave', winEvent(backupWin), PW)).toBe('cancelled')
+    expect(backupWin.destroyed).toBe(true)
+    expect(existsSync(h.savePath)).toBe(false)
+    await expect(outcome).resolves.toBe('cancelled')
+    expect(vault().list().find((k) => k.id === entry.id)!.backup).toBe('none')
+  })
+
+  it('account names from the node: only valid chain names reach the file, at most 200', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wm-backup-names-'))
+    h.savePath = join(dir, 'backup.txt')
+    const many = Array.from({ length: 10_000 }, (_, i) => ({
+      account_name: `n${i.toString(5).replace(/[0-4]/g, (d) => String(Number(d) + 1))}`,
+      permission_name: 'active'
+    }))
+    vi.spyOn(chain, 'getAccountsByAuthorizers').mockResolvedValue({
+      accounts: [
+        { account_name: 'alice\nPrivate key: PVT_K1_fake', permission_name: 'active' },
+        { account_name: 'bob', permission_name: 'active\r\nInjected line' },
+        { account_name: 7, permission_name: 'active' },
+        ...many
+      ]
+    } as never)
+    const entry = (await call('keys:import', editor(), privateKeyToString(generatePrivateKey(), 'wif'), 'names')) as { id: string }
+    const outcome = call('keys:backup', editor(), entry.id)
+    await new Promise((r) => setTimeout(r, 0))
+    const backupWin = lastWindow()
+    expect(await call('keywin:backupSave', winEvent(backupWin), PW)).toBe('saved')
+    const lines = readFileSync(h.savePath, 'utf8').split('\r\n')
+    expect(lines.some((l) => l.includes('alice') || l.includes('Injected') || l.includes('PVT_K1_fake'))).toBe(false)
+    const accountLines = lines.filter((l) => /^ {2}n[1-5]+@active$/.test(l))
+    expect(accountLines).toHaveLength(200)
+    ;(backupWin as unknown as { close(): void }).close()
+    await outcome
+  })
+
+  it('"shown" is written only over "none"', async () => {
+    const entry = (await call('keys:import', editor(), privateKeyToString(generatePrivateKey(), 'wif'), 'shown')) as { id: string }
+    await call('keys:reveal', editor(), entry.id)
+    const win = lastWindow()
+    vault().setBackup(entry.id, 'file')
+    await call('reveal:show', winEvent(win), PW)
+    await call('reveal:copy', winEvent(win), PW)
+    expect(vault().list().find((k) => k.id === entry.id)!.backup).toBe('file')
+    vault().setBackup(entry.id, 'none')
+    await call('reveal:show', winEvent(win), PW)
+    expect(vault().list().find((k) => k.id === entry.id)!.backup).toBe('shown')
+    await expect(call('reveal:show', winEvent(win), 'not the password')).rejects.toThrow(WRONG_PASSWORD)
+  })
+
+  it('every key window keeps its own title, not the page title', async () => {
+    const { id } = (await call('keys:import', editor(), privateKeyToString(generatePrivateKey(), 'wif'), 'titles')) as { id: string }
+    await call('keys:reveal', editor(), id)
+    const reveal = lastWindow()
+    const backup = call('keys:backup', editor(), id)
+    await new Promise((r) => setTimeout(r, 0))
+    const backupWin = lastWindow()
+    const { win: codeWin } = await codeWindow()
+    await call('keys:forgot', editor())
+    const recoverWin = lastWindow()
+    const titles = [reveal, backupWin, codeWin, recoverWin].map((w) => w.title)
+    expect(titles).toEqual(['Show private key', 'Back up key', 'Vault recovery code', 'Forgot password'])
+    for (const w of [reveal, backupWin, codeWin, recoverWin]) {
+      let stopped = false
+      w.emit('page-title-updated', { preventDefault: () => (stopped = true) }, 'Confirm transaction')
+      expect(stopped).toBe(true)
+    }
+    ;(backupWin as unknown as { close(): void }).close()
+    await backup
+  })
+
+  it('quit clears the clipboard when it still holds the copied code or key, and leaves other text alone', async () => {
+    const quit = (): void => {
+      for (const fn of h.appListeners.get('before-quit') ?? []) fn()
+    }
+    const { win, code } = await codeWindow()
+    await call('keywin:codeCopy', winEvent(win))
+    expect(h.clip).toBe(code)
+    quit()
+    expect(h.clip).toBe('')
+    await call('keys:unlock', editor(), PW)
+
+    const { id } = (await call('keys:import', editor(), privateKeyToString(generatePrivateKey(), 'wif'), 'clipboard')) as { id: string }
+    await call('keys:reveal', editor(), id)
+    await call('reveal:copy', winEvent(lastWindow()), PW)
+    expect(h.clip.startsWith('PVT_K1_')).toBe(true)
+    h.clip = 'something the user copied later'
+    quit()
+    expect(h.clip).toBe('something the user copied later')
   })
 })

@@ -17,6 +17,7 @@ const LABELS: Record<string, string> = {
   'clear-code': 'Clear Contract Code',
   'add-network': 'Add Network',
   'manage-networks': 'Manage Networks',
+  'network-page': 'Network page',
   'open-transaction': 'Open Transaction by Id',
   'check-updates': 'Check for Updates'
 }

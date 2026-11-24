@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { arr, optStr, str } from '../shared/validate'
 import { handle } from './ipc'
 import { dataDir } from './paths'
-import { Vault, type VaultFile } from './vault'
+import { Vault, keptVaultCopies, type VaultFile } from './vault'
 import { Signer, defaultDeps } from './signer'
 import { closeOpenConfirmations, registerConfirmWindow } from './confirm-window'
 import { getSettings } from './store'
@@ -18,8 +18,18 @@ import { pickList } from './account-pick'
 import { LOCKED_MESSAGE } from '../shared/vault-locked'
 import { requirePasswordLength } from '../shared/password'
 import { log } from './log'
-import { convertPublicKey, parsePublicKey, privateKeyToString, publicKeyToString } from '../chain-core'
-import { askNative, closeKeyWindows, focusKeyWindow, fromKeyWindow, openKeyWindow, type KeySession } from './key-windows'
+import { convertPublicKey, isValidName, parsePublicKey, privateKeyToString, publicKeyToString } from '../chain-core'
+import {
+  askNative,
+  closeKeyWindows,
+  closeOlderCodeWindows,
+  focusKeyWindow,
+  fromKeyWindow,
+  hideRecoveryCodes,
+  openKeyWindow,
+  setKeyWindowMode,
+  type KeySession
+} from './key-windows'
 import {
   FILE_EXISTS,
   RECOVERY_CODE_FILE,
@@ -59,6 +69,8 @@ export interface VaultStatus {
   noBackup: number
   /** The vault has a recovery code. */
   recovery: boolean
+  /** Kept older vault files in the data folder (vault.v1.bak.json, vault-old-<date>.json). */
+  keptCopies: number
 }
 
 function status(): VaultStatus {
@@ -74,7 +86,7 @@ function status(): VaultStatus {
   } catch {
     keys = 0
   }
-  return { exists: v.exists(), unlocked: v.isUnlocked(), keys, noBackup, recovery }
+  return { exists: v.exists(), unlocked: v.isUnlocked(), keys, noBackup, recovery, keptCopies: keptVaultCopies(dataDir()).length }
 }
 
 /** Locks on suspend, workstation lock (both always on), inactivity and quit. */
@@ -90,15 +102,30 @@ function startAutoLock(): void {
       lockAll()
     }
   }, 30_000).unref()
-  app.on('before-quit', () => lockAll())
+  app.on('before-quit', () => {
+    lockAll()
+    clearPendingSecret()
+  })
 }
 
-// Clipboard: a copied private key or recovery code is cleared after 30 seconds if it is still there.
+// Clipboard: a copied private key or recovery code is cleared after 30 seconds
+// if it is still there, and at quit when the 30 seconds have not passed yet.
+let pendingSecret: string | null = null
+
 function copySecretBriefly(text: string): void {
   clipboard.writeText(text)
+  pendingSecret = text
   setTimeout(async () => {
     if (String(await clipboard.readText()) === text) clipboard.clear()
+    if (pendingSecret === text) pendingSecret = null
   }, 30_000).unref()
+}
+
+/** Clears the clipboard when it still holds the last copied key or code. */
+function clearPendingSecret(): void {
+  const text = pendingSecret
+  pendingSecret = null
+  if (text !== null && String(clipboard.readText()) === text) clipboard.clear()
 }
 
 /** Closes the reveal and backup windows (a shown key goes with the window). */
@@ -106,10 +133,11 @@ function closeRevealWindows(): void {
   closeKeyWindows(['reveal', 'backup'])
 }
 
-/** Locks the vault and closes every reveal and backup window. */
+/** Locks the vault, closes every reveal and backup window and hides every recovery code on screen. */
 function lockAll(): void {
   vault().lock()
   closeRevealWindows()
+  hideRecoveryCodes()
 }
 
 /** A native confirmation from the main process; Cancel is the default and the answer to Escape. */
@@ -135,7 +163,8 @@ async function chooseSecretFile(win: BrowserWindow, title: string, name: string,
     filters: [{ name: 'Text', extensions: ['txt'] }]
   }
   const r = await dialog.showSaveDialog(win, opts)
-  if (r.canceled || !r.filePath) return null
+  // The window closed (a lock) while the dialog was open: nothing is written.
+  if (r.canceled || !r.filePath || win.isDestroyed()) return null
   if (existsSync(r.filePath)) throw new Error(FILE_EXISTS)
   const sync = syncFolderOf(r.filePath, process.env)
   if (sync) {
@@ -145,15 +174,35 @@ async function chooseSecretFile(win: BrowserWindow, title: string, name: string,
       `${what} would be copied to ${sync} and to every device that syncs with it. Choose a folder that is not synchronized, for example on a USB stick.`,
       'Save here anyway'
     )
-    if (!go) return null
+    if (!go || win.isDestroyed()) return null
   }
   return r.filePath
+}
+
+/** Most account@permission lines written into a key backup file. */
+export const MAX_BACKUP_ACCOUNTS = 200
+
+/**
+ * The account@permission lines of a node's answer for the backup file: the
+ * answer is untrusted text, so only valid chain names are kept, at most 200.
+ */
+export function backupAccountLines(rows: readonly { account_name?: unknown; permission_name?: unknown }[]): string[] {
+  const out: string[] = []
+  for (const a of rows) {
+    if (out.length >= MAX_BACKUP_ACCOUNTS) break
+    const account = a.account_name
+    const permission = a.permission_name
+    if (typeof account !== 'string' || typeof permission !== 'string') continue
+    if (!isValidName(account) || !isValidName(permission)) continue
+    out.push(`${account}@${permission}`)
+  }
+  return out
 }
 
 async function accountsOfKey(publicKey: string): Promise<string[] | null> {
   try {
     const r = await readCall((ep) => chain.getAccountsByAuthorizers(ep, [publicKey]))
-    return (r.accounts ?? []).map((a) => `${String(a.account_name)}@${String(a.permission_name)}`)
+    return backupAccountLines(Array.isArray(r.accounts) ? r.accounts : [])
   } catch {
     return null
   }
@@ -167,10 +216,13 @@ async function saveKeyBackup(s: KeySession, password: string): Promise<'saved' |
   // The password first: a wrong one is refused before any dialog.
   await vault().checkPassword(password)
   const path = await chooseSecretFile(s.win, 'Save key backup', keyBackupFileName(entry.label, entry.publicKey), 'The private key')
-  if (!path) return 'cancelled'
+  if (!path || s.win.isDestroyed()) return 'cancelled'
   const accounts = await accountsOfKey(entry.publicKey)
   const network = currentNetwork().name
-  await vault().withRevealedKey(id, password, (priv, e) => {
+  if (s.win.isDestroyed()) return 'cancelled'
+  const written = await vault().withRevealedKey(id, password, (priv, e) => {
+    // The window can close (a lock) during the waits above and the key derivation.
+    if (s.win.isDestroyed()) return false
     writeNewFile(
       path,
       keyBackupText({
@@ -184,16 +236,24 @@ async function saveKeyBackup(s: KeySession, password: string): Promise<'saved' |
         accounts
       })
     )
+    return true
   })
+  if (!written) return 'cancelled'
   vault().setBackup(id, 'file')
   s.saved = true
   log.info('Key backup file written')
   return 'saved'
 }
 
-/** Opens the window that shows a new recovery code once. */
+/** Opens the window that shows a new recovery code once; a window with an older code closes. */
 function showRecoveryCode(parent: BrowserWindow | null, code: string): void {
+  closeOlderCodeWindows()
   openKeyWindow(parent, 'code', { code })
+}
+
+/** The reveal window's key was shown or copied: noted as `shown` only when it had no backup before. */
+function noteShown(id: string): void {
+  if (vault().backupOf(id) === 'none') vault().setBackup(id, 'shown')
 }
 
 function pw(v: unknown, field = 'password'): string {
@@ -211,6 +271,7 @@ export function registerKeys(getWindow: () => BrowserWindow | null): void {
     if (!unlocked) {
       closeRevealWindows()
       closeOpenConfirmations()
+      hideRecoveryCodes()
     }
   })
 
@@ -301,6 +362,7 @@ The private key is removed. Without a backup it cannot be recovered.`,
     )
     if (!ok) return status()
     await vault().removeRecoveryCode(p)
+    closeOlderCodeWindows()
     log.info('Vault recovery code removed')
     return status()
   })
@@ -380,13 +442,13 @@ function registerKeyWindowCalls(): void {
   ipcMain.handle('reveal:show', async (e, p: unknown) => {
     const id = fromReveal(e)
     const shown = await vault().revealPrivateKey(id, secret(p))
-    vault().setBackup(id, 'shown')
+    noteShown(id)
     return shown
   })
   ipcMain.handle('reveal:copy', async (e, p: unknown) => {
     const id = fromReveal(e)
     copySecretBriefly(await vault().revealPrivateKey(id, secret(p)))
-    vault().setBackup(id, 'shown')
+    noteShown(id)
     return true
   })
 
@@ -397,7 +459,7 @@ function registerKeyWindowCalls(): void {
       if (!k) throw new Error('Unknown key')
       return { mode: s.mode, label: k.label, publicKey: k.publicKey }
     }
-    if (s.mode === 'code') return { mode: s.mode, code: s.code ?? '' }
+    if (s.mode === 'code') return { mode: s.mode, code: s.code ?? '', hidden: s.hidden === true }
     let keys = 0
     try {
       keys = vault().list().length
@@ -420,7 +482,8 @@ function registerKeyWindowCalls(): void {
     const s = fromKeyWindow(e, 'code') ?? refused()
     if (!s.code) throw new Error('No code to save')
     const path = await chooseSecretFile(s.win, 'Save recovery code', RECOVERY_CODE_FILE, 'The recovery code')
-    if (!path || !s.code) return 'cancelled'
+    // The code was hidden (a lock) or replaced, or the window closed, while the dialog was open: nothing is written.
+    if (!path || !s.code || s.win.isDestroyed()) return 'cancelled'
     writeNewFile(path, recoveryCodeText(s.code, new Date()))
     log.info('Recovery code file written')
     return 'saved'
@@ -441,9 +504,10 @@ function registerKeyWindowCalls(): void {
     requirePasswordLength(a)
     const next = await vault().recoverWithCode(c, a)
     log.info('Vault opened with the recovery code; new password and code set')
-    // The same window now shows the new code once.
-    s.mode = 'code'
+    // The same window now shows the new code once; a window with an older code closes.
+    setKeyWindowMode(s, 'code')
     s.code = next
+    closeOlderCodeWindows(s)
     return { code: next }
   })
   // Forgotten password, path 2: the vault file is moved aside and an empty start follows.
@@ -452,6 +516,7 @@ function registerKeyWindowCalls(): void {
     const name = vault().reset(secret(typed, 20))
     closeRevealWindows()
     closeOpenConfirmations()
+    closeOlderCodeWindows()
     log.info('Vault reset; the old file was kept in the data folder')
     return { file: name }
   })

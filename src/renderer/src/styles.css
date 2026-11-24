@@ -155,6 +155,7 @@
   --badge: 20px;
   --dot: 8px;
   --dot-sm: 6px;
+  --status-dot: 10px;
   --textarea-min: 110px;
   --textarea-min-sm: 64px;
   --copy-gutter: 36px;
@@ -2429,6 +2430,69 @@ button.sb-item.mainnet:hover {
   margin: var(--sp-3) auto var(--sp-4);
 }
 
+/* Network page */
+.network-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-4) var(--sp-5);
+  border-bottom: var(--bw) solid var(--border);
+}
+.network-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.network-title h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  color: var(--text-strong);
+}
+.network-fields {
+  display: grid;
+  grid-template-columns: var(--tr-label-col) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+}
+.network-field {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.network-field .select {
+  width: var(--field-select);
+  max-width: 100%;
+}
+.network-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+}
+.network-cards section {
+  min-width: 0;
+}
+.network-cards h3 {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-card);
+  line-height: var(--lh-card);
+  color: var(--text-strong);
+}
+.network-cards .kv-row .num {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.network-page .tx-head .hint {
+  margin-top: 0;
+}
+.network-empty {
+  padding: var(--sp-10) 0;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+}
+
 /* Contract page */
 .contract-body {
   display: grid;
@@ -3305,4 +3369,52 @@ button.sb-item.mainnet:hover {
 .keys-empty {
   padding: var(--sp-4);
   color: var(--text-2);
+}
+
+/* Network status mark */
+.status-dot {
+  display: inline-block;
+  flex: none;
+  width: var(--status-dot);
+  height: var(--status-dot);
+  box-sizing: border-box;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+.status-dot.checking {
+  border: var(--sp-half) solid var(--text-3);
+}
+.status-dot.green {
+  background: var(--green-text);
+}
+.status-dot.orange {
+  background: var(--accent);
+}
+.status-dot.red {
+  background: var(--red-text);
+}
+.sb-item.mainnet .status-dot {
+  box-shadow: 0 0 0 var(--bw) var(--on-fill);
+}
+.tb-value.has-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1h);
+}
+.tb-value.has-status::before {
+  display: none;
+}
+.tb-value.has-status .tb-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dd-item .dd-tag {
+  margin-left: auto;
+}
+.status-dot.none {
+  visibility: hidden;
+}
+.net-remove-list {
+  margin: var(--sp-2) 0 0;
+  padding-left: var(--sp-6);
 }

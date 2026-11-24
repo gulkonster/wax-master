@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { NetworkInfo, NetworkKind } from '../../../shared/chain-types'
 import { Modal } from './Modal'
 import { IconArrowDown, IconArrowUp } from './Icons'
@@ -12,6 +12,14 @@ function isLocalUrl(u: string): boolean {
     return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h.endsWith('.localhost')
   } catch {
     return false
+  }
+}
+
+function hostOf(u: string): string {
+  try {
+    return new URL(u).host
+  } catch {
+    return u
   }
 }
 
@@ -45,10 +53,27 @@ function KindField({
   )
 }
 
-/** "Connect to Custom Network": one URL field, then chain id, symbol, name and kind. */
+type Probe = Awaited<ReturnType<typeof window.wax.networks.probe>>
+
+/** A name for a new network: the known chain's name, or the host, made unique in the list. */
+function suggestName(probe: Probe, list: NetworkInfo[]): string {
+  const host = hostOf(probe.endpoint)
+  const taken = (name: string): boolean => list.some((n) => n.name.toLowerCase() === name.toLowerCase())
+  const base = probe.knownName ?? list.find((n) => n.chainId === probe.chainId)?.name ?? host
+  if (!taken(base)) return base
+  if (!taken(`${base} (${host})`)) return `${base} (${host})`
+  return host
+}
+
+/**
+ * "Connect to Custom Network" in two steps: one endpoint field and Connect;
+ * then what the endpoint said (chain id, core token, server version) with a
+ * name and the kind. A chain already in the list can take the endpoint instead.
+ */
 export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
+  const net = useStore(networkStore)
   const [url, setUrl] = useState('')
-  const [probe, setProbe] = useState<null | Awaited<ReturnType<typeof window.wax.networks.probe>>>(null)
+  const [probe, setProbe] = useState<null | Probe>(null)
   const [name, setName] = useState('')
   const [kind, setKind] = useState<NetworkKind>('mainnet')
   const [symbol, setSymbol] = useState('')
@@ -56,6 +81,10 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
   const [historyUrl, setHistoryUrl] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  const sameChain = probe ? net.list.filter((n) => n.chainId === probe.chainId) : []
+  const target = sameChain[0] ?? null
+  const alreadyIn = probe ? sameChain.find((n) => n.endpoints.includes(probe.endpoint)) : undefined
 
   const connect = async (): Promise<void> => {
     setBusy(true)
@@ -65,9 +94,10 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
       setProbe(r)
       setSymbol(r.symbol)
       setPrecision(r.symbol ? r.precision : 4)
-      const known = networkStore.get().list.find((n) => n.chainId === r.chainId)
-      setName(known ? `${known.name} (${new URL(r.endpoint).host})` : new URL(r.endpoint).host)
-      setKind(!r.kindNote && known?.kind === 'testnet' ? 'testnet' : 'mainnet')
+      const list = networkStore.get().list
+      const known = list.find((n) => n.chainId === r.chainId)
+      setName(suggestName(r, list))
+      setKind(!r.kindNote && (known?.kind === 'testnet' || r.knownName === 'WAX Testnet') ? 'testnet' : 'mainnet')
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -75,7 +105,12 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
     }
   }
 
-  const save = async (): Promise<void> => {
+  const back = (): void => {
+    setProbe(null)
+    setError('')
+  }
+
+  const addAsNew = async (): Promise<void> => {
     if (!probe) return
     setBusy(true)
     setError('')
@@ -98,6 +133,24 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
     }
   }
 
+  const addToExisting = async (to: NetworkInfo): Promise<void> => {
+    if (!probe) return
+    setBusy(true)
+    setError('')
+    try {
+      await window.wax.networks.update(to.id, { endpoints: [...to.endpoints, probe.endpoint] })
+      await refreshNetworks()
+      toast('Network', `Added ${probe.endpoint} to ${to.name}.`, 'success')
+      onClose()
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const canAddNew = !busy && !!name.trim() && /^[A-Z]{1,7}$/.test(symbol)
+
   return (
     <Modal
       size="m"
@@ -105,33 +158,69 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
       title="Connect to Custom Network"
       onClose={onClose}
       footer={
-        <>
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          {probe ? (
-            <button className="btn primary" disabled={busy || !name.trim() || !/^[A-Z]{1,7}$/.test(symbol)} onClick={() => void save()}>
-              Save and switch
+        probe ? (
+          <>
+            <button className="btn" disabled={busy} onClick={back}>
+              Back
             </button>
-          ) : (
+            <button className="btn" onClick={onClose}>
+              Cancel
+            </button>
+            {target && !alreadyIn && (
+              <button className="btn primary" disabled={busy} onClick={() => void addToExisting(target)}>
+                Add this endpoint to {target.name}
+              </button>
+            )}
+            <button className={`btn${target && !alreadyIn ? '' : ' primary'}`} disabled={!canAddNew} onClick={() => void addAsNew()}>
+              {target ? 'Add as a new network' : 'Add'}
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="btn" onClick={onClose}>
+              Cancel
+            </button>
             <button className="btn primary" disabled={busy || !url.trim()} onClick={() => void connect()}>
               {busy ? 'Connecting...' : 'Connect'}
             </button>
-          )}
-        </>
+          </>
+        )
       }
     >
-      <div className="field">
-        <label>API Endpoint</label>
-        <input className="input mono" autoFocus value={url} disabled={!!probe} placeholder="https://..." onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !probe && void connect()} />
-      </div>
+      {!probe && (
+        <div className="field">
+          <label>API Endpoint</label>
+          <input
+            className="input mono"
+            autoFocus
+            value={url}
+            placeholder="https://..."
+            onChange={(e) => setUrl(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && url.trim() && !busy && void connect()}
+          />
+        </div>
+      )}
       {probe && (
         <>
           <div className="field">
-            <label>Chain id</label>
-            <div className="chip" style={{ userSelect: 'text' }}>{probe.chainId}</div>
-            {probe.version && <div className="hint">Node version {probe.version}</div>}
+            <label>API Endpoint</label>
+            <div className="chip" style={{ userSelect: 'text' }}>{probe.endpoint}</div>
           </div>
+          <div className="field">
+            <label>Chain ID</label>
+            <div className="chip" style={{ userSelect: 'text' }}>{probe.chainId}</div>
+            <div className="hint">
+              {probe.knownName ? `This is the ${probe.knownName} chain.` : 'A chain WAX Master does not know.'}
+              {probe.version ? ` Server version ${probe.version}.` : ''}
+            </div>
+          </div>
+          {target && (
+            <div className="hint warn-note">
+              {alreadyIn
+                ? `This endpoint is already in ${alreadyIn.name}.`
+                : `${target.name} is this chain. Add the endpoint to it (its starred accounts and deploy settings stay), or add a new network.`}
+            </div>
+          )}
           <div className="field">
             <label>Name</label>
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
@@ -139,8 +228,9 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
           <KindField kind={kind} setKind={setKind} note={probe.kindNote} localAllowed={probe.localAllowed} />
           <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
             <div style={{ flex: 1 }}>
-              <label>Token symbol</label>
+              <label>Core token symbol</label>
               <input className="input" value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} />
+              {!probe.symbol && <div className="hint">The chain has no system RAM market to read the symbol from; enter it.</div>}
             </div>
             <div style={{ width: 'var(--field-num)' }}>
               <label>Precision</label>
@@ -158,9 +248,109 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
   )
 }
 
+/**
+ * The question before a network is removed: names what is forgotten (its
+ * starred accounts) and which network is selected afterwards.
+ */
+export function RemoveNetworkDialog({ network, onClose, onRemoved }: { network: NetworkInfo; onClose: () => void; onRemoved?: () => void }): React.JSX.Element {
+  const net = useStore(networkStore)
+  const [stars, setStars] = useState<string[] | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    void window.wax.networks
+      .stars(network.id)
+      .then(setStars)
+      .catch(() => setStars([]))
+  }, [network.id])
+  const last = net.list.length <= 1
+  const isCurrent = net.current?.id === network.id
+  const rest = net.list.filter((n) => n.id !== network.id)
+  const next = rest.find((n) => n.id === 'wax-testnet') ?? rest[0]
+  const remove = async (): Promise<void> => {
+    setBusy(true)
+    setError('')
+    try {
+      const cur = await window.wax.networks.remove(network.id)
+      await refreshNetworks()
+      if (isCurrent) toast('Network', `${network.name} was removed. Switched to ${cur.name} at ${cur.endpoints[cur.currentEndpoint] ?? ''}.`, 'success')
+      else toast('Network', `${network.name} was removed.`, 'success')
+      onRemoved?.()
+      onClose()
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal
+      size="s"
+      name="remove-network"
+      title={`Remove ${network.name}?`}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn danger" disabled={busy || last || stars === null} onClick={() => void remove()}>
+            Remove
+          </button>
+        </>
+      }
+    >
+      {last ? (
+        <p>This is the only network in the list. At least one network must stay.</p>
+      ) : (
+        <>
+          <p>
+            {stars === null
+              ? 'Reading its starred accounts...'
+              : stars.length === 0
+                ? `${network.name} has no starred accounts.`
+                : `Its ${stars.length === 1 ? 'starred account is' : `${stars.length} starred accounts are`} forgotten:`}
+          </p>
+          {stars && stars.length > 0 && (
+            <ul className="net-remove-list mono">
+              {stars.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ul>
+          )}
+          {isCurrent && next && <p>It is the current network; {next.name} is selected instead.</p>}
+          <p className="hint">
+            {network.preset ? 'Manage Networks > "Restore default networks" brings it back with its endpoints.' : 'To use it again, add it with Add Network.'}
+          </p>
+        </>
+      )}
+      {error && <div className="error-text">{error}</div>}
+    </Modal>
+  )
+}
+
 export function ManageNetworksDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
   const net = useStore(networkStore)
   const [editing, setEditing] = useState<NetworkInfo | null>(null)
+  const [removing, setRemoving] = useState<NetworkInfo | null>(null)
+  const [removed, setRemoved] = useState<{ id: string; name: string }[]>([])
+  const listKey = net.list.map((n) => n.id).join(',')
+  useEffect(() => {
+    void window.wax.networks
+      .removedDefaults()
+      .then(setRemoved)
+      .catch(() => setRemoved([]))
+  }, [listKey])
+  const restore = async (): Promise<void> => {
+    try {
+      await window.wax.networks.restoreDefaults()
+      await refreshNetworks()
+      toast('Network', `Restored ${removed.map((r) => r.name).join(' and ')}.`, 'success')
+    } catch (e) {
+      toast('Could not restore', errorText(e), 'error')
+    }
+  }
+  const last = net.list.length <= 1
   return (
     <Modal
       size="l"
@@ -168,9 +358,20 @@ export function ManageNetworksDialog({ onClose }: { onClose: () => void }): Reac
       title="Manage Networks"
       onClose={onClose}
       footer={
-        <button className="btn" onClick={onClose}>
-          Close
-        </button>
+        <>
+          <button
+            className="btn"
+            disabled={removed.length === 0}
+            title={removed.length === 0 ? 'WAX Mainnet and WAX Testnet are in the list' : `Brings back ${removed.map((r) => r.name).join(' and ')}`}
+            onClick={() => void restore()}
+          >
+            Restore default networks
+          </button>
+          <div className="spacer" />
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
+        </>
       }
     >
       {net.list.map((n) => (
@@ -178,7 +379,7 @@ export function ManageNetworksDialog({ onClose }: { onClose: () => void }): Reac
           <div style={{ flex: 1, minWidth: 0 }}>
             <div>
               <b className={n.kind === 'mainnet' ? 'mainnet-text' : undefined}>{n.name}</b> <span className={`badge${n.kind === 'mainnet' ? ' red' : ''}`}>{n.kind}</span>{' '}
-              {net.current?.id === n.id && <span className="badge green">current</span>}
+              {n.preset && <span className="badge">default</span>} {net.current?.id === n.id && <span className="badge green">current</span>}
             </div>
             <div className="endpoints">
               {n.endpoints.map((ep, i) => (
@@ -205,36 +406,23 @@ export function ManageNetworksDialog({ onClose }: { onClose: () => void }): Reac
                 Use
               </button>
             )}
-            {!n.preset && (
-              <>
-                <button className="btn" onClick={() => setEditing(n)}>
-                  Edit
-                </button>
-                <button
-                  className="btn"
-                  onClick={async () => {
-                    if (!window.confirm(`Remove the network "${n.name}"?`)) return
-                    try {
-                      await window.wax.networks.remove(n.id)
-                      await refreshNetworks()
-                    } catch (e) {
-                      toast('Could not remove', errorText(e), 'error')
-                    }
-                  }}
-                >
-                  Remove
-                </button>
-              </>
-            )}
+            <button className="btn" onClick={() => setEditing(n)}>
+              Edit
+            </button>
+            <button className="btn" disabled={last} title={last ? 'The last network cannot be removed' : undefined} onClick={() => setRemoving(n)}>
+              Remove
+            </button>
           </div>
         </div>
       ))}
       {editing && <EditNetworkDialog network={editing} onClose={() => setEditing(null)} />}
+      {removing && <RemoveNetworkDialog network={removing} onClose={() => setRemoving(null)} />}
     </Modal>
   )
 }
 
-function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; onClose: () => void }): React.JSX.Element {
+/** Edit a network: endpoints and history for every network; name and kind for the user's own. The chain id never changes. */
+export function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; onClose: () => void }): React.JSX.Element {
   const [name, setName] = useState(network.name)
   const [kind, setKind] = useState<NetworkKind>(network.kind)
   const [endpoints, setEndpoints] = useState(network.endpoints.join('\n'))
@@ -242,12 +430,11 @@ function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; onClose
   const [error, setError] = useState('')
   const save = async (): Promise<void> => {
     try {
-      await window.wax.networks.update(network.id, {
-        name,
-        kind,
-        endpoints: endpoints.split(/\s+/).filter(Boolean),
-        history: historyUrl.trim() || null
-      })
+      const eps = endpoints.split(/\s+/).filter(Boolean)
+      await window.wax.networks.update(
+        network.id,
+        network.preset ? { endpoints: eps, history: historyUrl.trim() || null } : { name, kind, endpoints: eps, history: historyUrl.trim() || null }
+      )
       await refreshNetworks()
       onClose()
     } catch (e) {
@@ -273,9 +460,20 @@ function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; onClose
     >
       <div className="field">
         <label>Name</label>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+        {network.preset ? (
+          <>
+            <div className="chip ui">{network.name}</div>
+            <div className="hint">The name and kind of a default network are fixed; its endpoints and history service can be changed.</div>
+          </>
+        ) : (
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+        )}
       </div>
-      <KindField kind={kind} setKind={setKind} note={network.kindNote} localAllowed={endpoints.split(/\s+/).filter(Boolean).every(isLocalUrl)} />
+      <div className="field">
+        <label>Chain ID</label>
+        <div className="chip" style={{ userSelect: 'text' }}>{network.chainId}</div>
+      </div>
+      {!network.preset && <KindField kind={kind} setKind={setKind} note={network.kindNote} localAllowed={endpoints.split(/\s+/).filter(Boolean).every(isLocalUrl)} />}
       <div className="field">
         <label>Endpoints (one per line; same chain id)</label>
         <textarea className="textarea mono" value={endpoints} onChange={(e) => setEndpoints(e.target.value)} />

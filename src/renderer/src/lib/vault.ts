@@ -8,7 +8,7 @@ import type { VaultStatus } from '../../../shared/api'
 
 export type VaultState = VaultStatus
 
-export const vaultStore = new Store<VaultState>({ exists: false, unlocked: false, keys: 0, noBackup: 0, recovery: false })
+export const vaultStore = new Store<VaultState>({ exists: false, unlocked: false, keys: 0, noBackup: 0, recovery: false, keptCopies: 0 })
 
 export async function refreshVault(): Promise<void> {
   vaultStore.set(await window.wax.keys.status())

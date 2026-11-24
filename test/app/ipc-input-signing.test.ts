@@ -226,14 +226,20 @@ describe('malformed input', () => {
   })
 })
 
-describe('faucet: WAX Testnet only, by preset id and chain id', () => {
-  it('is refused on WAX Mainnet and on any other network', async () => {
+describe('faucet: WAX Testnet only, keyed on the chain id', () => {
+  it('is refused on WAX Mainnet and on any other chain', async () => {
     await expect(call('faucet:create', 'abcdefghijk1')).rejects.toThrow('WAX Testnet')
     await expect(call('faucet:tokens', 'abcdefghijk1')).rejects.toThrow('WAX Testnet')
-    h.net = { id: 'my-net', chainId: WAX_TESTNET_CHAIN }
+    h.net = { id: 'my-net', chainId: 'b'.repeat(64) }
     await expect(call('faucet:create', 'abcdefghijk1')).rejects.toThrow('WAX Testnet')
     await expect(call('faucet:tokens', 'abcdefghijk1')).rejects.toThrow('WAX Testnet')
     expect(h.tokenCalls).toEqual([])
+  })
+  it("works on the user's own entry for the WAX Testnet chain", async () => {
+    h.net = { id: 'my-net', chainId: WAX_TESTNET_CHAIN }
+    await expect(call('faucet:tokens', 'abcdefghijk2')).resolves.toMatchObject({ ok: true })
+    expect(h.tokenCalls).toEqual(['abcdefghijk2'])
+    h.tokenCalls.length = 0
   })
   it('is refused when the id says WAX Testnet but the chain id is another one', async () => {
     h.net = { id: WAX_TESTNET_ID, chainId: 'a'.repeat(64) }
@@ -241,7 +247,7 @@ describe('faucet: WAX Testnet only, by preset id and chain id', () => {
     await expect(call('faucet:tokens', 'abcdefghijk1')).rejects.toThrow('WAX Testnet')
     expect(h.tokenCalls).toEqual([])
   })
-  it('works on the real preset and still validates the name', async () => {
+  it('works on the default entry and still validates the name', async () => {
     h.net = { id: WAX_TESTNET_ID, chainId: WAX_TESTNET_CHAIN }
     await expect(call('faucet:create', 7)).rejects.toThrow()
     await expect(call('faucet:create', 'x'.repeat(13))).rejects.toThrow()

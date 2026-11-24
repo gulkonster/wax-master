@@ -21,6 +21,7 @@ import { UnlockPromptHost } from './components/UnlockPrompt'
 import { appendOutput } from './lib/stores'
 import type { InspectedTransaction } from '../../shared/trace-types'
 import { ContractPage } from './pages/ContractPage'
+import { NetworkPage } from './pages/NetworkPage'
 import { AddNetworkDialog, ManageNetworksDialog, StarredManager } from './components/NetworkDialogs'
 import { refreshNetworks, watchNetworkEvents } from './lib/networks'
 import { errorText, toast } from './lib/toast'
@@ -306,6 +307,9 @@ export function App(): React.JSX.Element {
         case 'open-transaction':
           setChainDialog('open-transaction')
           break
+        case 'network-page':
+          actions.setView('network')
+          break
         case 'add-network':
         case 'manage-networks':
           setDialog(cmd)
@@ -382,13 +386,14 @@ export function App(): React.JSX.Element {
             )}
             {state.view === 'setup' && <Setup />}
             {state.view === 'settings' && <SettingsPage />}
+            {state.view === 'network' && <NetworkPage />}
             <div style={{ display: state.view === 'account' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
               <AccountPage />
             </div>
             <div style={{ display: state.view === 'contract' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
               <ContractPage />
             </div>
-            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && state.view !== 'settings' && state.view !== 'account' && state.view !== 'contract' && <ComingLater what={state.view} />}
+            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && state.view !== 'settings' && state.view !== 'account' && state.view !== 'contract' && state.view !== 'network' && <ComingLater what={state.view} />}
             <BottomPanel terminal={<TerminalPanel visible={state.panelOpen && state.panelTab === 'terminal'} />} />
           </div>
         </div>

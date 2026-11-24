@@ -1,9 +1,11 @@
-// Networks: the two WAX presets and saved custom Antelope networks, the
-// current network and endpoint, and starred accounts per network.
+// Networks: the user's list of Antelope networks (the two WAX networks are
+// defaults that can be removed and restored), the current network and
+// endpoint, and starred accounts per network.
 
 import { join } from 'node:path'
 import type { NetworkInfo, NetworkKind } from '../shared/chain-types'
 import { dataDir } from './paths'
+import { copyFileSync, existsSync } from 'node:fs'
 import { readJson, writeJson } from './jsonfile'
 import { chain, normalizeEndpoint, RpcError } from './rpc'
 import { log } from './log'
@@ -53,6 +55,11 @@ export function fixedKindNote(chainId: string): string | null {
   return known ? `This is the ${known} chain, so the kind is always mainnet (red confirmation, typed account names).` : null
 }
 
+/** Name of a chain the app knows (suggested in Add Network), or null. */
+export function knownChainName(chainId: string): string | null {
+  return MAINNET_CHAINS[chainId] ?? (chainId === WAX_TESTNET_CHAIN ? 'WAX Testnet' : null)
+}
+
 /** Asked before a chain outside the known lists is marked as a test network. */
 export type ConfirmTestnet = (n: { name: string; chainId: string; endpoint: string }) => Promise<boolean>
 
@@ -77,7 +84,8 @@ async function decideKind(
   return { kind: 'mainnet', testnetConfirmed: false }
 }
 
-const PRESETS: NetworkInfo[] = [
+/** The default networks: name and chain id fixed; endpoints and history can be edited. */
+const DEFAULTS: readonly NetworkInfo[] = [
   {
     id: WAX_MAINNET_ID,
     name: 'WAX Mainnet',
@@ -94,48 +102,154 @@ const PRESETS: NetworkInfo[] = [
     id: WAX_TESTNET_ID,
     name: 'WAX Testnet',
     kind: 'testnet',
-    chainId: 'f16b1833c747c43682f4386fca9cbb327929334a762755ebec17f6f23c9b8a12',
+    chainId: WAX_TESTNET_CHAIN,
     symbol: 'WAX',
     precision: 8,
-    endpoints: ['https://testnet.waxsweden.org'],
+    endpoints: ['https://testnet.waxsweden.org', 'https://waxtestnet.greymass.com'],
     history: 'https://testnet.waxsweden.org',
     preset: true,
     currentEndpoint: 0
   }
 ]
 
-interface NetFile {
-  version: 1
+function defaultCopy(d: NetworkInfo): NetworkInfo {
+  return { ...d, endpoints: [...d.endpoints] }
+}
+
+function isDefaultId(id: string): boolean {
+  return DEFAULTS.some((d) => d.id === id)
+}
+
+/** Version 1: fixed presets with a chosen endpoint each, and custom networks. */
+export interface NetFileV1 {
+  version?: 1
+  current?: unknown
+  custom?: unknown
+  presetEndpoints?: unknown
+  stars?: unknown
+}
+
+/** Version 2: one list of networks; defaults can be removed and restored. */
+export interface NetFileV2 {
+  version: 2
   current: string
-  custom: NetworkInfo[]
-  /** Chosen endpoint index per preset id. */
-  presetEndpoints: Record<string, number>
+  networks: NetworkInfo[]
+  /** Ids of default networks the user removed. */
+  removedDefaults: string[]
   stars: Record<string, string[]>
 }
 
-let cache: NetFile | null = null
+export const NETWORKS_V1_BACKUP = 'networks.v1.bak.json'
+
+let cache: NetFileV2 | null = null
 
 function file(): string {
   return join(dataDir(), 'networks.json')
 }
 
-function load(): NetFile {
-  if (cache) return cache
-  const raw = readJson<Partial<NetFile>>(file(), {})
-  cache = {
-    version: 1,
+function isObj(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+function strList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+}
+
+function cleanStars(v: unknown): Record<string, string[]> {
+  const out: Record<string, string[]> = {}
+  if (isObj(v)) for (const [k, list] of Object.entries(v)) out[k] = strList(list)
+  return out
+}
+
+/** A stored network as read from the file; null when it is unusable. */
+function cleanNetwork(raw: unknown): NetworkInfo | null {
+  if (!isObj(raw)) return null
+  if (typeof raw.id !== 'string' || typeof raw.chainId !== 'string') return null
+  const endpoints = strList(raw.endpoints)
+  if (endpoints.length === 0) return null
+  const def = DEFAULTS.find((d) => d.id === raw.id)
+  const index = typeof raw.currentEndpoint === 'number' && Number.isInteger(raw.currentEndpoint) ? raw.currentEndpoint : 0
+  const base = {
+    endpoints,
+    history: typeof raw.history === 'string' && raw.history ? raw.history : undefined,
+    currentEndpoint: Math.max(0, Math.min(index, endpoints.length - 1))
+  }
+  // A default keeps its fixed name, chain id and kind whatever the file says.
+  if (def) return { ...defaultCopy(def), ...base }
+  const kind = KINDS.includes(raw.kind as NetworkKind) ? (raw.kind as NetworkKind) : 'mainnet'
+  return {
+    id: raw.id,
+    name: typeof raw.name === 'string' && raw.name.trim() ? raw.name : raw.id,
+    kind,
+    ...(raw.testnetConfirmed === true ? { testnetConfirmed: true } : {}),
+    chainId: raw.chainId,
+    symbol: typeof raw.symbol === 'string' ? raw.symbol : '',
+    precision: typeof raw.precision === 'number' && Number.isInteger(raw.precision) ? raw.precision : 4,
+    ...base,
+    preset: false
+  }
+}
+
+/**
+ * Version 1 to version 2: the two defaults (ids unchanged, so stars and project
+ * deploy settings keep matching) with the endpoint chosen before, then the
+ * custom networks as they were.
+ */
+export function convertV1(raw: NetFileV1): NetFileV2 {
+  const chosen = isObj(raw.presetEndpoints) ? raw.presetEndpoints : {}
+  const defaults = DEFAULTS.map((d) => {
+    const i = chosen[d.id]
+    const index = typeof i === 'number' && Number.isInteger(i) ? Math.max(0, Math.min(i, d.endpoints.length - 1)) : 0
+    return { ...defaultCopy(d), currentEndpoint: index }
+  })
+  const custom = (Array.isArray(raw.custom) ? raw.custom : [])
+    .map(cleanNetwork)
+    .filter((n): n is NetworkInfo => n !== null && !isDefaultId(n.id))
+  return {
+    version: 2,
     current: typeof raw.current === 'string' ? raw.current : WAX_TESTNET_ID,
-    custom: Array.isArray(raw.custom)
-      ? raw.custom
-          .filter((n) => n && typeof n.id === 'string' && typeof n.chainId === 'string' && Array.isArray(n.endpoints))
-          .map((n) => {
-            const { kindNote: _note, testnetConfirmed, ...rest } = n
-            void _note
-            return { ...rest, kind: KINDS.includes(n.kind) ? n.kind : 'mainnet', ...(testnetConfirmed === true ? { testnetConfirmed: true } : {}) }
-          })
-      : [],
-    presetEndpoints: typeof raw.presetEndpoints === 'object' && raw.presetEndpoints ? raw.presetEndpoints : {},
-    stars: typeof raw.stars === 'object' && raw.stars ? raw.stars : {}
+    networks: [...defaults, ...custom],
+    removedDefaults: [],
+    stars: cleanStars(raw.stars)
+  }
+}
+
+function readV2(raw: Record<string, unknown>): NetFileV2 {
+  const seen = new Set<string>()
+  const list = (Array.isArray(raw.networks) ? raw.networks : []).map(cleanNetwork).filter((n): n is NetworkInfo => {
+    if (!n || seen.has(n.id)) return false
+    seen.add(n.id)
+    return true
+  })
+  return {
+    version: 2,
+    current: typeof raw.current === 'string' ? raw.current : WAX_TESTNET_ID,
+    // A file left without networks starts again from the defaults.
+    networks: list.length > 0 ? list : DEFAULTS.map(defaultCopy),
+    removedDefaults: list.length > 0 ? strList(raw.removedDefaults).filter((id) => isDefaultId(id) && !seen.has(id)) : [],
+    stars: cleanStars(raw.stars)
+  }
+}
+
+function load(): NetFileV2 {
+  if (cache) return cache
+  const path = file()
+  const raw = readJson<unknown>(path, null)
+  if (isObj(raw) && raw.version === 2) {
+    cache = readV2(raw)
+  } else if (isObj(raw)) {
+    // Version 1: keep one copy of the old file, then write version 2.
+    cache = convertV1(raw)
+    try {
+      const backup = join(dataDir(), NETWORKS_V1_BACKUP)
+      if (existsSync(path) && !existsSync(backup)) copyFileSync(path, backup)
+      writeJson(path, cache)
+      log.info('Network list converted to version 2')
+    } catch (e) {
+      log.warn(`Network list not converted on disk: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  } else {
+    cache = { version: 2, current: WAX_TESTNET_ID, networks: DEFAULTS.map(defaultCopy), removedDefaults: [], stars: {} }
   }
   return cache
 }
@@ -156,15 +270,31 @@ function save(): void {
 }
 
 export function listNetworks(): NetworkInfo[] {
-  const f = load()
-  const presets = PRESETS.map((p) => ({
-    ...p,
-    currentEndpoint: Math.min(f.presetEndpoints[p.id] ?? 0, p.endpoints.length - 1)
-  }))
-  return [...presets, ...f.custom].map((n) => {
+  return load().networks.map((n) => {
+    const { kindNote: _old, ...rest } = n
+    void _old
     const note = fixedKindNote(n.chainId)
-    return { ...n, kind: effectiveKind(n), ...(note ? { kindNote: note } : {}) }
+    return { ...rest, endpoints: [...n.endpoints], kind: effectiveKind(n), ...(note ? { kindNote: note } : {}) }
   })
+}
+
+/** Default networks that were removed and can be restored. */
+export function removedDefaults(): { id: string; name: string }[] {
+  const ids = new Set(load().networks.map((n) => n.id))
+  return DEFAULTS.filter((d) => !ids.has(d.id)).map((d) => ({ id: d.id, name: d.name }))
+}
+
+/** Brings back the default networks missing from the list, with their default endpoints. */
+export function restoreDefaults(): NetworkInfo[] {
+  const f = load()
+  const ids = new Set(f.networks.map((n) => n.id))
+  if (DEFAULTS.every((d) => ids.has(d.id))) return listNetworks()
+  // Defaults go back to their place at the top, in their fixed order.
+  const defaults = DEFAULTS.map((d) => f.networks.find((n) => n.id === d.id) ?? defaultCopy(d))
+  f.networks = [...defaults, ...f.networks.filter((n) => !isDefaultId(n.id))]
+  f.removedDefaults = []
+  save()
+  return listNetworks()
 }
 
 export function getNetwork(id: string): NetworkInfo {
@@ -173,9 +303,15 @@ export function getNetwork(id: string): NetworkInfo {
   return n
 }
 
+/** The network chosen when the saved one is gone: WAX Testnet if present, else the first of the list. */
+function fallbackNetwork(list: NetworkInfo[]): NetworkInfo {
+  return list.find((n) => n.id === WAX_TESTNET_ID) ?? list.find((n) => n.chainId === WAX_TESTNET_CHAIN) ?? list[0]
+}
+
 export function currentNetwork(): NetworkInfo {
   const f = load()
-  return listNetworks().find((n) => n.id === f.current) ?? getNetwork(WAX_TESTNET_ID)
+  const list = listNetworks()
+  return list.find((n) => n.id === f.current) ?? fallbackNetwork(list)
 }
 
 export function selectNetwork(id: string): NetworkInfo {
@@ -190,12 +326,8 @@ export function endpointOf(n: NetworkInfo): string {
 }
 
 function setEndpointIndex(id: string, index: number): void {
-  const f = load()
-  if (PRESETS.some((p) => p.id === id)) f.presetEndpoints[id] = index
-  else {
-    const c = f.custom.find((x) => x.id === id)
-    if (c) c.currentEndpoint = index
-  }
+  const c = load().networks.find((x) => x.id === id)
+  if (c) c.currentEndpoint = index
   save()
 }
 
@@ -255,6 +387,7 @@ export async function probeEndpoint(url: string): Promise<{
   version: string
   kindNote: string | null
   localAllowed: boolean
+  knownName: string | null
 }> {
   const endpoint = normalizeEndpoint(url)
   const info = await chain.getInfo(endpoint)
@@ -279,7 +412,8 @@ export async function probeEndpoint(url: string): Promise<{
     precision,
     version: info.server_version_string ?? '',
     kindNote: fixedKindNote(info.chain_id),
-    localAllowed: isLocalEndpoint(endpoint)
+    localAllowed: isLocalEndpoint(endpoint),
+    knownName: knownChainName(info.chain_id)
   }
 }
 
@@ -317,7 +451,7 @@ export async function addNetwork(
     preset: false,
     currentEndpoint: 0
   }
-  f.custom.push(n)
+  f.networks.push(n)
   save()
   return getNetwork(n.id)
 }
@@ -327,14 +461,15 @@ export async function updateNetwork(
   patch: { name?: string; kind?: NetworkKind; endpoints?: string[]; history?: string | null },
   confirmTestnet: ConfirmTestnet
 ): Promise<NetworkInfo> {
-  const preset = PRESETS.find((p) => p.id === id)
-  if (preset) throw new Error('The WAX presets cannot be changed; add a custom network instead')
-  const found = load().custom.find((x) => x.id === id)
+  const found = load().networks.find((x) => x.id === id)
   if (!found) throw new Error('Unknown network')
+  const isDefault = isDefaultId(id)
   let name = found.name
-  if (patch.name !== undefined) {
+  if (patch.name !== undefined && patch.name.trim() !== found.name) {
+    if (isDefault) throw new Error(`The name of ${found.name} is fixed; its endpoints and history service can be changed`)
     name = patch.name.trim()
     if (!name) throw new Error('Name is required')
+    if (listNetworks().some((n) => n.id !== id && n.name.toLowerCase() === name.toLowerCase())) throw new Error('A network with this name exists')
   }
   let endpoints = found.endpoints
   if (patch.endpoints) {
@@ -344,9 +479,10 @@ export async function updateNetwork(
   }
   const history = patch.history === undefined ? found.history : patch.history ? normalizeEndpoint(patch.history) : undefined
   const previous = effectiveKind(found)
+  if (isDefault && patch.kind !== undefined && patch.kind !== previous) throw new Error(`The kind of ${found.name} is fixed`)
   const { kind, testnetConfirmed } = await decideKind(patch.kind ?? previous, { name, chainId: found.chainId, endpoints }, previous, confirmTestnet)
   // Apply all at once, after the question (the list may have changed meanwhile).
-  const c = load().custom.find((x) => x.id === id)
+  const c = load().networks.find((x) => x.id === id)
   if (!c) throw new Error('Unknown network')
   c.name = name
   c.kind = kind
@@ -359,13 +495,21 @@ export async function updateNetwork(
   return getNetwork(id)
 }
 
-export function removeNetwork(id: string): void {
+/**
+ * Removes a network and forgets its starred accounts. At least one network
+ * stays. Removing the current one selects WAX Testnet if present, else the
+ * first of the list. A removed default can be restored.
+ */
+export function removeNetwork(id: string): NetworkInfo {
   const f = load()
-  if (PRESETS.some((p) => p.id === id)) throw new Error('The WAX presets cannot be removed')
-  f.custom = f.custom.filter((x) => x.id !== id)
+  if (!f.networks.some((x) => x.id === id)) throw new Error('Unknown network')
+  if (f.networks.length <= 1) throw new Error('At least one network must stay in the list')
+  f.networks = f.networks.filter((x) => x.id !== id)
   delete f.stars[id]
-  if (f.current === id) f.current = WAX_TESTNET_ID
+  if (isDefaultId(id) && !f.removedDefaults.includes(id)) f.removedDefaults.push(id)
+  if (f.current === id || !f.networks.some((x) => x.id === f.current)) f.current = fallbackNetwork(listNetworks()).id
   save()
+  return currentNetwork()
 }
 
 export function stars(networkId: string): string[] {

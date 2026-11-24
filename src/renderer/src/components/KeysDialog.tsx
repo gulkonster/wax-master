@@ -548,6 +548,13 @@ function BackupAll({ keys, onBackUp, onClose }: { keys: KeyEntry[]; onBackUp: (k
   )
 }
 
+/** The note of Change password; it names the kept older vault files when the data folder holds any. */
+function changePasswordNote(keptCopies: number): string {
+  return keptCopies > 0
+    ? 'Copies of the vault exported earlier, and the kept files vault.v1.bak.json / vault-old-<date>.json in the data folder, still open with their old password.'
+    : 'Copies of the vault exported earlier still open with the old password.'
+}
+
 /** Change password, New recovery code, Remove recovery code: the password again (new codes are shown in a separate window). */
 function VaultPasswordAction({ action, onClose }: { action: VaultAction; onClose: () => void }): React.JSX.Element {
   const [current, setCurrent] = useState('')
@@ -557,6 +564,8 @@ function VaultPasswordAction({ action, onClose }: { action: VaultAction; onClose
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const change = action === 'change-password'
+  const vs = useStore(vaultStore)
+  const passwordNote = changePasswordNote(vs.keptCopies)
   const title = change ? 'Change password' : action === 'new-code' ? 'New recovery code' : 'Remove recovery code'
   const ready = !!current && (!change || (checkPassword(next).allowed && next === again)) && !busy
   const run = async (): Promise<void> => {
@@ -566,7 +575,7 @@ function VaultPasswordAction({ action, onClose }: { action: VaultAction; onClose
     try {
       if (change) {
         await withVault(() => window.wax.keys.changePassword(current, next, again))
-        toast('Password changed', 'Copies of the vault exported earlier still open with the old password.', 'success')
+        toast('Password changed', passwordNote, 'success')
       } else if (action === 'new-code') {
         await withVault(() => window.wax.keys.newRecoveryCode(current))
       } else {
@@ -600,7 +609,7 @@ function VaultPasswordAction({ action, onClose }: { action: VaultAction; onClose
     >
       <p style={{ marginTop: 0 }}>
         {change
-          ? 'Copies of the vault exported earlier still open with the old password.'
+          ? passwordNote
           : action === 'new-code'
             ? 'The old code stops working. The new code is shown once in a separate window.'
             : 'Without a recovery code a forgotten password cannot be recovered.'}
@@ -794,6 +803,7 @@ function ImportVault({ onClose }: { onClose: () => void }): React.JSX.Element {
       <div className="field">
         <label>Password or recovery code of the vault file you import</label>
         <input className="input" type="password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} />
+        <div className="hint">For a copy of this vault, use its password.</div>
       </div>
       {error && <div className="error-text">{error}</div>}
     </Modal>

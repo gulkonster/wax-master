@@ -449,9 +449,18 @@ function Backup(): React.JSX.Element {
   )
 }
 
-/** The recovery code, shown once. */
+/** The recovery code in place of its characters until "Show code": five groups of dots. */
+const MASKED_CODE = Array.from({ length: 5 }, () => '\u2022'.repeat(5)).join('-')
+
+/** Shown in place of the code after a lock wiped it in the main process. */
+const CODE_HIDDEN_TEXT =
+  'The vault was locked and the code was hidden. It was not saved from this window: make a new one in Manage Keypairs > Vault > New recovery code.'
+
+/** The recovery code, shown once; masked until "Show code" (Save and Copy work while masked). */
 function Code({ given }: { given?: string }): React.JSX.Element {
   const [code, setCode] = useState(given ?? '')
+  const [hidden, setHidden] = useState(false)
+  const [visible, setVisible] = useState(false)
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
 
@@ -459,7 +468,11 @@ function Code({ given }: { given?: string }): React.JSX.Element {
     if (given) return
     window.confirmation
       .keyLoad()
-      .then((r) => setCode((r as { code: string }).code))
+      .then((r) => {
+        const x = r as { code: string; hidden?: boolean }
+        setCode(x.code)
+        setHidden(x.hidden === true)
+      })
       .catch(() => setError('No code to show.'))
   }, [given])
 
@@ -473,6 +486,30 @@ function Code({ given }: { given?: string }): React.JSX.Element {
     }
   }
 
+  if (hidden) {
+    return (
+      <div className="c-page">
+        <div className="c-header test">
+          <div className="c-title">Vault recovery code</div>
+        </div>
+        <div className="c-body">
+          <div className="banner warn">{CODE_HIDDEN_TEXT}</div>
+        </div>
+        <Foot>
+          <button className="btn" disabled>
+            Save as text file...
+          </button>
+          <button className="btn" disabled>
+            Copy
+          </button>
+          <button className="btn primary" autoFocus onClick={() => window.close()}>
+            Close
+          </button>
+        </Foot>
+      </div>
+    )
+  }
+
   return (
     <div className="c-page">
       <div className="c-header test">
@@ -482,7 +519,7 @@ function Code({ given }: { given?: string }): React.JSX.Element {
       <div className="c-body">
         <div className="c-row c-stack">
           <div className="c-label">Recovery code</div>
-          <div className="c-value c-key">{code}</div>
+          <div className="c-value c-key">{code ? (visible ? code : MASKED_CODE) : ''}</div>
         </div>
         <div className="banner warn c-gap">
           With this code the vault can be opened without the password. Keep it away from this computer. It is not shown again.
@@ -491,6 +528,9 @@ function Code({ given }: { given?: string }): React.JSX.Element {
         {error && <div className="error-text">{error}</div>}
       </div>
       <Foot>
+        <button className="btn" disabled={!code} onClick={() => setVisible((v) => !v)}>
+          {visible ? 'Hide code' : 'Show code'}
+        </button>
         <button
           className="btn"
           disabled={!code}
@@ -514,6 +554,7 @@ function Code({ given }: { given?: string }): React.JSX.Element {
           className="btn primary"
           onClick={() => {
             setCode('')
+            setVisible(false)
             void window.confirmation.codeDone()
           }}
         >

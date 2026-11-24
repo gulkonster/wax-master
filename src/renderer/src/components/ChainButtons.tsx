@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../state'
 import { emit } from '../lib/bus'
 import { networkStore, selectNetwork } from '../lib/networks'
+import { networkStatusStore, statusFor } from '../lib/network-status'
+import type { NetworkStatus } from '../../../shared/chain-types'
+import { StatusDot } from './StatusDot'
 import { Store, useStore } from '../lib/stores'
 import { IconCheck, IconChevronDown, IconContract, IconGlobe, IconPencil, IconPlus, IconUser } from './Icons'
 
@@ -34,16 +37,24 @@ function ChainButton(props: {
   /** Chain names are shown in the monospace font. */
   mono?: boolean
   none?: boolean
+  /** Status mark shown before the value (the Network button). */
+  status?: NetworkStatus | null
+  /** Tooltip of the main part. */
+  title?: string
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const ref = useOutside(open, () => setOpen(false))
+  const withStatus = props.status !== undefined
   return (
     <div ref={ref} className={`tb-button right${props.active ? ' active' : ''}`}>
-      <button className="tb-main" onClick={props.onMain}>
+      <button className="tb-main" onClick={props.onMain} title={props.title}>
         {props.icon}
         <div>
           <div className="tb-label">{props.label}</div>
-          <div className={`tb-value${props.none ? ' none' : props.mono ? ' mono' : ''}${props.mainnet ? ' mainnet-text' : ''}`}>{props.value}</div>
+          <div className={`tb-value${props.none ? ' none' : props.mono ? ' mono' : ''}${props.mainnet ? ' mainnet-text' : ''}${withStatus ? ' has-status' : ''}`}>
+            {withStatus && <StatusDot status={props.status ?? null} />}
+            {withStatus ? <span className="tb-name">{props.value}</span> : props.value}
+          </div>
         </div>
       </button>
       <button className="tb-arrow" onClick={() => setOpen((o) => !o)}>
@@ -57,6 +68,7 @@ function ChainButton(props: {
 export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { onAddNetwork: () => void; onManageNetworks: () => void; onStarred: () => void }): React.JSX.Element {
   const { state, actions } = useApp()
   const net = useStore(networkStore)
+  const status = useStore(networkStatusStore)
   const last = useStore(lastOpened)
 
   const openAccount = (name: string): void => {
@@ -99,6 +111,7 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
   )
 
   const n = net.current
+  const currentStatus = statusFor(status, n?.id)
   return (
     <>
       <ChainButton
@@ -142,24 +155,32 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
         value={n?.name ?? '(No Network)'}
         none={!n}
         mainnet={n?.kind === 'mainnet'}
-        active={false}
-        onMain={() => onManageNetworks()}
+        status={n ? currentStatus : undefined}
+        title={n ? `${n.name}: open the Network page\n${currentStatus?.summary ?? 'Checking'}` : undefined}
+        active={state.view === 'network'}
+        onMain={() => actions.setView('network')}
       >
         {(close) => (
           <>
-            {net.list.map((x) => (
-              <div
-                key={x.id}
-                className={`dd-item${x.id === n?.id ? ' selected' : ''}`}
-                onClick={() => {
-                  close()
-                  if (x.id !== n?.id) void selectNetwork(x.id)
-                }}
-              >
-                <span className="dd-lead">{x.id === n?.id && <IconCheck />}</span>
-                {x.preset ? <IconGlobe /> : <IconPencil />} <span className={`dd-label${x.kind === 'mainnet' ? ' mainnet-text' : ''}`}>{x.name}</span>
-              </div>
-            ))}
+            {net.list.map((x) => {
+              const selected = x.id === n?.id
+              return (
+                <div
+                  key={x.id}
+                  className={`dd-item${selected ? ' selected' : ''}`}
+                  title={selected ? (currentStatus?.summary ?? 'Checking') : undefined}
+                  onClick={() => {
+                    close()
+                    if (!selected) void selectNetwork(x.id)
+                  }}
+                >
+                  <span className="dd-lead">{selected && <IconCheck />}</span>
+                  {selected ? <StatusDot status={currentStatus} /> : <span className="status-dot none" />}
+                  <span className={`dd-label${x.kind === 'mainnet' ? ' mainnet-text' : ''}`}>{x.name}</span>
+                  <span className={`badge dd-tag${x.kind === 'mainnet' ? ' red' : ''}`}>{x.kind}</span>
+                </div>
+              )
+            })}
             <div className="dd-sep" />
             <div
               className="dd-item"
@@ -179,6 +200,16 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
             >
               <span className="dd-lead" />
               Manage Networks...
+            </div>
+            <div
+              className="dd-item"
+              onClick={() => {
+                close()
+                actions.setView('network')
+              }}
+            >
+              <span className="dd-lead" />
+              Network Page
             </div>
           </>
         )}

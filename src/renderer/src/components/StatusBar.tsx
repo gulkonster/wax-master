@@ -4,6 +4,8 @@ import { useToolchains } from './ToolchainManager'
 import { problemsStore, toolchainStore, useStore } from '../lib/stores'
 import { countProblems } from '../../../shared/output-lines'
 import { networkStore } from '../lib/networks'
+import { networkStatusStore, statusFor } from '../lib/network-status'
+import { StatusDot } from './StatusDot'
 import { askUnlock, vaultStore } from '../lib/vault'
 import { emit } from '../lib/bus'
 import { restartEditorEngine } from '../lib/lsp/engine'
@@ -15,6 +17,7 @@ export function StatusBar(): React.JSX.Element {
   const tc = useStore(toolchainStore)
   const vault = useStore(vaultStore)
   const net = useStore(networkStore).current
+  const netStatus = statusFor(useStore(networkStatusStore), net?.id)
   const problems = useStore(problemsStore)
   // Same counting as the Problems tab (shared/output-lines.ts).
   const { errors, warnings } = countProblems(problems)
@@ -38,9 +41,10 @@ export function StatusBar(): React.JSX.Element {
       <div className="spacer" />
       <button
         className={`sb-item${net?.kind === 'mainnet' ? ' mainnet' : ''}`}
-        title="Network and endpoint (click to manage)"
+        title={`Network and endpoint (click to manage)${net ? `\n${netStatus?.summary ?? 'Checking'}` : ''}`}
         onClick={() => emit('dialog', 'manage-networks')}
       >
+        {net && <StatusDot status={netStatus} />}
         {net ? `${net.name} · ${net.endpoints[net.currentEndpoint] ?? ''}` : '(No Network)'}
       </button>
       <ToolchainPicker ready={tc.ready} label={tc.label} />

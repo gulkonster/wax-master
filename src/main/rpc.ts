@@ -228,6 +228,8 @@ export const chain = {
   getTableRows: (ep: string, body: Record<string, unknown>) => request<{ rows: unknown[]; more: boolean; next_key?: string }>(ep, '/v1/chain/get_table_rows', { body }),
   getTableByScope: (ep: string, body: Record<string, unknown>) =>
     request<{ rows: { code: string; scope: string; table: string; payer: string; count: number }[]; more: string }>(ep, '/v1/chain/get_table_by_scope', { body }),
+  getBlock: (ep: string, blockNum: number, timeoutMs?: number) =>
+    request<Record<string, unknown>>(ep, '/v1/chain/get_block', { body: { block_num_or_id: blockNum }, timeoutMs }),
   getBlockInfo: (ep: string, blockNum: number) => request<Record<string, unknown>>(ep, '/v1/chain/get_block_info', { body: { block_num: blockNum } }),
   getActivatedProtocolFeatures: (ep: string) =>
     request<{ activated_protocol_features: { feature_digest: string; specification?: { name: string; value: string }[] }[]; more?: number }>(

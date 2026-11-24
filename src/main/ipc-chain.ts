@@ -8,7 +8,9 @@ import * as networks from './networks'
 import { accountActions, accountView } from './account-view'
 import { ContractHistory, getContractAbi, getContractDef, KEY_TYPES, packAction, queryRows } from './contract-view'
 import { dataDir } from './paths'
-import { chain } from './rpc'
+import { chain, request } from './rpc'
+import { NetworkStatusPoller, networkStatus } from './network-status'
+import { log } from './log'
 import { isUnknownAccount } from './account-pick'
 import { ramPriceError, readRamPrice } from './ram-price'
 import { RAM_MAX_BUY } from '../shared/ram-market'
@@ -48,6 +50,30 @@ function dataObject(v: unknown): Record<string, unknown> {
 export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
   networks.onEndpointSwitch((n, from, to) => {
     getWindow()?.webContents.send('network-changed', n, `${n.name}: ${from} did not answer; reading from ${to}.`)
+  })
+
+  // Status mark of the selected network; the checks start with the main window (index.ts).
+  const status = networkStatus(
+    () =>
+      new NetworkStatusPoller({
+        target: () => {
+          const n = networks.currentNetwork()
+          return { networkId: n.id, name: n.name, chainId: n.chainId, endpoint: networks.endpointOf(n) }
+        },
+        getInfo: (ep, timeoutMs) => request(ep, '/v1/chain/get_info', { body: {}, timeoutMs, retryStale: false }),
+        now: () => Date.now(),
+        setTimer: (fn, ms) => setTimeout(fn, ms),
+        clearTimer: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
+        emit: (s) => {
+          const win = getWindow()
+          if (win && !win.isDestroyed()) win.webContents.send('network-status', s)
+        },
+        log: (line) => log.info(line)
+      })
+  )
+  handle('network:status', () => status?.current())
+  handle('network:watchFast', (_e, on) => {
+    status?.setFast(bool(on, 'on'))
   })
 
   handle('networks:list', () => ({ networks: networks.listNetworks(), current: networks.currentNetwork().id }))
@@ -98,8 +124,11 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
     )
   })
   handle('networks:remove', (_e, id) => networks.removeNetwork(str(id, 'id', 64)))
+  handle('networks:removedDefaults', () => networks.removedDefaults())
+  handle('networks:restoreDefaults', () => networks.restoreDefaults())
   handle('networks:chooseEndpoint', (_e, id, index) => networks.chooseEndpoint(str(id, 'id', 64), int(index, 'index', 0, 19)))
-  handle('networks:stars', () => networks.stars(networks.currentNetwork().id))
+  // Starred accounts of the current network, or of the given one (the removal question names them).
+  handle('networks:stars', (_e, id) => networks.stars(id === undefined ? networks.currentNetwork().id : networks.getNetwork(str(id, 'id', 64)).id))
   handle('networks:setStar', (_e, account, starred) =>
     networks.setStar(networks.currentNetwork().id, chainName(account, 'account'), starred === true)
   )

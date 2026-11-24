@@ -5,7 +5,9 @@
 import { useEffect, useState } from 'react'
 import { Modal } from './Modal'
 import { errorText } from '../lib/toast'
-import { networkStore, selectNetwork } from '../lib/networks'
+import { networkStore, selectNetwork, waxTestnetEntry } from '../lib/networks'
+import { isWaxTestnet } from './FaucetButton'
+import { WAX_TESTNET_CHAIN_ID } from '../../../shared/ram-market'
 import { withVault } from '../lib/vault'
 import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
@@ -13,14 +15,17 @@ import { BackupStep } from './KeysDialog'
 import type { VaultKeyEntry } from '../../../shared/api'
 
 export function TestnetAccountDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
-  const net = useStore(networkStore).current
+  const nets = useStore(networkStore)
+  const net = nets.current
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [failed, setFailed] = useState(false)
   const [backupQueue, setBackupQueue] = useState<VaultKeyEntry[]>([])
-  const onTestnet = net?.id === 'wax-testnet'
+  // Keyed on the WAX Testnet chain id: the user's own entry for that chain works too.
+  const onTestnet = isWaxTestnet(net)
+  const testnet = waxTestnetEntry(nets.list, WAX_TESTNET_CHAIN_ID)
   // The name is checked once the field was left or a button pressed.
   const [nameTouched, setNameTouched] = useState(false)
   const nameOk = /^[a-z1-5]{12}$/.test(name)
@@ -118,9 +123,13 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
       {!onTestnet && (
         <div className="acct-empty">
           <span className="grow">The faucet creates accounts on WAX Testnet; the current network is {net?.name ?? 'not set'}.</span>
-          <button className="btn" onClick={() => void selectNetwork('wax-testnet').catch((e) => setMessage(errorText(e)))}>
-            Switch to WAX Testnet
-          </button>
+          {testnet ? (
+            <button className="btn" onClick={() => void selectNetwork(testnet.id).catch((e) => setMessage(errorText(e)))}>
+              Switch to {testnet.name}
+            </button>
+          ) : (
+            <span className="hint">WAX Testnet is not in the network list: Network &gt; Manage Networks &gt; Restore default networks.</span>
+          )}
         </div>
       )}
       <p>The faucet service creates these keys and has seen them, so use the account for testing only; replace them with vault keys on the Account page (Change key).</p>

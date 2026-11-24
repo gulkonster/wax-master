@@ -270,13 +270,17 @@ describe('app:clearData asks in the main process', () => {
     await call('app:clearData', true, 'delete my keys')
     expect(h.dialogCalls).toHaveLength(2)
     expect(h.dialogCalls[1].detail).toContain('vault.json')
-    expect(h.dialogCalls[1].detail).toMatch(/Keys in it: \d+/)
+    expect(h.dialogCalls[1].detail).toMatch(/Keys in vault.json: \d+/)
     expect(h.removed).toEqual([])
     expect(intact(dir)).toBe(true)
     expect(h.exit).not.toHaveBeenCalled()
   })
-  it('without the vault flag the vault dialog is not shown and vault.json stays', async () => {
+  it('without the vault flag the vault dialog is not shown; vault.json and the kept copies stay', async () => {
     const dir = seed()
+    const kept = ['vault.v1.bak.json', 'vault-old-2026-01-02.json', 'vault.json.tmp']
+    for (const n of kept) writeFileSync(join(dir, n), '{}')
+    // The half-written temporary file is not a kept copy.
+    expect(((await call('keys:status')) as { keptCopies: number }).keptCopies).toBe(2)
     h.answers.push(1)
     await call('app:clearData', false, '')
     expect(h.dialogCalls).toHaveLength(1)
@@ -284,13 +288,20 @@ describe('app:clearData asks in the main process', () => {
     expect(existsSync(join(dir, 'settings.json'))).toBe(false)
     expect(existsSync(join(dir, 'logs'))).toBe(false)
     expect(existsSync(join(dir, 'vault.json'))).toBe(true)
+    for (const n of kept) expect(existsSync(join(dir, n))).toBe(true)
     expect(h.exit).toHaveBeenCalledWith(0)
   })
-  it('both confirmed with the vault: the vault file goes too', async () => {
+  it('both confirmed with the vault: the vault file and every kept copy go too, and the question lists them', async () => {
     const dir = seed()
+    const kept = ['vault.v1.bak.json', 'vault-old-2026-01-02.json', 'vault-old-2026-01-02-2.json', 'vault.json.tmp']
+    for (const n of kept) writeFileSync(join(dir, n), '{}')
+    writeFileSync(join(dir, 'vault-old-notes.txt'), 'not a vault file')
     h.answers.push(1, 1)
     await call('app:clearData', true, 'delete my keys')
+    for (const n of ['vault.json', ...kept]) expect(h.dialogCalls[1].detail).toContain(`  ${n}`)
     expect(existsSync(join(dir, 'vault.json'))).toBe(false)
+    for (const n of kept) expect(existsSync(join(dir, n))).toBe(false)
+    expect(existsSync(join(dir, 'vault-old-notes.txt'))).toBe(true)
     expect(h.exit).toHaveBeenCalledWith(0)
   })
 })

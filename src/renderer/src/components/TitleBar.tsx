@@ -10,6 +10,9 @@ import { vaultStore } from '../lib/vault'
 import { monaco } from '../lib/monaco'
 import { on } from '../lib/bus'
 import { networkStore, selectNetwork } from '../lib/networks'
+import { networkStatusStore, statusFor } from '../lib/network-status'
+import type { NetworkStatus } from '../../../shared/chain-types'
+import { StatusDot } from './StatusDot'
 import { useStore } from '../lib/stores'
 import { toast } from '../lib/toast'
 import { useApp } from '../state'
@@ -22,6 +25,9 @@ interface VItem {
   disabled?: boolean
   checked?: boolean
   mainnet?: boolean
+  /** Network rows: the kind tag, and the status mark on the selected one. */
+  tag?: string
+  status?: NetworkStatus | null
   shortcut?: string
   items?: VItem[]
   run?: () => void
@@ -81,6 +87,7 @@ const isItem = (v: VItem): boolean => !v.sep && !v.disabled
 export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit: () => void }): React.JSX.Element {
   const { state } = useApp()
   const nets = useStore(networkStore)
+  const netStatus = useStore(networkStatusStore)
   const vaultState = vaultMenuState(useStore(vaultStore))
   /** Index of the open menu, or null. */
   const [open, setOpen] = useState<number | null>(null)
@@ -127,6 +134,8 @@ export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit:
             label: n.name,
             checked: n.id === nets.current?.id,
             mainnet: n.kind === 'mainnet',
+            tag: n.kind,
+            status: n.id === nets.current?.id ? statusFor(netStatus, n.id) : undefined,
             run: () => {
               if (n.id !== nets.current?.id) void selectNetwork(n.id)
             }
@@ -395,7 +404,9 @@ export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit:
           }}
         >
           <span className="dd-lead">{it.checked && <IconCheck />}</span>
+          {it.tag !== undefined && (it.status !== undefined ? <StatusDot status={it.status} /> : <span className="status-dot none" />)}
           <span className={`dd-label${it.mainnet ? ' mainnet-text' : ''}`}>{it.label}</span>
+          {it.tag !== undefined && <span className={`badge dd-tag${it.mainnet ? ' red' : ''}`}>{it.tag}</span>}
           {it.shortcut && <span className="dd-key">{it.shortcut}</span>}
           {it.items && (
             <span className="dd-sub">

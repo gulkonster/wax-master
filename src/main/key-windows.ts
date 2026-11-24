@@ -19,8 +19,10 @@ export interface KeySession {
   win: BrowserWindow
   /** reveal and backup: the key the window is for. */
   keyId?: string
-  /** code: the recovery code to show (cleared when the window closes). */
+  /** code: the recovery code to show (cleared when the window closes, on a lock and when a newer code exists). */
   code?: string
+  /** code: the code was wiped by a lock; the page says so in its place. */
+  hidden?: boolean
   /** backup: a file was written. */
   saved: boolean
   /** code: the user confirmed (or "I saved it") that the window may close. */
@@ -33,6 +35,11 @@ const SIZES: Record<KeyWindowMode, { width: number; height: number; minWidth: nu
   backup: { width: 780, height: 560, minWidth: 640, minHeight: 460, title: 'Back up key' },
   code: { width: 720, height: 480, minWidth: 600, minHeight: 400, title: 'Vault recovery code' },
   recover: { width: 720, height: 620, minWidth: 600, minHeight: 500, title: 'Forgot password' }
+}
+
+/** The title bar text of a key window mode (the shared page's own title is not used). */
+export function keyWindowTitle(mode: KeyWindowMode): string {
+  return SIZES[mode].title
 }
 
 const sessions = new Map<number, KeySession>()
@@ -51,6 +58,12 @@ export async function askNative(win: BrowserWindow | null, message: string, deta
   }
   const r = win && !win.isDestroyed() ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)
   return r.response === 1
+}
+
+function pageUrl(mode: KeyWindowMode): string {
+  const devUrl = process.env.ELECTRON_RENDERER_URL
+  const base = !app.isPackaged && devUrl ? `${devUrl.replace(/\/$/, '')}/confirm.html` : `${APP_ORIGIN}/confirm.html`
+  return `${base}#${mode}`
 }
 
 export function openKeyWindow(
@@ -76,6 +89,8 @@ export function openKeyWindow(
   })
   win.setMenu(null)
   followTheme(win, 'content')
+  // The page is shared with the confirmation window; the title bar keeps the title of this mode.
+  win.on('page-title-updated', (e: Electron.Event) => e.preventDefault())
   const session: KeySession = { mode, win, keyId: extra.keyId, code: extra.code, saved: false, closeOk: false, onClosed: extra.onClosed }
   const wcId = win.webContents.id
   sessions.set(wcId, session)
@@ -100,10 +115,14 @@ export function openKeyWindow(
     session.onClosed?.(session)
   })
   win.once('ready-to-show', () => win.show())
-  const devUrl = process.env.ELECTRON_RENDERER_URL
-  const base = !app.isPackaged && devUrl ? `${devUrl.replace(/\/$/, '')}/confirm.html` : `${APP_ORIGIN}/confirm.html`
-  void win.loadURL(`${base}#${mode}`)
+  void win.loadURL(pageUrl(mode))
   return session
+}
+
+/** A window changes mode (the recovery window showing the new code): its title follows. */
+export function setKeyWindowMode(s: KeySession, mode: KeyWindowMode): void {
+  s.mode = mode
+  if (!s.win.isDestroyed()) s.win.setTitle(keyWindowTitle(mode))
 }
 
 /** The session of the sending window when it is a key window of one of the modes (main frame, own page); else null. */
@@ -119,6 +138,30 @@ export function fromKeyWindow(e: IpcMainInvokeEvent, ...modes: KeyWindowMode[]):
 export function closeKeyWindows(modes: KeyWindowMode[], keyId?: string): void {
   for (const s of [...sessions.values()]) {
     if (!modes.includes(s.mode) || (keyId !== undefined && s.keyId !== keyId)) continue
+    if (!s.win.isDestroyed()) s.win.close()
+  }
+}
+
+/**
+ * A lock: every recovery-code window forgets its code. The page is loaded again
+ * and then says that the code was hidden; the window closes without the question.
+ */
+export function hideRecoveryCodes(): void {
+  for (const s of sessions.values()) {
+    if (s.mode !== 'code' || !s.code) continue
+    s.code = undefined
+    s.hidden = true
+    s.closeOk = true
+    if (!s.win.isDestroyed()) void s.win.loadURL(pageUrl('code'))
+  }
+}
+
+/** A newer code exists (or none any more): every other recovery-code window closes, its code wiped, without the question. */
+export function closeOlderCodeWindows(keep?: KeySession): void {
+  for (const s of [...sessions.values()]) {
+    if (s.mode !== 'code' || s === keep) continue
+    s.code = undefined
+    s.closeOk = true
     if (!s.win.isDestroyed()) s.win.close()
   }
 }

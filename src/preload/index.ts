@@ -50,7 +50,7 @@ const exposed = interfaceFor(
   devUrlFromArgv(process.argv)
 )
 
-const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'network-changed', 'vault-changed', 'update-available', 'editor-status', 'editor-message'])
+const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'network-changed', 'network-status', 'vault-changed', 'update-available', 'editor-status', 'editor-message'])
 const TERMINAL_EVENTS = new Set(['terminal-data', 'terminal-exit'])
 
 function subscribe(allowed: Set<string>, event: string, cb: (...args: never[]) => void): () => void {
@@ -137,16 +137,26 @@ const api: WaxApi = {
     add: call('networks:add'),
     update: call('networks:update'),
     remove: call('networks:remove'),
+    removedDefaults: call('networks:removedDefaults'),
+    restoreDefaults: call('networks:restoreDefaults'),
     chooseEndpoint: call('networks:chooseEndpoint'),
     stars: call('networks:stars'),
     setStar: call('networks:setStar'),
     setStarOrder: call('networks:setStarOrder')
+  },
+  network: {
+    status: call('network:status'),
+    watchFast: call('network:watchFast')
   },
   chain: {
     account: call('chain:account'),
     accountExists: call('chain:accountExists'),
     actions: call('chain:actions'),
     ramPrice: call('chain:ramPrice')
+  },
+  networkInfo: {
+    overview: call('networkInfo:overview'),
+    head: call('networkInfo:head')
   },
   contract: {
     abi: call('contract:abi'),

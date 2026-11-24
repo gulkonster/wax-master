@@ -5,6 +5,8 @@ import { hasBlockedSwitch } from './switches'
 import { registerIpc } from './ipc'
 import { guardWindow, registerCloseGuard } from './close-guard'
 import { registerChainIpc } from './ipc-chain'
+import { networkStatus, watchWindowForStatus } from './network-status'
+import { registerNetworkInfoIpc } from './ipc-network-info'
 import { registerKeys, vault } from './keys-service'
 import { vaultMenuState } from '../shared/menu-model'
 import { registerTxIpc } from './ipc-tx'
@@ -82,6 +84,7 @@ function createMainWindow(): void {
   })
   followTheme(mainWindow, 'chrome', true)
   mainWindow.once('ready-to-show', () => mainWindow?.show())
+  watchWindowForStatus(mainWindow)
   guardWindow(mainWindow)
   watchMenuKey(mainWindow)
   mainWindow.webContents.on('did-fail-load', (_e, code, desc, url, isMain) =>
@@ -117,6 +120,7 @@ app.whenReady().then(() => {
   registerIpc(() => mainWindow)
   registerCloseGuard(() => mainWindow)
   registerChainIpc(() => mainWindow)
+  registerNetworkInfoIpc(() => mainWindow)
   registerKeys(() => mainWindow)
   registerTxIpc(() => mainWindow)
   registerAppIpc(() => mainWindow)
@@ -140,7 +144,10 @@ app.whenReady().then(() => {
     )
   }
   refreshMenu()
-  onNetworksChanged(refreshMenu)
+  onNetworksChanged(() => {
+    refreshMenu()
+    networkStatus()?.refresh()
+  })
   // The vault item of the Accounts menu reads Create, Unlock or Lock by the vault's state.
   vault().onChange(() => refreshMenu())
   createMainWindow()

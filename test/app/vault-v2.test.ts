@@ -28,7 +28,15 @@ vi.mock('../../src/main/jsonfile', async (orig) => {
   }
 })
 
-import { NO_RECOVERY, Vault, V1_BACKUP_NAME, WRONG_SECRET, validateVaultFile } from '../../src/main/vault'
+import {
+  NO_RECOVERY,
+  Vault,
+  V1_BACKUP_NAME,
+  WRONG_CODE,
+  WRONG_IMPORT_SECRET,
+  WRONG_PASSWORD,
+  validateVaultFile
+} from '../../src/main/vault'
 import { formatRecoveryCode, newRecoveryCode, normalizeRecoveryCode } from '../../src/main/recovery-code'
 import { GOOD_TEXT, MIN_PASSWORD_LENGTH, TOO_SHORT_TEXT, WEAK_TEXT, checkPassword, isWeakPassword } from '../../src/shared/password'
 import { generatePrivateKey, privateKeyToString, publicFromPrivate, publicKeyToString, signDigest, verifySignature } from '../../src/chain-core'
@@ -156,7 +164,7 @@ describe('conversion from version 1', () => {
     writeV1(file, PW, 1)
     const original = readFileSync(file, 'utf8')
     const v = new Vault(file, FAST)
-    expect(await errorOf(v.unlock('not the password'))).toBe(WRONG_SECRET)
+    expect(await errorOf(v.unlock('not the password'))).toBe(WRONG_PASSWORD)
     expect(readFileSync(file, 'utf8')).toBe(original)
     expect(existsSync(join(file, '..', V1_BACKUP_NAME))).toBe(false)
   })
@@ -214,15 +222,15 @@ describe('recovery code', () => {
     expect(v.isUnlocked()).toBe(true)
     expect(signs(v, k.publicKey)).toBe(true)
     v.lock()
-    expect(await errorOf(v.unlock(PW))).toBe(WRONG_SECRET)
+    expect(await errorOf(v.unlock(PW))).toBe(WRONG_PASSWORD)
     await v.unlock('new password here')
     v.lock()
-    expect(await errorOf(v.recoverWithCode(code, 'another new one'))).toBe(WRONG_SECRET)
+    expect(await errorOf(v.recoverWithCode(code, 'another new one'))).toBe(WRONG_CODE)
     await v.recoverWithCode(next, 'another new one')
     expect(v.isUnlocked()).toBe(true)
   })
 
-  it('a wrong code gives the same error as a wrong password, in every form', async () => {
+  it('each form answers with its own text: a wrong or malformed code is "Wrong recovery code", a wrong password "Wrong password"', async () => {
     const file = tempFile()
     const v = new Vault(file, FAST)
     const code = await v.create(PW)
@@ -232,8 +240,9 @@ describe('recovery code', () => {
     const badShape = await errorOf(v.recoverWithCode('not a code', 'new password here'))
     const passwordAsCode = await errorOf(v.recoverWithCode(PW, 'new password here'))
     const codeAsPassword = await errorOf(v.unlock(code))
-    expect(wrongPassword).toBe(WRONG_SECRET)
-    expect([wrongCode, badShape, passwordAsCode, codeAsPassword]).toEqual([WRONG_SECRET, WRONG_SECRET, WRONG_SECRET, WRONG_SECRET])
+    expect(wrongPassword).toBe('Wrong password')
+    expect(codeAsPassword).toBe(WRONG_PASSWORD)
+    expect([wrongCode, badShape, passwordAsCode]).toEqual(['Wrong recovery code', WRONG_CODE, WRONG_CODE])
     expect(v.isUnlocked()).toBe(false)
   })
 
@@ -241,10 +250,10 @@ describe('recovery code', () => {
     const file = tempFile()
     const v = new Vault(file, FAST)
     const first = await v.create(PW)
-    expect(await errorOf(v.newRecoveryCode('wrong password'))).toBe(WRONG_SECRET)
+    expect(await errorOf(v.newRecoveryCode('wrong password'))).toBe(WRONG_PASSWORD)
     const second = await v.newRecoveryCode(PW)
     v.lock()
-    expect(await errorOf(v.recoverWithCode(first, 'new password here'))).toBe(WRONG_SECRET)
+    expect(await errorOf(v.recoverWithCode(first, 'new password here'))).toBe(WRONG_CODE)
     await v.recoverWithCode(second, 'new password here')
     await v.removeRecoveryCode('new password here')
     expect(v.hasRecoveryCode()).toBe(false)
@@ -269,12 +278,12 @@ describe('change password', () => {
     const k = v.addKey(freshKey().text, 'a')
     const before = JSON.stringify(v.exportFile().keys.map((x) => x.enc))
     const exported = v.exportFile()
-    expect(await errorOf(v.changePassword('wrong password', 'new password here'))).toBe(WRONG_SECRET)
+    expect(await errorOf(v.changePassword('wrong password', 'new password here'))).toBe(WRONG_PASSWORD)
     expect(await errorOf(v.changePassword(PW, 'abc'))).toBe(TOO_SHORT_TEXT)
     await v.changePassword(PW, 'new password here')
     expect(JSON.stringify(v.exportFile().keys.map((x) => x.enc))).toBe(before)
     v.lock()
-    expect(await errorOf(v.unlock(PW))).toBe(WRONG_SECRET)
+    expect(await errorOf(v.unlock(PW))).toBe(WRONG_PASSWORD)
     await v.unlock('new password here')
     expect(signs(v, k.publicKey)).toBe(true)
     v.lock()
@@ -351,7 +360,8 @@ describe('backup notes and import', () => {
     const code = await src.create('source password')
     src.addKey(freshKey().text, 'x')
     const exported = src.exportFile()
-    expect(await errorOf(target.importFile(exported, 'wrong'))).toBe(`${WRONG_SECRET} for the imported vault`)
+    expect(await errorOf(target.importFile(exported, 'wrong'))).toBe(WRONG_IMPORT_SECRET)
+    expect(WRONG_IMPORT_SECRET).toBe('Wrong password or recovery code for the imported vault')
     expect(await target.importFile(exported, code.toLowerCase())).toBe(1)
     for (const k of v1Keys) expect(signs(target, k.pub)).toBe(true)
   })
@@ -397,5 +407,145 @@ describe('password rule', () => {
   it('too short and empty are not allowed', () => {
     expect(checkPassword('abcde')).toEqual({ level: 'short', allowed: false, text: TOO_SHORT_TEXT })
     expect(checkPassword('')).toEqual({ level: 'empty', allowed: false, text: '' })
+  })
+})
+
+describe('a failed write changes nothing; changes run one at a time', () => {
+  /** The vault as a fresh start reads it from the disk. */
+  const fromDisk = (file: string): Vault => new Vault(file, FAST)
+
+  it('change password: the old password and code keep working; a later save does not store the new password', async () => {
+    const file = tempFile()
+    const v = new Vault(file, FAST)
+    const code = await v.create(PW)
+    const k = v.addKey(freshKey().text, 'a')
+    io.failWrites = 1
+    expect(await errorOf(v.changePassword(PW, 'new password here'))).toBe('disk full')
+    v.setLabel(k.id, 'renamed')
+    for (const x of [v, fromDisk(file)]) {
+      x.lock()
+      expect(await errorOf(x.unlock('new password here'))).toBe(WRONG_PASSWORD)
+      await x.unlock(PW)
+      expect(x.list()[0].label).toBe('renamed')
+    }
+    v.lock()
+    await v.recoverWithCode(code, 'after the failure')
+  })
+
+  it('new recovery code: the old code keeps working and the unseen code never does', async () => {
+    const file = tempFile()
+    const v = new Vault(file, FAST)
+    const code = await v.create(PW)
+    const k = v.addKey(freshKey().text, 'a')
+    io.failWrites = 1
+    expect(await errorOf(v.newRecoveryCode(PW))).toBe('disk full')
+    v.setLabel(k.id, 'renamed')
+    const disk = JSON.parse(readFileSync(file, 'utf8'))
+    expect(disk.keys[0].label).toBe('renamed')
+    v.lock()
+    await fromDisk(file).recoverWithCode(code, 'after the failure')
+  })
+
+  it('remove recovery code: the code keeps working', async () => {
+    const file = tempFile()
+    const v = new Vault(file, FAST)
+    const code = await v.create(PW)
+    const k = v.addKey(freshKey().text, 'a')
+    io.failWrites = 1
+    expect(await errorOf(v.removeRecoveryCode(PW))).toBe('disk full')
+    expect(v.hasRecoveryCode()).toBe(true)
+    v.setLabel(k.id, 'renamed')
+    expect(fromDisk(file).hasRecoveryCode()).toBe(true)
+    v.lock()
+    await v.recoverWithCode(code, 'after the failure')
+  })
+
+  it('recovery with the code: the vault stays locked, old password and code keep working, no unseen code is stored', async () => {
+    const file = tempFile()
+    const v = new Vault(file, FAST)
+    const code = await v.create(PW)
+    const k = v.addKey(freshKey().text, 'a')
+    v.lock()
+    io.failWrites = 1
+    expect(await errorOf(v.recoverWithCode(code, 'new password here'))).toBe('disk full')
+    expect(v.isUnlocked()).toBe(false)
+    v.setLabel(k.id, 'renamed')
+    for (const x of [v, fromDisk(file)]) {
+      expect(await errorOf(x.unlock('new password here'))).toBe(WRONG_PASSWORD)
+      await x.unlock(PW)
+      x.lock()
+    }
+    await fromDisk(file).recoverWithCode(code, 'after the failure')
+  })
+
+  it('a key that could not be written is not in the vault, and a later save does not add it', async () => {
+    const file = tempFile()
+    const v = new Vault(file, FAST)
+    await v.create(PW)
+    const first = v.addKey(freshKey().text, 'a')
+    const lost = freshKey()
+    io.failWrites = 1
+    expect(() => v.addKey(lost.text, 'lost')).toThrow('disk full')
+    expect(v.hasPublicKey(lost.pub)).toBe(false)
+    io.failWrites = 1
+    expect(() => v.generateKey('lost too')).toThrow('disk full')
+    io.failWrites = 1
+    expect(() => v.setBackup(first.id, 'file')).toThrow('disk full')
+    io.failWrites = 1
+    expect(() => v.removeKey(first.id)).toThrow('disk full')
+    v.setLabel(first.id, 'renamed')
+    for (const x of [v, fromDisk(file)]) {
+      expect(x.list().map((e) => [e.label, e.backup])).toEqual([['renamed', 'imported']])
+    }
+  })
+
+  it('import: nothing is added when the write fails', async () => {
+    const target = new Vault(tempFile(), FAST)
+    await target.create(PW)
+    const src = new Vault(tempFile(), FAST)
+    await src.create('source password')
+    src.addKey(freshKey().text, 'x')
+    io.failWrites = 1
+    expect(await errorOf(target.importFile(src.exportFile(), 'source password'))).toBe('disk full')
+    expect(target.list()).toEqual([])
+    expect(await target.importFile(src.exportFile(), 'source password')).toBe(1)
+  })
+
+  it('two unlocks at once on a version 1 file: one conversion, one code, one kept copy', async () => {
+    const file = tempFile()
+    const keys = writeV1(file, PW, 2)
+    const v = new Vault(file, FAST)
+    const [a, b] = await Promise.all([v.unlock(PW), v.unlock(PW)])
+    const codes = [a, b].filter((c) => c !== null)
+    expect(codes).toHaveLength(1)
+    expect(readdirSync(join(file, '..')).filter((n) => n === V1_BACKUP_NAME)).toHaveLength(1)
+    for (const k of keys) expect(signs(v, k.pub)).toBe(true)
+    v.lock()
+    await fromDisk(file).recoverWithCode(codes[0]!, 'after the conversion')
+  })
+
+  it('two wrap changes at once run one after the other; both are kept', async () => {
+    const v = new Vault(tempFile(), FAST)
+    await v.create(PW)
+    const [, code] = await Promise.all([v.changePassword(PW, 'second password'), v.newRecoveryCode(PW).catch((e: Error) => e.message)])
+    // The code change ran after the password change: the old password no longer opens the vault.
+    expect(code).toBe(WRONG_PASSWORD)
+    const next = await v.newRecoveryCode('second password')
+    v.lock()
+    await v.recoverWithCode(next, 'third password')
+  })
+})
+
+describe('writeJson', () => {
+  it('writes through a flushed temporary file and leaves none behind', async () => {
+    const real = await vi.importActual<typeof import('../../src/main/jsonfile')>('../../src/main/jsonfile')
+    const file = tempFile()
+    real.writeJson(file, { a: 1 })
+    real.writeJson(file, { a: 2 })
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual({ a: 2 })
+    expect(existsSync(`${file}.tmp`)).toBe(false)
+    const src = readFileSync(join(__dirname, '../../src/main/jsonfile.ts'), 'utf8')
+    expect(src.indexOf('fsyncSync(fd)')).toBeGreaterThan(src.indexOf('writeSync(fd'))
+    expect(src.indexOf('renameSync(tmp, file)')).toBeGreaterThan(src.indexOf('closeSync(fd)'))
   })
 })

@@ -4,6 +4,7 @@
 import type { NetworkInfo } from '../../../shared/chain-types'
 import { Store } from './stores'
 import { toast } from './toast'
+import { watchNetworkStatus } from './network-status'
 
 export interface NetworkState {
   list: NetworkInfo[]
@@ -36,10 +37,20 @@ export function isMainnetLike(n: NetworkInfo | null): boolean {
   return !!n && n.kind === 'mainnet'
 }
 
-/** Listens for endpoint changes made by the main process (read failover). */
+/** Listens for endpoint changes made by the main process (read failover) and for the status mark. */
 export function watchNetworkEvents(): () => void {
-  return window.wax.on('network-changed', (n: NetworkInfo, note: string) => {
+  const offChanged = window.wax.on('network-changed', (n: NetworkInfo, note: string) => {
     void refreshNetworks()
     if (note) toast('Network', note, 'info')
   })
+  const offStatus = watchNetworkStatus()
+  return () => {
+    offChanged()
+    offStatus()
+  }
+}
+
+/** The network to switch to for WAX Testnet features: the default entry, else any entry for that chain. */
+export function waxTestnetEntry(list: NetworkInfo[], chainId: string): NetworkInfo | null {
+  return list.find((n) => n.id === 'wax-testnet' && n.chainId === chainId) ?? list.find((n) => n.chainId === chainId) ?? null
 }

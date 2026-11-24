@@ -1,7 +1,7 @@
 // Settings-related calls: update check and Clear All App Data.
 
 import { app, type BrowserWindow } from 'electron'
-import { rmSync } from 'node:fs'
+import { existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { bool, str } from '../shared/validate'
 import { handle } from './ipc'
@@ -10,8 +10,14 @@ import { checkForUpdates, dailyCheck } from './updates'
 import { installedToolchains, remove as removeToolchain } from './toolchain'
 import { confirmNative, vault } from './keys-service'
 import { log } from './log'
+import { keptVaultCopies } from './vault'
 
 export const VAULT_DELETE_WORDS = 'delete my keys'
+
+/** The vault file and every kept or half-written copy of it in the data folder that exists now. */
+export function vaultFiles(dir: string): string[] {
+  return ['vault.json', 'vault.json.tmp', ...keptVaultCopies(dir)].filter((n) => existsSync(join(dir, n)))
+}
 
 export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
   handle('app:checkUpdates', () => checkForUpdates())
@@ -42,10 +48,12 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
       } catch {
         count = 0
       }
+      const files = vaultFiles(dataDir())
+      const names = (files.length ? files : ['vault.json']).map((n) => `  ${n}`).join('\n')
       const second = await confirmNative(
         win,
         'Delete the key vault too?',
-        `File: ${join(dataDir(), 'vault.json')}\nKeys in it: ${count}\n\nThe private keys are lost unless you have an exported copy.`,
+        `Folder: ${dataDir()}\nFiles:\n${names}\nKeys in vault.json: ${count}\n\nThe private keys are lost unless you have an exported copy. The kept older vault files are deleted too.`,
         'Delete vault'
       )
       if (!second) return
@@ -59,7 +67,7 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
     }
     vault().lock()
     for (const f of ['settings.json', 'networks.json', 'contract-history.json']) rmSync(join(dataDir(), f), { force: true })
-    if (withVault) rmSync(join(dataDir(), 'vault.json'), { force: true })
+    if (withVault) for (const f of vaultFiles(dataDir())) rmSync(join(dataDir(), f), { force: true })
     log.info(`App data cleared${withVault ? ' including the vault' : ''}`)
     rmSync(join(dataDir(), 'logs'), { recursive: true, force: true })
     app.relaunch()

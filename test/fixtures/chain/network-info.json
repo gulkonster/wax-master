@@ -1,0 +1,303 @@
+{
+ "note": "Read-only answers of WAX Testnet (testnet.waxsweden.org) and WAX Mainnet (wax.greymass.com), 2026-11-24. Block transactions reduced to their status.",
+ "testnet": {
+  "get_info": {
+   "server_version": "e0d79b6b",
+   "chain_id": "f16b1833c747c43682f4386fca9cbb327929334a762755ebec17f6f23c9b8a12",
+   "head_block_num": 439195904,
+   "last_irreversible_block_num": 439195771,
+   "last_irreversible_block_id": "1a2d987ba8c7420e7fea19b321b709142944b5bce5678ef71edafc0d4fdec8bf",
+   "head_block_id": "1a2d9900eb0f97b3b8fde30778a10a2a45dca13f21341b4143bb36251c73dfe5",
+   "head_block_time": "2026-11-24T14:50:30.000",
+   "head_block_producer": "nation.wax",
+   "virtual_block_cpu_limit": 200000000,
+   "virtual_block_net_limit": 1048576000,
+   "block_cpu_limit": 200000,
+   "block_net_limit": 1048576,
+   "server_version_string": "v1.3.1wax02",
+   "fork_db_head_block_num": 439195904,
+   "fork_db_head_block_id": "1a2d9900eb0f97b3b8fde30778a10a2a45dca13f21341b4143bb36251c73dfe5",
+   "server_full_version_string": "v1.3.1wax02-e0d79b6b79b12b7c5231daade7b365d3a5e92e52",
+   "total_cpu_weight": "89979471628836005",
+   "total_net_weight": "169597079071917918",
+   "earliest_available_block_num": 1,
+   "last_irreversible_block_time": "2026-11-24T14:49:23.500"
+  },
+  "get_block": {
+   "timestamp": "2026-11-24T14:50:30.000",
+   "producer": "nation.wax",
+   "confirmed": 108,
+   "previous": "1a2d98ff44d3f8cf78b3148ee58d8bbee4fafac43cccfc08d8a8c14dc3d38260",
+   "transaction_mroot": "0000000000000000000000000000000000000000000000000000000000000000",
+   "action_mroot": "9ee221c2c828c3eaa08922aa295d5f9d48ed7bfc6dcd5e3fd6897e9614f2533a",
+   "schedule_version": 38009,
+   "new_producers": null,
+   "producer_signature": "SIG_K1_KcXNdfNmeC6C165qoogrFkkfzVPtsRpt95DN9Pj1EwpEhqMJ2nB77ifuKU2Lq1o1sCkEk51PZ2Bu4VgdN1xfQspNAeswFQ",
+   "transactions": [],
+   "id": "1a2d9900eb0f97b3b8fde30778a10a2a45dca13f21341b4143bb36251c73dfe5",
+   "block_num": 439195904,
+   "ref_block_prefix": 132382136
+  },
+  "global": {
+   "rows": [
+    {
+     "max_block_net_usage": 1048576,
+     "target_block_net_usage_pct": 1000,
+     "max_transaction_net_usage": 524288,
+     "base_per_transaction_net_usage": 12,
+     "net_usage_leeway": 500,
+     "context_free_discount_net_usage_num": 20,
+     "context_free_discount_net_usage_den": 100,
+     "max_block_cpu_usage": 200000,
+     "target_block_cpu_usage_pct": 1500,
+     "max_transaction_cpu_usage": 150000,
+     "min_transaction_cpu_usage": 100,
+     "max_transaction_lifetime": 3600,
+     "deferred_trx_expiration_window": 600,
+     "max_transaction_delay": 3888000,
+     "max_inline_action_size": 300000,
+     "max_inline_action_depth": 6,
+     "max_authority_depth": 6,
+     "max_ram_size": "392238530560",
+     "total_ram_bytes_reserved": "78520881533",
+     "total_ram_stake": "1222185484417463",
+     "last_producer_schedule_update": "2026-11-24T14:49:33.500",
+     "last_pervote_bucket_fill": "2026-11-24T09:04:11.500",
+     "pervote_bucket": 0,
+     "perblock_bucket": "14666192245371265",
+     "voters_bucket": "40002511078044815",
+     "total_voteshare_change_rate": "250438169273082767442947234818519838414975533056.00000000000000000",
+     "total_unpaid_voteshare": "12767816057687302326651838070210698160719575407870869504.00000000000000000",
+     "total_unpaid_voteshare_last_updated": "2026-11-24T07:53:01.500",
+     "total_unpaid_blocks": 184659101,
+     "total_activated_stake": "5092369764004082",
+     "thresh_activated_stake_time": "2019-12-12T00:14:25.500",
+     "last_producer_schedule_size": 10,
+     "total_producer_vote_weight": "2514484518895778663031858889511207510233915064320.00000000000000000",
+     "last_name_close": "2026-08-16T22:33:25.500"
+    }
+   ],
+   "more": false,
+   "next_key": ""
+  },
+  "rammarket": {
+   "rows": [
+    {
+     "supply": "10000000000.0000 RAMCORE",
+     "base": {
+      "balance": "313717649027 RAM",
+      "weight": "0.50000000000000000"
+     },
+     "quote": {
+      "balance": "15941854.84417463 WAX",
+      "weight": "0.50000000000000000"
+     }
+    }
+   ],
+   "more": false,
+   "next_key": ""
+  },
+  "stat": {
+   "rows": [
+    {
+     "supply": "5347364344.25962420 WAX",
+     "max_supply": "46116860184.27387903 WAX",
+     "issuer": "eosio"
+    }
+   ],
+   "more": false,
+   "next_key": ""
+  }
+ },
+ "mainnet": {
+  "get_info": {
+   "server_version": "8cb90beb",
+   "chain_id": "1064487b3cd1a897ce03ae5b6a865651747e2e152090f99c1d19d44e01aea5a4",
+   "head_block_num": 468088050,
+   "last_irreversible_block_num": 468087963,
+   "last_irreversible_block_id": "1be6749b023114f5a88479f226b96657ae615a40fedcac674e6a363cb898e8ab",
+   "head_block_id": "1be674f28595c9cc40a834022e094a7a5b42a0a1e1ce5885dd7971832232a4bb",
+   "head_block_time": "2026-11-24T14:50:31.000",
+   "head_block_producer": "waxhiveguild",
+   "virtual_block_cpu_limit": 200000000,
+   "virtual_block_net_limit": 1048576000,
+   "block_cpu_limit": 200000,
+   "block_net_limit": 1048576,
+   "server_version_string": "v1.3.1wax02",
+   "fork_db_head_block_num": 468088050,
+   "fork_db_head_block_id": "1be674f28595c9cc40a834022e094a7a5b42a0a1e1ce5885dd7971832232a4bb",
+   "server_full_version_string": "v1.3.1wax02-8cb90beb3df1214f760dc8e2bbcbef2a5349f8a8-dirty",
+   "total_cpu_weight": "154925481546002833",
+   "total_net_weight": "339477845359735034",
+   "earliest_available_block_num": 467914709,
+   "last_irreversible_block_time": "2026-11-24T14:49:47.500"
+  },
+  "get_block": {
+   "timestamp": "2026-11-24T14:50:31.000",
+   "producer": "waxhiveguild",
+   "confirmed": 0,
+   "previous": "1be674f13bdfe15492382336ea77a017899ec84d771bedfd5857379e103aad92",
+   "transaction_mroot": "1a7e1e6785e81d404314da6325f4fbbd631090b5be0373e4234dab9281612e62",
+   "action_mroot": "8682495dc6cd83af31287c31754c4e397692ca17a8fc54f5c9494e68b8fcf1ae",
+   "schedule_version": 948,
+   "new_producers": null,
+   "producer_signature": "SIG_K1_KXK83iTNJ7h17TYNMPp8XwAwVpd3U1kQHKqqQii8V43KVGKpW4UHRkJ8SitHJ363ksWN5NQ1pTzybd1jXUbqtQYYrM9FYx",
+   "transactions": [
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    },
+    {
+     "status": "executed"
+    }
+   ],
+   "id": "1be674f28595c9cc40a834022e094a7a5b42a0a1e1ce5885dd7971832232a4bb",
+   "block_num": 468088050,
+   "ref_block_prefix": 37005376
+  },
+  "global": {
+   "rows": [
+    {
+     "max_block_net_usage": 1048576,
+     "target_block_net_usage_pct": 1000,
+     "max_transaction_net_usage": 524288,
+     "base_per_transaction_net_usage": 12,
+     "net_usage_leeway": 500,
+     "context_free_discount_net_usage_num": 20,
+     "context_free_discount_net_usage_den": 100,
+     "max_block_cpu_usage": 200000,
+     "target_block_cpu_usage_pct": 1000,
+     "max_transaction_cpu_usage": 150000,
+     "min_transaction_cpu_usage": 100,
+     "max_transaction_lifetime": 3600,
+     "deferred_trx_expiration_window": 600,
+     "max_transaction_delay": 3888000,
+     "max_inline_action_size": 300000,
+     "max_inline_action_depth": 6,
+     "max_authority_depth": 6,
+     "max_ram_size": "314750913536",
+     "total_ram_bytes_reserved": "187116258842",
+     "total_ram_stake": "5035269266923394",
+     "last_producer_schedule_update": "2026-11-24T14:49:38.500",
+     "last_pervote_bucket_fill": "2026-11-24T14:49:27.000",
+     "pervote_bucket": 0,
+     "perblock_bucket": "393990367223063",
+     "voters_bucket": "131337656665204",
+     "total_voteshare_change_rate": "18587192056305100902549442605274396542015507529728.00000000000000000",
+     "total_unpaid_voteshare": "15346844005047030202999217816642699260388636659657211904.00000000000000000",
+     "total_unpaid_voteshare_last_updated": "2026-11-24T14:49:29.000",
+     "total_unpaid_blocks": 4311562,
+     "total_activated_stake": "159706815438145498",
+     "thresh_activated_stake_time": "2019-06-24T18:02:24.000",
+     "last_producer_schedule_size": 7,
+     "total_producer_vote_weight": "302350753237538440883156192891656127600885694988288.00000000000000000",
+     "last_name_close": "2026-11-24T00:04:46.000"
+    }
+   ],
+   "more": false,
+   "next_key": ""
+  },
+  "rammarket": {
+   "rows": [
+    {
+     "supply": "10000000000.0000 RAMCORE",
+     "base": {
+      "balance": "127634654694 RAM",
+      "weight": "0.50000000000000000"
+     },
+     "quote": {
+      "balance": "54072692.66923394 WAX",
+      "weight": "0.50000000000000000"
+     }
+    }
+   ],
+   "more": false,
+   "next_key": ""
+  },
+  "stat": {
+   "rows": [
+    {
+     "supply": "4728643368.15049457 WAX",
+     "max_supply": "46116860184.27387903 WAX",
+     "issuer": "eosio"
+    }
+   ],
+   "more": false,
+   "next_key": ""
+  }
+ }
+}

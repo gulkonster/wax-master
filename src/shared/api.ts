@@ -5,7 +5,8 @@ import type { ProjectConfig, TemplateId } from './project'
 import type { InspectedTransaction } from './trace-types'
 import type { DeployPlan } from './chain-types'
 import type { RamPrice } from './ram-market'
-import type { AccountActionsPage, AccountView, NetworkInfo, NetworkKind } from './chain-types'
+import type { NetworkHead, NetworkOverview } from './network-info'
+import type { AccountActionsPage, AccountView, NetworkInfo, NetworkKind, NetworkStatus } from './chain-types'
 import type { AuthLevel, ContractAbiView, ContractHistoryEntry, ContractHistoryKind, ContractHistoryList, PackResult, RowsQuery, RowsResult, ScopesResult } from './chain-types'
 
 /** How a vault key can be had back without the vault: none, a text file, shown once, brought by the user, in an exported vault. */
@@ -28,6 +29,8 @@ export interface VaultStatus {
   noBackup: number
   /** The vault has a recovery code. */
   recovery: boolean
+  /** Kept older vault files in the data folder (vault.v1.bak.json, vault-old-<date>.json). */
+  keptCopies: number
 }
 
 export interface AppInfo {
@@ -324,6 +327,8 @@ export type MenuCommand =
   | 'clear-code'
   | 'add-network'
   | 'manage-networks'
+  /** Opens the Network page of the current network. */
+  | 'network-page'
   | 'open-transaction'
   | 'setup'
   | 'check-updates'
@@ -406,14 +411,28 @@ export interface WaxApi {
       kindNote: string | null
       /** True when the endpoint is on this computer (kind "local" possible). */
       localAllowed: boolean
+      /** Name of a chain the app knows (WAX Mainnet, WAX Testnet, EOS, Telos), or null. */
+      knownName: string | null
     }>
     add(n: { name: string; kind: NetworkKind; endpoint: string; chainId: string; symbol: string; precision: number; history?: string }): Promise<NetworkInfo>
     update(id: string, patch: { name?: string; kind?: NetworkKind; endpoints?: string[]; history?: string | null }): Promise<NetworkInfo>
-    remove(id: string): Promise<void>
+    /** Removes a network (at least one stays); returns the current network afterwards. */
+    remove(id: string): Promise<NetworkInfo>
+    /** Default networks that were removed. */
+    removedDefaults(): Promise<{ id: string; name: string }[]>
+    /** Brings back the removed default networks; returns the list. */
+    restoreDefaults(): Promise<NetworkInfo[]>
     chooseEndpoint(id: string, index: number): Promise<NetworkInfo>
-    stars(): Promise<string[]>
+    /** Starred accounts of the current network, or of the given one. */
+    stars(networkId?: string): Promise<string[]>
     setStar(account: string, starred: boolean): Promise<string[]>
     setStarOrder(accounts: string[]): Promise<string[]>
+  }
+  /** Status mark of the selected network. */
+  network: {
+    status(): Promise<NetworkStatus>
+    /** True while the Network page is open: checks every 2 seconds instead of 10. */
+    watchFast(on: boolean): Promise<void>
   }
   chain: {
     account(name: string): Promise<AccountView>
@@ -422,6 +441,12 @@ export interface WaxApi {
     actions(name: string, skip: number): Promise<AccountActionsPage>
     /** RAM price of the current network for `bytes` (0: the market only), from the system RAM market. */
     ramPrice(bytes: number): Promise<RamPrice>
+  }
+  networkInfo: {
+    /** Chain state of a saved network for the Network page: get_info, RAM, RAM price, core token. */
+    overview(networkId: string): Promise<NetworkOverview>
+    /** get_info and the head block; null while the window is minimized. */
+    head(networkId: string): Promise<NetworkHead | null>
   }
   contract: {
     abi(account: string, refresh?: boolean): Promise<ContractAbiView>
@@ -513,6 +538,7 @@ export interface WaxApi {
   on(event: 'update-available', cb: (r: UpdateResult) => void): () => void
   on(event: 'vault-changed', cb: (s: VaultStatus) => void): () => void
   on(event: 'network-changed', cb: (n: NetworkInfo, note: string) => void): () => void
+  on(event: 'network-status', cb: (s: NetworkStatus) => void): () => void
   on(event: 'setup-progress', cb: (line: string) => void): () => void
   on(event: 'files-changed', cb: () => void): () => void
   on(event: 'editor-status', cb: (s: EditorStatus) => void): () => void

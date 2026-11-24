@@ -248,8 +248,8 @@ export function AccountPicker({
           }}
         >
           <IconUser size="sm" />
+          {/* The arrow is the one every .select draws; no second icon. */}
           <span className={`name${value ? '' : ' empty'}`}>{value || (list ? 'Choose a starred account' : 'Loading accounts...')}</span>
-          <IconChevronDown size="sm" />
         </button>
         {open && (
           <ListMenu

@@ -13,7 +13,7 @@
 // decrypted bytes are wiped as soon as the callback returns.
 
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID, scrypt as scryptCb, timingSafeEqual } from 'node:crypto'
-import { copyFileSync, existsSync, readFileSync, renameSync } from 'node:fs'
+import { copyFileSync, existsSync, readdirSync, readFileSync, renameSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import {
   generatePrivateKey,
@@ -109,8 +109,14 @@ export const MIN_KDF_N = 2 ** 15
 export const MAX_KDF_N = 2 ** 20
 const MAX_KEYS = 1000
 const DAMAGED = 'is damaged or from an unknown version'
-/** One answer for a wrong password and a wrong recovery code. */
-export const WRONG_SECRET = 'Wrong password or recovery code'
+/** The answer of every form that takes the vault password; it never tells how close a guess was. */
+export const WRONG_PASSWORD = 'Wrong password'
+/** The answer of the forgot-password form, for a code of the wrong form and for a wrong code alike. */
+export const WRONG_CODE = 'Wrong recovery code'
+/** The answer of Import vault (the file opens with its password or its recovery code). */
+export const WRONG_IMPORT_SECRET = 'Wrong password or recovery code for the imported vault'
+/** A concurrent change of the vault file made this one stale; nothing was written. */
+export const VAULT_CHANGED = 'The vault changed meanwhile; nothing was written. Try again.'
 export const NO_RECOVERY = 'This vault has no recovery code.'
 export const RESET_WORD = 'RESET'
 export const V1_BACKUP_NAME = 'vault.v1.bak.json'
@@ -212,7 +218,7 @@ function keyAad(id: string, publicKey: string): string {
   return `key:${id}:${publicKey}`
 }
 
-/** Checks that a new key can sign and that its public key is derived correctly (security plan row 31). */
+/** Checks that a new key can sign and that its public key is derived correctly, before it is stored. */
 function selfTest(priv: PrivateKey): string {
   const pub = publicFromPrivate(priv)
   const digest = sha256(new TextEncoder().encode(`wax-master key check ${Date.now()}`))
@@ -277,6 +283,23 @@ function entryOf(k: StoredKey): PublicKeyEntry {
   return { id: k.id, label: k.label, publicKey: k.publicKey, created: k.created, backup: b.state, backupAt: b.at }
 }
 
+const OLD_VAULT_FILE = /^vault-old-\d{4}-\d{2}-\d{2}(-\d+)?\.json$/
+
+/**
+ * The older vault files kept in a data folder: the copy made before the
+ * conversion and the files moved aside by a reset. They still open with their
+ * old password (and the code of their time).
+ */
+export function keptVaultCopies(dir: string): string[] {
+  let names: string[] = []
+  try {
+    names = readdirSync(dir)
+  } catch {
+    return []
+  }
+  return names.filter((n) => n === V1_BACKUP_NAME || OLD_VAULT_FILE.test(n)).sort()
+}
+
 function isoDate(t: number): string {
   return new Date(t).toISOString().slice(0, 10)
 }
@@ -284,8 +307,15 @@ function isoDate(t: number): string {
 export class Vault {
   /** The vault key while unlocked. */
   private vaultKey: Buffer | null = null
+  /**
+   * The loaded file. It is never changed in place: a change builds the next file
+   * object, writes it, and only then replaces this one, so a failed write leaves
+   * the loaded vault as it was.
+   */
   private data: VaultFile | null = null
   private listeners = new Set<(unlocked: boolean) => void>()
+  /** The async changes (create, unlock, the wraps, import) run one at a time. */
+  private queue: Promise<unknown> = Promise.resolve()
 
   /**
    * minN is the smallest scrypt N accepted from a file. Production uses the default;
@@ -328,14 +358,35 @@ export class Vault {
     return v
   }
 
-  private save(): void {
-    if (this.data) writeJson(this.file, this.data)
+  /** Runs one async change after the one before it has ended (also when that one failed). */
+  private serial<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(fn, fn)
+    this.queue = run.catch(() => undefined)
+    return run
   }
 
-  /** Saves after keys were added or removed and tells the listeners, so the shown key count follows. */
-  private saveKeys(): void {
-    this.save()
+  /** Writes the next file and only then makes it the loaded one. */
+  private commit(next: VaultFile): void {
+    writeJson(this.file, next)
+    this.data = next
+  }
+
+  /** Commits after keys or their notes changed and tells the listeners, so the shown key count follows. */
+  private commitKeys(next: VaultFile): void {
+    this.commit(next)
     this.emit()
+  }
+
+  /**
+   * The loaded version 2 file when its wraps are still the ones a change started
+   * from (a reset or another change in between makes the change stale).
+   */
+  private sameWraps(v: VaultFileV2): VaultFileV2 {
+    const cur = this.load()
+    if (!cur || cur.version !== 2 || cur.wrapped !== v.wrapped || cur.kdf !== v.kdf || cur.recovery !== v.recovery) {
+      throw new Error(VAULT_CHANGED)
+    }
+    return cur
   }
 
   private newKdf(): KdfParams {
@@ -384,17 +435,25 @@ export class Vault {
   }
 
   /** Creates a version 2 vault and unlocks it. Returns the recovery code, to be shown once. */
-  async create(password: string): Promise<string> {
-    if (this.exists()) throw new Error('A vault already exists')
-    requirePasswordLength(password)
-    const vaultKey = randomBytes(32)
-    const pw = await this.wrapForPassword(vaultKey, password)
-    const { code, recovery } = await this.wrapForNewCode(vaultKey)
-    this.data = { format: 'wax-master-vault', version: 2, kdf: pw.kdf, wrapped: pw.wrapped, recovery, keys: [] }
-    this.save()
-    this.vaultKey = vaultKey
-    this.emit()
-    return code
+  create(password: string): Promise<string> {
+    return this.serial(async () => {
+      if (this.exists()) throw new Error('A vault already exists')
+      requirePasswordLength(password)
+      const vaultKey = randomBytes(32)
+      try {
+        const pw = await this.wrapForPassword(vaultKey, password)
+        const { code, recovery } = await this.wrapForNewCode(vaultKey)
+        if (this.exists()) throw new Error('A vault already exists')
+        this.commit({ format: 'wax-master-vault', version: 2, kdf: pw.kdf, wrapped: pw.wrapped, recovery, keys: [] })
+        this.vaultKey?.fill(0)
+        this.vaultKey = vaultKey
+        this.emit()
+        return code
+      } catch (e) {
+        vaultKey.fill(0)
+        throw e
+      }
+    })
   }
 
   /**
@@ -406,57 +465,65 @@ export class Vault {
    */
   private async convert(v1: VaultFileV1, derived: Buffer): Promise<{ vaultKey: Buffer; code: string }> {
     const vaultKey = randomBytes(32)
-    const keys: StoredKey[] = []
-    for (const k of v1.keys) {
-      const data = open(derived, k.enc, keyAad(k.id, k.publicKey))
-      try {
-        keys.push({ ...k, enc: seal(vaultKey, data, keyAad(k.id, k.publicKey)), backup: noteOf(k) })
-      } finally {
-        data.fill(0)
+    try {
+      const keys: StoredKey[] = []
+      for (const k of v1.keys) {
+        const data = open(derived, k.enc, keyAad(k.id, k.publicKey))
+        try {
+          keys.push({ ...k, enc: seal(vaultKey, data, keyAad(k.id, k.publicKey)), backup: noteOf(k) })
+        } finally {
+          data.fill(0)
+        }
       }
+      const { code, recovery } = await this.wrapForNewCode(vaultKey)
+      // A label or note changed while the code was made: the keys above are stale.
+      if (this.data !== v1) throw new Error(VAULT_CHANGED)
+      const next: VaultFileV2 = {
+        format: 'wax-master-vault',
+        version: 2,
+        kdf: v1.kdf,
+        wrapped: seal(derived, vaultKey, AAD_PASSWORD),
+        recovery,
+        keys
+      }
+      const bak = join(dirname(this.file), V1_BACKUP_NAME)
+      if (!existsSync(bak)) copyFileSync(this.file, bak)
+      this.commit(next)
+      return { vaultKey, code }
+    } catch (e) {
+      vaultKey.fill(0)
+      throw e
     }
-    const { code, recovery } = await this.wrapForNewCode(vaultKey)
-    const next: VaultFileV2 = {
-      format: 'wax-master-vault',
-      version: 2,
-      kdf: v1.kdf,
-      wrapped: seal(derived, vaultKey, AAD_PASSWORD),
-      recovery,
-      keys
-    }
-    const bak = join(dirname(this.file), V1_BACKUP_NAME)
-    if (!existsSync(bak)) copyFileSync(this.file, bak)
-    writeJson(this.file, next)
-    this.data = next
-    return { vaultKey, code }
   }
 
   /**
    * Unlocks with the password. A version 1 file is converted first; then the new
    * recovery code is returned (to be shown once), otherwise null.
    */
-  async unlock(password: string): Promise<string | null> {
-    const v = this.load()
-    if (!v) throw new Error('No vault yet')
-    const key = await keysKeyFromPassword(v, password)
-    if (!key) throw new Error(WRONG_SECRET)
-    let code: string | null = null
-    let vaultKey = key
-    if (v.version === 1) {
-      try {
-        const r = await this.convert(v, key)
-        vaultKey = r.vaultKey
-        code = r.code
-      } catch (e) {
-        throw new Error(`The vault could not be converted to the new format; it is unchanged. ${e instanceof Error ? e.message : String(e)}`)
-      } finally {
-        key.fill(0)
+  unlock(password: string): Promise<string | null> {
+    return this.serial(async () => {
+      const v = this.load()
+      if (!v) throw new Error('No vault yet')
+      const key = await keysKeyFromPassword(v, password)
+      if (!key) throw new Error(WRONG_PASSWORD)
+      let code: string | null = null
+      let vaultKey = key
+      if (v.version === 1) {
+        try {
+          const r = await this.convert(v, key)
+          vaultKey = r.vaultKey
+          code = r.code
+        } catch (e) {
+          throw new Error(`The vault could not be converted to the new format; it is unchanged. ${e instanceof Error ? e.message : String(e)}`)
+        } finally {
+          key.fill(0)
+        }
       }
-    }
-    this.vaultKey?.fill(0)
-    this.vaultKey = vaultKey
-    this.emit()
-    return code
+      this.vaultKey?.fill(0)
+      this.vaultKey = vaultKey
+      this.emit()
+      return code
+    })
   }
 
   /** Checks the password without changing the lock state (used before revealing a key). */
@@ -464,7 +531,7 @@ export class Vault {
     const v = this.load()
     if (!v) throw new Error('No vault yet')
     const key = await keysKeyFromPassword(v, password)
-    if (!key) throw new Error(WRONG_SECRET)
+    if (!key) throw new Error(WRONG_PASSWORD)
     key.fill(0)
   }
 
@@ -475,44 +542,46 @@ export class Vault {
     // Unlocking converts a version 1 file; the wraps are changed only on version 2.
     if (v.version !== 2) throw new Error(LOCKED_MESSAGE)
     const vaultKey = await keysKeyFromPassword(v, password)
-    if (!vaultKey) throw new Error(WRONG_SECRET)
+    if (!vaultKey) throw new Error(WRONG_PASSWORD)
     return { v, vaultKey }
   }
 
   /** Change password: only the password wrap of the vault key is rewritten. */
-  async changePassword(current: string, next: string): Promise<void> {
-    requirePasswordLength(next)
-    const { v, vaultKey } = await this.v2WithPassword(current)
-    try {
-      const pw = await this.wrapForPassword(vaultKey, next)
-      v.kdf = pw.kdf
-      v.wrapped = pw.wrapped
-      this.save()
-    } finally {
-      vaultKey.fill(0)
-    }
+  changePassword(current: string, next: string): Promise<void> {
+    return this.serial(async () => {
+      requirePasswordLength(next)
+      const { v, vaultKey } = await this.v2WithPassword(current)
+      try {
+        const pw = await this.wrapForPassword(vaultKey, next)
+        this.commit({ ...this.sameWraps(v), kdf: pw.kdf, wrapped: pw.wrapped })
+      } finally {
+        vaultKey.fill(0)
+      }
+    })
   }
 
   /** New recovery code (the old one stops working). Returns the code, to be shown once. */
-  async newRecoveryCode(password: string): Promise<string> {
-    const { v, vaultKey } = await this.v2WithPassword(password)
-    try {
-      const { code, recovery } = await this.wrapForNewCode(vaultKey)
-      v.recovery = recovery
-      this.save()
-      this.emit()
-      return code
-    } finally {
-      vaultKey.fill(0)
-    }
+  newRecoveryCode(password: string): Promise<string> {
+    return this.serial(async () => {
+      const { v, vaultKey } = await this.v2WithPassword(password)
+      try {
+        const { code, recovery } = await this.wrapForNewCode(vaultKey)
+        this.commit({ ...this.sameWraps(v), recovery })
+        this.emit()
+        return code
+      } finally {
+        vaultKey.fill(0)
+      }
+    })
   }
 
-  async removeRecoveryCode(password: string): Promise<void> {
-    const { v, vaultKey } = await this.v2WithPassword(password)
-    vaultKey.fill(0)
-    v.recovery = null
-    this.save()
-    this.emit()
+  removeRecoveryCode(password: string): Promise<void> {
+    return this.serial(async () => {
+      const { v, vaultKey } = await this.v2WithPassword(password)
+      vaultKey.fill(0)
+      this.commit({ ...this.sameWraps(v), recovery: null })
+      this.emit()
+    })
   }
 
   /**
@@ -520,28 +589,28 @@ export class Vault {
    * under the new password; a new recovery code replaces the used one; the vault
    * is unlocked. Returns the new code, to be shown once.
    */
-  async recoverWithCode(code: string, newPassword: string): Promise<string> {
-    requirePasswordLength(newPassword)
-    const v = this.load()
-    if (!v) throw new Error('No vault yet')
-    if (v.version !== 2 || !v.recovery) throw new Error(NO_RECOVERY)
-    const vaultKey = await keysKeyFromCode(v, code)
-    if (!vaultKey) throw new Error(WRONG_SECRET)
-    try {
-      const pw = await this.wrapForPassword(vaultKey, newPassword)
-      const next = await this.wrapForNewCode(vaultKey)
-      v.kdf = pw.kdf
-      v.wrapped = pw.wrapped
-      v.recovery = next.recovery
-      this.save()
-      this.vaultKey?.fill(0)
-      this.vaultKey = vaultKey
-      this.emit()
-      return next.code
-    } catch (e) {
-      vaultKey.fill(0)
-      throw e
-    }
+  recoverWithCode(code: string, newPassword: string): Promise<string> {
+    return this.serial(async () => {
+      requirePasswordLength(newPassword)
+      const v = this.load()
+      if (!v) throw new Error('No vault yet')
+      if (v.version !== 2 || !v.recovery) throw new Error(NO_RECOVERY)
+      // A code of the wrong form is answered like a wrong code.
+      const vaultKey = await keysKeyFromCode(v, code)
+      if (!vaultKey) throw new Error(WRONG_CODE)
+      try {
+        const pw = await this.wrapForPassword(vaultKey, newPassword)
+        const next = await this.wrapForNewCode(vaultKey)
+        this.commit({ ...this.sameWraps(v), kdf: pw.kdf, wrapped: pw.wrapped, recovery: next.recovery })
+        this.vaultKey?.fill(0)
+        this.vaultKey = vaultKey
+        this.emit()
+        return next.code
+      } catch (e) {
+        vaultKey.fill(0)
+        throw e
+      }
+    })
   }
 
   /**
@@ -610,8 +679,7 @@ export class Vault {
         enc: seal(key, priv.data, keyAad(id, publicKey)),
         backup: { state: backup, at: now }
       }
-      v.keys.push(entry)
-      this.saveKeys()
+      this.commitKeys({ ...v, keys: [...v.keys, entry] })
       return entryOf(entry)
     } finally {
       priv.data.fill(0)
@@ -649,9 +717,9 @@ export class Vault {
   }
 
   private storeGenerated(priv: PrivateKey, label: string): PublicKeyEntry {
-    const key = this.requireUnlocked()
-    const v = this.load()!
     try {
+      const key = this.requireUnlocked()
+      const v = this.load()!
       const publicKey = selfTest(priv)
       const id = randomUUID()
       const now = Date.now()
@@ -663,36 +731,39 @@ export class Vault {
         enc: seal(key, priv.data, keyAad(id, publicKey)),
         backup: { state: 'none', at: now }
       }
-      v.keys.push(entry)
-      this.saveKeys()
+      this.commitKeys({ ...v, keys: [...v.keys, entry] })
       return entryOf(entry)
     } finally {
       priv.data.fill(0)
     }
   }
 
-  setLabel(id: string, label: string): void {
+  /** The loaded file with one key replaced by `change` of it. */
+  private withKey(id: string, change: (k: StoredKey) => StoredKey): VaultFile {
     const v = this.load()
-    const k = v?.keys.find((x) => x.id === id)
-    if (!k) throw new Error('Unknown key')
-    k.label = label.trim().slice(0, 64)
-    this.save()
+    if (!v || !v.keys.some((x) => x.id === id)) throw new Error('Unknown key')
+    return { ...v, keys: v.keys.map((k) => (k.id === id ? change(k) : k)) }
+  }
+
+  setLabel(id: string, label: string): void {
+    this.commit(this.withKey(id, (k) => ({ ...k, label: label.trim().slice(0, 64) })))
   }
 
   /** Records how the key was backed up (works while locked: the note is clear text). */
   setBackup(id: string, state: BackupState): void {
-    const v = this.load()
-    const k = v?.keys.find((x) => x.id === id)
-    if (!k) throw new Error('Unknown key')
-    k.backup = { state, at: Date.now() }
-    this.saveKeys()
+    this.commitKeys(this.withKey(id, (k) => ({ ...k, backup: { state, at: Date.now() } })))
+  }
+
+  /** The backup note of one key, or null when the key is unknown. */
+  backupOf(id: string): BackupState | null {
+    const k = this.load()?.keys.find((x) => x.id === id)
+    return k ? noteOf(k).state : null
   }
 
   removeKey(id: string): void {
     const v = this.load()
     if (!v) return
-    v.keys = v.keys.filter((k) => k.id !== id)
-    this.saveKeys()
+    this.commitKeys({ ...v, keys: v.keys.filter((k) => k.id !== id) })
   }
 
   /**
@@ -722,7 +793,7 @@ export class Vault {
     const v = this.load()
     if (!v) throw new Error('No vault yet')
     const temp = await keysKeyFromPassword(v, password)
-    if (!temp) throw new Error(WRONG_SECRET)
+    if (!temp) throw new Error(WRONG_PASSWORD)
     try {
       const k = v.keys.find((x) => x.id === id)
       if (!k) throw new Error('Unknown key')
@@ -762,8 +833,10 @@ export class Vault {
     const v = this.load()
     if (!v) return
     const at = Date.now()
-    for (const k of v.keys) if (publicKeys.includes(k.publicKey)) k.backup = { state: 'vault-export', at }
-    this.saveKeys()
+    this.commitKeys({
+      ...v,
+      keys: v.keys.map((k) => (publicKeys.includes(k.publicKey) ? { ...k, backup: { state: 'vault-export' as const, at } } : k))
+    })
   }
 
   /**
@@ -771,43 +844,46 @@ export class Vault {
    * password, or for version 2 its recovery code; keys are re-encrypted under
    * this vault's key. Returns how many keys were added.
    */
-  async importFile(other: VaultFile, otherSecret: string): Promise<number> {
-    const key = this.requireUnlocked()
-    if (!validateVaultFile(other, this.minN)) {
-      throw new Error(`This vault file ${DAMAGED}`)
-    }
-    const otherKey = (await keysKeyFromPassword(other, otherSecret)) ?? (await keysKeyFromCode(other, otherSecret))
-    if (!otherKey) throw new Error(`${WRONG_SECRET} for the imported vault`)
-    try {
-      const v = this.load()!
-      let added = 0
-      const at = Date.now()
-      for (const k of other.keys) {
-        if (v.keys.some((x) => x.publicKey === k.publicKey)) continue
-        const data = open(otherKey, k.enc, keyAad(k.id, k.publicKey))
-        try {
-          const priv: PrivateKey = { type: 'K1', data: new Uint8Array(data) }
-          const pub = selfTest(priv)
-          priv.data.fill(0)
-          if (pub !== k.publicKey) throw new Error('Imported key does not match its public key')
-          const id = randomUUID()
-          v.keys.push({
-            id,
-            label: k.label,
-            publicKey: pub,
-            created: k.created,
-            enc: seal(key, data, keyAad(id, pub)),
-            backup: { state: 'imported', at }
-          })
-          added++
-        } finally {
-          data.fill(0)
-        }
+  importFile(other: VaultFile, otherSecret: string): Promise<number> {
+    return this.serial(async () => {
+      this.requireUnlocked()
+      if (!validateVaultFile(other, this.minN)) {
+        throw new Error(`This vault file ${DAMAGED}`)
       }
-      this.saveKeys()
-      return added
-    } finally {
-      otherKey.fill(0)
-    }
+      const otherKey = (await keysKeyFromPassword(other, otherSecret)) ?? (await keysKeyFromCode(other, otherSecret))
+      if (!otherKey) throw new Error(WRONG_IMPORT_SECRET)
+      try {
+        // Taken after the waits: the vault may have been locked meanwhile.
+        const key = this.requireUnlocked()
+        const v = this.load()!
+        const added: StoredKey[] = []
+        const at = Date.now()
+        for (const k of other.keys) {
+          if (v.keys.some((x) => x.publicKey === k.publicKey) || added.some((x) => x.publicKey === k.publicKey)) continue
+          const data = open(otherKey, k.enc, keyAad(k.id, k.publicKey))
+          try {
+            const priv: PrivateKey = { type: 'K1', data: new Uint8Array(data) }
+            const pub = selfTest(priv)
+            priv.data.fill(0)
+            if (pub !== k.publicKey) throw new Error('Imported key does not match its public key')
+            const id = randomUUID()
+            added.push({
+              id,
+              label: k.label,
+              publicKey: pub,
+              created: k.created,
+              enc: seal(key, data, keyAad(id, pub)),
+              backup: { state: 'imported', at }
+            })
+          } finally {
+            data.fill(0)
+          }
+        }
+        this.commitKeys({ ...v, keys: [...v.keys, ...added] })
+        return added.length
+      } finally {
+        otherKey.fill(0)
+      }
+    })
   }
 }
