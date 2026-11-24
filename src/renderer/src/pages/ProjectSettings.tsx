@@ -57,26 +57,29 @@ export function ProjectSettings({
   saverRef.current = save
 
   return (
+    <div className="settings-tab">
     <div className="page-scroll">
-      <div className="form-page">
+      <div className="form-page wide">
         <h1>Project Settings</h1>
-        <span className="chip">
-          <IconFolder /> {project.path}
-        </span>
+        <div className="path-line" title={project.path}>
+          <IconFolder />
+          <span>{project.path}</span>
+        </div>
         <h2>Build Settings</h2>
+        <div className="card">
         <div className="field">
           <label>Main file:</label>
-          <input className="input" value={cfg.main} onChange={(e) => set('main', e.target.value)} />
+          <input className="input mono" value={cfg.main} onChange={(e) => set('main', e.target.value)} />
         </div>
         <div className="field">
           <label>
             Contract name <span className="code-tag">-contract</span>:
           </label>
-          <input className="input" value={cfg.contract} onChange={(e) => set('contract', e.target.value)} />
+          <input className="input mono w-account" value={cfg.contract} onChange={(e) => set('contract', e.target.value)} />
         </div>
         <div className="field">
           <label>Version of CDT used in build:</label>
-          <select className="select" value={cfg.cdt} onChange={(e) => set('cdt', e.target.value)}>
+          <select className="select w-select" value={cfg.cdt} onChange={(e) => set('cdt', e.target.value)}>
             <option value="">{tcs.defaultLabel || 'WAX CDT 4.1.1wax01'} (default)</option>
             {tcs.list
               .filter((t) => !t.isDefault)
@@ -92,20 +95,20 @@ export function ProjectSettings({
           <label>
             Add directory to include search path <span className="code-tag">-I</span>:
           </label>
-          <input className="input" placeholder="Default: include" value={cfg.include} onChange={(e) => set('include', e.target.value)} />
+          <input className="input mono" placeholder="Default: include" value={cfg.include} onChange={(e) => set('include', e.target.value)} />
         </div>
         <div className="field">
           <label>
             Add a resource path for inclusion <span className="code-tag">-R</span>:
           </label>
-          <input className="input" placeholder="Default: resource" value={cfg.resource} onChange={(e) => set('resource', e.target.value)} />
+          <input className="input mono" placeholder="Default: resource" value={cfg.resource} onChange={(e) => set('resource', e.target.value)} />
         </div>
         <div className="field">
           <label>
             Write output to <span className="code-tag">-o</span>:
           </label>
           <input
-            className="input"
+            className="input mono"
             placeholder={`Default: ${cfg.contract}.wasm`}
             value={cfg.output}
             onChange={(e) => set('output', e.target.value)}
@@ -114,17 +117,19 @@ export function ProjectSettings({
         <div className="field">
           <label>Custom build command:</label>
           <textarea
-            className="textarea"
+            className="textarea mono"
             placeholder={`Default: ${defaultBuildCommand(cfg)}`}
             value={cfg.buildCommand}
             onChange={(e) => set('buildCommand', e.target.value)}
           />
           <div className="hint">A custom command always asks for your approval before its first run, and again whenever it changes.</div>
         </div>
+        </div>
         <h2>Deploy Settings</h2>
+        <div className="card">
         <div className="field">
           <label>Deploy WASM and/or ABI:</label>
-          <select className="select" value={cfg.deploy.target} onChange={(e) => set('deploy', { ...cfg.deploy, target: e.target.value as DeployTarget })}>
+          <select className="select w-select" value={cfg.deploy.target} onChange={(e) => set('deploy', { ...cfg.deploy, target: e.target.value as DeployTarget })}>
             <option value="both">Both WASM and ABI</option>
             <option value="wasm">WASM only</option>
             <option value="abi">ABI only</option>
@@ -137,25 +142,28 @@ export function ProjectSettings({
           return (
             <div className="field" key={n.id}>
               <label className={n.kind === 'mainnet' ? 'mainnet-text' : undefined}>Deploy to ({n.name}):</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input className="input" style={{ flex: 2 }} placeholder="account" value={d.account} onChange={(e) => put({ account: e.target.value.trim().toLowerCase() })} />
-                <input className="input" style={{ flex: 1 }} placeholder="permission (default: active)" value={d.permission} onChange={(e) => put({ permission: e.target.value.trim().toLowerCase() })} />
+              <div className="field-pair">
+                <input className="input mono w-account" placeholder="account" value={d.account} onChange={(e) => put({ account: e.target.value.trim().toLowerCase() })} />
+                <input className="input mono w-perm" placeholder="permission (default: active)" value={d.permission} onChange={(e) => put({ permission: e.target.value.trim().toLowerCase() })} />
               </div>
             </div>
           )
         })}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="btn purple" onClick={() => void save()} disabled={saved}>
-            Save
-          </button>
-          {!saved && (
-            <button className="btn" onClick={() => (setCfg(project.config), setSaved(true))}>
-              Discard changes
-            </button>
-          )}
         </div>
         {error && <div className="error-text">{error}</div>}
       </div>
+    </div>
+    <div className="save-bar">
+      <span className={`state${saved ? '' : ' dirty'}`}>{saved ? 'No changes' : 'Unsaved changes'}</span>
+      {!saved && (
+        <button className="btn" onClick={() => (setCfg(project.config), setSaved(true))}>
+          Discard changes
+        </button>
+      )}
+      <button className="btn primary" onClick={() => void save()} disabled={saved}>
+        Save
+      </button>
+    </div>
     </div>
   )
 }

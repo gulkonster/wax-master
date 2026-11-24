@@ -30,7 +30,7 @@ export function ComingLater({ what, dialog, onClose }: { what: string; dialog?: 
         title={label}
         onClose={onClose}
         footer={
-          <button className="btn purple" onClick={onClose}>
+          <button className="btn" onClick={onClose}>
             OK
           </button>
         }

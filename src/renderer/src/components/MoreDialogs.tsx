@@ -49,7 +49,7 @@ export function ClearCodeDialog({ onClose }: { onClose: () => void }): React.JSX
           <button className="btn" disabled={busy} onClick={onClose}>
             Close
           </button>
-          <button className="btn red" disabled={busy || !NAME.test(account)} onClick={() => void go()}>
+          <button className="btn danger" disabled={busy || !NAME.test(account)} onClick={() => void go()}>
             {busy ? 'Waiting for confirmation...' : 'Clear code'}
           </button>
         </>
@@ -62,11 +62,11 @@ export function ClearCodeDialog({ onClose }: { onClose: () => void }): React.JSX
       <div className="field" style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 2 }}>
           <label>Account</label>
-          <input className="input" value={account} onChange={(e) => setAccount(e.target.value.trim().toLowerCase())} />
+          <input className="input mono" value={account} onChange={(e) => setAccount(e.target.value.trim().toLowerCase())} />
         </div>
         <div style={{ flex: 1 }}>
           <label>Permission</label>
-          <input className="input" value={permission} onChange={(e) => setPermission(e.target.value.trim().toLowerCase())} />
+          <input className="input mono" value={permission} onChange={(e) => setPermission(e.target.value.trim().toLowerCase())} />
         </div>
       </div>
       {error && <div className="error-text">{error}</div>}

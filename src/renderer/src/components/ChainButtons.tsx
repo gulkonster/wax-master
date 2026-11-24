@@ -5,7 +5,7 @@ import { useApp } from '../state'
 import { emit } from '../lib/bus'
 import { networkStore, selectNetwork } from '../lib/networks'
 import { Store, useStore } from '../lib/stores'
-import { IconChevronDown, IconContract, IconGlobe, IconPencil, IconPlus, IconUser } from './Icons'
+import { IconCheck, IconChevronDown, IconContract, IconGlobe, IconPencil, IconPlus, IconUser } from './Icons'
 
 /** Name shown on the Contracts and Account buttons (last opened). */
 export const lastOpened = new Store<{ account: string | null; contract: string | null }>({ account: null, contract: null })
@@ -31,6 +31,9 @@ function ChainButton(props: {
   onMain: () => void
   children: (close: () => void) => React.ReactNode
   mainnet?: boolean
+  /** Chain names are shown in the monospace font. */
+  mono?: boolean
+  none?: boolean
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const ref = useOutside(open, () => setOpen(false))
@@ -40,7 +43,7 @@ function ChainButton(props: {
         {props.icon}
         <div>
           <div className="tb-label">{props.label}</div>
-          <div className={`tb-value${props.mainnet ? ' mainnet-text' : ''}`}>{props.value}</div>
+          <div className={`tb-value${props.none ? ' none' : props.mono ? ' mono' : ''}${props.mainnet ? ' mainnet-text' : ''}`}>{props.value}</div>
         </div>
       </button>
       <button className="tb-arrow" onClick={() => setOpen((o) => !o)}>
@@ -102,6 +105,8 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
         icon={<IconContract size={18} />}
         label="Contracts"
         value={last.contract ?? '(none)'}
+        mono
+        none={!last.contract}
         active={state.view === 'contract'}
         onMain={() => (last.contract ? openContract(last.contract) : actions.setView('contract'))}
       >
@@ -111,6 +116,8 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
         icon={<IconUser size={18} />}
         label="Account"
         value={last.account ?? '(none)'}
+        mono
+        none={!last.account}
         active={state.view === 'account'}
         onMain={() => (last.account ? openAccount(last.account) : actions.setView('account'))}
       >
@@ -133,6 +140,7 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
         icon={n && !n.preset ? <IconPencil size={18} /> : <IconGlobe size={18} />}
         label="Network"
         value={n?.name ?? '(No Network)'}
+        none={!n}
         mainnet={n?.kind === 'mainnet'}
         active={false}
         onMain={() => onManageNetworks()}
@@ -148,10 +156,11 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
                   if (x.id !== n?.id) void selectNetwork(x.id)
                 }}
               >
-                {x.preset ? <IconGlobe /> : <IconPencil />} <span className={x.kind === 'mainnet' && x.id !== n?.id ? 'mainnet-text' : undefined}>{x.name}</span>
+                <span className="dd-lead">{x.id === n?.id && <IconCheck />}</span>
+                {x.preset ? <IconGlobe /> : <IconPencil />} <span className={`dd-label${x.kind === 'mainnet' ? ' mainnet-text' : ''}`}>{x.name}</span>
               </div>
             ))}
-            <div className="dd-section" />
+            <div className="dd-sep" />
             <div
               className="dd-item"
               onClick={() => {
@@ -168,6 +177,7 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
                 onManageNetworks()
               }}
             >
+              <span className="dd-lead" />
               Manage Networks...
             </div>
           </>

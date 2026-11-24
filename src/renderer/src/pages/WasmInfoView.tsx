@@ -5,7 +5,7 @@ export function WasmInfoView({ rel, info }: { rel: string; info: WasmInfo }): Re
   return (
     <div className="page-scroll">
       <div className="form-page" style={{ paddingTop: 32 }}>
-        <h1 style={{ fontSize: 28 }}>{rel}</h1>
+        <h1 className="mono" style={{ fontSize: 20 }}>{rel}</h1>
         {!info.valid && <div className="error-text">This file could not be read as a WebAssembly module: {info.error}</div>}
         <div className="field">
           <label>Size</label>
@@ -24,7 +24,7 @@ export function WasmInfoView({ rel, info }: { rel: string; info: WasmInfo }): Re
           <div className="wasm-imports">
             {funcs.map((f) => (
               <div key={`${f.module}.${f.name}`}>
-                <span style={{ color: 'var(--text-dim)' }}>{f.module}.</span>
+                <span style={{ color: 'var(--text-3)' }}>{f.module}.</span>
                 {f.name}
               </div>
             ))}

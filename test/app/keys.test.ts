@@ -14,6 +14,7 @@ vi.mock('electron', () => ({
 
 import { buildMenu } from '../../src/main/menu'
 import { APP_KEYS, EDITOR_KEYS, MONACO_DEFAULTS_REMOVED, normalizeKey } from '../../src/shared/keys'
+import { MENU_MODEL, type MenuModelItem } from '../../src/shared/menu-model'
 
 interface Item {
   label?: string
@@ -113,6 +114,22 @@ describe('key owners (B11)', () => {
       .filter((a): a is string => !!a)
       .map(normalizeKey)
     for (const k of [...normalizedEditor, ...normalizedApp]) expect(shown, k).toContain(k)
+  })
+
+  it('every accelerator of the shared menu model (also drawn in the title bar) is in exactly one list', () => {
+    const keys: string[] = []
+    const walk = (items: readonly MenuModelItem[]): void => {
+      for (const i of items) {
+        if (i.kind === 'command' && i.accelerator) keys.push(i.accelerator)
+        if (i.kind === 'submenu') walk(i.items)
+      }
+    }
+    for (const m of MENU_MODEL) walk(m.items)
+    expect(keys.length).toBe(EDITOR_KEYS.length + APP_KEYS.length)
+    for (const a of keys) {
+      const k = normalizeKey(a)
+      expect(Number(normalizedEditor.includes(k)) + Number(normalizedApp.includes(k)), a).toBe(1)
+    }
   })
 
   it('Monaco binds every editor key by default', () => {

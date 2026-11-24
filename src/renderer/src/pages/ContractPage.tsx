@@ -75,7 +75,7 @@ export function ContractPage(): React.JSX.Element {
             onChange={(e) => setInput(e.target.value.trim().toLowerCase())}
             onKeyDown={(e) => e.key === 'Enter' && open(input)}
           />
-          <button className={`icon-btn${starred ? ' on' : ''}`} disabled={!active} title={starred ? 'Unstar' : 'Star'} onClick={() => active && void toggleStar(active)}>
+          <button className={`icon-btn small${starred ? " on" : ""}`} disabled={!active} title={starred ? 'Unstar' : 'Star'} onClick={() => active && void toggleStar(active)}>
             <IconStar filled={starred} />
           </button>
         </div>
@@ -115,7 +115,7 @@ function ContractBody({ name }: { name: string }): React.JSX.Element {
   useEffect(() => void load(false), [load])
   useEffect(() => on('contract-refresh', (n) => n === name && void load(true)), [name, load])
 
-  if (error) return <div className="page-scroll"><div className="error-text" style={{ padding: 20 }}>{error}</div></div>
+  if (error) return <div className="page-scroll"><div className="error-text" style={{ margin: 16 }}>{error}</div></div>
   if (!view || !net.current) return <div className="coming">Loading {name}...</div>
   if (!view.hasAbi) {
     return <div className="contract-note">This account has no contract (no ABI) on {net.current.name}</div>

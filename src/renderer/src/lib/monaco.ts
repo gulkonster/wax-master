@@ -7,6 +7,7 @@ import 'monaco-editor/features/register.all.js'
 import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker'
 import JsonWorker from 'monaco-editor/language/json/json.worker.js?worker'
 import { MONACO_DEFAULTS_REMOVED, normalizeKey } from '../../../shared/keys'
+import { THEME } from './theme-colors'
 
 declare global {
   interface Window {
@@ -26,9 +27,33 @@ monaco.editor.defineTheme('wax-dark', {
   inherit: true,
   rules: [],
   colors: {
-    'editor.background': '#1e1f21',
-    'editorGutter.background': '#1e1f21',
-    'minimap.background': '#1e1f21'
+    'editor.background': THEME.content,
+    'editorGutter.background': THEME.content,
+    'minimap.background': THEME.content,
+    'editor.lineHighlightBackground': THEME.lineHighlight,
+    'editor.selectionBackground': THEME.selection,
+    'editorCursor.foreground': THEME.accent,
+    'editor.findMatchBackground': THEME.findMatch,
+    'editor.findMatchBorder': THEME.accent,
+    'editorWidget.background': THEME.flyout,
+    'editorWidget.border': THEME.borderControl,
+    'editorSuggestWidget.background': THEME.flyout,
+    'editorSuggestWidget.border': THEME.borderControl,
+    'editorHoverWidget.background': THEME.flyout,
+    'editorHoverWidget.border': THEME.borderControl,
+    'menu.background': THEME.flyout,
+    'menu.border': THEME.borderControl,
+    'quickInput.background': THEME.flyout,
+    'list.hoverBackground': THEME.listHover,
+    'list.activeSelectionBackground': THEME.accentTint,
+    'list.activeSelectionForeground': THEME.textStrong,
+    'quickInputList.focusBackground': THEME.accentTint,
+    focusBorder: THEME.accent,
+    'scrollbarSlider.background': THEME.scrollThumb,
+    'scrollbarSlider.hoverBackground': THEME.scrollThumbHover,
+    'scrollbarSlider.activeBackground': THEME.scrollThumbHover,
+    'editorLineNumber.foreground': THEME.textDisabled,
+    'editorLineNumber.activeForeground': THEME.text2
   }
 })
 

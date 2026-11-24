@@ -37,7 +37,7 @@ export function NewProjectDialog({ onClose, initialTemplate }: { onClose: () => 
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn green" onClick={() => void create()} disabled={!valid || !parent || busy}>
+          <button className="btn primary" onClick={() => void create()} disabled={!valid || !parent || busy}>
             Create
           </button>
         </>
@@ -50,26 +50,31 @@ export function NewProjectDialog({ onClose, initialTemplate }: { onClose: () => 
             <div
               key={t.id}
               className={`template-item${template === t.id ? ' selected' : ''}`}
+              role="radio"
+              aria-checked={template === t.id}
               onClick={() => {
                 setTemplate(t.id)
                 if (['hello', 'token', 'contract'].includes(name)) setName(t.id === 'empty' ? 'contract' : t.id)
               }}
             >
-              <div className="t-name">{t.label}</div>
-              <div className="t-desc">{t.description}</div>
+              <span className="radio-mark" />
+              <div>
+                <div className="t-name">{t.label}</div>
+                <div className="t-desc">{t.description}</div>
+              </div>
             </div>
           ))}
         </div>
       </div>
       <div className="field">
         <label>Name (also the contract name)</label>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value.toLowerCase())} autoFocus />
+        <input className="input mono" value={name} onChange={(e) => setName(e.target.value.toLowerCase())} autoFocus />
         <div className="hint">1-12 characters: a-z, 1-5 and dots.</div>
       </div>
       <div className="field">
         <label>Location</label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input className="input" value={parent} onChange={(e) => setParent(e.target.value)} />
+        <div className="field-row">
+          <input className="input mono" value={parent} onChange={(e) => setParent(e.target.value)} />
           <button
             className="btn"
             onClick={async () => {

@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import type { InspectedTransaction, ResourceKind, ResourceProblem, TraceNode } from '../../../shared/trace-types'
 import { Modal } from './Modal'
+import { IconChevronDown, IconChevronRight } from './Icons'
 
 const NOT_RETURNED = 'not returned by this endpoint'
 
@@ -14,7 +15,7 @@ function Node({ node, depth }: { node: TraceNode; depth: number }): React.JSX.El
   return (
     <div className={`tr-node${node.error ? ' failed' : ''}`} style={{ marginLeft: depth ? 18 : 0 }}>
       <div className="tr-head" onClick={() => setOpen((o) => !o)}>
-        <span className="tr-twisty">{open ? '▾' : '▸'}</span>
+        <span className="tr-twisty">{open ? <IconChevronDown /> : <IconChevronRight />}</span>
         <span className="badge-pair">
           <span>{node.account}</span>
           <span>{node.name}</span>
@@ -37,7 +38,7 @@ function Node({ node, depth }: { node: TraceNode; depth: number }): React.JSX.El
           <div className="tr-label">
             Input{' '}
             {node.hex && (
-              <button className="btn ghost" style={{ padding: '0 6px' }} onClick={() => setHex((h) => !h)}>
+              <button className="btn subtle sm" onClick={() => setHex((h) => !h)}>
                 {hex ? 'decoded' : 'raw hex'}
               </button>
             )}
@@ -80,7 +81,7 @@ function fmtBytes(b: number): string {
 /** CPU / NET / RAM of the first authorizer after a resource refusal. */
 function ResourceState({ r, endpoint }: { r: ResourceProblem; endpoint: string }): React.JSX.Element {
   const st = r.state
-  const mark = (k: ResourceKind): React.CSSProperties => (k === r.kind ? { color: 'var(--red)', fontWeight: 600 } : {})
+  const mark = (k: ResourceKind): React.CSSProperties => (k === r.kind ? { color: 'var(--red-text)', fontWeight: 600 } : {})
   return (
     <div style={{ margin: '8px 0' }}>
       <div className="tr-label">
@@ -128,7 +129,7 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
       {t.resource && <ResourceState r={t.resource} endpoint={t.endpoint} />}
       {t.errorStack && (
         <>
-          <button className="btn ghost" onClick={() => setStack((v) => !v)}>
+          <button className="btn subtle" onClick={() => setStack((v) => !v)}>
             {stack ? 'Hide' : 'Show'} full error
           </button>
           {stack && <pre className="c-json">{t.errorStack}</pre>}
@@ -157,7 +158,7 @@ export function InspectorDialog({ t, onClose }: { t: InspectedTransaction; onClo
       wide
       onClose={onClose}
       footer={
-        <button className="btn purple" onClick={onClose}>
+        <button className="btn" onClick={onClose}>
           Close
         </button>
       }

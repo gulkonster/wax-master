@@ -4,6 +4,7 @@ import { useApp } from '../state'
 import { errorText } from '../lib/toast'
 import { toolchainStore } from '../lib/stores'
 import { ToolchainManager } from '../components/ToolchainManager'
+import { IconCheck } from '../components/Icons'
 
 type RowState = 'ok' | 'bad' | 'busy' | 'waiting'
 
@@ -103,6 +104,9 @@ export function Setup(): React.JSX.Element {
   }
 
   const s = status
+  // The action of the first step that is not done is the primary button.
+  const firstOpen = !s ? '' : !s.windows.ok ? 'Windows' : !s.wsl.ok ? 'WSL' : !s.toolchain.ok ? 'Toolchain' : !s.testBuild.ok ? 'Test build' : ''
+  const kind = (row: string): string => (row === firstOpen ? 'btn primary' : 'btn')
   const rows: { name: string; desc: string; state: RowState; action?: React.ReactNode }[] = s
     ? [
         {
@@ -117,13 +121,13 @@ export function Setup(): React.JSX.Element {
             : 'Windows Subsystem for Linux runs the compiler. Windows will ask for administrator permission once, download WSL (internet needed), then needs a restart.',
           state: busy === 'wsl' ? 'busy' : s.wsl.ok ? 'ok' : 'bad',
           action: !s.wsl.ok && (
-            <div style={{ display: 'flex', gap: 6 }}>
+            <div className="setup-actions">
               {restartNeeded ? (
-                <button className="btn green" onClick={() => void window.wax.toolchain.restartComputer()}>
+                <button className={kind('WSL')} onClick={() => void window.wax.toolchain.restartComputer()}>
                   Restart now
                 </button>
               ) : (
-                <button className="btn green" disabled={!!busy || !s.windows.ok} onClick={() => void enableWsl(false)}>
+                <button className={kind('WSL')} disabled={!!busy || !s.windows.ok} onClick={() => void enableWsl(false)}>
                   Enable WSL
                 </button>
               )}
@@ -139,8 +143,8 @@ export function Setup(): React.JSX.Element {
               : `${s.toolchain.detail} Installs WAX CDT and the editor engine into a private WSL distribution. No download, no administrator rights; one to two minutes.`,
           state: busy === 'install' ? 'busy' : s.toolchain.ok ? 'ok' : s.wsl.ok ? 'bad' : 'waiting',
           action: s.wsl.ok && s.partsAvailable && (
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn green" disabled={!!busy} onClick={() => void install(2)}>
+            <div className="setup-actions">
+              <button className={kind('Toolchain')} disabled={!!busy} onClick={() => void install(2)}>
                 {s.toolchain.state ? 'Repair toolchain' : 'Install toolchain'}
               </button>
               {!s.toolchain.ok && (
@@ -161,7 +165,7 @@ export function Setup(): React.JSX.Element {
           desc: s.testBuild.ok ? s.testBuild.detail : 'Builds the sample contract and checks that the editor engine answers.',
           state: busy === 'test' ? 'busy' : s.testBuild.ok ? 'ok' : s.toolchain.ok ? 'bad' : 'waiting',
           action: s.toolchain.ok && (
-            <button className="btn green" disabled={!!busy} onClick={() => void test()}>
+            <button className={kind('Test build')} disabled={!!busy} onClick={() => void test()}>
               Run test build
             </button>
           )
@@ -173,25 +177,25 @@ export function Setup(): React.JSX.Element {
 
   return (
     <div className="page-scroll">
-      <div className="form-page" style={{ maxWidth: 900 }}>
+      <div className="form-page wide">
         <h1>Setup</h1>
-        <p style={{ color: 'var(--text-dim)', fontSize: 15 }}>
+        <p className="lead">
           WAX Master builds contracts with WAX CDT inside a private Linux environment (WSL). These steps prepare it once.
         </p>
         {!s && <div className="hint">Checking...</div>}
-        <div className="setup-rows">
+        <div className="setup-rows card">
           {rows.map((r) => (
             <div key={r.name} className="setup-row">
-              <div className={`setup-icon ${r.state}`}>{r.state === 'ok' ? '✓' : r.state === 'busy' ? '…' : r.state === 'bad' ? '!' : '·'}</div>
+              <div className={`setup-icon ${r.state}`}>{r.state === 'ok' ? <IconCheck size={14} /> : r.state === 'busy' ? '…' : r.state === 'bad' ? '!' : ''}</div>
               <div className="setup-text">
                 <div className="setup-name">{r.name}</div>
                 <div className="setup-desc">{r.desc}</div>
               </div>
-              <div>{r.action}</div>
+              {r.action && <div className="setup-actions">{r.action}</div>}
             </div>
           ))}
         </div>
-        {notice && <div className="hint" style={{ fontSize: 14, color: 'var(--text)' }}>{notice} After the restart, open WAX Master again; setup continues here.</div>}
+        {notice && <div className="banner">{notice} After the restart, open WAX Master again; setup continues here.</div>}
         {error && <div className="error-text">{error}</div>}
         {log.length > 0 && (
           <div className="setup-log" ref={logRef}>
@@ -200,14 +204,14 @@ export function Setup(): React.JSX.Element {
             ))}
           </div>
         )}
-        <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+        <div className="button-row">
           {allOk ? (
-            <button className="btn purple big" onClick={() => actions.setView('home')}>
+            <button className="btn primary" onClick={() => actions.setView('home')}>
               Done
             </button>
           ) : (
             <button
-              className="btn big"
+              className="btn"
               disabled={!!busy}
               onClick={() => {
                 void actions.updateSettings({ setupDismissed: true })
@@ -217,7 +221,7 @@ export function Setup(): React.JSX.Element {
               Skip
             </button>
           )}
-          <button className="btn ghost" disabled={!!busy} onClick={() => void refresh()}>
+          <button className="btn" disabled={!!busy} onClick={() => void refresh()}>
             Check again
           </button>
         </div>

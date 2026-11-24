@@ -70,7 +70,7 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
                 Request test tokens
               </button>
               <button
-                className="btn green"
+                className="btn primary"
                 onClick={() => {
                   emit('open-account-page', created)
                   onClose()
@@ -84,7 +84,7 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
               <button className="btn" disabled={busy || !onTestnet || !/^[a-z1-5.]{1,12}$/.test(name)} onClick={() => void tokens(name)}>
                 Request tokens for this existing account
               </button>
-              <button className="btn green" disabled={busy || !onTestnet || !vault.unlocked || !/^[a-z1-5]{12}$/.test(name)} onClick={() => void create()}>
+              <button className="btn primary" disabled={busy || !onTestnet || !vault.unlocked || !/^[a-z1-5]{12}$/.test(name)} onClick={() => void create()}>
                 {busy ? 'Asking the faucet...' : 'Create account'}
               </button>
             </>
@@ -97,7 +97,7 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
       {!created && (
         <div className="field">
           <label>Account name (12 characters: a-z and 1-5)</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value.trim().toLowerCase())} />
+          <input className="input mono" value={name} onChange={(e) => setName(e.target.value.trim().toLowerCase())} />
         </div>
       )}
       {created && (
@@ -105,13 +105,13 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
           <b>{created}</b> was created on WAX Testnet; its owner and active keys are in your vault.
         </p>
       )}
-      <p className="hint" style={{ fontSize: 13 }}>
+      <p className="hint" style={{ fontSize: 13, lineHeight: '20px' }}>
         These keys were created by the faucet service, which has seen them. Use this account for testing only. You can replace both keys
         with new vault keys on the Account page (Change key).
       </p>
       {message && <div className={failed ? 'error-text' : 'hint'} style={{ fontSize: 13 }}>{message}</div>}
       {failed && (
-        <div className="hint" style={{ fontSize: 13 }}>
+        <div className="hint" style={{ fontSize: 13, lineHeight: '20px' }}>
           The faucet ({FAUCET}/create_account and {FAUCET}/get_token) did not create the account. An existing testnet account can create one
           with Accounts &gt; Create Account.
         </div>

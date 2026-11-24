@@ -5,7 +5,7 @@ import { networkStore, toggleStar } from '../lib/networks'
 import { useStore } from '../lib/stores'
 import { errorText } from '../lib/toast'
 import { lastOpened } from '../components/ChainButtons'
-import { IconClose, IconContract, IconKey, IconPlus, IconRefresh, IconStar, IconUser } from '../components/Icons'
+import { IconClose, IconContract, IconKey, IconLock, IconPlus, IconRefresh, IconStar, IconUser } from '../components/Icons'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
@@ -95,7 +95,7 @@ export function AccountPage(): React.JSX.Element {
             onChange={(e) => setInput(e.target.value.trim().toLowerCase())}
             onKeyDown={(e) => e.key === 'Enter' && open(input)}
           />
-          <button className={`icon-btn${starred ? ' on' : ''}`} disabled={!active} title={starred ? 'Unstar' : 'Star'} onClick={() => active && void toggleStar(active)}>
+          <button className={`icon-btn small${starred ? " on" : ""}`} disabled={!active} title={starred ? 'Unstar' : 'Star'} onClick={() => active && void toggleStar(active)}>
             <IconStar filled={starred} />
           </button>
         </div>
@@ -178,7 +178,7 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
     [name, load, loadRows]
   )
 
-  if (error) return <div className="page-scroll"><div className="error-text" style={{ padding: 20 }}>{error}</div></div>
+  if (error) return <div className="page-scroll"><div className="error-text" style={{ margin: 16 }}>{error}</div></div>
   if (!view) return <div className="coming">Loading {name}...</div>
 
   return (
@@ -186,36 +186,47 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
       <div className="account-columns">
         <section>
           <h3>Account</h3>
-          <div className="kv-row"><span>Total Balance</span><span className="badge green">{view.total}</span></div>
-          <div className="kv-row"><span>Available</span><span className="badge">{view.liquid}</span></div>
-          <div className="kv-row"><span>Staked</span><span className="badge">{view.staked}</span></div>
-          <div className="kv-row"><span>Refund</span><span className="badge">{view.refund}</span></div>
+          <div className="card-list">
+            <div className="kv-row"><span>Total Balance</span><span className="num total">{view.total}</span></div>
+            <div className="kv-row"><span>Available</span><span className="num">{view.liquid}</span></div>
+            <div className="kv-row"><span>Staked</span><span className="num">{view.staked}</span></div>
+            <div className="kv-row"><span>Refund</span><span className="num">{view.refund}</span></div>
+          </div>
         </section>
         <section>
           <h3>Resources</h3>
-          <Resource label="RAM" text={`${fmtBytes(view.ram.usage)} / ${fmtBytes(view.ram.quota)}`} value={pct(view.ram.usage, view.ram.quota)} color="var(--amber)" />
-          <Resource label={`CPU (${view.cpuWeight})`} text={`${fmtUs(view.cpu.used)} / ${fmtUs(view.cpu.max)}`} value={pct(view.cpu.used, view.cpu.max)} color="var(--accent-2)" />
-          <Resource label={`NET (${view.netWeight})`} text={`${fmtBytes(view.net.used)} / ${fmtBytes(view.net.max)}`} value={pct(view.net.used, view.net.max)} color="#2bb3c9" />
+          <div className="card-list">
+            <Resource label="RAM" text={`${fmtBytes(view.ram.usage)} / ${fmtBytes(view.ram.quota)}`} value={pct(view.ram.usage, view.ram.quota)} />
+            <Resource label={`CPU (${view.cpuWeight})`} text={`${fmtUs(view.cpu.used)} / ${fmtUs(view.cpu.max)}`} value={pct(view.cpu.used, view.cpu.max)} />
+            <Resource label={`NET (${view.netWeight})`} text={`${fmtBytes(view.net.used)} / ${fmtBytes(view.net.max)}`} value={pct(view.net.used, view.net.max)} />
+          </div>
         </section>
         <section>
           <h3>Permission Keys</h3>
+          <div className="card-list">
           {view.permissions.map((p) => (
             <div key={p.name} className="perm-row">
               <div className="perm-head">
                 <span className={`badge perm-${p.name === 'owner' ? 'owner' : p.name === 'active' ? 'active' : 'other'}`}>{p.name}</span>
-                <span className="badge" title="Threshold">🔒 {p.threshold}</span>
-                {p.parent && <span className="hint" style={{ margin: 0 }}>parent: {p.parent}</span>}
+                <span className="badge" title="Threshold">
+                  <IconLock size={12} /> {p.threshold}
+                </span>
+                {p.parent && <span className="parent">parent: {p.parent}</span>}
               </div>
               <div className="perm-auths">
                 {p.keys.map((k) => (
                   <div key={k.key} className="mono-small">
-                    {vaultKeys.includes(k.k1) && <span className="badge green" title="This key is in your vault">🔑 vault</span>}{' '}
+                    {vaultKeys.includes(k.k1) && (
+                      <span className="badge green" title="This key is in your vault">
+                        <IconKey size={12} /> vault
+                      </span>
+                    )}{' '}
                     <span className="badge" title="Weight">{k.weight}</span> {k.key}
                   </div>
                 ))}
                 {p.keys.some((k) => vaultKeys.includes(k.k1)) && (
                   <button
-                    className="btn ghost"
+                    className="btn subtle"
                     onClick={() => {
                       // The permission itself, then its parents (it may sign with any of them).
                       const signOptions = [p.name]
@@ -250,6 +261,7 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
               </div>
             </div>
           ))}
+          </div>
         </section>
       </div>
       <div className="tx-section">
@@ -262,7 +274,7 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
         {historyNote ? (
           <div className="hint">{historyNote}</div>
         ) : (
-          <table className="tx-table">
+          <table className="tx-table clickable">
             <thead>
               <tr>
                 <th>TIME</th>
@@ -273,7 +285,7 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
             <tbody>
               {rows.map((r, i) => (
                 <tr key={`${r.trxId}-${i}`} title={r.trxId} onClick={() => emit('open-transaction', r.trxId)}>
-                  <td className="nowrap">{fmtTime(r.time)}</td>
+                  <td className="time">{fmtTime(r.time)}</td>
                   <td className="nowrap">
                     <span className="badge-pair"><span>{r.contract}</span><span>{r.action}</span></span>
                   </td>
@@ -285,7 +297,7 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
         )}
         {!historyNote && rows.length === 0 && !loadingRows && <div className="hint">No transactions found.</div>}
         {more && (
-          <button className="btn" disabled={loadingRows} onClick={() => void loadRows(rows.length)}>
+          <button className="btn load-more" disabled={loadingRows} onClick={() => void loadRows(rows.length)}>
             {loadingRows ? 'Loading...' : 'Load more'}
           </button>
         )}
@@ -294,14 +306,16 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
   )
 }
 
-function Resource({ label, text, value, color }: { label: string; text: string; value: number; color: string }): React.JSX.Element {
+function Resource({ label, text, value }: { label: string; text: string; value: number }): React.JSX.Element {
+  // Blue while there is room, yellow from 75 %, red from 90 %.
+  const level = value >= 90 ? ' high' : value >= 75 ? ' warn' : ''
   return (
     <div className="res-row">
-      <div className="kv-row" style={{ background: 'none', padding: 0 }}>
+      <div className="res-head">
         <span>{label}</span>
-        <span className="badge">{text}</span>
+        <span className="res-value">{text}</span>
       </div>
-      <div className="res-bar"><div style={{ width: `${value}%`, background: color }} /></div>
+      <div className="res-bar"><div className={level.trim() || undefined} style={{ width: `${value}%` }} /></div>
     </div>
   )
 }

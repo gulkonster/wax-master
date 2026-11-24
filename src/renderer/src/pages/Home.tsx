@@ -20,23 +20,22 @@ export function Home(): React.JSX.Element {
   return (
     <div className="page-scroll">
       <div className="home">
-        <div className="home-bar">
-          <div className="tabs">
-            <button className={`tab-btn${tab === 'local' ? ' active' : ''}`} onClick={() => setTab('local')}>
-              <IconList /> Local
-            </button>
-            <button className={`tab-btn${tab === 'starred' ? ' active' : ''}`} onClick={() => setTab('starred')}>
-              <IconStar /> Starred
-            </button>
-          </div>
-          <div className="btn-group">
-            <button className="btn green big" onClick={() => actions.newProject()}>
-              <IconPlus /> New
-            </button>
-            <button className="btn green big" onClick={() => void actions.openProjectDialog()}>
-              <IconFolderOpen /> Open
-            </button>
-          </div>
+        <div className="page-head">
+          <h1>Projects</h1>
+          <button className="btn primary" onClick={() => actions.newProject()}>
+            <IconPlus /> New
+          </button>
+          <button className="btn" onClick={() => void actions.openProjectDialog()}>
+            <IconFolderOpen /> Open
+          </button>
+        </div>
+        <div className="utabs" role="tablist">
+          <button role="tab" aria-selected={tab === 'local'} className={`utab${tab === 'local' ? ' active' : ''}`} onClick={() => setTab('local')}>
+            <IconList /> Local
+          </button>
+          <button role="tab" aria-selected={tab === 'starred'} className={`utab${tab === 'starred' ? ' active' : ''}`} onClick={() => setTab('starred')}>
+            <IconStar /> Starred
+          </button>
         </div>
         {list.length === 0 && (
           <div className="empty-note">
@@ -49,9 +48,10 @@ export function Home(): React.JSX.Element {
           <div key={p.path} className="project-row" onClick={() => void actions.openProjectPath(p.path)}>
             <div className="info">
               <div className="name">{p.name}</div>
-              <span className="chip">
-                <IconFolder /> {p.path}
-              </span>
+              <div className="path-line" title={p.path}>
+                <IconFolder />
+                <span>{p.path}</span>
+              </div>
             </div>
             <div className="row-actions" onClick={(e) => e.stopPropagation()}>
               <button className={`icon-btn${p.starred ? ' on' : ''}`} title={p.starred ? 'Unstar' : 'Star'} onClick={() => void star(p)}>

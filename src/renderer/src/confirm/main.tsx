@@ -200,7 +200,7 @@ function Confirm(): React.JSX.Element {
             {showHex && <pre className="c-json">{act.hex}</pre>}
           </div>
         ))}
-        <button className="btn ghost" onClick={() => setShowHex((v) => !v)}>
+        <button className="btn subtle" onClick={() => setShowHex((v) => !v)}>
           {showHex ? 'Hide' : 'Show'} packed data
         </button>
         <Row label="Transaction id" mono>{a.transactionId}</Row>
@@ -230,7 +230,7 @@ function Confirm(): React.JSX.Element {
             <button className="btn" disabled={state === 'sending'} onClick={() => void window.confirmation.cancel(a.id)}>
               Cancel
             </button>
-            <button className={`btn ${mainnet ? 'red' : 'green'}`} disabled={!canApprove} onClick={() => void approve()}>
+            <button className={`btn ${mainnet ? 'danger' : 'success'}`} disabled={!canApprove} onClick={() => void approve()}>
               {state === 'sending'
                 ? 'Signing and sending...'
                 : !armed && !expired && !a.blocked
@@ -329,7 +329,7 @@ function Reveal(): React.JSX.Element {
         <button className="btn" disabled={!pw} onClick={() => void copy()}>
           Copy
         </button>
-        <button className="btn red" disabled={!pw} onClick={() => void show()}>
+        <button className="btn danger" disabled={!pw} onClick={() => void show()}>
           Show for 30 seconds
         </button>
       </div>

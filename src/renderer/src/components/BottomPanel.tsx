@@ -3,7 +3,7 @@ import type { Problem } from '../../../shared/api'
 import { useApp, type PanelTab } from '../state'
 import { emit } from '../lib/bus'
 import { appendOutput, clearOutput, outputStore, problemsStore, useStore } from '../lib/stores'
-import { IconClose, IconError, IconWarning } from './Icons'
+import { IconClose, IconError, IconInfo, IconWarning } from './Icons'
 
 const TABS: { id: PanelTab; label: string }[] = [
   { id: 'terminal', label: 'Terminal' },
@@ -17,6 +17,7 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
   const { state, actions } = useApp()
   const [height, setHeight] = useState(240)
   const drag = useRef<{ y: number; h: number } | null>(null)
+  const [dragging, setDragging] = useState(false)
   const output = useStore(outputStore)
   const problems = useStore(problemsStore)
   const bodyRef = useRef<HTMLDivElement | null>(null)
@@ -29,6 +30,7 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
 
   const onMouseDown = (e: React.MouseEvent): void => {
     drag.current = { y: e.clientY, h: height }
+    setDragging(true)
     const move = (ev: MouseEvent): void => {
       if (!drag.current) return
       const h = drag.current.h + (drag.current.y - ev.clientY)
@@ -36,6 +38,7 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
     }
     const up = (): void => {
       drag.current = null
+      setDragging(false)
       window.removeEventListener('mousemove', move)
       window.removeEventListener('mouseup', up)
       emit('layout')
@@ -55,21 +58,23 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
 
   return (
     <div className="panel" style={{ height, display: state.panelOpen ? 'flex' : 'none' }}>
-      <div className="panel-resize" onMouseDown={onMouseDown} />
+      <div className={`panel-resize${dragging ? ' dragging' : ''}`} onMouseDown={onMouseDown} />
       <div className="panel-tabs">
         {TABS.map((t) => (
-          <div
+          <button
             key={t.id}
+            role="tab"
+            aria-selected={state.panelTab === t.id}
             className={`panel-tab${state.panelTab === t.id ? ' active' : ''}`}
             onClick={() => actions.showPanel(t.id)}
           >
             {t.label}
             {t.id === 'problems' && problems.length > 0 && ` (${problems.length})`}
-          </div>
+          </button>
         ))}
         <div className="spacer" />
         {state.panelTab === 'output' && (
-          <button className="btn ghost" onClick={() => clearOutput()}>
+          <button className="btn subtle sm" onClick={() => clearOutput()}>
             Clear
           </button>
         )}
@@ -95,20 +100,20 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
               })}
             </pre>
           ) : (
-            <div style={{ color: 'var(--text-dim)' }}>No output yet.</div>
+            <div className="panel-note">No output yet.</div>
           ))}
         {state.panelTab === 'problems' &&
           (problems.length === 0 ? (
-            <div style={{ color: 'var(--text-dim)', fontFamily: 'var(--ui)' }}>No problems have been detected.</div>
+            <div className="panel-note">No problems have been detected.</div>
           ) : (
             <>
-              <div style={{ color: 'var(--text-dim)', fontFamily: 'var(--ui)', marginBottom: 4 }}>
+              <div className="panel-note" style={{ marginBottom: 4 }}>
                 {errors} error(s), {warnings} warning(s)
               </div>
               {problems.map((p, i) => (
                 <div key={i} className="problem-row" onClick={() => reveal(p)}>
                   <span className={`sev-${p.severity}`}>
-                    {p.severity === 'error' ? <IconError size={13} /> : p.severity === 'warning' ? <IconWarning size={13} /> : 'i'}
+                    {p.severity === 'error' ? <IconError size={14} /> : p.severity === 'warning' ? <IconWarning size={14} /> : <IconInfo size={14} />}
                   </span>
                   <span style={{ userSelect: 'text' }}>{p.message}</span>
                   <span className="loc">
@@ -120,7 +125,7 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
           ))}
       </div>
       <div style={{ flex: 1, minHeight: 0, display: state.panelTab === 'terminal' ? 'flex' : 'none' }}>
-        {terminal ?? <div className="panel-body" style={{ color: 'var(--text-dim)' }}>The terminal arrives in a later build.</div>}
+        {terminal ?? <div className="panel-body panel-note">The terminal arrives in a later build.</div>}
       </div>
     </div>
   )

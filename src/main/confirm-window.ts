@@ -122,7 +122,7 @@ export function openConfirmation(parent: BrowserWindow | null, record: ApprovalR
       minHeight: 500,
       show: false,
       title: record.network.kind === 'mainnet' ? `Confirm on ${record.network.name}` : 'Confirm transaction',
-      backgroundColor: '#1e1f21',
+      backgroundColor: '#1F1F1F',
       autoHideMenuBar: true,
       webPreferences: secureWebPreferences(join(__dirname, '../preload/confirm.js'))
     })

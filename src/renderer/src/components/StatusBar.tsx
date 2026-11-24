@@ -7,7 +7,7 @@ import { vaultStore } from '../lib/vault'
 import { emit } from '../lib/bus'
 import { restartEditorEngine } from '../lib/lsp/engine'
 import { useEngineView } from '../lib/lsp/status'
-import { IconError, IconHammer, IconKey, IconTerminal, IconWarning } from './Icons'
+import { IconCheck, IconError, IconHammer, IconKey, IconLock, IconTerminal, IconWarning } from './Icons'
 
 export function StatusBar(): React.JSX.Element {
   const { state, actions } = useApp()
@@ -20,16 +20,16 @@ export function StatusBar(): React.JSX.Element {
   const engine = useEngineView()
   return (
     <div className="statusbar">
-      <button
-        className={`sb-item sb-key${vault.unlocked ? '' : ' locked'}`}
-        title={vault.unlocked ? 'Vault unlocked: click to lock' : 'Key vault: click to open Manage Keypairs'}
-        onClick={() => (vault.unlocked ? void window.wax.keys.lock() : emit('open-keys', null))}
-      >
+      <button className={`sb-item${vault.unlocked ? ' ok' : ''}`} title="Key vault: click to open Manage Keypairs" onClick={() => emit('open-keys', null)}>
         <IconKey size={14} />
-      </button>
-      <button className="sb-item" style={{ color: 'var(--text-dim)' }} onClick={() => emit('open-keys', null)}>
         {!vault.exists ? 'Vault not set up' : vault.unlocked ? `Vault unlocked (${vault.keys} ${vault.keys === 1 ? 'key' : 'keys'})` : 'Vault locked'}
       </button>
+      {vault.unlocked && (
+        <button className="sb-item" title="Vault unlocked: click to lock" onClick={() => void window.wax.keys.lock()}>
+          <IconLock size={14} />
+          Lock
+        </button>
+      )}
       <div className="spacer" />
       <button
         className={`sb-item${net?.kind === 'mainnet' ? ' mainnet' : ''}`}
@@ -55,7 +55,12 @@ export function StatusBar(): React.JSX.Element {
         </div>
       )}
       <button className="sb-item" onClick={() => actions.showPanel('problems')} title="Problems">
-        <IconError size={12} /> {errors} <IconWarning size={12} /> {warnings}
+        <span className={errors > 0 ? 'err' : undefined}>
+          <IconError size={14} /> {errors}
+        </span>
+        <span className={warnings > 0 ? 'warn' : undefined}>
+          <IconWarning size={14} /> {warnings}
+        </span>
       </button>
       <button className="sb-item" onClick={() => actions.togglePanel()} title="Toggle panel">
         <IconTerminal size={14} />
@@ -90,25 +95,26 @@ function ToolchainPicker({ ready, label }: { ready: boolean; label: string }): R
   if (!ready) {
     return (
       <button className="sb-item" title="Open Setup" onClick={() => actions.setView('setup')}>
-        <IconHammer size={12} /> {label}
+        <IconHammer size={14} /> {label}
       </button>
     )
   }
   return (
-    <div style={{ position: 'relative', height: '100%' }}>
+    <div className="sb-picker">
       <button className="sb-item" title="Toolchain of the current project" onClick={() => setOpen((o) => !o)}>
-        <IconHammer size={12} /> {project ? (current?.label ?? label) : label}
+        <IconHammer size={14} /> {project ? (current?.label ?? label) : label}
       </button>
       {open && (
-        <div className="dropdown right" style={{ top: 'auto', bottom: '100%' }} onMouseLeave={() => setOpen(false)}>
-          <div className="dd-section" style={{ borderTop: 'none', marginTop: 0 }}>LOCAL TOOLCHAINS</div>
+        <div className="dropdown right" onMouseLeave={() => setOpen(false)}>
+          <div className="dd-section">LOCAL TOOLCHAINS</div>
           {list.map((t) => (
             <div key={t.id} className={`dd-item${t.id === chosen ? ' selected' : ''}`} onClick={() => void pick(t.id)}>
-              {t.label}
+              <span className="dd-lead">{t.id === chosen && <IconCheck />}</span>
+              <span className="dd-label">{t.label}</span>
             </div>
           ))}
           {!project && <div className="dd-note">Open a project to choose its toolchain</div>}
-          <div className="dd-section" />
+          <div className="dd-sep" />
           <div
             className="dd-item"
             onClick={() => {
@@ -116,6 +122,7 @@ function ToolchainPicker({ ready, label }: { ready: boolean; label: string }): R
               actions.setView('setup')
             }}
           >
+            <span className="dd-lead" />
             Manage toolchains...
           </div>
         </div>

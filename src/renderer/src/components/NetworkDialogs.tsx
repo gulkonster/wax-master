@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { NetworkInfo, NetworkKind } from '../../../shared/chain-types'
 import { Modal } from './Modal'
+import { IconArrowDown, IconArrowUp } from './Icons'
 import { errorText, toast } from '../lib/toast'
 import { networkStore, refreshNetworks, selectNetwork } from '../lib/networks'
 import { useStore } from '../lib/stores'
@@ -107,11 +108,11 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
             Cancel
           </button>
           {probe ? (
-            <button className="btn purple" disabled={busy || !name.trim() || !/^[A-Z]{1,7}$/.test(symbol)} onClick={() => void save()}>
+            <button className="btn primary" disabled={busy || !name.trim() || !/^[A-Z]{1,7}$/.test(symbol)} onClick={() => void save()}>
               Save and switch
             </button>
           ) : (
-            <button className="btn purple" disabled={busy || !url.trim()} onClick={() => void connect()}>
+            <button className="btn primary" disabled={busy || !url.trim()} onClick={() => void connect()}>
               {busy ? 'Connecting...' : 'Connect'}
             </button>
           )}
@@ -120,7 +121,7 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
     >
       <div className="field">
         <label>API Endpoint</label>
-        <input className="input" autoFocus value={url} disabled={!!probe} placeholder="https://..." onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !probe && void connect()} />
+        <input className="input mono" autoFocus value={url} disabled={!!probe} placeholder="https://..." onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !probe && void connect()} />
       </div>
       {probe && (
         <>
@@ -146,7 +147,7 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
           </div>
           <div className="field">
             <label>History service (optional, Hyperion)</label>
-            <input className="input" value={historyUrl} placeholder="https://..." onChange={(e) => setHistoryUrl(e.target.value)} />
+            <input className="input mono" value={historyUrl} placeholder="https://..." onChange={(e) => setHistoryUrl(e.target.value)} />
           </div>
         </>
       )}
@@ -164,7 +165,7 @@ export function ManageNetworksDialog({ onClose }: { onClose: () => void }): Reac
       wide
       onClose={onClose}
       footer={
-        <button className="btn purple" onClick={onClose}>
+        <button className="btn" onClick={onClose}>
           Close
         </button>
       }
@@ -173,13 +174,13 @@ export function ManageNetworksDialog({ onClose }: { onClose: () => void }): Reac
         <div key={n.id} className="net-row">
           <div style={{ flex: 1, minWidth: 0 }}>
             <div>
-              <b className={n.kind === 'mainnet' ? 'mainnet-text' : undefined}>{n.name}</b> <span className="badge">{n.kind}</span>{' '}
+              <b className={n.kind === 'mainnet' ? 'mainnet-text' : undefined}>{n.name}</b> <span className={`badge${n.kind === 'mainnet' ? ' red' : ''}`}>{n.kind}</span>{' '}
               {net.current?.id === n.id && <span className="badge green">current</span>}
             </div>
-            <div className="hint" style={{ marginTop: 2 }}>
+            <div className="endpoints">
               {n.endpoints.map((ep, i) => (
-                <span key={ep} style={{ marginRight: 10 }}>
-                  <label style={{ cursor: 'pointer' }}>
+                <span key={ep}>
+                  <label>
                     <input
                       type="radio"
                       checked={i === n.currentEndpoint}
@@ -192,10 +193,10 @@ export function ManageNetworksDialog({ onClose }: { onClose: () => void }): Reac
                   </label>
                 </span>
               ))}
-              {n.history ? <div>History: {n.history}</div> : <div>No history service</div>}
+              <div style={{ flexBasis: '100%' }}>{n.history ? `History: ${n.history}` : 'No history service'}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
             {net.current?.id !== n.id && (
               <button className="btn" onClick={() => void selectNetwork(n.id)}>
                 Use
@@ -259,7 +260,7 @@ function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; onClose
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn purple" onClick={() => void save()}>
+          <button className="btn primary" onClick={() => void save()}>
             Save
           </button>
         </>
@@ -272,7 +273,7 @@ function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; onClose
       <KindField kind={kind} setKind={setKind} note={network.kindNote} localAllowed={endpoints.split(/\s+/).filter(Boolean).every(isLocalUrl)} />
       <div className="field">
         <label>Endpoints (one per line; same chain id)</label>
-        <textarea className="textarea" value={endpoints} onChange={(e) => setEndpoints(e.target.value)} />
+        <textarea className="textarea mono" value={endpoints} onChange={(e) => setEndpoints(e.target.value)} />
       </div>
       <div className="field">
         <label>History service</label>
@@ -303,15 +304,15 @@ export function StarredManager({ onClose }: { onClose: () => void }): React.JSX.
       title={`Starred accounts on ${net.current?.name ?? ''}`}
       onClose={onClose}
       footer={
-        <button className="btn purple" onClick={onClose}>
+        <button className="btn" onClick={onClose}>
           Close
         </button>
       }
     >
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <input className="input" placeholder="account name" value={add} onChange={(e) => setAdd(e.target.value.trim().toLowerCase())} />
+        <input className="input mono" placeholder="account name" value={add} onChange={(e) => setAdd(e.target.value.trim().toLowerCase())} />
         <button
-          className="btn green"
+          className="btn"
           disabled={!/^[a-z1-5.]{1,12}[a-j1-5]?$/.test(add)}
           onClick={() => {
             void set([...net.stars, add])
@@ -324,12 +325,12 @@ export function StarredManager({ onClose }: { onClose: () => void }): React.JSX.
       {net.stars.length === 0 && <div className="hint">No starred accounts on this network.</div>}
       {net.stars.map((s, i) => (
         <div key={s} className="net-row">
-          <span style={{ flex: 1, fontFamily: 'var(--mono)' }}>{s}</span>
+          <span className="mono" style={{ flex: 1 }}>{s}</span>
           <button className="icon-btn" title="Up" onClick={() => move(i, -1)}>
-            ▲
+            <IconArrowUp />
           </button>
           <button className="icon-btn" title="Down" onClick={() => move(i, 1)}>
-            ▼
+            <IconArrowDown />
           </button>
           <button className="btn" onClick={() => void set(net.stars.filter((x) => x !== s))}>
             Remove

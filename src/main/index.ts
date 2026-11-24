@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
 import { join } from 'node:path'
-import { buildMenu } from './menu'
+import { buildMenu, watchMenuKey } from './menu'
 import { hasBlockedSwitch } from './switches'
 import { registerIpc } from './ipc'
 import { guardWindow, registerCloseGuard } from './close-guard'
@@ -69,12 +69,16 @@ function createMainWindow(): void {
     minHeight: 600,
     show: false,
     title: 'WAX Master',
-    backgroundColor: '#1e1e1e',
+    backgroundColor: '#181818',
+    // Windows draws the caption buttons; the page draws icon, menus and title in the same 36 px row.
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#181818', symbolColor: '#E4E4E4', height: 36 },
     icon: iconPath(),
     webPreferences: secureWebPreferences(join(__dirname, '../preload/index.js'))
   })
   mainWindow.once('ready-to-show', () => mainWindow?.show())
   guardWindow(mainWindow)
+  watchMenuKey(mainWindow)
   mainWindow.webContents.on('did-fail-load', (_e, code, desc, url, isMain) =>
     log.error(`${isMain ? 'Page' : 'Frame'} failed to load: ${code} ${desc} ${url.split(/[?#]/)[0]}`)
   )

@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ContractAbiView, ContractField, ContractHistoryEntry } from '../../../shared/chain-types'
 import { errorText, toast } from '../lib/toast'
-import { IconChevronDown, IconRefresh, IconTable } from './Icons'
+import { IconCheck, IconChevronDown, IconTable } from './Icons'
 import { PickMenu, SavedMenus } from './ActionForm'
 
 const KEY_TYPES = ['i64', 'i128', 'i256', 'float64', 'float128', 'sha256', 'ripemd160', 'name']
@@ -170,7 +170,11 @@ export function TableView({ account, view }: { account: string; view: ContractAb
           disabled={view.tables.length === 0}
           button={
             <>
-              <IconTable /> {table || (view.tables.length ? 'Pick a table' : '(no tables)')} <IconChevronDown />
+              <span className="lead">
+                <IconTable />
+              </span>
+              <span className="name">{table || (view.tables.length ? 'Pick a table' : '(no tables)')}</span>
+              <IconChevronDown className="chev" />
             </>
           }
         >
@@ -184,14 +188,15 @@ export function TableView({ account, view }: { account: string; view: ContractAb
                   pickTable(t.name)
                 }}
               >
+                <span className="dd-lead">{t.name === table && <IconCheck />}</span>
                 {t.name}
                 <span className="dd-type">{t.type}</span>
               </div>
             ))
           }
         </PickMenu>
-        <button className="icon-btn" style={{ height: 34, width: 40 }} title="Refresh" disabled={!table || loading} onClick={() => void run(table, q, false)}>
-          <IconRefresh />
+        <button className="btn" disabled={!table || loading} onClick={() => void run(table, q, false)}>
+          Run query
         </button>
         <div className="spacer" />
         <SavedMenus
@@ -207,9 +212,6 @@ export function TableView({ account, view }: { account: string; view: ContractAb
       </div>
       <div className="section-head static">
         <span className="grow">Query</span>
-        <button className="pill on" disabled={!table || loading} onClick={() => void run(table, q, false)}>
-          Run query
-        </button>
       </div>
       <div className="query-grid">
         <div>
@@ -252,10 +254,10 @@ export function TableView({ account, view }: { account: string; view: ContractAb
       </div>
       <div className="section-head static">
         <span className="grow">Data Table</span>
-        {ran && <span className="hint" style={{ margin: 0 }}>{rows.length} row{rows.length === 1 ? '' : 's'}</span>}
+        {ran && <span className="count">{rows.length} row{rows.length === 1 ? '' : 's'}</span>}
       </div>
       <div className="data-scroll">
-        {error && <div className="error-text" style={{ padding: 14 }}>{error}</div>}
+        {error && <div className="error-text" style={{ margin: 12 }}>{error}</div>}
         {!table && !error && <div className="contract-note">Pick a table to see its rows.</div>}
         {table && loading && rows.length === 0 && <div className="contract-note">Loading...</div>}
         {ran && rows.length === 0 && !error && <div className="contract-note">No rows.</div>}
@@ -267,7 +269,7 @@ export function TableView({ account, view }: { account: string; view: ContractAb
                   <th>#</th>
                   {columns.map((c) => (
                     <th key={c.name}>
-                      {c.name.toUpperCase()}
+                      {c.name}
                       {c.type && <span className="htype">{c.type}</span>}
                     </th>
                   ))}

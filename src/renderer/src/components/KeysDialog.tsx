@@ -60,10 +60,10 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
       footer={
         <>
           <div className="left">
-            <button className="btn green" disabled={!vs.unlocked} onClick={() => setMode('create')}>
+            <button className="btn primary" disabled={!vs.unlocked} onClick={() => setMode('create')}>
               Create
             </button>
-            <button className="btn green" disabled={!vs.unlocked} onClick={() => setMode('import')}>
+            <button className="btn" disabled={!vs.unlocked} onClick={() => setMode('import')}>
               Import
             </button>
           </div>
@@ -73,7 +73,7 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
           <button className="btn" disabled={!vs.unlocked} onClick={() => setMode('import-vault')}>
             Import vault
           </button>
-          <button className="btn ghost" onClick={onClose}>
+          <button className="btn subtle" onClick={onClose}>
             Close
           </button>
         </>
@@ -91,7 +91,7 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
           <UnlockInline />
         )}
       </div>
-      <div className="hint" style={{ margin: '6px 0 12px' }}>
+      <div className="hint" style={{ margin: '8px 0 12px' }}>
         Keep the owner keys of valuable accounts out of this app; use a dedicated permission for deploying and daily actions.
       </div>
       {filterAccount && (
@@ -111,7 +111,7 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
         <tbody>
           {shown.map((k) => (
             <tr key={k.id}>
-              <td style={{ cursor: 'default' }}>
+              <td>
                 <input
                   className="label-input"
                   defaultValue={k.label}
@@ -119,21 +119,21 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
                   onBlur={(e) => e.target.value !== k.label && void window.wax.keys.setLabel(k.id, e.target.value).then(load)}
                 />
               </td>
-              <td className="mono-small" style={{ cursor: 'default' }}>
+              <td className="mono-small">
                 {k.publicKey}
               </td>
-              <td className="mono-small" style={{ cursor: 'default' }}>
+              <td className="mono-small">
                 {accounts
                   .filter((a) => a.key === k.publicKey)
                   .map((a) => `${a.account}@${a.permission}`)
                   .join(', ') || '-'}
               </td>
-              <td className="nowrap" style={{ cursor: 'default' }}>
-                <button className="btn" onClick={() => void window.wax.keys.reveal(k.id)}>
+              <td className="actions">
+                <button className="btn subtle" onClick={() => void window.wax.keys.reveal(k.id)}>
                   Reveal
                 </button>{' '}
                 <button
-                  className="btn"
+                  className="btn subtle danger-text"
                   onClick={() => {
                     setMode(null)
                     setDeleting(k)
@@ -183,7 +183,7 @@ function CreateVault({ onClose }: { onClose: () => void }): React.JSX.Element {
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn green" disabled={busy || a.length < 10 || a !== b} onClick={() => void create()}>
+          <button className="btn primary" disabled={busy || a.length < 10 || a !== b} onClick={() => void create()}>
             {busy ? 'Creating...' : 'Create vault'}
           </button>
         </>
@@ -240,6 +240,7 @@ export function UnlockInline({ onDone }: { onDone?: () => void }): React.JSX.Ele
       <span className="badge">Locked</span>
       <input
         className="input"
+        style={{ flex: 1 }}
         type="password"
         placeholder="Vault password"
         value={pw}
@@ -247,10 +248,10 @@ export function UnlockInline({ onDone }: { onDone?: () => void }): React.JSX.Ele
         onChange={(e) => setPw(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && void unlock()}
       />
-      <button className="btn purple" disabled={!pw || busy} onClick={() => void unlock()}>
+      <button className="btn primary" disabled={!pw || busy} onClick={() => void unlock()}>
         {busy ? 'Unlocking...' : 'Unlock'}
       </button>
-      {error && <span className="error-text" style={{ margin: 0 }}>{error}</span>}
+      {error && <span className="error-text inline">{error}</span>}
     </div>
   )
 }
@@ -288,7 +289,7 @@ function CreateKey({ onClose }: { onClose: () => void }): React.JSX.Element {
             Cancel
           </button>
           <button
-            className="btn green"
+            className="btn primary"
             disabled={!pub}
             onClick={async () => {
               try {
@@ -336,7 +337,7 @@ function ImportKey({ onClose }: { onClose: () => void }): React.JSX.Element {
             Cancel
           </button>
           <button
-            className="btn green"
+            className="btn primary"
             disabled={!key.trim()}
             onClick={async () => {
               try {
@@ -356,7 +357,7 @@ function ImportKey({ onClose }: { onClose: () => void }): React.JSX.Element {
     >
       <div className="field">
         <label>Private key (5... or PVT_K1_...)</label>
-        <input className="input" type="password" autoFocus value={key} onChange={(e) => setKey(e.target.value)} spellCheck={false} />
+        <input className="input mono" type="password" autoFocus value={key} onChange={(e) => setKey(e.target.value)} spellCheck={false} />
       </div>
       <div className="field">
         <label>Label</label>
@@ -380,7 +381,7 @@ function ImportVault({ onClose }: { onClose: () => void }): React.JSX.Element {
             Cancel
           </button>
           <button
-            className="btn green"
+            className="btn primary"
             disabled={!pw}
             onClick={async () => {
               try {
@@ -420,7 +421,7 @@ function DeleteKey({ entry, onClose }: { entry: KeyEntry; onClose: () => void })
             Cancel
           </button>
           <button
-            className="btn red"
+            className="btn danger"
             disabled={typed !== word}
             onClick={async () => {
               await window.wax.keys.remove(entry.id)

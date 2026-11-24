@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { TreeNode } from '../../../shared/api'
-import { IconChevronDown, IconChevronRight } from './Icons'
+import { IconChevronDown, IconChevronRight, IconFile, IconFolder, IconFolderOpen } from './Icons'
 
 export interface TreeMenuAction {
   label: string
@@ -55,8 +55,9 @@ export function FileTree({
           }}
           title={node.path || node.name}
         >
-          <span className="twisty">{node.dir ? open ? <IconChevronDown size={12} /> : <IconChevronRight size={12} /> : null}</span>
-          <span style={{ color: node.dir || node.path === '' ? 'var(--text)' : undefined }}>{node.name}</span>
+          <span className="twisty">{node.dir ? open ? <IconChevronDown /> : <IconChevronRight /> : null}</span>
+          {node.dir ? open ? <IconFolderOpen className="tree-glyph" /> : <IconFolder className="tree-glyph" /> : <IconFile className="tree-glyph" />}
+          <span className="tree-name">{node.name}</span>
         </div>
         {node.dir && open && node.children?.map((c) => row(c, depth + 1))}
       </div>

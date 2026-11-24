@@ -10,6 +10,7 @@ import '@xterm/xterm/css/xterm.css'
 import type { TerminalProfile, TerminalProfileInfo } from '../../../shared/api'
 import { parseTerminalCommand, type TerminalCommand, type TerminalFrameEvent } from '../../../shared/terminal-frame'
 import { IconChevronDown, IconClose, IconPlus } from '../components/Icons'
+import { THEME } from '../lib/theme-colors'
 
 interface Tab {
   id: string
@@ -109,9 +110,9 @@ export function TerminalFrame(): React.JSX.Element {
   const create = useCallback(async (profile: TerminalProfile, rel: string | null = null) => {
     pending.current++
     const term = new Terminal({
-      fontFamily: "'Cascadia Mono', Consolas, monospace",
+      fontFamily: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Courier New', monospace",
       fontSize: fontSize.current,
-      theme: { background: '#1e1f21', foreground: '#d4d4d4' },
+      theme: { background: THEME.content, foreground: THEME.text, cursor: THEME.accent, cursorAccent: THEME.content, selectionBackground: THEME.selection },
       scrollback: 5000,
       allowProposedApi: false,
       cursorBlink: true
@@ -303,7 +304,7 @@ export function TerminalFrame(): React.JSX.Element {
             }}
           />
         ))}
-        {tabs.length === 0 && <div style={{ padding: 12, color: 'var(--text-dim)' }}>No terminal open.</div>}
+        {tabs.length === 0 && <div className="empty-hint">No terminal open.</div>}
       </div>
       <div className="terminal-list">
         <div className="terminal-list-head">
@@ -317,14 +318,13 @@ export function TerminalFrame(): React.JSX.Element {
             {menuOpen && (
               <div
                 className="dropdown"
-                style={{ position: 'fixed', top: 28, right: 4, maxHeight: 'calc(100vh - 32px)' }}
+                style={{ position: 'fixed', top: 32, right: 4, maxHeight: 'calc(100vh - 36px)' }}
                 onMouseLeave={() => setMenuOpen(false)}
               >
                 {profiles.map((p) => (
                   <div
                     key={p.id}
-                    className="dd-item"
-                    style={{ opacity: p.available ? 1 : 0.5 }}
+                    className={`dd-item${p.available ? '' : ' disabled'}`}
                     title={p.note}
                     onClick={() => {
                       setMenuOpen(false)
@@ -335,14 +335,14 @@ export function TerminalFrame(): React.JSX.Element {
                     {p.label}
                   </div>
                 ))}
-                {gitHint && <div className="dd-note" style={{ whiteSpace: 'normal', maxWidth: 260 }}>{gitHint}</div>}
+                {gitHint && <div className="dd-note wrap">{gitHint}</div>}
               </div>
             )}
           </div>
         </div>
         {tabs.map((t) => (
           <div key={t.id} className={`terminal-item${t.id === active ? ' active' : ''}`} onClick={() => setActive(t.id)}>
-            <span style={{ opacity: t.exited ? 0.5 : 1 }}>{t.title}</span>
+            <span className={t.exited ? 'exited' : undefined}>{t.title}</span>
             <span
               className="close"
               onClick={(e) => {

@@ -1,11 +1,12 @@
-// Application menu: File, Edit, View, Contract, Accounts, Network, Help.
+// Application menu: File, Edit, View, Contract, Accounts, Network, Help, built
+// from the shared menu model. The window hides its menu bar (the page draws the
+// menus); this menu stays installed and owns the accelerators and Edit roles.
 // Items send a command to the editor window; the window decides what it means.
 
 import { Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron'
 import type { MenuCommand } from '../shared/api'
 import { isEditorKey } from '../shared/keys'
-
-const REPO = 'https://github.com/gulkonster/wax-master'
+import { MENU_MODEL, type MenuModelItem } from '../shared/menu-model'
 
 export interface MenuNetwork {
   id: string
@@ -23,129 +24,80 @@ export function buildMenu(
   const send = (cmd: MenuCommand) => (): void => {
     getWindow()?.webContents.send('menu', cmd)
   }
-  const item = (label: string, cmd: MenuCommand, accelerator?: string): MenuItemConstructorOptions => ({
-    label,
-    accelerator,
-    // Editor keys are handled by the editor itself; the menu only shows them.
-    registerAccelerator: accelerator === undefined || !isEditorKey(accelerator),
-    click: send(cmd)
-  })
-
-  const template: MenuItemConstructorOptions[] = [
-    {
-      label: 'File',
-      submenu: [
-        item('New Project...', 'new-project', 'CmdOrCtrl+Shift+N'),
-        item('Open Project...', 'open-project', 'CmdOrCtrl+Shift+O'),
-        {
-          label: 'New from Template',
-          submenu: [item('Empty', 'template-empty'), item('Hello World', 'template-hello'), item('Token', 'template-token')]
-        },
-        { type: 'separator' },
-        item('New File', 'new-file', 'CmdOrCtrl+N'),
-        item('Open...', 'open-file', 'CmdOrCtrl+O'),
-        { type: 'separator' },
-        item('Save', 'save', 'CmdOrCtrl+S'),
-        item('Save As...', 'save-as', 'CmdOrCtrl+Shift+S'),
-        item('Save All', 'save-all', 'CmdOrCtrl+Alt+S'),
-        { type: 'separator' },
-        item('Home', 'home'),
-        item('Settings', 'settings'),
-        { type: 'separator' },
-        { label: 'Exit', click: quit }
-      ]
-    },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'delete' },
-        { role: 'selectAll' },
-        { type: 'separator' },
-        item('Find', 'find', 'CmdOrCtrl+F'),
-        item('Replace', 'replace', 'CmdOrCtrl+H'),
-        item('Find in Files', 'find-in-files', 'CmdOrCtrl+Shift+F'),
-        { type: 'separator' },
-        item('Format Document', 'format', 'Shift+Alt+F'),
-        item('Rename Symbol', 'rename-symbol', 'F2'),
-        item('Go to Definition', 'go-to-definition', 'F12'),
-        item('Find References', 'find-references', 'Shift+F12'),
-        item('Go to Symbol in Workspace...', 'workspace-symbol', 'CmdOrCtrl+T'),
-        item('Switch Header/Source', 'switch-header-source', 'Alt+O')
-      ]
-    },
-    {
-      label: 'View',
-      submenu: [
-        item('Show Command Palette', 'command-palette', 'CmdOrCtrl+Shift+P'),
-        { type: 'separator' },
-        item('Increase Font Size', 'font-increase', 'CmdOrCtrl+='),
-        item('Decrease Font Size', 'font-decrease', 'CmdOrCtrl+-'),
-        item('Reset Font Size', 'font-reset', 'CmdOrCtrl+0'),
-        { type: 'separator' },
-        item('Toggle Terminal', 'toggle-terminal', 'Ctrl+`'),
-        item('Output', 'show-output'),
-        item('Problems', 'show-problems', 'CmdOrCtrl+Shift+M'),
-        item('Outline', 'show-outline')
-      ]
-    },
-    {
-      label: 'Contract',
-      submenu: [
-        item('Project Settings', 'project-settings', 'CmdOrCtrl+,'),
-        { type: 'separator' },
-        item('Build', 'build', 'CmdOrCtrl+B'),
-        item('Deploy', 'deploy'),
-        item('Deploy to Account...', 'deploy-to-account'),
-        item('Simulate Deploy', 'simulate-deploy')
-      ]
-    },
-    {
-      label: 'Accounts',
-      submenu: [
-        item('Create Account...', 'create-account'),
-        item('Create Testnet Account...', 'create-testnet-account'),
-        { type: 'separator' },
-        item('Manage Keypairs...', 'manage-keypairs'),
-        item('Lock Vault', 'lock-vault'),
-        { type: 'separator' },
-        item('Clear Contract Code...', 'clear-code')
-      ]
-    },
-    {
-      label: 'Network',
-      submenu: [
-        {
-          label: 'Select Network',
+  const convert = (i: MenuModelItem): MenuItemConstructorOptions => {
+    switch (i.kind) {
+      case 'command':
+        return {
+          label: i.label,
+          accelerator: i.accelerator,
+          // Editor keys are handled by the editor itself; the menu only shows them.
+          registerAccelerator: i.accelerator === undefined || !isEditorKey(i.accelerator),
+          click: send(i.command)
+        }
+      case 'role':
+        return { role: i.role }
+      case 'link':
+        return { label: i.label, click: () => openLink(i.url) }
+      case 'exit':
+        return { label: i.label, click: quit }
+      case 'network-list':
+        return {
+          label: i.label,
           submenu: networks.map((n) => ({ label: n.name, type: 'radio' as const, checked: n.current, click: () => selectNetwork(n.id) }))
-        },
-        { type: 'separator' },
-        item('Add Network...', 'add-network'),
-        item('Manage Networks...', 'manage-networks'),
-        { type: 'separator' },
-        item('Open Transaction by Id...', 'open-transaction')
-      ]
-    },
-    {
-      label: 'Help',
-      submenu: [
-        { label: 'Documentation', click: () => openLink(`${REPO}#readme`) },
-        { label: 'Ask a Question', click: () => openLink(`${REPO}/discussions`) },
-        { label: 'Report an Issue', click: () => openLink(`${REPO}/issues/new`) },
-        { label: 'Request a Feature', click: () => openLink(`${REPO}/issues/new?labels=enhancement`) },
-        { type: 'separator' },
-        item('Setup', 'setup'),
-        item('Check for Updates', 'check-updates'),
-        { label: 'Verify This Download', click: () => openLink(`${REPO}#verify-your-download`) },
-        { type: 'separator' },
-        item('About WAX Master', 'about')
-      ]
+        }
+      case 'submenu':
+        return { label: i.label, submenu: i.items.map(convert) }
+      case 'separator':
+        return { type: 'separator' }
     }
-  ]
+  }
+  const template: MenuItemConstructorOptions[] = MENU_MODEL.map((m) => ({ label: m.label, submenu: m.items.map(convert) }))
   return Menu.buildFromTemplate(template)
+}
+
+/** Key events as `before-input-event` reports them. */
+export interface MenuKeyInput {
+  type: string
+  key: string
+  alt: boolean
+  control: boolean
+  shift: boolean
+  meta: boolean
+  isAutoRepeat: boolean
+}
+
+/**
+ * Menu-bar access from the keyboard: F10 without modifiers, or Alt pressed and
+ * released with no other key in between. Returns a function that takes each key
+ * event and tells whether the menu bar should take the focus now.
+ */
+export function menuKeyDetector(): (input: MenuKeyInput) => boolean {
+  let altAlone = false
+  return (input) => {
+    if (input.type === 'keyDown') {
+      if (input.isAutoRepeat) return false
+      if (input.key === 'Alt') {
+        altAlone = !input.control && !input.shift && !input.meta
+        return false
+      }
+      altAlone = false
+      return input.key === 'F10' && !input.alt && !input.control && !input.shift && !input.meta
+    }
+    if (input.type === 'keyUp' && input.key === 'Alt') {
+      const tap = altAlone
+      altAlone = false
+      return tap
+    }
+    return false
+  }
+}
+
+/** Sends the `focus-menu` command when the menu key is pressed in any frame of the window. */
+export function watchMenuKey(win: BrowserWindow): void {
+  const detect = menuKeyDetector()
+  win.webContents.on('before-input-event', (_e, input) => {
+    if (detect(input)) win.webContents.send('menu', 'focus-menu' satisfies MenuCommand)
+  })
+  // A key held while the window lost the focus must not count as a tap afterwards.
+  win.on('blur', () => detect({ type: 'keyDown', key: '', alt: false, control: false, shift: false, meta: false, isAutoRepeat: false }))
 }

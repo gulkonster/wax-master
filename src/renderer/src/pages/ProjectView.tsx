@@ -6,7 +6,7 @@ import { errorText, toast } from '../lib/toast'
 import { useApp } from '../state'
 import { FileTree, type TreeMenuAction } from '../components/FileTree'
 import { InputDialog } from '../components/Modal'
-import { IconClose, IconGear, IconHammer, IconPlus, IconShip } from '../components/Icons'
+import { IconClose, IconDeploy, IconGear, IconHammer, IconPlus } from '../components/Icons'
 import { ProjectSettings, type SettingsSaver } from './ProjectSettings'
 import { Modal } from '../components/Modal'
 import { failureText, type SaveAllResult, type SaveFailure } from '../lib/save-result'
@@ -114,7 +114,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
       theme: 'wax-dark',
       automaticLayout: true,
       fontSize: state.settings?.fontSize ?? 14,
-      fontFamily: "'Cascadia Mono', Consolas, 'Courier New', monospace",
+      fontFamily: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Courier New', monospace",
       minimap: { enabled: true },
       scrollBeyondLastLine: false,
       renderWhitespace: 'selection',
@@ -747,11 +747,11 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
           <button className="icon-btn" title="New File (Ctrl+N)" onClick={() => newFile(selected ? dirname(selected) : 'src')}>
             <IconPlus />
           </button>
-          <button className="icon-btn" title="Build (Ctrl+B)" onClick={() => void startBuild((t) => actions.showPanel(t))}>
-            <IconHammer />
+          <button className="btn subtle" title="Build (Ctrl+B)" onClick={() => void startBuild((t) => actions.showPanel(t))}>
+            <IconHammer /> Build
           </button>
-          <button className="icon-btn" title="Deploy (arrives in a later build)" disabled>
-            <IconShip />
+          <button className="btn subtle" title="Deploy" onClick={() => emit('menu-run', 'deploy')}>
+            <IconDeploy /> Deploy
           </button>
           <div className="spacer" />
           <button className="icon-btn" title="Project Settings (Ctrl+,)" onClick={openSettings}>
@@ -786,12 +786,12 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
         <div className="editor-host">
           <div className="monaco-mount" ref={mountRef} style={{ visibility: showEditor ? 'visible' : 'hidden' }} />
           {tabs.some((t) => t.kind === 'settings') && (
-            <div style={{ position: 'absolute', inset: 0, display: activeTab?.kind === 'settings' ? 'flex' : 'none', background: 'var(--bg)' }}>
+            <div className="editor-overlay" style={{ display: activeTab?.kind === 'settings' ? 'flex' : 'none' }}>
               <ProjectSettings project={project} onDirty={onSettingsDirty} saverRef={settingsSaver} />
             </div>
           )}
           {activeTab?.kind === 'file' && activeTab.wasm && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', background: 'var(--bg)' }}>
+            <div className="editor-overlay">
               <WasmInfoView rel={activeTab.rel} info={activeTab.wasm} />
             </div>
           )}
@@ -821,7 +821,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
               {(['cancel', 'reload', 'overwrite'] as const).map((c) => (
                 <button
                   key={c}
-                  className={c === 'overwrite' ? 'btn purple' : 'btn'}
+                  className={c === 'overwrite' ? 'btn primary' : 'btn'}
                   onClick={() => {
                     conflict.resolve(c)
                     setConflict(null)

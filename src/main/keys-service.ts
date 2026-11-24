@@ -117,7 +117,7 @@ function openRevealWindow(parent: BrowserWindow | null, keyId: string): void {
     resizable: false,
     show: false,
     title: 'Show private key',
-    backgroundColor: '#1e1f21',
+    backgroundColor: '#1F1F1F',
     autoHideMenuBar: true,
     webPreferences: secureWebPreferences(join(__dirname, '../preload/confirm.js'))
   })

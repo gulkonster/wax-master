@@ -60,7 +60,7 @@ export function FindInFilesDialog({ onClose }: { onClose: () => void }): React.J
           <label className="check">
             <input type="checkbox" checked={wholeWord} onChange={(e) => setWholeWord(e.target.checked)} /> Whole word
           </label>
-          <button className="btn purple" onClick={() => void search()} disabled={!query || busy}>
+          <button className="btn primary" onClick={() => void search()} disabled={!query || busy}>
             Find
           </button>
         </div>

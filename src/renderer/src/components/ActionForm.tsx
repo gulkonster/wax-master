@@ -7,7 +7,7 @@ import { emit } from '../lib/bus'
 import type { AuthLevel, ContractAbiView, ContractAction, ContractField, ContractHistoryEntry, NetworkInfo, PackResult } from '../../../shared/chain-types'
 import { errorText, toast } from '../lib/toast'
 import { copyText } from '../lib/clipboard'
-import { IconChevronDown, IconChevronRight, IconClock, IconCopy, IconHeart, IconPlay, IconClose } from './Icons'
+import { IconCheck, IconChevronDown, IconChevronRight, IconClock, IconCopy, IconFunction, IconHeart, IconPlay, IconClose } from './Icons'
 
 // ---------------------------------------------------------------- shared dropdown
 
@@ -63,9 +63,7 @@ export function SavedMenus(props: {
         }}
       >
         <span className="mono">{e.name}</span>
-        <span className="hint" style={{ margin: 0, maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {props.describe(e)}
-        </span>
+        <span className="dd-desc">{props.describe(e)}</span>
         <span
           className="dd-x"
           title="Remove"
@@ -106,9 +104,7 @@ export function SavedMenus(props: {
       <PickMenu button={<IconClock />} title={`${noun[0].toUpperCase()}${noun.slice(1)} history`} align="right">
         {(close) => (
           <>
-            <div className="dd-section" style={{ borderTop: 'none', marginTop: 0 }}>
-              HISTORY
-            </div>
+            <div className="dd-section">HISTORY</div>
             {props.history.length === 0 && <div className="dd-note">Nothing yet</div>}
             {list(props.history, 'history', close)}
           </>
@@ -129,7 +125,7 @@ function Section(props: {
   return (
     <>
       <div className="section-head" onClick={() => setOpen((o) => !o)}>
-        {open ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
+        {open ? <IconChevronDown /> : <IconChevronRight />}
         <span className="grow">{props.title}</span>
         {props.right}
         {props.badge}
@@ -469,7 +465,11 @@ export function ActionForm({ account, view, network }: { account: string; view: 
           disabled={view.actions.length === 0}
           button={
             <>
-              <span style={{ fontStyle: 'italic' }}>f(x)</span> {actionName || '(no actions)'} <IconChevronDown />
+              <span className="lead">
+                <IconFunction />
+              </span>
+              <span className="name">{actionName || '(no actions)'}</span>
+              <IconChevronDown className="chev" />
             </>
           }
         >
@@ -483,17 +483,17 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                   pickAction(a.name)
                 }}
               >
+                <span className="dd-lead">{a.name === actionName && <IconCheck />}</span>
                 {a.name}
               </div>
             ))
           }
         </PickMenu>
-        <button className="icon-btn" style={{ height: 34, width: 40 }} disabled={!action || !!running} title="Run (sign and send after confirmation)" onClick={() => void run()}>
-          <IconPlay />
+        <button className="btn primary" disabled={!action || !!running} title="Run (sign and send after confirmation)" onClick={() => void run()}>
+          <IconPlay /> Run
         </button>
         <button
-          className="btn ghost"
-          style={{ borderRadius: 0 }}
+          className="btn"
           disabled={!action || !!running || simSupport === 'unsupported'}
           title={
             simSupport === 'unsupported'
@@ -527,11 +527,12 @@ export function ActionForm({ account, view, network }: { account: string; view: 
               defaultOpen
               right={
                 <>
-                  <label className="pill" onClick={(e) => e.stopPropagation()}>
+                  <label className="check-label" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" checked={raw} onChange={toggleRaw} /> Raw JSON
                   </label>
                   <button
-                    className={`pill${command ? ' on' : ''}`}
+                    className={`btn subtle sm${command ? ' on' : ''}`}
+                    aria-pressed={command}
                     onClick={(e) => {
                       e.stopPropagation()
                       setTouched(true)
@@ -597,7 +598,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
               )}
               {error && touched ? <div className="error-text" style={{ marginTop: 10, userSelect: 'text' }}>{error}</div> : pack && !error && <div className="hint">Valid: {pack.hex.length / 2} bytes packed.</div>}
             </Section>
-            <Section title="Authorization" badge={<span className="badge purple">{authBadge || 'none'}</span>}>
+            <Section title="Authorization" badge={<span className="badge mono">{authBadge || 'none'}</span>}>
               <div className="field-label">account@permission</div>
               <input
                 className="field-input"
@@ -627,7 +628,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                   {result.cpuUs !== null ? ` · CPU ${result.cpuUs} µs` : ''}
                   {result.errorMessage && <div className="error-text">{result.errorMessage}</div>}
                   <div>
-                    <button className="btn" style={{ marginTop: 6 }} onClick={() => emit('show-inspector', result)}>
+                    <button className="btn" style={{ marginTop: 8 }} onClick={() => emit('show-inspector', result)}>
                       Open in inspector
                     </button>
                   </div>

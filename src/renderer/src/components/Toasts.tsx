@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { on } from '../lib/bus'
 import type { ToastKind } from '../lib/toast'
+import { IconCheck, IconError, IconInfo } from './Icons'
 
 interface T {
   id: number
@@ -26,8 +27,11 @@ export function Toasts(): React.JSX.Element {
     <div className="toasts">
       {items.map((t) => (
         <div key={t.id} className={`toast ${t.kind}`} onClick={() => setItems((s) => s.filter((x) => x.id !== t.id))}>
-          <div className="t-title">{t.title}</div>
-          {t.text && <div>{t.text}</div>}
+          <span className="t-icon">{t.kind === 'success' ? <IconCheck /> : t.kind === 'error' ? <IconError /> : <IconInfo />}</span>
+          <div>
+            <div className="t-title">{t.title}</div>
+            {t.text && <div className="t-text">{t.text}</div>}
+          </div>
         </div>
       ))}
     </div>

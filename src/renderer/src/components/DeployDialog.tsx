@@ -118,7 +118,7 @@ export function DeployDialog({
           <button className="btn" disabled={!plan || !!nothing || !!busy} onClick={() => void simulate()}>
             {busy === 'simulate' ? 'Simulating...' : 'Simulate Deploy'}
           </button>
-          <button className={`btn ${net?.kind === 'mainnet' ? 'red' : 'green'}`} disabled={!plan || !!nothing || !!busy} onClick={() => void deploy()}>
+          <button className={`btn ${net?.kind === 'mainnet' ? 'danger' : 'primary'}`} disabled={!plan || !!nothing || !!busy} onClick={() => void deploy()}>
             {busy === 'deploy' ? 'Waiting for confirmation...' : 'Deploy'}
           </button>
         </>
@@ -133,11 +133,11 @@ export function DeployDialog({
       <div className="field" style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 2 }}>
           <label>Account</label>
-          <input className="input" value={account} onChange={(e) => (setAccount(e.target.value.trim().toLowerCase()), setPlan(null))} placeholder="contract account" />
+          <input className="input mono" value={account} onChange={(e) => (setAccount(e.target.value.trim().toLowerCase()), setPlan(null))} placeholder="contract account" />
         </div>
         <div style={{ flex: 1 }}>
           <label>Permission</label>
-          <input className="input" value={permission} onChange={(e) => (setPermission(e.target.value.trim().toLowerCase()), setPlan(null))} />
+          <input className="input mono" value={permission} onChange={(e) => (setPermission(e.target.value.trim().toLowerCase()), setPlan(null))} />
         </div>
       </div>
       <div className="hint">Deploys {project.config.deploy.target === 'both' ? 'WASM and ABI' : project.config.deploy.target === 'wasm' ? 'WASM only' : 'ABI only'} (Project Settings). The project is built first if needed.</div>

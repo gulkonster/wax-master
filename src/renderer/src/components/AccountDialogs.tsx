@@ -34,7 +34,7 @@ function KeyPicker({ value, onChange, keys }: { value: string; onChange: (v: str
           </option>
         ))}
       </select>
-      <input className="input" style={{ flex: 2 }} value={value} onChange={(e) => onChange(e.target.value.trim())} placeholder="PUB_K1_... or EOS..." />
+      <input className="input mono" style={{ flex: 2 }} value={value} onChange={(e) => onChange(e.target.value.trim())} placeholder="PUB_K1_... or EOS..." />
     </div>
   )
 }
@@ -107,7 +107,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
           <button className="btn" disabled={busy} onClick={onClose}>
             Close
           </button>
-          <button className="btn green" disabled={!ok || busy} onClick={() => void create()}>
+          <button className="btn primary" disabled={!ok || busy} onClick={() => void create()}>
             {busy ? 'Waiting for confirmation...' : 'Create'}
           </button>
         </>
@@ -116,16 +116,16 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
       <div className="field" style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 2 }}>
           <label>Creator (pays; its key must be in the vault)</label>
-          <input className="input" value={creator} onChange={(e) => setCreator(e.target.value.trim().toLowerCase())} />
+          <input className="input mono" value={creator} onChange={(e) => setCreator(e.target.value.trim().toLowerCase())} />
         </div>
         <div style={{ flex: 1 }}>
           <label>Permission</label>
-          <input className="input" value={creatorPerm} onChange={(e) => setCreatorPerm(e.target.value.trim().toLowerCase())} />
+          <input className="input mono" value={creatorPerm} onChange={(e) => setCreatorPerm(e.target.value.trim().toLowerCase())} />
         </div>
       </div>
       <div className="field">
         <label>New account name (12 characters a-z, 1-5; shorter names are premium)</label>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value.trim().toLowerCase())} />
+        <input className="input mono" value={name} onChange={(e) => setName(e.target.value.trim().toLowerCase())} />
       </div>
       <div className="field">
         <label>Owner key</label>
@@ -142,11 +142,11 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
         </div>
         <div style={{ flex: 1 }}>
           <label>Stake CPU</label>
-          <input className="input" value={cpu} onChange={(e) => setCpu(e.target.value)} />
+          <input className="input mono" value={cpu} onChange={(e) => setCpu(e.target.value)} />
         </div>
         <div style={{ flex: 1 }}>
           <label>Stake NET</label>
-          <input className="input" value={netStake} onChange={(e) => setNetStake(e.target.value)} />
+          <input className="input mono" value={netStake} onChange={(e) => setNetStake(e.target.value)} />
         </div>
       </div>
       <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -217,7 +217,7 @@ export function ChangeKeyDialog({
           <button className="btn" disabled={busy} onClick={onClose}>
             Close
           </button>
-          <button className="btn red" disabled={!newKey || !oldKey || busy} onClick={() => void change()}>
+          <button className="btn danger" disabled={!newKey || !oldKey || busy} onClick={() => void change()}>
             {busy ? 'Waiting for confirmation...' : 'Change key'}
           </button>
         </>

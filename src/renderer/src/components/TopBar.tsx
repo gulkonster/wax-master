@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../state'
-import { IconChevronDown, IconFileCode, IconFolderOpen, IconPlus } from './Icons'
+import { IconCheck, IconChevronDown, IconFileCode, IconFolderOpen, IconPlus } from './Icons'
 import { ChainButtons } from './ChainButtons'
 import { emit } from '../lib/bus'
 
@@ -31,17 +31,17 @@ export function TopBar(): React.JSX.Element {
           onClick={() => (state.project ? actions.setView('project') : setProjOpen((o) => !o))}
           title="Current project"
         >
-          <IconFileCode size={20} />
+          <IconFileCode size={18} />
           <div>
             <div className="tb-label">Current Project</div>
-            <div className="tb-value">{state.project?.name ?? '(none)'}</div>
+            <div className={`tb-value${state.project ? '' : ' none'}`}>{state.project?.name ?? '(none)'}</div>
           </div>
         </button>
         <button className="tb-arrow" onClick={() => setProjOpen((o) => !o)} title="Switch project">
           <IconChevronDown />
         </button>
         {projOpen && (
-          <div className="dropdown left" style={{ width: 272 }}>
+          <div className="dropdown left" style={{ width: 268 }}>
             <div
               className="dd-item"
               onClick={() => {
@@ -72,7 +72,8 @@ export function TopBar(): React.JSX.Element {
                   void actions.openProjectPath(p.path)
                 }}
               >
-                <IconFileCode /> {p.name}
+                <span className="dd-lead">{state.project?.path === p.path && <IconCheck />}</span>
+                <span className="dd-label">{p.name}</span>
               </div>
             ))}
           </div>

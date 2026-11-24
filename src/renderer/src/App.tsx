@@ -25,6 +25,7 @@ import { refreshNetworks, watchNetworkEvents } from './lib/networks'
 import { errorText, toast } from './lib/toast'
 import { failureText, type SaveAllResult } from './lib/save-result'
 import { TopBar } from './components/TopBar'
+import { TitleBar } from './components/TitleBar'
 import { StatusBar } from './components/StatusBar'
 import { BottomPanel } from './components/BottomPanel'
 import { TerminalPanel } from './components/TerminalPanel'
@@ -121,6 +122,27 @@ export function App(): React.JSX.Element {
     return true
   }, [])
 
+  /**
+   * File > Exit of the drawn menu. A page-initiated window.close() would skip the
+   * close guard, so unsaved items are asked about here with the same three
+   * choices, and the app then quits through the existing quit call.
+   */
+  const exitApp = useCallback(async (): Promise<void> => {
+    if (dirtyRef.current > 0) {
+      const answer = await new Promise<'save' | 'discard' | 'cancel'>((resolve) => setUnsaved(() => resolve))
+      setUnsaved(null)
+      if (answer === 'cancel') return
+      if (answer === 'save') {
+        emit('save-all-then', (r: SaveAllResult) => {
+          if (r.failed.length) toast('Not saved, so WAX Master stays open', failureText(r.failed), 'error')
+          else void window.wax.app.quitNow()
+        })
+        return
+      }
+    }
+    void window.wax.app.quitNow()
+  }, [])
+
   // Latest state for the menu handler.
   const stateRef = useRef(state)
   stateRef.current = state
@@ -197,11 +219,15 @@ export function App(): React.JSX.Element {
     })()
   }, [patch])
 
-  // Menu commands from the main process.
-  useEffect(() => {
-    return window.wax.on('menu', (cmd: MenuCommand) => {
+  // Menu commands: the same function for the drawn menu bar and for the
+  // menu event from the main process (accelerators and the close guard).
+  const runMenuCommand = useCallback(
+    (cmd: MenuCommand) => {
       const s = stateRef.current
       switch (cmd) {
+        case 'focus-menu':
+          emit('focus-menu')
+          break
         case 'new-project':
           actions.newProject()
           break
@@ -319,12 +345,19 @@ export function App(): React.JSX.Element {
         default:
           setComing(cmd)
       }
-    })
-  }, [actions])
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [actions]
+  )
+
+  useEffect(() => window.wax.on('menu', runMenuCommand), [runMenuCommand])
+  // Buttons that run a menu command (the sidebar Deploy button).
+  useEffect(() => on('menu-run', (c) => runMenuCommand(c as MenuCommand)), [runMenuCommand])
 
   return (
     <AppContext.Provider value={{ state, actions }}>
       <div className="app">
+        <TitleBar run={runMenuCommand} exit={() => void exitApp()} />
         <TopBar />
         <div className="main">
           <div className="column">
@@ -364,7 +397,7 @@ export function App(): React.JSX.Element {
               <button className="btn" onClick={() => unsaved('discard')}>
                 Don&apos;t Save
               </button>
-              <button className="btn purple" onClick={() => unsaved('save')}>
+              <button className="btn primary" onClick={() => unsaved('save')}>
                 Save All
               </button>
             </>
@@ -407,7 +440,7 @@ export function App(): React.JSX.Element {
                 Later
               </button>
               <button
-                className="btn purple"
+                className="btn primary"
                 onClick={() => {
                   void window.wax.app.openExternal(update.url)
                   setUpdate(null)

@@ -53,8 +53,9 @@ export function ToolchainManager({ busy, onBusy }: { busy: boolean; onBusy: (b: 
   }
 
   return (
-    <div style={{ marginTop: 28 }}>
+    <div>
       <h2>Toolchains</h2>
+      <div className="card">
       <table className="tx-table">
         <thead>
           <tr>
@@ -67,14 +68,14 @@ export function ToolchainManager({ busy, onBusy }: { busy: boolean; onBusy: (b: 
         <tbody>
           {list.map((t) => (
             <tr key={t.id}>
-              <td style={{ cursor: 'default' }}>
+              <td>
                 {t.label} {t.isDefault && <span className="badge green">default</span>}
               </td>
-              <td className="mono-small" style={{ cursor: 'default' }}>
+              <td className="mono-small">
                 {t.cdtVersion}
               </td>
-              <td style={{ cursor: 'default' }}>{t.wslVersion}</td>
-              <td style={{ cursor: 'default' }}>
+              <td>{t.wslVersion}</td>
+              <td>
                 {!t.isDefault && (
                   <button
                     className="btn"
@@ -97,11 +98,12 @@ export function ToolchainManager({ busy, onBusy }: { busy: boolean; onBusy: (b: 
           ))}
         </tbody>
       </table>
-      <button className="btn green" disabled={busy || list.length === 0} onClick={() => void choose()}>
+      <button className="btn" disabled={busy || list.length === 0} onClick={() => void choose()}>
         Add from file...
       </button>
       <div className="hint">Add another CDT version from its .deb package (for example cdt_4.1.1-1_amd64.deb from the AntelopeIO releases page). It is installed next to the default toolchain, offline, from the bundled base parts.</div>
       {error && <div className="error-text">{error}</div>}
+      </div>
       {candidate && (
         <Modal
           title="Add toolchain"
@@ -111,7 +113,7 @@ export function ToolchainManager({ busy, onBusy }: { busy: boolean; onBusy: (b: 
               <button className="btn" onClick={() => setCandidate(null)}>
                 Cancel
               </button>
-              <button className="btn green" onClick={() => void add()}>
+              <button className="btn primary" onClick={() => void add()}>
                 Install
               </button>
             </>
@@ -126,7 +128,7 @@ export function ToolchainManager({ busy, onBusy }: { busy: boolean; onBusy: (b: 
             <div className="chip" style={{ userSelect: 'text' }}>{candidate.sha256}</div>
           </div>
           {candidate.known ? (
-            <div className="c-done" style={{ fontSize: 14 }}>Known package: {candidate.known}</div>
+            <div className="banner green">Known package: {candidate.known}</div>
           ) : (
             <div className="error-text">
               This hash is not on the list of known CDT packages. Install it only if you trust where the file came from.

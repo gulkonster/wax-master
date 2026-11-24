@@ -80,7 +80,7 @@ export function TerminalPanel({ visible }: { visible: boolean }): React.JSX.Elem
       src={src}
       title="Terminal"
       className="terminal-frame"
-      style={{ flex: 1, minWidth: 0, width: '100%', height: '100%', border: 0, display: 'block', background: 'var(--bg)' }}
+      style={{ flex: 1, minWidth: 0, width: '100%', height: '100%', border: 0, display: 'block', background: 'var(--bg-content)' }}
     />
   )
 }

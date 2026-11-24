@@ -235,6 +235,8 @@ export type MenuCommand =
   | 'check-updates'
   | 'about'
   | 'home'
+  /** Sent by the main process on F10 or an Alt tap: the drawn menu bar takes the focus. */
+  | 'focus-menu'
 
 export interface WaxApi {
   app: {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { errorText } from '../lib/toast'
+import { IconClose } from './Icons'
 
 export function Modal({
   title,
@@ -25,7 +26,14 @@ export function Modal({
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
       <div className={`modal${wide ? ' wide' : ''}`} role="dialog">
-        <div className="modal-head">{title}</div>
+        <div className="modal-head">
+          <div className="modal-title">{title}</div>
+          {onClose && (
+            <button className="icon-btn" title="Close" onClick={onClose}>
+              <IconClose />
+            </button>
+          )}
+        </div>
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
       </div>
@@ -82,7 +90,7 @@ function InputDialogInner(props: {
           <button className="btn" onClick={props.onClose}>
             Cancel
           </button>
-          <button className="btn purple" onClick={() => void submit()} disabled={!value.trim()}>
+          <button className="btn primary" onClick={() => void submit()} disabled={!value.trim()}>
             {props.okLabel}
           </button>
         </>

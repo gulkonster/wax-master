@@ -32,7 +32,7 @@ export function MainFileDialog({ project }: { project: OpenProject }): React.JSX
               Close project
             </button>
           </div>
-          <button className="btn purple" disabled={!main} onClick={() => void ok()}>
+          <button className="btn primary" disabled={!main} onClick={() => void ok()}>
             Use this file
           </button>
         </>
@@ -43,7 +43,7 @@ export function MainFileDialog({ project }: { project: OpenProject }): React.JSX
         other settings start with their defaults and can be changed in Project Settings.
       </p>
       {project.eosproj && (
-        <div className="hint" style={{ fontSize: 13, marginBottom: 10 }}>
+        <div className="hint" style={{ fontSize: 13, lineHeight: '20px', marginBottom: 8 }}>
           Settings taken from .eosproj.
           {project.eosproj.buildScript.trim() && (
             <>
@@ -59,8 +59,9 @@ export function MainFileDialog({ project }: { project: OpenProject }): React.JSX
       ) : (
         <div className="template-list">
           {project.candidates.map((c) => (
-            <div key={c} className={`template-item${main === c ? ' selected' : ''}`} onClick={() => setMain(c)}>
-              <div className="t-name" style={{ fontFamily: 'var(--mono)' }}>
+            <div key={c} className={`template-item${main === c ? ' selected' : ''}`} onClick={() => setMain(c)} role="radio" aria-checked={main === c}>
+              <span className="radio-mark" />
+              <div className="t-name" style={{ fontFamily: 'var(--font-mono)' }}>
                 {c}
               </div>
             </div>
