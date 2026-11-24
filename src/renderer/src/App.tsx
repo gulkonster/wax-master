@@ -6,6 +6,9 @@ import { emit, on } from './lib/bus'
 import { startBuild } from './lib/build'
 import { Setup, refreshToolchainLabel } from './pages/Setup'
 import { Modal } from './components/Modal'
+import { AccountPage } from './pages/AccountPage'
+import { AddNetworkDialog, ManageNetworksDialog, StarredManager } from './components/NetworkDialogs'
+import { refreshNetworks, watchNetworkEvents } from './lib/networks'
 import { errorText, toast } from './lib/toast'
 import { TopBar } from './components/TopBar'
 import { StatusBar } from './components/StatusBar'
@@ -36,6 +39,14 @@ export function App(): React.JSX.Element {
   const [newTemplate, setNewTemplate] = useState<TemplateId | undefined>(undefined)
   const [unsaved, setUnsaved] = useState<null | ((r: 'save' | 'discard' | 'cancel') => void)>(null)
   const dirtyRef = useRef(0)
+  const [dialog, setDialog] = useState<null | 'add-network' | 'manage-networks' | 'starred'>(null)
+
+  useEffect(() => on('menu-command', (c) => setComing(c as string)), [])
+  useEffect(() => on('dialog', (d) => setDialog(d as 'add-network' | 'manage-networks' | 'starred')), [])
+  useEffect(() => {
+    void refreshNetworks()
+    return watchNetworkEvents()
+  }, [])
 
   useEffect(
     () =>
@@ -165,6 +176,10 @@ export function App(): React.JSX.Element {
         case 'setup':
           actions.setView('setup')
           break
+        case 'add-network':
+        case 'manage-networks':
+          setDialog(cmd)
+          break
         case 'about':
           setAboutOpen(true)
           break
@@ -227,7 +242,10 @@ export function App(): React.JSX.Element {
               </div>
             )}
             {state.view === 'setup' && <Setup />}
-            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && <ComingLater what={state.view} />}
+            <div style={{ display: state.view === 'account' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
+              <AccountPage />
+            </div>
+            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && state.view !== 'account' && <ComingLater what={state.view} />}
             <BottomPanel terminal={<TerminalPanel visible={state.panelOpen && state.panelTab === 'terminal'} />} />
           </div>
         </div>
@@ -258,6 +276,9 @@ export function App(): React.JSX.Element {
           Some files of the current project have unsaved changes. Save them first?
         </Modal>
       )}
+      {dialog === 'add-network' && <AddNetworkDialog onClose={() => setDialog(null)} />}
+      {dialog === 'manage-networks' && <ManageNetworksDialog onClose={() => setDialog(null)} />}
+      {dialog === 'starred' && <StarredManager onClose={() => setDialog(null)} />}
       <Toasts />
     </AppContext.Provider>
   )

@@ -3,6 +3,8 @@ import { join } from 'node:path'
 import { buildMenu } from './menu'
 import { registerIpc } from './ipc'
 import { guardWindow, registerCloseGuard } from './close-guard'
+import { registerChainIpc } from './ipc-chain'
+import { currentNetwork, endpointOf, listNetworks, onNetworksChanged, selectNetwork } from './networks'
 import { killAllTerminals } from './terminal'
 import { stopHelper } from './helper'
 import { fileSink, log, setLogSink } from './log'
@@ -94,13 +96,25 @@ app.whenReady().then(() => {
   registerAppProtocol()
   registerIpc(() => mainWindow)
   registerCloseGuard(() => mainWindow)
-  Menu.setApplicationMenu(
-    buildMenu(
-      () => mainWindow,
-      (url) => void openExternalConfirmed(mainWindow, url),
-      () => app.quit()
+  registerChainIpc(() => mainWindow)
+  const refreshMenu = (): void => {
+    const cur = currentNetwork().id
+    Menu.setApplicationMenu(
+      buildMenu(
+        () => mainWindow,
+        (url) => void openExternalConfirmed(mainWindow, url),
+        () => app.quit(),
+        listNetworks().map((n) => ({ id: n.id, name: n.name, current: n.id === cur })),
+        (id) => {
+          const n = selectNetwork(id)
+          mainWindow?.webContents.send('network-changed', n, `Switched to ${n.name} at ${endpointOf(n)}.`)
+          refreshMenu()
+        }
+      )
     )
-  )
+  }
+  refreshMenu()
+  onNetworksChanged(refreshMenu)
   createMainWindow()
   log.info(`WAX Master ${app.getVersion()} started`)
 })

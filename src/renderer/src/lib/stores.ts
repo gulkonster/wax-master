@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import type { Problem } from '../../../shared/api'
 
-class Store<T> {
+export class Store<T> {
   private listeners = new Set<() => void>()
   constructor(private value: T) {}
   get(): T {

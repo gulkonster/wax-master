@@ -2,6 +2,7 @@
 // Types only; the implementation lives in src/preload and src/main.
 
 import type { ProjectConfig, TemplateId } from './project'
+import type { AccountActionsPage, AccountView, NetworkInfo, NetworkKind } from './chain-types'
 
 export interface AppInfo {
   name: string
@@ -218,6 +219,22 @@ export interface WaxApi {
     testBuild(): Promise<SetupStatus>
     restartComputer(): Promise<void>
   }
+  networks: {
+    list(): Promise<{ networks: NetworkInfo[]; current: string }>
+    select(id: string): Promise<NetworkInfo>
+    probe(url: string): Promise<{ endpoint: string; chainId: string; symbol: string; precision: number; version: string }>
+    add(n: { name: string; kind: NetworkKind; endpoint: string; chainId: string; symbol: string; precision: number; history?: string }): Promise<NetworkInfo>
+    update(id: string, patch: { name?: string; kind?: NetworkKind; endpoints?: string[]; history?: string | null }): Promise<NetworkInfo>
+    remove(id: string): Promise<void>
+    chooseEndpoint(id: string, index: number): Promise<NetworkInfo>
+    stars(): Promise<string[]>
+    setStar(account: string, starred: boolean): Promise<string[]>
+    setStarOrder(accounts: string[]): Promise<string[]>
+  }
+  chain: {
+    account(name: string): Promise<AccountView>
+    actions(name: string, skip: number): Promise<AccountActionsPage>
+  }
   clipboard: {
     writeText(text: string): Promise<void>
     readText(): Promise<string>
@@ -235,6 +252,7 @@ export interface WaxApi {
   }
   on(event: 'menu', cb: (cmd: MenuCommand) => void): () => void
   on(event: 'output', cb: (e: OutputEvent) => void): () => void
+  on(event: 'network-changed', cb: (n: NetworkInfo, note: string) => void): () => void
   on(event: 'setup-progress', cb: (line: string) => void): () => void
   on(event: 'files-changed', cb: () => void): () => void
   on(event: 'terminal-data', cb: (id: string, data: string) => void): () => void

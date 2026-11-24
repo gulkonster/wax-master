@@ -941,3 +941,197 @@ button.sb-item:hover {
   columns: 2;
   user-select: text;
 }
+
+/* Chain pages (Account, Contract) */
+.chain-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.page-tabs {
+  display: flex;
+  align-items: center;
+  height: 32px;
+  background: var(--bg-2);
+  border-bottom: 1px solid #111;
+  flex-shrink: 0;
+  overflow-x: auto;
+}
+.address-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #111;
+  flex-shrink: 0;
+}
+.address-input {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-3);
+  border-radius: 14px;
+  padding: 0 4px 0 14px;
+  height: 28px;
+  color: var(--text-dim);
+}
+.address-input input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text);
+  user-select: text;
+}
+.account-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  border-bottom: 1px solid #111;
+}
+.account-columns section {
+  padding: 12px 16px 16px;
+  border-right: 1px solid #111;
+  min-width: 0;
+}
+.account-columns h3,
+.tx-section h3 {
+  font-weight: 400;
+  font-size: 20px;
+  margin: 8px 0 12px;
+}
+.kv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-2);
+  padding: 10px 12px;
+  margin-bottom: 2px;
+  font-size: 15px;
+  gap: 8px;
+}
+.badge {
+  display: inline-block;
+  background: var(--bg-4);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge.green {
+  background: var(--green);
+  color: #fff;
+}
+.badge.perm-owner {
+  background: #1aa3c4;
+  color: #fff;
+}
+.badge.perm-active {
+  background: var(--green);
+  color: #fff;
+}
+.res-row {
+  background: var(--bg-2);
+  padding: 10px 12px;
+  margin-bottom: 2px;
+}
+.res-bar {
+  height: 8px;
+  background: var(--bg-4);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.res-bar > div {
+  height: 100%;
+}
+.perm-row {
+  background: var(--bg-2);
+  padding: 10px 12px;
+  margin-bottom: 2px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.perm-head {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.perm-auths {
+  text-align: right;
+  min-width: 0;
+}
+.mono-small {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  word-break: break-all;
+  user-select: text;
+}
+.tx-section {
+  padding: 8px 16px 24px;
+}
+.tx-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.tx-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 10px;
+}
+.tx-table th {
+  text-align: left;
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 8px;
+}
+.tx-table td {
+  background: var(--bg-2);
+  border-bottom: 2px solid var(--bg);
+  padding: 8px;
+  vertical-align: top;
+  cursor: pointer;
+}
+.tx-table tr:hover td {
+  background: var(--bg-3);
+}
+.nowrap {
+  white-space: nowrap;
+}
+.data-cell {
+  max-height: 72px;
+  overflow: hidden;
+  display: block;
+}
+.badge-pair {
+  display: inline-flex;
+  font-family: var(--mono);
+  font-size: 12px;
+  border: 1px solid var(--accent-2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.badge-pair span {
+  padding: 0 5px;
+}
+.badge-pair span:last-child {
+  background: var(--accent);
+  color: #fff;
+}
+.mainnet-text {
+  color: var(--red);
+}
+.net-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-3);
+  padding: 8px 10px;
+  margin-bottom: 2px;
+}

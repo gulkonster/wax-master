@@ -9,7 +9,7 @@ const call =
   (...args: unknown[]): Promise<never> =>
     ipcRenderer.invoke(channel, ...args) as Promise<never>
 
-const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'terminal-data', 'terminal-exit'])
+const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'terminal-data', 'terminal-exit', 'network-changed'])
 
 const api: WaxApi = {
   app: {
@@ -53,6 +53,22 @@ const api: WaxApi = {
     install: call('toolchain:install'),
     testBuild: call('toolchain:testBuild'),
     restartComputer: call('toolchain:restartComputer')
+  },
+  networks: {
+    list: call('networks:list'),
+    select: call('networks:select'),
+    probe: call('networks:probe'),
+    add: call('networks:add'),
+    update: call('networks:update'),
+    remove: call('networks:remove'),
+    chooseEndpoint: call('networks:chooseEndpoint'),
+    stars: call('networks:stars'),
+    setStar: call('networks:setStar'),
+    setStarOrder: call('networks:setStarOrder')
+  },
+  chain: {
+    account: call('chain:account'),
+    actions: call('chain:actions')
   },
   clipboard: {
     writeText: call('clipboard:writeText'),

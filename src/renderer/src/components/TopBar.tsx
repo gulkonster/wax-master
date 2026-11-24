@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useApp } from '../state'
-import { IconChevronDown, IconContract, IconFileCode, IconFolderOpen, IconGlobe, IconPlus, IconUser } from './Icons'
+import { IconChevronDown, IconFileCode, IconFolderOpen, IconPlus } from './Icons'
+import { ChainButtons } from './ChainButtons'
+import { emit } from '../lib/bus'
 
 function useOutsideClose(open: boolean, close: () => void): React.RefObject<HTMLDivElement | null> {
   const ref = useRef<HTMLDivElement | null>(null)
@@ -77,26 +79,8 @@ export function TopBar(): React.JSX.Element {
         )}
       </div>
       <div className="spacer" />
-      <TopButton icon={<IconContract size={18} />} label="Contracts" value="(none)" note="Contract pages arrive with the chain features." />
-      <TopButton icon={<IconUser size={18} />} label="Account" value="(none)" note="Account pages arrive with the chain features." />
-      <TopButton icon={<IconGlobe size={18} />} label="Network" value="(No Network)" note="Networks arrive with the chain features." />
+      <ChainButtons onAddNetwork={() => emit('dialog', 'add-network')} onManageNetworks={() => emit('dialog', 'manage-networks')} onStarred={() => emit('dialog', 'starred')} />
     </div>
   )
 }
 
-function TopButton({ icon, label, value, note }: { icon: React.ReactNode; label: string; value: string; note: string }): React.JSX.Element {
-  return (
-    <div className="tb-button right" title={note}>
-      <button className="tb-main" disabled>
-        {icon}
-        <div>
-          <div className="tb-label">{label}</div>
-          <div className="tb-value">{value}</div>
-        </div>
-      </button>
-      <button className="tb-arrow" disabled>
-        <IconChevronDown />
-      </button>
-    </div>
-  )
-}

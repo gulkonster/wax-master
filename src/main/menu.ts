@@ -6,10 +6,18 @@ import type { MenuCommand } from '../shared/api'
 
 const REPO = 'https://github.com/gulkonster/wax-master'
 
+export interface MenuNetwork {
+  id: string
+  name: string
+  current: boolean
+}
+
 export function buildMenu(
   getWindow: () => BrowserWindow | null,
   openLink: (url: string) => void,
-  quit: () => void
+  quit: () => void,
+  networks: MenuNetwork[] = [],
+  selectNetwork: (id: string) => void = () => {}
 ): Menu {
   const send = (cmd: MenuCommand) => (): void => {
     getWindow()?.webContents.send('menu', cmd)
@@ -107,6 +115,11 @@ export function buildMenu(
     {
       label: 'Network',
       submenu: [
+        {
+          label: 'Select Network',
+          submenu: networks.map((n) => ({ label: n.name, type: 'radio' as const, checked: n.current, click: () => selectNetwork(n.id) }))
+        },
+        { type: 'separator' },
         item('Add Network...', 'add-network'),
         item('Manage Networks...', 'manage-networks'),
         { type: 'separator' },

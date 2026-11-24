@@ -1,10 +1,13 @@
 import { useApp } from '../state'
 import { problemsStore, toolchainStore, useStore } from '../lib/stores'
+import { networkStore } from '../lib/networks'
+import { emit } from '../lib/bus'
 import { IconError, IconHammer, IconKey, IconTerminal, IconWarning } from './Icons'
 
 export function StatusBar(): React.JSX.Element {
   const { state, actions } = useApp()
   const tc = useStore(toolchainStore)
+  const net = useStore(networkStore).current
   const problems = useStore(problemsStore)
   const errors = problems.filter((p) => p.severity === 'error').length
   const warnings = problems.filter((p) => p.severity === 'warning').length
@@ -17,9 +20,13 @@ export function StatusBar(): React.JSX.Element {
         Vault not set up
       </div>
       <div className="spacer" />
-      <div className="sb-item" title="Network">
-        (No Network)
-      </div>
+      <button
+        className={`sb-item${net?.kind === 'mainnet' ? ' mainnet' : ''}`}
+        title="Network and endpoint (click to manage)"
+        onClick={() => emit('dialog', 'manage-networks')}
+      >
+        {net ? `${net.name} · ${net.endpoints[net.currentEndpoint] ?? ''}` : '(No Network)'}
+      </button>
       <button className="sb-item" title={tc.ready ? 'Toolchain' : 'Open Setup'} onClick={() => actions.setView('setup')}>
         <IconHammer size={12} /> {tc.label}
       </button>
