@@ -1,0 +1,43 @@
+appId: io.github.gulkonster.waxmaster
+productName: WAX Master
+copyright: Copyright (c) gulkonster and contributors
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  - '!node_modules/**'
+  - node_modules/@noble/**
+  - node_modules/node-pty/**
+asar: true
+npmRebuild: false
+buildDependenciesFromSource: false
+asarUnpack:
+  - node_modules/node-pty/**
+extraResources:
+  - from: resources
+    to: resources
+    filter:
+      - '**/*'
+  - from: build/icon.ico
+    to: icon.ico
+afterPack: scripts/after-pack.cjs
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  executableName: WAX Master
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: WAX Master
+  artifactName: WAX-Master-Setup-${version}.exe
+  uninstallDisplayName: WAX Master
+  deleteAppDataOnUninstall: false
+publish: null

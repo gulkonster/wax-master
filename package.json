@@ -1,0 +1,43 @@
+{
+  "name": "wax-master",
+  "productName": "WAX Master",
+  "version": "0.1.0",
+  "description": "Desktop studio for writing, building and deploying Antelope smart contracts, made for WAX.",
+  "author": "gulkonster",
+  "license": "MIT",
+  "private": true,
+  "homepage": "https://github.com/gulkonster/wax-master",
+  "repository": "github:gulkonster/wax-master",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "dist": "node scripts/dist.mjs"
+  },
+  "dependencies": {
+    "@noble/curves": "2.4.0",
+    "@noble/hashes": "2.4.0",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0",
+    "monaco-editor": "0.58.0",
+    "node-pty": "1.1.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@electron/fuses": "2.1.3",
+    "@types/node": "24.10.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "electron": "45.4.1",
+    "electron-builder": "26.18.0",
+    "electron-vite": "6.0.0",
+    "eosjs": "22.1.0",
+    "typescript": "5.9.3",
+    "vite": "8.3.8",
+    "vitest": "5.1.1"
+  }
+}
