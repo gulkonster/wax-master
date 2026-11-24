@@ -9,12 +9,14 @@ const call =
   (...args: unknown[]): Promise<never> =>
     ipcRenderer.invoke(channel, ...args) as Promise<never>
 
-const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress'])
+const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'terminal-data', 'terminal-exit'])
 
 const api: WaxApi = {
   app: {
     info: call('app:info'),
-    openExternal: call('app:openExternal')
+    openExternal: call('app:openExternal'),
+    setDirty: call('app:setDirty'),
+    quitNow: call('app:quitNow')
   },
   settings: {
     get: call('settings:get'),
@@ -42,7 +44,8 @@ const api: WaxApi = {
     reveal: call('files:reveal'),
     saveAs: call('files:saveAs'),
     openDialog: call('files:openDialog'),
-    writeExternal: call('files:writeExternal')
+    writeExternal: call('files:writeExternal'),
+    wasmInfo: call('files:wasmInfo')
   },
   toolchain: {
     status: call('toolchain:status'),
@@ -50,6 +53,17 @@ const api: WaxApi = {
     install: call('toolchain:install'),
     testBuild: call('toolchain:testBuild'),
     restartComputer: call('toolchain:restartComputer')
+  },
+  clipboard: {
+    writeText: call('clipboard:writeText'),
+    readText: call('clipboard:readText')
+  },
+  terminal: {
+    profiles: call('terminal:profiles'),
+    create: call('terminal:create'),
+    write: call('terminal:write'),
+    resize: call('terminal:resize'),
+    kill: call('terminal:kill')
   },
   build: {
     run: call('build:run'),

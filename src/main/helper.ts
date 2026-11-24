@@ -23,6 +23,10 @@ function ensure(): UtilityProcess {
     stdio: 'ignore'
   })
   proc.on('message', (m: { type: string; id: string; stream?: 'stdout' | 'stderr'; data?: string; code?: number; error?: string }) => {
+    if (m.type.startsWith('pty-')) {
+      ptyListener?.(m)
+      return
+    }
     const w = waiters.get(m.id)
     if (!w) return
     if (m.type === 'out' && m.data !== undefined) {
@@ -77,4 +81,34 @@ export function run(file: string, args: string[], opts: RunOptions = {}): Promis
 export function stopHelper(): void {
   proc?.kill()
   proc = null
+}
+
+export interface PtyMessage {
+  type: string
+  id: string
+  data?: string
+  code?: number
+  error?: string
+}
+
+let ptyListener: ((m: PtyMessage) => void) | null = null
+
+export function onPtyMessage(fn: (m: PtyMessage) => void): void {
+  ptyListener = fn
+}
+
+export function ptyStart(id: string, file: string, args: string[], cwd: string, cols: number, rows: number, env: Record<string, string>): void {
+  ensure().postMessage({ type: 'pty-start', id, file, args, cwd, env: childEnvironment(env), cols, rows })
+}
+
+export function ptyInput(id: string, data: string): void {
+  proc?.postMessage({ type: 'pty-input', id, data })
+}
+
+export function ptyResize(id: string, cols: number, rows: number): void {
+  proc?.postMessage({ type: 'pty-resize', id, cols, rows })
+}
+
+export function ptyKill(id: string): void {
+  proc?.postMessage({ type: 'pty-kill', id })
 }

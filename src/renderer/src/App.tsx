@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { TemplateId } from '../../shared/project'
 import type { MenuCommand, OpenProject, Settings } from '../../shared/api'
 import { AppContext, type AppActions, type AppState, type PanelTab, type View } from './state'
 import { emit, on } from './lib/bus'
@@ -9,6 +10,7 @@ import { errorText, toast } from './lib/toast'
 import { TopBar } from './components/TopBar'
 import { StatusBar } from './components/StatusBar'
 import { BottomPanel } from './components/BottomPanel'
+import { TerminalPanel } from './components/TerminalPanel'
 import { Toasts } from './components/Toasts'
 import { NewProjectDialog } from './components/NewProjectDialog'
 import { MainFileDialog } from './components/MainFileDialog'
@@ -31,7 +33,28 @@ export function App(): React.JSX.Element {
   const [newOpen, setNewOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [coming, setComing] = useState<string | null>(null)
-  const [approval, setApproval] = useState<string | null>(null)
+  const [newTemplate, setNewTemplate] = useState<TemplateId | undefined>(undefined)
+  const [unsaved, setUnsaved] = useState<null | ((r: 'save' | 'discard' | 'cancel') => void)>(null)
+  const dirtyRef = useRef(0)
+
+  useEffect(
+    () =>
+      on('dirty-count', (n) => {
+        dirtyRef.current = n as number
+        void window.wax.app.setDirty(n as number)
+      }),
+    []
+  )
+
+  /** Resolves true when it is fine to leave the current project (saved or discarded). */
+  const confirmLeave = useCallback(async (): Promise<boolean> => {
+    if (dirtyRef.current === 0) return true
+    const answer = await new Promise<'save' | 'discard' | 'cancel'>((resolve) => setUnsaved(() => resolve))
+    setUnsaved(null)
+    if (answer === 'cancel') return false
+    if (answer === 'save') await new Promise((resolve) => emit('save-all-then', resolve))
+    return true
+  }, [])
 
   // Latest state for the menu handler.
   const stateRef = useRef(state)
@@ -50,10 +73,16 @@ export function App(): React.JSX.Element {
         void window.wax.projects.list().then((projects) => patch({ projects }))
       },
       closeProject: async () => {
+        if (!(await confirmLeave())) return
         await window.wax.projects.close()
         patch({ project: null, view: 'home' })
       },
       openProjectPath: async (path: string) => {
+        if (stateRef.current.project?.path === path) {
+          patch({ view: 'project' })
+          return
+        }
+        if (!(await confirmLeave())) return
         try {
           const p = await window.wax.projects.open(path)
           actions.projectOpened(p)
@@ -62,6 +91,7 @@ export function App(): React.JSX.Element {
         }
       },
       openProjectDialog: async () => {
+        if (!(await confirmLeave())) return
         try {
           const p = await window.wax.projects.openDialog()
           if (p) actions.projectOpened(p)
@@ -69,7 +99,9 @@ export function App(): React.JSX.Element {
           toast('Could not open the project', errorText(e), 'error')
         }
       },
-      newProject: () => setNewOpen(true),
+      newProject: () => {
+        void confirmLeave().then((ok) => ok && (setNewTemplate(undefined), setNewOpen(true)))
+      },
       updateSettings: async (p: Partial<Settings>) => {
         const settings = await window.wax.settings.set(p)
         patch({ settings })
@@ -100,15 +132,25 @@ export function App(): React.JSX.Element {
     })()
   }, [patch])
 
-  useEffect(() => on('build-approval', (cmd) => setApproval(cmd as string)), [])
-
   // Menu commands from the main process.
   useEffect(() => {
     return window.wax.on('menu', (cmd: MenuCommand) => {
       const s = stateRef.current
       switch (cmd) {
         case 'new-project':
-          setNewOpen(true)
+          actions.newProject()
+          break
+        case 'template-empty':
+        case 'template-hello':
+        case 'template-token':
+          void confirmLeave().then((ok) => {
+            if (!ok) return
+            setNewTemplate(cmd.slice(9) as TemplateId)
+            setNewOpen(true)
+          })
+          break
+        case 'save-all-and-quit':
+          emit('save-all-then', () => void window.wax.app.quitNow())
           break
         case 'open-project':
           void actions.openProjectDialog()
@@ -186,44 +228,34 @@ export function App(): React.JSX.Element {
             )}
             {state.view === 'setup' && <Setup />}
             {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && <ComingLater what={state.view} />}
-            <BottomPanel />
+            <BottomPanel terminal={<TerminalPanel visible={state.panelOpen && state.panelTab === 'terminal'} />} />
           </div>
         </div>
         <StatusBar />
       </div>
-      {newOpen && <NewProjectDialog onClose={() => setNewOpen(false)} />}
+      {newOpen && <NewProjectDialog initialTemplate={newTemplate} onClose={() => setNewOpen(false)} />}
       {state.project?.needsMainFile && <MainFileDialog project={state.project} />}
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       {coming && <ComingLater what={coming} dialog onClose={() => setComing(null)} />}
-      {approval && (
+      {unsaved && (
         <Modal
-          title="Run this build command?"
-          onClose={() => setApproval(null)}
-          wide
+          title="Unsaved changes"
+          onClose={() => unsaved('cancel')}
           footer={
             <>
-              <button className="btn" onClick={() => setApproval(null)}>
+              <button className="btn" onClick={() => unsaved('cancel')}>
                 Cancel
               </button>
-              <button
-                className="btn red"
-                onClick={() => {
-                  const cmd = approval
-                  setApproval(null)
-                  void startBuild((t) => actions.showPanel(t), cmd)
-                }}
-              >
-                Run it
+              <button className="btn" onClick={() => unsaved('discard')}>
+                Don&apos;t Save
+              </button>
+              <button className="btn purple" onClick={() => unsaved('save')}>
+                Save All
               </button>
             </>
           }
         >
-          <p style={{ marginTop: 0 }}>
-            This project was not created on this computer and sets its own build command. It runs with your rights inside the
-            toolchain environment, which can read your Windows files. Run it only if you trust the project.
-          </p>
-          <div className="approval-command">{approval}</div>
-          <p className="hint">Your answer is remembered for this folder and this exact command; a changed command asks again.</p>
+          Some files of the current project have unsaved changes. Save them first?
         </Modal>
       )}
       <Toasts />

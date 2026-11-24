@@ -1,7 +1,7 @@
 // Contract build: default command or the project's custom command (which needs
 // the user's approval unless the project was created on this computer).
 
-import type { WebContents } from 'electron'
+import { BrowserWindow, dialog, type WebContents } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { BuildResult, Problem } from '../shared/api'
@@ -53,11 +53,26 @@ export function parseProblems(output: string, projectRoot: string): Problem[] {
   return out
 }
 
-export interface BuildRequest {
-  approveCommand?: string
+/** Shows the custom command in a dialog owned by the main process; the editor window cannot answer it. */
+async function askApproval(sender: WebContents, root: string, command: string): Promise<boolean> {
+  const win = BrowserWindow.fromWebContents(sender)
+  const opts: Electron.MessageBoxOptions = {
+    type: 'warning',
+    buttons: ['Cancel', 'Run this command'],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+    title: 'Run this build command?',
+    message: 'This project sets its own build command.',
+    detail:
+      `Project: ${root}\n\nCommand:\n${command}\n\n` +
+      'The project was not created on this computer. The command runs with your rights inside the toolchain environment, which can read your Windows files. Run it only if you trust the project. Your answer is remembered for this folder and this exact command.'
+  }
+  const r = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)
+  return r.response === 1
 }
 
-export async function runBuild(sender: WebContents, req: BuildRequest = {}): Promise<BuildResult> {
+export async function runBuild(sender: WebContents): Promise<BuildResult> {
   const p = currentProject()
   if (!p) throw new Error('No project is open')
   if (building) throw new Error('A build is already running')
@@ -66,7 +81,7 @@ export async function runBuild(sender: WebContents, req: BuildRequest = {}): Pro
     const entry = findProject(p.root)
     const trusted = entry?.createdHere || isCommandTrusted(p.root, custom)
     if (!trusted) {
-      if (req.approveCommand !== custom) {
+      if (!(await askApproval(sender, p.root, custom))) {
         return { ok: false, needsApproval: true, command: custom, problems: [], durationMs: 0, outputs: [] }
       }
       trustCommand(p.root, custom)

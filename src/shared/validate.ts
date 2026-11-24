@@ -46,12 +46,38 @@ export function arr(v: unknown, field: string, maxLen = 1000): unknown[] {
   return v
 }
 
+const DEVICE_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
+
 /** A plain relative path inside a project: no drive, no leading slash, no "..". */
 export function relPath(v: unknown, field: string): string {
   const s = str(v, field, 1024).replace(/\\/g, '/')
-  if (s.startsWith('/') || /^[a-zA-Z]:/.test(s)) throw new ValidationError(`${field}: must be relative`)
-  if (s.split('/').some((p) => p === '..')) throw new ValidationError(`${field}: must stay inside the project`)
-  if (s.includes('\0')) throw new ValidationError(`${field}: invalid character`)
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(s)) throw new ValidationError(`${field}: invalid character`)
+  if (s.includes(':')) throw new ValidationError(`${field}: invalid character`)
+  if (s.startsWith('/')) throw new ValidationError(`${field}: must be relative`)
+  if (s === '') return s
+  const segments = s.split('/')
+  if (segments[segments.length - 1] === '') segments.pop() // one trailing slash is fine
+  for (const seg of segments) {
+    if (seg === '') throw new ValidationError(`${field}: empty folder name`)
+    if (seg === '..') throw new ValidationError(`${field}: must stay inside the project`)
+    if (seg === '.') continue
+    if (/[. ]$/.test(seg)) throw new ValidationError(`${field}: name must not end in a dot or space`)
+    if (DEVICE_NAME.test(seg.split('.')[0].trimEnd())) throw new ValidationError(`${field}: reserved name`)
+  }
+  return s
+}
+
+/** An absolute local drive path such as C:\Users\me\wax. UNC, device paths and ".." are refused. */
+export function localAbsPath(v: unknown, field: string, max = 1024): string {
+  const s = str(v, field, max)
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(s)) throw new ValidationError(`${field}: invalid character`)
+  if (s.startsWith('\\\\') || s.startsWith('//')) throw new ValidationError(`${field}: network and device paths are not allowed`)
+  if (!/^[A-Za-z]:[\\/]/.test(s)) throw new ValidationError(`${field}: must be a full path on a local drive`)
+  const rest = s.slice(2)
+  if (rest.includes(':')) throw new ValidationError(`${field}: invalid character`)
+  if (rest.split(/[\\/]/).some((p) => p === '..')) throw new ValidationError(`${field}: must not contain ".."`)
   return s
 }
 

@@ -9,12 +9,16 @@ files:
   - package.json
   - '!node_modules/**'
   - node_modules/@noble/**
-  - node_modules/node-pty/**
+  - node_modules/node-pty/package.json
+  - node_modules/node-pty/lib/**
+  - node_modules/node-pty/prebuilds/win32-x64/**
 asar: true
 npmRebuild: false
 buildDependenciesFromSource: false
 asarUnpack:
-  - node_modules/node-pty/**
+  - node_modules/node-pty/lib/**
+  - node_modules/node-pty/prebuilds/win32-x64/**
+  - node_modules/node-pty/package.json
 extraResources:
   - from: resources
     to: resources
@@ -22,6 +26,11 @@ extraResources:
       - '**/*'
   - from: build/icon.ico
     to: icon.ico
+  - from: toolchain-parts
+    to: toolchain-parts
+    filter:
+      - '*.deb'
+      - '*.tar.gz'
 afterPack: scripts/after-pack.cjs
 win:
   target:
@@ -33,6 +42,7 @@ nsis:
   oneClick: false
   perMachine: false
   allowElevation: false
+  packElevateHelper: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true

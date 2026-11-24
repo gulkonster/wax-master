@@ -26,6 +26,10 @@ export function buildMenu(
       submenu: [
         item('New Project...', 'new-project', 'CmdOrCtrl+Shift+N'),
         item('Open Project...', 'open-project', 'CmdOrCtrl+Shift+O'),
+        {
+          label: 'New from Template',
+          submenu: [item('Empty', 'template-empty'), item('Hello World', 'template-hello'), item('Token', 'template-token')]
+        },
         { type: 'separator' },
         item('New File', 'new-file', 'CmdOrCtrl+N'),
         item('Open...', 'open-file', 'CmdOrCtrl+O'),

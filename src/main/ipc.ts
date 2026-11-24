@@ -1,10 +1,10 @@
 // IPC handlers for the editor window. Each handler checks the sender and
 // validates every argument before acting.
 
-import { app, dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { app, clipboard, dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { existsSync, mkdirSync } from 'node:fs'
 import type { AppInfo, Settings } from '../shared/api'
-import { bool, int, obj, oneOf, relPath, str } from '../shared/validate'
+import { bool, int, localAbsPath, obj, oneOf, relPath, str } from '../shared/validate'
 import { normalizeConfig, type TemplateId } from '../shared/project'
 import { BUILD_COMMIT, BUILD_STAGE, MAINNET_SIGNING } from './build-info'
 import { log } from './log'
@@ -12,10 +12,12 @@ import * as projects from './projects'
 import { isAllowedOrigin, openExternalConfirmed } from './security'
 import * as store from './store'
 import * as toolchain from './toolchain'
+import * as terminal from './terminal'
+import { wasmInfo } from './wasm-info'
 import { runBuild, defaultBuildArgs } from './build'
 import { optStr } from '../shared/validate'
 import { run as runHelper } from './helper'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
 type Handler = (e: IpcMainInvokeEvent, ...args: unknown[]) => unknown
 
@@ -56,7 +58,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     const p = obj(patchRaw, 'settings')
     const patch: Partial<Settings> = {}
     if ('fontSize' in p) patch.fontSize = int(p.fontSize, 'fontSize', 8, 40)
-    if ('defaultProjectFolder' in p) patch.defaultProjectFolder = str(p.defaultProjectFolder, 'defaultProjectFolder', 1024)
+    if ('defaultProjectFolder' in p) patch.defaultProjectFolder = resolve(localAbsPath(p.defaultProjectFolder, 'defaultProjectFolder'))
     if ('autoLockMinutes' in p) {
       const v = int(p.autoLockMinutes, 'autoLockMinutes', 5, 60)
       if (v !== 5 && v !== 15 && v !== 60) throw new Error('autoLockMinutes: 5, 15 or 60')
@@ -72,7 +74,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   handle('projects:list', () => store.listProjects())
   handle('projects:create', (_e, template, name, parent) => {
     const t = oneOf(template, 'template', ['empty', 'hello', 'token'] as const) as TemplateId
-    const dir = str(parent, 'parent', 1024)
+    const dir = resolve(localAbsPath(parent, 'parent'))
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
     return projects.createProject(t, str(name, 'name', 12), dir)
   })
@@ -147,6 +149,11 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     if (r.response !== 0) return
     await shell.trashItem(abs)
     e.sender.send('files-changed')
+  })
+  handle('files:wasmInfo', async (_e, rel) => {
+    const r = relPath(rel, 'path')
+    if (!r.toLowerCase().endsWith('.wasm')) throw new Error('Not a .wasm file')
+    return wasmInfo(await projects.readProjectBytes(r))
   })
   handle('files:reveal', (_e, rel) => {
     shell.showItemInFolder(projects.resolveInProject(relPath(rel, 'path')))
@@ -245,6 +252,24 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     await runHelper(join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'shutdown.exe'), ['/r', '/t', '5'])
   })
 
-  handle('build:run', (e, approve) => runBuild(e.sender, { approveCommand: optStr(approve, 'command', 4000) }))
+  handle('build:run', (e) => runBuild(e.sender))
+
+  handle('clipboard:writeText', (_e, text) => clipboard.writeText(str(text, 'text', 1024 * 1024)))
+  handle('clipboard:readText', async () => String(await clipboard.readText()).slice(0, 1024 * 1024))
+  handle('terminal:profiles', () => ({ profiles: terminal.profiles(), gitHint: terminal.gitHint() }))
+  handle('terminal:create', (e, profile, rel, cols, rows) =>
+    terminal.createTerminal(
+      e.sender,
+      oneOf(profile, 'profile', ['powershell', 'cmd', 'toolchain'] as const),
+      rel === null || rel === undefined || rel === '' ? null : relPath(rel, 'path'),
+      int(cols, 'cols', 2, 1000),
+      int(rows, 'rows', 2, 500)
+    )
+  )
+  handle('terminal:write', (_e, id, data) => terminal.writeTerminal(str(id, 'id', 64), str(data, 'data', 1024 * 1024)))
+  handle('terminal:resize', (_e, id, cols, rows) =>
+    terminal.resizeTerminal(str(id, 'id', 64), int(cols, 'cols', 2, 1000), int(rows, 'rows', 2, 500))
+  )
+  handle('terminal:kill', (_e, id) => terminal.killTerminal(str(id, 'id', 64)))
   handle('build:defaultCommand', () => defaultBuildArgs().join(' '))
 }

@@ -7,7 +7,6 @@ export const BUILD_COMMIT: string = typeof __APP_COMMIT__ === 'string' ? __APP_C
 export const BUILD_STAGE: number = typeof __APP_STAGE__ === 'number' ? __APP_STAGE__ : 0
 
 /**
- * Mainnet signing switch. Stays false in every stage build; it is switched on only
- * for the release build once the release criteria pass.
+ * Mainnet signing switch. Off in development builds; switched on only for a release that passes the release checks.
  */
 export const MAINNET_SIGNING = false

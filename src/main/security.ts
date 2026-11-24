@@ -1,16 +1,15 @@
 // Window hardening shared by every window of the app.
 
-import { app, dialog, protocol, session, shell, type BrowserWindow, type WebContents, net } from 'electron'
+import { app, dialog, protocol, session, shell, type BrowserWindow, net } from 'electron'
 import { join, normalize, relative, isAbsolute } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { log } from './log'
 
 export const APP_SCHEME = 'app'
 export const APP_ORIGIN = `${APP_SCHEME}://bundle`
 
 export const CSP =
   "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
-  "font-src 'self' data:; connect-src 'none'; worker-src 'self' blob:; frame-src 'none'; " +
+  "font-src 'self'; connect-src 'none'; worker-src 'self' blob:; frame-src 'none'; " +
   "object-src 'none'; base-uri 'none'; form-action 'none'"
 
 /** Must run before the app is ready. */
@@ -100,15 +99,4 @@ export async function openExternalConfirmed(parent: BrowserWindow | null, url: s
   if (r.response !== 0) return false
   await shell.openExternal(parsed.toString())
   return true
-}
-
-/** Checks that an IPC message comes from a page of the app itself. */
-export function senderAllowed(wc: WebContents, frameUrl: string | undefined, allowedPages: string[]): boolean {
-  const url = frameUrl ?? wc.getURL()
-  if (!isAllowedOrigin(url)) {
-    log.warn('IPC from unexpected origin refused')
-    return false
-  }
-  const path = new URL(url).pathname
-  return allowedPages.some((p) => path.endsWith(p))
 }

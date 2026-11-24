@@ -12,16 +12,16 @@ function saveAll(): Promise<void> {
   return new Promise((resolve) => emit('save-all-then', resolve))
 }
 
-export async function startBuild(showPanel: (tab: 'output' | 'problems') => void, approveCommand?: string): Promise<BuildResult | null> {
+export async function startBuild(showPanel: (tab: 'output' | 'problems') => void): Promise<BuildResult | null> {
   if (running) return null
   running = true
   try {
     await saveAll()
     clearOutput()
     showPanel('output')
-    const r = await window.wax.build.run(approveCommand)
-    if (r.needsApproval && r.command) {
-      emit('build-approval', r.command)
+    const r = await window.wax.build.run()
+    if (r.needsApproval) {
+      appendOutput('Build cancelled: the custom build command was not approved.\n')
       return r
     }
     problemsStore.set(r.problems)

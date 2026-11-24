@@ -886,3 +886,58 @@ button.sb-item:hover {
   word-break: break-all;
   user-select: text;
 }
+
+/* Terminal */
+.terminal-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.terminal-host {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  padding: 2px 0 0 8px;
+}
+.terminal-mount {
+  position: absolute;
+  inset: 2px 0 0 8px;
+}
+.terminal-list {
+  width: 170px;
+  border-left: 1px solid var(--line);
+  overflow: auto;
+  font-size: 12px;
+}
+.terminal-list-head {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 4px;
+}
+.terminal-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 8px;
+  cursor: pointer;
+  color: var(--text-dim);
+}
+.terminal-item.active {
+  background: var(--bg-3);
+  color: var(--text);
+}
+.terminal-item .close {
+  visibility: hidden;
+  display: inline-flex;
+}
+.terminal-item:hover .close {
+  visibility: visible;
+}
+
+.wasm-imports {
+  font-family: var(--mono);
+  background: var(--bg-2);
+  padding: 8px 12px;
+  columns: 2;
+  user-select: text;
+}

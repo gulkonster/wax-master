@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ExternalFile, MenuCommand, OpenProject, TreeNode } from '../../../shared/api'
 import { monaco, languageFor } from '../lib/monaco'
-import { on } from '../lib/bus'
+import { emit, on } from '../lib/bus'
 import { errorText, toast } from '../lib/toast'
 import { useApp } from '../state'
 import { FileTree, type TreeMenuAction } from '../components/FileTree'
@@ -10,11 +10,12 @@ import { IconClose, IconGear, IconHammer, IconPlus, IconShip } from '../componen
 import { ProjectSettings } from './ProjectSettings'
 import { startBuild } from '../lib/build'
 import { problemsStore } from '../lib/stores'
-import type { Problem } from '../../../shared/api'
+import type { Problem, WasmInfo } from '../../../shared/api'
+import { WasmInfoView } from './WasmInfoView'
 
 type Tab =
   | { id: 'settings'; kind: 'settings'; title: string }
-  | { id: string; kind: 'file'; title: string; rel: string; info?: string }
+  | { id: string; kind: 'file'; title: string; rel: string; info?: string; wasm?: WasmInfo }
   | { id: string; kind: 'external'; title: string; token: string; displayPath: string }
 
 interface Doc {
@@ -152,8 +153,15 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
       return
     }
     try {
-      const f = await window.wax.files.read(rel)
       const title = rel.split('/').pop() ?? rel
+      if (rel.toLowerCase().endsWith('.wasm')) {
+        const wasm = await window.wax.files.wasmInfo(rel)
+        docs.current.set(id, { model: null, savedVersion: 0, viewState: null })
+        setTabs((t) => [...t, { id, kind: 'file', title, rel, info: 'wasm', wasm }])
+        switchTo(id)
+        return
+      }
+      const f = await window.wax.files.read(rel)
       let info: string | undefined
       let model: monaco.editor.ITextModel | null = null
       if (f.binary) info = `Binary file, ${f.size.toLocaleString()} bytes.`
@@ -304,7 +312,10 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     })
     items.push({
       label: 'Open Terminal Here',
-      run: () => toast('Terminal', 'The terminal arrives in a later build.')
+      run: () => {
+        actions.showPanel('terminal')
+        emit('terminal-open-here', node.dir ? node.path : dirname(node.path))
+      }
     })
     return items
   }
@@ -433,6 +444,11 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     [dirty]
   )
 
+  useEffect(() => {
+    emit('dirty-count', dirty.size)
+  }, [dirty])
+  useEffect(() => () => emit('dirty-count', 0), [])
+
   const activeTab = tabs.find((t) => t.id === active)
   const showEditor = activeTab && activeTab.kind !== 'settings' && !(activeTab.kind === 'file' && activeTab.info)
 
@@ -486,7 +502,12 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
               <ProjectSettings project={project} />
             </div>
           )}
-          {activeTab?.kind === 'file' && activeTab.info && <div className="editor-placeholder">{activeTab.info}</div>}
+          {activeTab?.kind === 'file' && activeTab.wasm && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', background: 'var(--bg)' }}>
+              <WasmInfoView rel={activeTab.rel} info={activeTab.wasm} />
+            </div>
+          )}
+          {activeTab?.kind === 'file' && activeTab.info && !activeTab.wasm && <div className="editor-placeholder">{activeTab.info}</div>}
           {!activeTab && <div className="editor-placeholder">Open a file from the tree on the left.</div>}
         </div>
       </div>

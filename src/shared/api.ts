@@ -60,6 +60,15 @@ export interface FileContent {
   tooLarge: boolean
 }
 
+export interface WasmInfo {
+  size: number
+  sha256: string
+  valid: boolean
+  error?: string
+  imports: { module: string; name: string; kind: string }[]
+  exports: string[]
+}
+
 export interface ExternalFile {
   /** Token that identifies a file the user picked with a dialog (outside the project). */
   token: string
@@ -111,8 +120,21 @@ export interface OutputEvent {
   text: string
 }
 
+export type TerminalProfile = 'powershell' | 'cmd' | 'toolchain'
+
+export interface TerminalProfileInfo {
+  id: TerminalProfile
+  label: string
+  available: boolean
+  note?: string
+}
+
 export type MenuCommand =
   | 'new-project'
+  | 'template-empty'
+  | 'template-hello'
+  | 'template-token'
+  | 'save-all-and-quit'
   | 'open-project'
   | 'new-file'
   | 'open-file'
@@ -157,6 +179,8 @@ export interface WaxApi {
   app: {
     info(): Promise<AppInfo>
     openExternal(url: string): Promise<boolean>
+    setDirty(count: number): Promise<void>
+    quitNow(): Promise<void>
   }
   settings: {
     get(): Promise<Settings>
@@ -185,6 +209,7 @@ export interface WaxApi {
     saveAs(content: string, suggested: string): Promise<{ rel?: string; external?: ExternalFile } | null>
     openDialog(): Promise<{ rel?: string; external?: ExternalFile } | null>
     writeExternal(token: string, content: string): Promise<void>
+    wasmInfo(rel: string): Promise<WasmInfo>
   }
   toolchain: {
     status(): Promise<SetupStatus>
@@ -193,14 +218,27 @@ export interface WaxApi {
     testBuild(): Promise<SetupStatus>
     restartComputer(): Promise<void>
   }
+  clipboard: {
+    writeText(text: string): Promise<void>
+    readText(): Promise<string>
+  }
+  terminal: {
+    profiles(): Promise<{ profiles: TerminalProfileInfo[]; gitHint: string | null }>
+    create(profile: TerminalProfile, rel: string | null, cols: number, rows: number): Promise<string>
+    write(id: string, data: string): Promise<void>
+    resize(id: string, cols: number, rows: number): Promise<void>
+    kill(id: string): Promise<void>
+  }
   build: {
-    run(approveCommand?: string): Promise<BuildResult>
+    run(): Promise<BuildResult>
     defaultCommand(): Promise<string>
   }
   on(event: 'menu', cb: (cmd: MenuCommand) => void): () => void
   on(event: 'output', cb: (e: OutputEvent) => void): () => void
   on(event: 'setup-progress', cb: (line: string) => void): () => void
   on(event: 'files-changed', cb: () => void): () => void
+  on(event: 'terminal-data', cb: (id: string, data: string) => void): () => void
+  on(event: 'terminal-exit', cb: (id: string, code: number, error: string) => void): () => void
 }
 
 declare global {

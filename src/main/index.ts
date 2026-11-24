@@ -2,8 +2,11 @@ import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
 import { join } from 'node:path'
 import { buildMenu } from './menu'
 import { registerIpc } from './ipc'
-import { log, setLogSink } from './log'
-import { appendFileSync, mkdirSync } from 'node:fs'
+import { guardWindow, registerCloseGuard } from './close-guard'
+import { killAllTerminals } from './terminal'
+import { stopHelper } from './helper'
+import { fileSink, log, setLogSink } from './log'
+import { mkdirSync } from 'node:fs'
 import {
   APP_ORIGIN,
   hardenSessions,
@@ -12,6 +15,12 @@ import {
   registerSchemes,
   secureWebPreferences
 } from './security'
+
+// A packaged build never runs with debugging or inspector switches.
+if (app.isPackaged) {
+  const blocked = /^--(remote-debugging-port|remote-debugging-pipe|inspect|inspect-brk|js-flags)(=|$)/
+  if (process.argv.some((a) => blocked.test(a))) app.exit(1)
+}
 
 process.on('uncaughtException', (err) => log.error('Uncaught error', err))
 process.on('unhandledRejection', (err) => log.error('Unhandled rejection', err))
@@ -23,8 +32,9 @@ app.setName('WAX Master')
   const dir = join(app.getPath('userData'), 'logs')
   mkdirSync(dir, { recursive: true })
   const file = join(dir, 'main.log')
+  const toFile = fileSink(file)
   setLogSink((line) => {
-    appendFileSync(file, line + '\n')
+    toFile(line)
     if (!app.isPackaged) process.stdout.write(line + '\n')
   })
 }
@@ -56,6 +66,7 @@ function createMainWindow(): void {
     webPreferences: secureWebPreferences(join(__dirname, '../preload/index.js'))
   })
   mainWindow.once('ready-to-show', () => mainWindow?.show())
+  guardWindow(mainWindow)
   mainWindow.webContents.on('did-fail-load', (_e, code, desc) => log.error(`Page failed to load: ${code} ${desc}`))
   mainWindow.webContents.on('did-finish-load', () => log.info('Main page loaded'))
   mainWindow.webContents.on('render-process-gone', (_e, d) => log.error(`Window process ended: ${d.reason}`))
@@ -82,6 +93,7 @@ app.whenReady().then(() => {
   hardenSessions()
   registerAppProtocol()
   registerIpc(() => mainWindow)
+  registerCloseGuard(() => mainWindow)
   Menu.setApplicationMenu(
     buildMenu(
       () => mainWindow,
@@ -95,4 +107,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   app.quit()
+})
+
+app.on('will-quit', () => {
+  killAllTerminals()
+  setTimeout(stopHelper, 300)
 })

@@ -314,13 +314,18 @@ export async function removeEntry(rel: string): Promise<string> {
 const externalFiles = new Map<string, string>()
 
 export function registerExternal(absPath: string): ExternalFile {
+  const st = statSync(absPath)
+  if (!st.isFile()) throw new Error('Not a file')
+  if (st.size > MAX_EDIT_SIZE) throw new Error('This file is too large to edit (limit 5 MB)')
+  const buf = readFileSync(absPath)
+  if (looksBinary(buf)) throw new Error('This looks like a binary file and cannot be opened in the editor')
   const token = randomUUID()
   externalFiles.set(token, absPath)
   return {
     token,
     name: basename(absPath),
     displayPath: absPath,
-    content: readFileSync(absPath, 'utf8')
+    content: buf.toString('utf8')
   }
 }
 
