@@ -4,12 +4,14 @@ import { defaultBuildCommand, type ProjectConfig } from '../../../shared/project
 import { useApp } from '../state'
 import { errorText, toast } from '../lib/toast'
 import { IconFolder } from '../components/Icons'
+import { useToolchains } from '../components/ToolchainManager'
 
 export function ProjectSettings({ project }: { project: OpenProject }): React.JSX.Element {
   const { actions } = useApp()
   const [cfg, setCfg] = useState<ProjectConfig>(project.config)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(true)
+  const tcs = useToolchains()
 
   useEffect(() => {
     setCfg(project.config)
@@ -54,7 +56,15 @@ export function ProjectSettings({ project }: { project: OpenProject }): React.JS
         <div className="field">
           <label>Version of CDT used in build:</label>
           <select className="select" value={cfg.cdt} onChange={(e) => set('cdt', e.target.value)}>
-            <option value="">WAX CDT 4.1.1wax01 (default)</option>
+            <option value="">{tcs.defaultLabel || 'WAX CDT 4.1.1wax01'} (default)</option>
+            {tcs.list
+              .filter((t) => !t.isDefault)
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            {cfg.cdt && !tcs.list.some((t) => t.id === cfg.cdt) && <option value={cfg.cdt}>{cfg.cdt} (not installed; the default is used)</option>}
           </select>
         </div>
         <div className="field">

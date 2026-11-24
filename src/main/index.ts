@@ -8,6 +8,7 @@ import { registerChainIpc } from './ipc-chain'
 import { registerKeys } from './keys-service'
 import { registerTxIpc } from './ipc-tx'
 import { registerAppIpc } from './ipc-app'
+import { registerToolchainIpc } from './ipc-toolchains'
 import { registerEditorIpc } from './ipc-editor'
 import { stopEditor } from './clangd'
 import { currentNetwork, endpointOf, listNetworks, onNetworksChanged, selectNetwork } from './networks'
@@ -74,8 +75,13 @@ function createMainWindow(): void {
   })
   mainWindow.once('ready-to-show', () => mainWindow?.show())
   guardWindow(mainWindow)
-  mainWindow.webContents.on('did-fail-load', (_e, code, desc) => log.error(`Page failed to load: ${code} ${desc}`))
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc, url, isMain) =>
+    log.error(`${isMain ? 'Page' : 'Frame'} failed to load: ${code} ${desc} ${url.split(/[?#]/)[0]}`)
+  )
   mainWindow.webContents.on('did-finish-load', () => log.info('Main page loaded'))
+  mainWindow.webContents.on('did-frame-navigate', (_e, url, code, _text, isMain) => {
+    if (!isMain) log.info(`Frame loaded: ${url.split(/[?#]/)[0]} (${code})`)
+  })
   mainWindow.webContents.on('render-process-gone', (_e, d) => log.error(`Window process ended: ${d.reason}`))
   mainWindow.on('closed', () => {
     mainWindow = null
@@ -105,6 +111,7 @@ app.whenReady().then(() => {
   registerKeys(() => mainWindow)
   registerTxIpc(() => mainWindow)
   registerAppIpc(() => mainWindow)
+  registerToolchainIpc(() => mainWindow)
   registerEditorIpc()
   const refreshMenu = (): void => {
     const cur = currentNetwork().id

@@ -359,16 +359,11 @@ export interface WaxApi {
     }): Promise<TxOutcome>
     clearCode(account: string, permission: string): Promise<TxOutcome>
   }
-  clipboard: {
-    writeText(text: string): Promise<void>
-    readText(): Promise<string>
-  }
-  terminal: {
-    profiles(): Promise<{ profiles: TerminalProfileInfo[]; gitHint: string | null }>
-    create(profile: TerminalProfile, rel: string | null, cols: number, rows: number): Promise<string>
-    write(id: string, data: string): Promise<void>
-    resize(id: string, cols: number, rows: number): Promise<void>
-    kill(id: string): Promise<void>
+  toolchains: {
+    list(): Promise<{ defaultId: string; defaultLabel: string; installed: (ToolchainInfo & { isDefault: boolean })[] }>
+    chooseFile(): Promise<{ token: string; id: string; label: string; sha256: string; size: number; known: string | null; file: string } | null>
+    add(token: string, wslVersion: 1 | 2): Promise<ToolchainInfo[]>
+    remove(id: string): Promise<ToolchainInfo[]>
   }
   build: {
     run(): Promise<BuildResult>
@@ -383,6 +378,21 @@ export interface WaxApi {
   on(event: 'files-changed', cb: () => void): () => void
   on(event: 'editor-status', cb: (s: EditorStatus) => void): () => void
   on(event: 'editor-message', cb: (session: number, message: Record<string, unknown>) => void): () => void
+}
+
+/** The interface of the terminal frame (app://terminal) only; the editor page does not have it. */
+export interface WaxTerminalApi {
+  clipboard: {
+    writeText(text: string): Promise<void>
+    readText(): Promise<string>
+  }
+  terminal: {
+    profiles(): Promise<{ profiles: TerminalProfileInfo[]; gitHint: string | null }>
+    create(profile: TerminalProfile, rel: string | null, cols: number, rows: number): Promise<string>
+    write(id: string, data: string): Promise<void>
+    resize(id: string, cols: number, rows: number): Promise<void>
+    kill(id: string): Promise<void>
+  }
   on(event: 'terminal-data', cb: (id: string, data: string) => void): () => void
   on(event: 'terminal-exit', cb: (id: string, code: number, error: string) => void): () => void
 }
@@ -390,5 +400,6 @@ export interface WaxApi {
 declare global {
   interface Window {
     wax: WaxApi
+    waxTerminal: WaxTerminalApi
   }
 }

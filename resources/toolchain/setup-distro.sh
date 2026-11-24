@@ -2,7 +2,8 @@
 # Runs as root inside a freshly imported distro. Offline: only dpkg is used, no apt, no network.
 # Usage: setup-distro.sh <folder with the .deb files> <file.deb> [<file.deb> ...]
 # Only the named files are installed (the app names exactly the files whose
-# SHA-256 it has just verified).
+# SHA-256 it has just verified). A name of the form @/mnt/<path>.deb is a
+# package file outside the folder (a CDT package the user added from a file).
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 export LC_ALL=C
@@ -22,6 +23,12 @@ echo "STEP 1/5 Checking packages in $DEBS_DIR"
 DEBS=()
 for name in "$@"; do
   case "$name" in
+    @/mnt/*.deb)
+      path="${name#@}"
+      case "$path" in *..*) fail "invalid package path: $path" ;; esac
+      [ -f "$path" ] || fail "missing package: $path"
+      DEBS+=("$path")
+      continue ;;
     */*|*..*|-*) fail "invalid package file name: $name" ;;
     *.deb) ;;
     *) fail "not a .deb file: $name" ;;

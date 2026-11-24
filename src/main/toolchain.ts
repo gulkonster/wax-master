@@ -41,6 +41,10 @@ export interface ToolchainState {
   cdtVersion: string
   clangdVersion: string
   testBuildOk: boolean
+  /** CDT install folder inside the distro, e.g. /usr/opt/cdt/4.1.1wax01 */
+  cdtRoot?: string
+  /** For a toolchain added from a file: SHA-256 of that CDT package. */
+  packageSha256?: string
 }
 
 export interface SetupStatus {
@@ -228,8 +232,21 @@ export async function verifyParts(def: ToolchainDef, progress: Progress): Promis
   }
 }
 
-export async function install(opts: { wslVersion: 1 | 2; progress: Progress }): Promise<ToolchainState> {
-  const def = TOOLCHAINS[0]
+export interface ExtraCdt {
+  id: string
+  label: string
+  /** Windows path of the CDT .deb the user chose. */
+  path: string
+  sha256: string
+  size: number
+}
+
+export async function install(opts: { wslVersion: 1 | 2; progress: Progress; extra?: ExtraCdt }): Promise<ToolchainState> {
+  const base0 = TOOLCHAINS[0]
+  // A toolchain added from a file uses the bundled base and editor engine parts with the user's CDT package.
+  const def: ToolchainDef = opts.extra
+    ? { id: opts.extra.id, label: opts.extra.label, base: base0.base, packages: base0.packages.filter((id) => !id.startsWith('wax-cdt')) }
+    : base0
   const { progress } = opts
   const root = join(localDataDir(), 'toolchains')
   mkdirSync(root, { recursive: true })
@@ -240,6 +257,13 @@ export async function install(opts: { wslVersion: 1 | 2; progress: Progress }): 
 
   progress('Checking the bundled toolchain parts (SHA-256)...')
   await verifyParts(def, progress)
+  if (opts.extra) {
+    const st = await fsp.stat(opts.extra.path)
+    if (st.size !== opts.extra.size || (await sha256File(opts.extra.path)) !== opts.extra.sha256) {
+      throw new Error('The CDT package changed after it was chosen. Choose it again.')
+    }
+    progress(`Verified the added package ${opts.extra.sha256}`)
+  }
 
   const name = distroName(def.id)
   if ((await listDistros()).includes(name)) {
@@ -262,6 +286,7 @@ export async function install(opts: { wslVersion: 1 | 2; progress: Progress }): 
   // The script is part of the app bundle and goes in on stdin; it installs only the files verified above.
   const debs = toWslPath(partsDir())
   const files = partsFor(def).slice(1).map((p) => p.file)
+  if (opts.extra) files.push(`@${toWslPath(opts.extra.path)}`)
   const setup = await wsl(['-d', name, '-u', 'root', '--exec', 'bash', '-s', '--', debs, ...files], {
     input: setupScript.replace(/\r\n/g, '\n'),
     onOutput: (t) => clean(t).split('\n').filter(Boolean).forEach((l) => progress(l)),
@@ -273,6 +298,8 @@ export async function install(opts: { wslVersion: 1 | 2; progress: Progress }): 
   await wsl(['--terminate', name], { timeoutMs: 60000 })
 
   const versions = await toolVersions(name)
+  const roots = await wsl(['-d', name, '--exec', 'bash', '-c', 'ls -d /usr/opt/cdt/*/ 2>/dev/null | head -n 1'], { timeoutMs: 60000 })
+  const cdtRoot = clean(roots.output).trim().replace(/\/$/, '') || undefined
   const state: ToolchainState = {
     id: def.id,
     label: def.label,
@@ -281,7 +308,9 @@ export async function install(opts: { wslVersion: 1 | 2; progress: Progress }): 
     installedAt: Date.now(),
     cdtVersion: versions.cdt,
     clangdVersion: versions.clangd,
-    testBuildOk: false
+    testBuildOk: false,
+    cdtRoot,
+    packageSha256: opts.extra?.sha256
   }
   upsertState(state)
   progress('Toolchain installed.')
@@ -300,8 +329,8 @@ async function toolVersions(distro: string): Promise<{ cdt: string; clangd: stri
  * Builds the bundled sample contract in a scratch folder inside the distro and
  * checks the editor engine answers. Nothing is written on the Windows side.
  */
-export async function testBuild(progress: Progress): Promise<ToolchainState> {
-  const state = toolchainState()
+export async function testBuild(progress: Progress, id = DEFAULT_TOOLCHAIN): Promise<ToolchainState> {
+  const state = toolchainState(id)
   if (!state) throw new Error('The toolchain is not installed.')
   const template = toWslPath(join(resourcesDir(), 'templates', 'hello'))
   const script = [
@@ -347,9 +376,10 @@ export async function remove(id = DEFAULT_TOOLCHAIN): Promise<void> {
 export async function buildProject(
   projectRoot: string,
   args: string[],
-  onOutput: (t: string) => void
+  onOutput: (t: string) => void,
+  toolchainId = DEFAULT_TOOLCHAIN
 ): Promise<RunResult> {
-  const state = toolchainState()
+  const state = toolchainState(toolchainId)
   if (!state) throw new Error('The toolchain is not set up. Open Help > Setup.')
   return wsl(['-d', state.distro, '--cd', projectRoot, '--exec', ...args], {
     onOutput: (t) => onOutput(clean(t)),
@@ -358,11 +388,37 @@ export async function buildProject(
 }
 
 /** Runs a custom build command through bash in the project folder (only after the user approved it). */
-export async function buildProjectShell(projectRoot: string, command: string, onOutput: (t: string) => void): Promise<RunResult> {
-  const state = toolchainState()
+export async function buildProjectShell(projectRoot: string, command: string, onOutput: (t: string) => void, toolchainId = DEFAULT_TOOLCHAIN): Promise<RunResult> {
+  const state = toolchainState(toolchainId)
   if (!state) throw new Error('The toolchain is not set up. Open Help > Setup.')
   return wsl(['-d', state.distro, '--cd', projectRoot, '--exec', 'bash', '-lc', command], {
     onOutput: (t) => onOutput(clean(t)),
     timeoutMs: 15 * 60 * 1000
   })
+}
+
+/** Known CDT packages (SHA-256 published by the releases). */
+export const KNOWN_CDT: { sha256: string; label: string }[] = [
+  { sha256: 'b2273213b1267c25974b2820cb78faf024387e36f7eaeb97235e43dd4c27e44a', label: 'WAX CDT 4.1.1wax01 (worldwide-asset-exchange/wax-cdt)' },
+  { sha256: 'd946e6b64f297442d19e486401aa49f956080b07a1fa6335f29976106175b588', label: 'CDT 4.1.1 (AntelopeIO/cdt)' }
+]
+
+/** Reads a CDT .deb the user chose: hash, size, whether it is known, and the id it would get. */
+export async function inspectCdtPackage(path: string): Promise<ExtraCdt & { known: string | null }> {
+  if (!/\.deb$/i.test(path)) throw new Error('Choose a .deb file')
+  const st = await fsp.stat(path)
+  if (st.size > 600 * 1024 * 1024) throw new Error('The file is too large for a CDT package')
+  const sha256 = await sha256File(path)
+  const known = KNOWN_CDT.find((k) => k.sha256 === sha256)?.label ?? null
+  const m = /^cdt_([0-9][0-9a-z.]*)-\d+_amd64\.deb$/i.exec(path.split(/[\\/]/).pop() ?? '')
+  const version = m ? m[1].toLowerCase() : sha256.slice(0, 8)
+  const id = `cdt-${version}`.replace(/[^a-z0-9.-]/g, '')
+  if (id === DEFAULT_TOOLCHAIN) throw new Error('This toolchain is already the default one')
+  return { id, label: m ? `CDT ${m[1]}` : `CDT (${sha256.slice(0, 8)})`, path, sha256, size: st.size, known }
+}
+
+/** The toolchain a project builds with: its own choice if installed, else the default. */
+export function toolchainForProject(cdt: string): { id: string; fallback: boolean } {
+  if (cdt && toolchainState(cdt)) return { id: cdt, fallback: false }
+  return { id: DEFAULT_TOOLCHAIN, fallback: !!cdt }
 }

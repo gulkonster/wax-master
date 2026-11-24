@@ -8,7 +8,7 @@ import type { BuildResult, Problem } from '../shared/api'
 import { effectiveInclude, effectiveOutput, effectiveResource } from '../shared/project'
 import { currentProject } from './projects'
 import { isCommandTrusted, trustCommand } from './store'
-import { buildProject, buildProjectShell, fromWslPath } from './toolchain'
+import { buildProject, buildProjectShell, fromWslPath, toolchainForProject } from './toolchain'
 
 let building = false
 
@@ -93,11 +93,13 @@ export async function runBuild(sender: WebContents): Promise<BuildResult> {
     if (!sender.isDestroyed()) sender.send('output', { source: 'build', text })
   }
   try {
+    const tc = toolchainForProject(p.config.cdt)
+    if (tc.fallback) emit(`The toolchain "${p.config.cdt}" is not installed; building with the default toolchain.\n`)
     const shown = custom || defaultBuildArgs().join(' ')
     emit(`> ${shown}\n`)
     const r = custom
-      ? await buildProjectShell(p.root, custom, emit)
-      : await buildProject(p.root, defaultBuildArgs(), emit)
+      ? await buildProjectShell(p.root, custom, emit, tc.id)
+      : await buildProject(p.root, defaultBuildArgs(), emit, tc.id)
     const problems = parseProblems(r.output, p.root)
     const ok = r.code === 0
     const out = effectiveOutput(p.config)

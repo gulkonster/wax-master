@@ -30,7 +30,8 @@ vi.mock('../../src/main/toolchain', () => ({
     runs.push({ args: [], shell: cmd })
     return { code: 0, output: '' }
   },
-  fromWslPath: () => null
+  fromWslPath: () => null,
+  toolchainForProject: () => ({ id: 'wax-cdt-4.1.1wax01', fallback: false })
 }))
 
 import { runBuild } from '../../src/main/build'

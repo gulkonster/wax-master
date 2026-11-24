@@ -1,15 +1,57 @@
-// Exposes the fixed WAX Master interface to the editor window. There is no
-// generic passthrough: every call below maps to one validated handler.
+// Exposes the fixed WAX Master interface. There is no generic passthrough:
+// every call below maps to one validated handler. The editor calls are exposed
+// only in the main frame of the editor page; the terminal calls only in the
+// terminal frame (app://terminal). The main process checks the sender again.
 
 import { contextBridge, ipcRenderer } from 'electron'
-import type { WaxApi } from '../shared/api'
+import type { WaxApi, WaxTerminalApi } from '../shared/api'
+import { TERMINAL_ORIGIN, TERMINAL_PAGE } from '../shared/terminal-frame'
 
 const call =
   (channel: string) =>
   (...args: unknown[]): Promise<never> =>
     ipcRenderer.invoke(channel, ...args) as Promise<never>
 
-const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'terminal-data', 'terminal-exit', 'network-changed', 'vault-changed', 'update-available', 'editor-status', 'editor-message'])
+// The preload runs in a page; this build's type settings have no DOM types.
+const page = globalThis as unknown as {
+  top: unknown
+  location: { origin: string; protocol: string; hostname: string; pathname: string }
+}
+const location = page.location
+const isTopFrame = page.top === globalThis
+// Development server: the terminal page is served under the other loopback host name.
+const isTerminalFrame =
+  !isTopFrame &&
+  location.pathname === TERMINAL_PAGE &&
+  (location.origin === TERMINAL_ORIGIN || (location.protocol === 'http:' && location.hostname === 'localhost'))
+const isEditorPage = isTopFrame && location.pathname !== TERMINAL_PAGE && !location.pathname.endsWith('/confirm.html')
+
+const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'network-changed', 'vault-changed', 'update-available', 'editor-status', 'editor-message'])
+const TERMINAL_EVENTS = new Set(['terminal-data', 'terminal-exit'])
+
+function subscribe(allowed: Set<string>, event: string, cb: (...args: never[]) => void): () => void {
+  if (!allowed.has(event)) throw new Error('Unknown event')
+  const listener = (_e: unknown, ...args: unknown[]): void => (cb as (...a: unknown[]) => void)(...args)
+  ipcRenderer.on(event, listener)
+  return () => ipcRenderer.removeListener(event, listener)
+}
+
+const terminalApi: WaxTerminalApi = {
+  clipboard: {
+    writeText: call('clipboard:writeText'),
+    readText: call('clipboard:readText')
+  },
+  terminal: {
+    profiles: call('terminal:profiles'),
+    create: call('terminal:create'),
+    write: call('terminal:write'),
+    resize: call('terminal:resize'),
+    kill: call('terminal:kill')
+  },
+  on(event: string, cb: (...args: never[]) => void): () => void {
+    return subscribe(TERMINAL_EVENTS, event, cb)
+  }
+} as WaxTerminalApi
 
 const api: WaxApi = {
   app: {
@@ -121,27 +163,20 @@ const api: WaxApi = {
     changeKey: call('accounts:changeKey'),
     clearCode: call('accounts:clearCode')
   },
-  clipboard: {
-    writeText: call('clipboard:writeText'),
-    readText: call('clipboard:readText')
-  },
-  terminal: {
-    profiles: call('terminal:profiles'),
-    create: call('terminal:create'),
-    write: call('terminal:write'),
-    resize: call('terminal:resize'),
-    kill: call('terminal:kill')
+  toolchains: {
+    list: call('toolchains:list'),
+    chooseFile: call('toolchains:chooseFile'),
+    add: call('toolchains:add'),
+    remove: call('toolchains:remove')
   },
   build: {
     run: call('build:run'),
     defaultCommand: call('build:defaultCommand')
   },
   on(event: string, cb: (...args: never[]) => void): () => void {
-    if (!EVENTS.has(event)) throw new Error('Unknown event')
-    const listener = (_e: unknown, ...args: unknown[]): void => (cb as (...a: unknown[]) => void)(...args)
-    ipcRenderer.on(event, listener)
-    return () => ipcRenderer.removeListener(event, listener)
+    return subscribe(EVENTS, event, cb)
   }
 } as WaxApi
 
-contextBridge.exposeInMainWorld('wax', api)
+if (isTerminalFrame) contextBridge.exposeInMainWorld('waxTerminal', terminalApi)
+else if (isEditorPage) contextBridge.exposeInMainWorld('wax', api)

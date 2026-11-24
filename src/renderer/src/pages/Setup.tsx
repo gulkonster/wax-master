@@ -3,6 +3,7 @@ import type { SetupStatus } from '../../../shared/api'
 import { useApp } from '../state'
 import { errorText } from '../lib/toast'
 import { toolchainStore } from '../lib/stores'
+import { ToolchainManager } from '../components/ToolchainManager'
 
 type RowState = 'ok' | 'bad' | 'busy' | 'waiting'
 
@@ -220,6 +221,7 @@ export function Setup(): React.JSX.Element {
             Check again
           </button>
         </div>
+        {s?.toolchain.ok && <ToolchainManager busy={!!busy} onBusy={(b) => setBusy(b ? 'install' : null)} />}
         {!allOk && (
           <div className="hint">
             Skipping keeps editing, chain work and the terminal available; building and code intelligence stay off until setup is done (Help &gt; Setup).
