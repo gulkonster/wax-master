@@ -1,6 +1,9 @@
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { TEMPLATES } from '../../src/shared/project'
-import { templateFiles } from '../../src/main/templates'
+import { allTopics, parseDocsIndex } from '../../src/shared/docs'
+import { EXAMPLES, TEMPLATE_IDS, TEMPLATES } from '../../src/shared/project'
+import { EXAMPLE_FILES, classNameFor, fillTemplate, readExampleFolders, templateFiles } from '../../src/main/templates'
 
 /** C++ without comments (block and line). */
 function cppCode(text: string): string {
@@ -242,5 +245,158 @@ describe('token template', () => {
     const section = sectionsOf(on['resource/mytoken.contracts.md']).get('transfers')!.trim()
     expect(section).toMatch(/^---\nspec_version: "0\.2\.0"\ntitle: [^\n]+\nsummary: '[^'\n]+'\n---\n\n\S/)
     expect(section).not.toMatch(/<!--|-->/)
+  })
+})
+
+describe('example projects', () => {
+  const index = parseDocsIndex(readFileSync(join(__dirname, '../../docs/help/index.json'), 'utf8'))
+  const topicIds = new Set(allTopics(index).map((t) => t.id))
+  const examplesGroup = index.groups.find((g) => g.id === 'examples')?.topics.map((t) => t.id) ?? []
+  const root = join(__dirname, '../../resources/templates/examples')
+  const pending = join(__dirname, '../../resources/examples-pending')
+
+  const list = (dir: string, base = ''): string[] =>
+    readdirSync(join(dir, base), { withFileTypes: true }).flatMap((d) =>
+      d.isDirectory() ? list(dir, join(base, d.name)) : [join(base, d.name).replace(/\\/g, '/')]
+    )
+
+  it('ships one folder per listed example, each with exactly the example files', () => {
+    expect(readdirSync(root).sort()).toEqual(EXAMPLES.map((e) => e.id).sort())
+    for (const e of EXAMPLES) expect(list(join(root, e.id)).sort(), e.id).toEqual([...EXAMPLE_FILES].sort())
+  })
+
+  it('reads example folders by name from the bundled paths', () => {
+    const m = readExampleFolders({
+      '../../resources/templates/examples/staking/src/contract.cpp': 'a',
+      '../../resources/templates/examples/staking/README.md': 'b',
+      '../../resources/templates/project/hello/src/contract.cpp': 'c'
+    })
+    expect([...m.keys()]).toEqual(['staking'])
+    expect([...m.get('staking')!.entries()]).toEqual([
+      ['src/contract.cpp', 'a'],
+      ['README.md', 'b']
+    ])
+  })
+
+  it('New Project accepts every template and listed example id', () => {
+    expect(TEMPLATE_IDS).toEqual(['empty', 'hello', 'token', 'transfer-listener', 'staking'])
+    for (const e of EXAMPLES) expect(e.name, e.id).toMatch(/^[a-z1-5.]{1,12}$/)
+  })
+
+  /** The files of an example as New Project writes them for the contract "my.ex". */
+  const pendingFiles = (id: string): Record<string, string> => {
+    const fill = (rel: string): string => fillTemplate(readFileSync(join(pending, id, rel), 'utf8'), 'my.ex', classNameFor('my.ex'))
+    return {
+      'src/my.ex.cpp': fill('src/contract.cpp'),
+      'include/my.ex.hpp': fill('include/contract.hpp'),
+      'resource/my.ex.contracts.md': fill('resource/contract.contracts.md'),
+      'resource/my.ex.clauses.md': fill('resource/contract.clauses.md'),
+      'README.md': fill('README.md')
+    }
+  }
+
+  const cases: { id: string; topic: string; files: () => Record<string, string> }[] = [
+    ...EXAMPLES.map((e) => ({ id: e.id, topic: e.topic, files: () => templateFiles(e.id, 'my.ex') })),
+    { id: 'random-number', topic: 'example-random-number', files: () => pendingFiles('random-number') }
+  ]
+
+  for (const c of cases) {
+    describe(c.id, () => {
+      const f = c.files()
+
+      it('writes source, header, both Ricardian files and the README with the names filled in', () => {
+        expect(Object.keys(f).sort()).toEqual(['README.md', 'include/my.ex.hpp', 'resource/my.ex.clauses.md', 'resource/my.ex.contracts.md', 'src/my.ex.cpp'])
+        for (const text of Object.values(f)) {
+          expect(text).not.toMatch(/%CONTRACT%|%CLASS%|\r/)
+          expect(text.endsWith('\n')).toBe(true)
+        }
+        expect(f['src/my.ex.cpp'].startsWith('#include <my.ex.hpp>\n')).toBe(true)
+        expect(f['include/my.ex.hpp']).toContain('class [[eosio::contract("my.ex")]] my_ex : public contract {')
+      })
+
+      it('is small: under 150 lines of code', () => {
+        expect((f['src/my.ex.cpp'] + f['include/my.ex.hpp']).split('\n').length).toBeLessThan(150)
+      })
+
+      it('has one finished Ricardian section per action and a clause file', () => {
+        const md = f['resource/my.ex.contracts.md']
+        expect(md.slice(0, md.indexOf('<h1')).trim()).toBe('')
+        const sections = sectionsOf(md)
+        const actions = actionsOf(f['include/my.ex.hpp'])
+        expect(actions.length).toBeGreaterThan(0)
+        expect([...sections.keys()].sort()).toEqual([...actions].sort())
+        for (const a of actions) {
+          expect(sections.get(a)!.trim(), a).toMatch(/^---\nspec_version: "0\.2\.0"\ntitle: [^\n]+\nsummary: '[^'\n]+'\n---\n\n\S/)
+          expect(sections.get(a), a).not.toMatch(/TODO|<!--|-->/)
+        }
+        const clauses = f['resource/my.ex.clauses.md']
+        expect(clauses.trimStart().startsWith('<h1 class="clause">')).toBe(true)
+        expect(clauses).not.toMatch(/TODO/)
+      })
+
+      it('has a README with the warning line and numbered steps done in the app', () => {
+        const readme = f['README.md']
+        expect(readme).toContain('not audited; do not hold real value with it unchanged')
+        const steps = readme.slice(readme.indexOf('## Steps in WAX Master'))
+        expect(steps).toMatch(/^1\. File > New Project\. Under \*\*Examples\*\* choose \*\*/m)
+        expect(steps).toContain('keep the name `my.ex`')
+        for (const s of ['Contract > Build', 'Contract > Deploy', 'Keys and permissions', 'eosio.code', 'Run query']) expect(steps, s).toContain(s)
+      })
+
+      it('has its documentation page in the Examples group', () => {
+        expect(topicIds.has(c.topic), c.topic).toBe(true)
+        expect(examplesGroup).toContain(c.topic)
+      })
+    })
+  }
+
+  it('transfer listener: listens to eosio.token only, skips outgoing transfers, withdraws with an inline transfer', () => {
+    const f = templateFiles('transfer-listener', 'listener')
+    const hpp = cppCode(f['include/listener.hpp'])
+    const cpp = cppCode(f['src/listener.cpp'])
+    expect(hpp).toContain('[[eosio::on_notify("eosio.token::transfer")]]')
+    expect(hpp).not.toContain('"*::transfer"')
+    expect(cpp).toContain('if (from == get_self() || to != get_self()) return;')
+    expect(cpp).toContain('deposits.emplace(get_self(),')
+    expect(cpp).toContain('require_auth(owner);')
+    expect(cpp).toMatch(/action\(permission_level\{get_self\(\), "active"_n\}, "eosio\.token"_n, "transfer"_n,/)
+    expect(actionsOf(f['include/listener.hpp'])).toEqual(['withdraw'])
+  })
+
+  it('staking: memo stake, one 5-minute constant, claim after the waiting time with an inline transfer', () => {
+    const f = templateFiles('staking', 'staking')
+    const hpp = cppCode(f['include/staking.hpp'])
+    const cpp = cppCode(f['src/staking.cpp'])
+    expect(hpp).toContain('static constexpr uint32_t UNSTAKE_SECONDS = 5 * 60;')
+    expect(cpp.match(/UNSTAKE_SECONDS/g)?.length).toBe(1)
+    expect(hpp).toContain('[[eosio::on_notify("eosio.token::transfer")]]')
+    expect(cpp).toContain('check(memo == "stake", "send with the memo stake");')
+    expect(cpp).toContain('check(time_point_sec(current_time_point()) >= row.claim_after, "the waiting time is not over yet");')
+    expect(cpp).toMatch(/action\(permission_level\{get_self\(\), "active"_n\}, "eosio\.token"_n, "transfer"_n,/)
+    expect(actionsOf(f['include/staking.hpp'])).toEqual(['unstake', 'claim'])
+  })
+
+  it('random number: not listed in New Project; requestrand inline, the answer by the randnotify notification', () => {
+    expect(EXAMPLES.map((e) => e.id)).not.toContain('random-number')
+    const f = pendingFiles('random-number')
+    const hpp = cppCode(f['include/my.ex.hpp'])
+    const cpp = cppCode(f['src/my.ex.cpp'])
+    expect(cpp).toContain('static constexpr name ORNG = "orng.wax"_n;')
+    expect(cpp).toMatch(/action\(permission_level\{get_self\(\), "active"_n\}, ORNG, "requestrand"_n,\s*std::make_tuple\(id, signing_value, get_self\(\)\)\)/)
+    expect(hpp).toContain('[[eosio::on_notify("orng.wax::randnotify")]]')
+    expect(hpp).toContain('void on_randnotify(uint64_t request_id, name dapp, uint64_t assoc_id, checksum256 rnd);')
+    // The handler returns, never fails, and never pays RAM with another account.
+    const handler = cpp.slice(cpp.indexOf('::on_randnotify('))
+    expect(handler).toContain('if (dapp != get_self()) return;')
+    expect(handler).toContain('if (it == rolls.end() || it->result != 0) return;')
+    expect(handler).not.toMatch(/check\(|require_find|\.get\(|emplace/)
+    expect(actionsOf(f['include/my.ex.hpp'])).toEqual(['roll'])
+    expect(hpp).not.toMatch(/void receiverand/)
+  })
+
+  it('ships the listed example folders with the app, and not the pending ones', () => {
+    const yml = readFileSync(join(__dirname, '../../electron-builder.yml'), 'utf8')
+    expect(yml).toMatch(/- from: resources\n\s+to: resources\n\s+filter:\n\s+- 'templates\/\*\*'\n/)
+    expect(yml).not.toContain('examples-pending')
   })
 })

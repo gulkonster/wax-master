@@ -8,6 +8,7 @@ import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
 import { withVault } from '../lib/vault'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
+import { changeKeyDefaults } from '../../../shared/permission-signers'
 import { CANCELLED_NOT_SENT, formLineClass, outcomeLine, type FormLine } from '../lib/tx-outcome'
 import { AccountPicker, PermissionPicker, refreshPickLists, usePickList } from './AccountPicker'
 import { scheduleReadsAfterSend } from '../pages/account/wallet-form'
@@ -237,6 +238,7 @@ export function ChangeKeyDialog({
   currentKeys,
   vaultKeys,
   signOptions,
+  canSign,
   threshold,
   others,
   onClose
@@ -249,16 +251,20 @@ export function ChangeKeyDialog({
   vaultKeys: string[]
   /** The permission itself first, then its parents. */
   signOptions: string[]
+  /** The permissions the vault can sign with. */
+  canSign: string[]
   threshold: number
   /** Short text of the linked accounts and waits (kept as they are). */
   others: string[]
   onClose: () => void
 }): React.JSX.Element {
   const keys = useVaultKeys()
-  const [oldKey, setOldKey] = useState(vaultKeys[0] ?? currentKeys[0] ?? '')
+  // The permission itself signs when the vault can sign with it, else the nearest parent the vault
+  // can sign with; with a lost key the key to replace is one that is not in the vault.
+  const [start] = useState(() => changeKeyDefaults(permission, signOptions, (p) => canSign.includes(p), currentKeys, vaultKeys))
+  const [oldKey, setOldKey] = useState(start.oldKey)
   const [newKey, setNewKey] = useState('')
-  // The permission itself signs by default when the vault has its key; a parent is a choice.
-  const [signWith, setSignWith] = useState(vaultKeys.length > 0 ? permission : (signOptions[1] ?? permission))
+  const [signWith, setSignWith] = useState(start.signWith)
   const [busy, setBusy] = useState(false)
   const [line, setLine] = useState<FormLine | null>(null)
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)

@@ -55,7 +55,9 @@ public:
     locks_table locks(get_self(), get_self().value);
     auto it = locks.require_find(owner.value, "this account has no lock");
     time_point_sec now = time_point_sec(current_time_point());
-    check(now >= it->unlock_at, "locked until " + it->unlock_at.to_string() + " UTC");
+    if (now < it->unlock_at) {
+      check(false, "locked until " + it->unlock_at.to_string() + " UTC");   // built only on failure
+    }
     locks.erase(it);
   }
 };

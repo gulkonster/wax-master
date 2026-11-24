@@ -43,7 +43,8 @@ Run `setage` with `age` = `12`: the result shows `assertion failure with message
 | `assertion failure with message: ...` | A `check` in a contract | Read the text: it is the contract's own message |
 | `missing authority of <account>` | `require_auth` | Sign with that account; see [Actions and authority checks](doc:contract-actions-auth) |
 | `does not have signatures for it` ... `eosio.code` | An inline action without `eosio.code` | [The eosio.code permission](doc:eosio-code) |
-| `cannot charge RAM to other accounts during notify` | A row paid by another account in `on_notify` | Pay with `get_self()`; see [Notifications](doc:contract-notifications) |
+| `unprivileged contract cannot increase RAM usage of another account within a notify context` | A row paid by another account in `on_notify` | Pay with `get_self()`; see [Notifications](doc:contract-notifications) |
+| `unprivileged contract cannot increase RAM usage of another account that has not authorized the action` | A row paid by an account that did not authorize the action | Pay with `get_self()` or with an account in `require_auth`; see [Tables, scopes and payers](doc:contract-tables) |
 | `unable to find key` | `get` or `require_find` without own message | Give a message, or use `find` and check for `end()` |
 | `singleton does not exist` | `get()` of an empty singleton | `get_or_default()`; see [Singletons](doc:contract-singletons) |
 | `cannot create objects in table of another contract` | `emplace` on a table opened with another contract | Tables of other contracts are read only; see [Reading another contract's table](doc:contract-read-other-table) |

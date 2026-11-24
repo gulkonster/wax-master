@@ -1,10 +1,11 @@
-// Contract templates for File > New Project. The files live in
-// resources/templates/project/<template>/ and are compiled into the app; the
-// markers %CONTRACT% (contract name) and %CLASS% (C++ class name) are replaced
-// when a project is made. (resources/templates/hello is the separate sample the
-// toolchain setup builds.)
+// Contract templates and example projects for File > New Project. Templates
+// live in resources/templates/project/<template>/, examples in
+// resources/templates/examples/<example>/ (each with a README.md); both are
+// compiled into the app, and the markers %CONTRACT% (contract name) and
+// %CLASS% (C++ class name) are replaced when a project is made.
+// (resources/templates/hello is the separate sample the toolchain setup builds.)
 
-import type { TemplateId } from '../shared/project'
+import { EXAMPLES, type ExampleId, type ProjectTemplateId, type TemplateId } from '../shared/project'
 
 import emptyCpp from '../../resources/templates/project/empty/src/contract.cpp?raw'
 import emptyHpp from '../../resources/templates/project/empty/include/contract.hpp?raw'
@@ -24,12 +25,51 @@ interface TemplateSource {
   hpp: string
   contracts: string
   clauses: string
+  /** Examples only. */
+  readme?: string
 }
 
-const SOURCES: Record<TemplateId, TemplateSource> = {
+const SOURCES: Record<ProjectTemplateId, TemplateSource> = {
   empty: { cpp: emptyCpp, hpp: emptyHpp, contracts: emptyContracts, clauses: emptyClauses },
   hello: { cpp: helloCpp, hpp: helloHpp, contracts: helloContracts, clauses: helloClauses },
   token: { cpp: tokenCpp, hpp: tokenHpp, contracts: tokenContracts, clauses: tokenClauses }
+}
+
+/** The files every example folder holds, relative to the folder. */
+export const EXAMPLE_FILES = ['src/contract.cpp', 'include/contract.hpp', 'resource/contract.contracts.md', 'resource/contract.clauses.md', 'README.md'] as const
+
+const EXAMPLE_TEXTS = import.meta.glob('../../resources/templates/examples/*/**/*', { query: '?raw', import: 'default', eager: true })
+
+/** The files of every example folder, by folder name and path inside the folder. */
+export function readExampleFolders(texts: Record<string, string>): Map<string, Map<string, string>> {
+  const out = new Map<string, Map<string, string>>()
+  for (const [path, text] of Object.entries(texts)) {
+    const m = /\/templates\/examples\/([^/]+)\/(.+)$/.exec(path.replace(/\\/g, '/'))
+    if (!m) continue
+    if (!out.has(m[1])) out.set(m[1], new Map())
+    out.get(m[1])!.set(m[2], text)
+  }
+  return out
+}
+
+function exampleSource(id: ExampleId): TemplateSource {
+  const files = readExampleFolders(EXAMPLE_TEXTS).get(id)
+  const get = (rel: (typeof EXAMPLE_FILES)[number]): string => {
+    const text = files?.get(rel)
+    if (text === undefined) throw new Error(`The example "${id}" is incomplete: ${rel} is missing`)
+    return text
+  }
+  return {
+    cpp: get('src/contract.cpp'),
+    hpp: get('include/contract.hpp'),
+    contracts: get('resource/contract.contracts.md'),
+    clauses: get('resource/contract.clauses.md'),
+    readme: get('README.md')
+  }
+}
+
+function isExample(id: TemplateId): id is ExampleId {
+  return EXAMPLES.some((e) => e.id === id)
 }
 
 /** A C++ class name for a contract name ("my.tok" -> "my_tok", "1abc" -> "c_1abc"). */
@@ -44,13 +84,15 @@ export function fillTemplate(text: string, contract: string, className: string):
 }
 
 export function templateFiles(template: TemplateId, contract: string): Record<string, string> {
-  const s = SOURCES[template]
+  const s = isExample(template) ? exampleSource(template) : SOURCES[template]
   const name = classNameFor(contract)
   const fill = (text: string): string => fillTemplate(text, contract, name)
-  return {
+  const files: Record<string, string> = {
     [`src/${contract}.cpp`]: fill(s.cpp),
     [`include/${contract}.hpp`]: fill(s.hpp),
     [`resource/${contract}.contracts.md`]: fill(s.contracts),
     [`resource/${contract}.clauses.md`]: fill(s.clauses)
   }
+  if (s.readme !== undefined) files['README.md'] = fill(s.readme)
+  return files
 }

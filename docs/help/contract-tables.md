@@ -17,8 +17,8 @@ A contract stores its data in tables, with `eosio::multi_index`. A table holds r
 ## Who can be the RAM payer
 
 - The contract account itself, `get_self()`, always.
-- An account that **authorized this action**, for example the `user` of a `require_auth(user)`. Any other account is refused: the chain says the contract cannot increase the RAM usage of an account that has not authorized the action.
-- In a notification handler (`on_notify`) only `get_self()`. Another payer is refused with `cannot charge RAM to other accounts during notify`.
+- An account that **authorized this action**, for example the `user` of a `require_auth(user)`. Any other account is refused with `unprivileged contract cannot increase RAM usage of another account that has not authorized the action`.
+- In a notification handler (`on_notify`) only `get_self()`. Another payer is refused with `unprivileged contract cannot increase RAM usage of another account within a notify context`.
 - `modify` with a new payer moves the whole row to that payer; the same rules apply to the new payer. With `same_payer`, a row that grows is billed to its current payer, who then must have authorized the action as well.
 
 A row costs its data plus about 112 bytes; the first row of a table in a scope costs about 112 bytes more, and each secondary index adds to every row. When users pay for their own rows, the contract cannot run out of RAM because of them, and a user gets his RAM back when the row is erased. See [RAM](doc:resources-ram).

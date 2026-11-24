@@ -124,13 +124,37 @@ export function normalizeConfig(raw: unknown, fallbackContract: string): Project
   }
 }
 
-export type TemplateId = 'empty' | 'hello' | 'token'
+export type ProjectTemplateId = 'empty' | 'hello' | 'token'
+/** Example projects: folders in resources/templates/examples/<id>/. */
+export type ExampleId = 'transfer-listener' | 'staking'
+export type TemplateId = ProjectTemplateId | ExampleId
 
-export const TEMPLATES: { id: TemplateId; label: string; description: string }[] = [
+export const TEMPLATES: { id: ProjectTemplateId; label: string; description: string }[] = [
   { id: 'empty', label: 'Empty', description: 'A contract with one empty action.' },
   { id: 'hello', label: 'Hello World', description: 'The classic "hi" action that prints a greeting.' },
   { id: 'token', label: 'Token', description: 'A token contract (create, issue, transfer, retire); balance rows are removed at zero.' }
 ]
+
+/** The Examples group of New Project: `name` is the project name offered first, `topic` its documentation page. */
+export const EXAMPLES: { id: ExampleId; label: string; description: string; name: string; topic: string }[] = [
+  {
+    id: 'transfer-listener',
+    label: 'Transfer listener',
+    description: 'Records WAX sent to the contract per account (on_notify); withdraw sends it back with an inline transfer.',
+    name: 'listener',
+    topic: 'example-transfer-listener'
+  },
+  {
+    id: 'staking',
+    label: 'Staking',
+    description: 'Stake WAX with the memo "stake"; unstake starts a 5-minute wait; claim pays out after it.',
+    name: 'staking',
+    topic: 'example-staking'
+  }
+]
+
+/** Every id New Project accepts: the templates, then the examples. */
+export const TEMPLATE_IDS: readonly TemplateId[] = [...TEMPLATES.map((t) => t.id), ...EXAMPLES.map((e) => e.id)]
 
 function given(r: Record<string, unknown>, k: string): boolean {
   return r[k] !== undefined && r[k] !== null && r[k] !== ''

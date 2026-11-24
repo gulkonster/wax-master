@@ -16,7 +16,7 @@ The inspector shows:
 
 | Part | What it shows |
 |---|---|
-| Banner | For a simulation: nothing was sent, authorization checks were skipped |
+| Banner | For a simulation: nothing was sent, signatures are not checked |
 | Transaction, Status | The id and `executed` or `failed` |
 | Network, Block / time, CPU / NET | Where it ran and what it used |
 | Error | The node's error message in large text; **Show full error** opens the details |
@@ -33,7 +33,7 @@ Before transferring a token from a new contract, simulate `transfer`. The inspec
 
 - An endpoint that offers simulation. If it does not, the Simulate button is disabled with "This endpoint does not offer simulation"; if it cannot be told, the Result says "not verified for this endpoint". Choose another endpoint of the network (see [Endpoints](doc:endpoints)).
 
-> Note: A simulation skips authorization checks and uses the chain's state at that moment. A real transaction can still fail, for example for a missing signature or because the state changed.
+> Note: A simulation does not check signatures and uses the chain's state at that moment. The checks in the contract (`require_auth`) still run, so `missing authority` can appear in a simulation. Whether the declared permission may sign the action (its keys, `linkauth`) is only decided when the transaction is really sent. A real transaction can still fail, for example for a missing signature or because the state changed.
 
 ## When a real transaction is refused
 

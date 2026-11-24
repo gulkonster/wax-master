@@ -20,6 +20,10 @@ After every successful compile the app checks the ABI. Lines starting with `ABI 
 - Contract > Build and Ctrl+B always compile.
 - Deploy and Simulate Deploy compile only when something in the project folder changed since the last build. Otherwise the dialog says "Build is up to date (built 14:05)". **Rebuild** in the Deploy dialog always compiles.
 
+## The WASM view
+
+Opening the built `.wasm` file in the file tree shows the WASM view instead of the editor. **Size** is the file size in bytes. **SHA-256** is the hash of the file; it is the code hash the chain shows for an account once this file is deployed, so it tells you which build is on the chain. **Exports** are what the module offers to the chain, among them `apply`, the entry point of every action. **Imported functions** are the host functions the contract calls; before a deploy they are checked against the features active on the chosen chain. A file that is not a WebAssembly module shows a red line instead.
+
 ## Example
 
 A missing semicolon in `src/hello.cpp` gives a red line like this in Output:

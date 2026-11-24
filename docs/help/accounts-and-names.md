@@ -51,11 +51,11 @@ The page shows a badge ("You control: ..." or "View only"), a summary band (Tota
 
 ## Change a key
 
-In **Keys and permissions**, a permission with a key that is in your vault shows **Change key...**.
+In **Keys and permissions**, a permission with a key shows **Change key...** when your vault can sign for that permission or for one of its parents.
 
 1. Press **Change key...**.
 2. Choose the key to replace and the new key (from the vault or pasted as a public key).
-3. Choose the permission that signs the change: the permission itself, or a parent.
+3. Choose the permission that signs the change: the permission itself, or a parent. When the vault cannot sign with the permission itself, the nearest parent it can sign with is chosen.
 4. Press **Change key** and approve in the confirmation window.
 
 The new key gets the old key's weight; the threshold and all other entries stay as they are. Make sure the new key's private part is in the vault or backed up, or you lose control of the permission.

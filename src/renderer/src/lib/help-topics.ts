@@ -41,6 +41,7 @@ export const HELP_TOPICS = {
   fileChanged: 'project-files',
   editorSearch: 'window-tour',
   toolchains: 'toolchain-versions',
+  wasmView: 'build-output-problems',
   about: 'what-is-wax-master',
   updateAvailable: 'verify-download',
   comingLater: 'what-is-wax-master',

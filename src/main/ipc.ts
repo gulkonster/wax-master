@@ -7,7 +7,7 @@ import type { AppInfo, OpenProject, Settings } from '../shared/api'
 import { THEME_SETTINGS, mergeDialogSizes, parseDialogSizesPatch } from '../shared/theme'
 import { applyThemeSetting } from './theme'
 import { bool, int, localAbsPath, obj, oneOf, relPath, str } from '../shared/validate'
-import { normalizeConfig, type TemplateId } from '../shared/project'
+import { TEMPLATE_IDS, normalizeConfig } from '../shared/project'
 import { BUILD_COMMIT, BUILD_STAGE, MAINNET_SIGNING } from './build-info'
 import { log } from './log'
 import { neutralizeLockedCode } from '../shared/vault-locked'
@@ -118,7 +118,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
 
   handle('projects:list', () => store.listProjects())
   handle('projects:create', (_e, template, name, parent) => {
-    const t = oneOf(template, 'template', ['empty', 'hello', 'token'] as const) as TemplateId
+    const t = oneOf(template, 'template', TEMPLATE_IDS)
     const dir = resolve(localAbsPath(parent, 'parent'))
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
     return projects.createProject(t, str(name, 'name', 12), dir)

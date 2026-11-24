@@ -6,7 +6,7 @@ An inline action is an action that your contract sends while it runs: a token tr
 
 A contract holds no keys. An inline action that declares `yourcontract@active` is accepted only when `active` of the contract account lists `yourcontract@eosio.code`. Without it the transaction fails with an error saying it does not have signatures for `yourcontract@active`, and the provided permissions show `eosio.code`. Add it with one switch on the Account page; see [The eosio.code permission](doc:eosio-code).
 
-An inline action can only declare permissions of the contract itself. It cannot sign for the user who called the contract: to take a user's tokens, let the user send them (see [Notifications](doc:contract-notifications)).
+The chain checks an inline action against `yourcontract@eosio.code` alone. The signatures of the transaction do not carry over to it, so the contract cannot act for the user who called it, unless that user's permission itself lists `yourcontract@eosio.code`. To take a user's tokens, let the user send them (see [Notifications](doc:contract-notifications)).
 
 ## Two ways to send one
 
@@ -71,7 +71,7 @@ The inline actions run in the order they were sent, after `pay` has finished. Th
 ## What is needed
 
 - `yourcontract@eosio.code` on the permission the inline action declares.
-- The resources of the whole transaction: CPU and NET are billed to the signers of the transaction, not to the contract.
+- The resources of the whole transaction: CPU and NET, inline actions included, are billed to the first signer of the transaction (the first authorization of its first action), not to the contract.
 
 > Note: The receiving contract runs the inline action exactly as if it were sent by `yourcontract`. A failing inline action reverts the whole transaction, including the rows the calling action wrote.
 

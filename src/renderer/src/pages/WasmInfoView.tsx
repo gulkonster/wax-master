@@ -1,11 +1,15 @@
 import type { WasmInfo } from '../../../shared/api'
+import { HelpButton } from '../components/HelpButton'
 
 export function WasmInfoView({ rel, info }: { rel: string; info: WasmInfo }): React.JSX.Element {
   const funcs = info.imports.filter((i) => i.kind === 'function')
   return (
     <div className="page-scroll">
       <div className="form-page" style={{ paddingTop: 'var(--sp-8)' }}>
-        <h1 className="mono" style={{ fontSize: 'var(--fs-section)' }}>{rel}</h1>
+        <h1 className="mono with-help" style={{ fontSize: 'var(--fs-section)' }}>
+          {rel}
+          <HelpButton place="wasmView" />
+        </h1>
         {!info.valid && <div className="error-text">This file could not be read as a WebAssembly module: {info.error}</div>}
         <div className="field">
           <label>Size</label>

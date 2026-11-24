@@ -33,7 +33,8 @@ Find what you see in the left column of a section, then follow the fix or the li
 | An error naming `eosio.code` among the provided permissions | An inline action of your contract without `eosio.code` | [The eosio.code permission](doc:eosio-code) |
 | Refused for CPU or NET | Not enough staked or rented CPU or NET at this moment | Wait for it to recover, stake, or PowerUp; see [CPU and NET](doc:resources-cpu-net) and [PowerUp](doc:powerup) |
 | `insufficient ram` | The RAM payer of a new row has too little RAM | [RAM](doc:resources-ram); see who pays in [Tables, scopes and payers](doc:contract-tables) |
-| `cannot charge RAM to other accounts during notify` | A transfer listener makes the user pay | Pay with `get_self()`; see [Notifications](doc:contract-notifications) |
+| `unprivileged contract cannot increase RAM usage of another account within a notify context` | A transfer listener makes the user pay | Pay with `get_self()`; see [Notifications](doc:contract-notifications) |
+| `unprivileged contract cannot increase RAM usage of another account that has not authorized the action` | A table row is paid by an account that did not sign the action | Pay with `get_self()` or with the signer; see [Tables, scopes and payers](doc:contract-tables) |
 | Expired | The confirmation took too long | Run it again |
 | The deposit to your contract is not credited | The handler is not `on_notify("eosio.token::transfer")`, or it returned early | [Notifications](doc:contract-notifications) |
 | A custom permission cannot sign an action | No link from the action to the permission | [Linked actions (linkauth)](doc:linked-actions) |

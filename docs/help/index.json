@@ -101,10 +101,19 @@
         { "id": "contract-notifications", "title": "Notifications (on_notify)", "keywords": ["on_notify", "notification", "require_recipient", "transfer listener", "deposit", "incoming transfer", "receive tokens"] },
         { "id": "contract-read-other-table", "title": "Reading another contract's table", "keywords": ["another contract", "other contract", "read table", "balance", "eosio.token accounts"] },
         { "id": "contract-time", "title": "Time", "keywords": ["time", "current_time_point", "time_point_sec", "block time", "timestamp", "deadline", "timer", "now"] },
-        { "id": "contract-random", "title": "Random numbers (ORNG)", "keywords": ["random", "orng", "orng.wax", "rng", "requestrand", "receiverand", "dice", "randomness"] },
+        { "id": "contract-random", "title": "Random numbers (ORNG)", "keywords": ["random", "orng", "orng.wax", "rng", "requestrand", "randnotify", "receiverand", "dice", "randomness"] },
         { "id": "contract-assets", "title": "Assets and symbols", "keywords": ["asset", "symbol", "precision", "decimals", "extended_asset", "amount", "overflow"] },
         { "id": "contract-errors", "title": "Error messages", "keywords": ["check", "assert", "assertion failure", "eosio_assert", "error message", "print", "debug"] },
         { "id": "contract-upgrade", "title": "Upgrading a contract and its tables", "keywords": ["upgrade", "upgrade contract", "migrate", "migration", "binary_extension", "redeploy", "change table", "new field"] }
+      ]
+    },
+    {
+      "id": "examples",
+      "title": "Examples",
+      "topics": [
+        { "id": "example-transfer-listener", "title": "Example: Transfer listener", "keywords": ["example", "transfer listener", "deposit", "withdraw", "on_notify", "eosio.code", "inline transfer"] },
+        { "id": "example-staking", "title": "Example: Staking", "keywords": ["example", "staking", "stake", "unstake", "claim", "waiting time", "memo", "cpu", "net"] },
+        { "id": "example-random-number", "title": "Example: Random number (ORNG)", "keywords": ["example", "random", "orng", "orng.wax", "requestrand", "randnotify", "receiverand", "dice", "credits"] }
       ]
     },
     {

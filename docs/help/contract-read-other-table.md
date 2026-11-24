@@ -39,7 +39,9 @@ public:
     token::accounts acc("eosio.token"_n, user.value);
     auto it = acc.find(minimum.symbol.code().raw());
     asset have = it == acc.end() ? asset(0, minimum.symbol) : it->balance;   // no row means zero
-    check(have >= minimum, user.to_string() + " has only " + have.to_string());
+    if (have < minimum) {
+      check(false, user.to_string() + " has only " + have.to_string());   // built only on failure
+    }
     print(user, " has ", have);
   }
 };

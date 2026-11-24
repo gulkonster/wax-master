@@ -1,7 +1,7 @@
 {
   "name": "wax-master",
   "productName": "WAX Master",
-  "version": "1.0.0-rc23",
+  "version": "1.0.0-rc24",
   "description": "Desktop studio for writing, building and deploying Antelope smart contracts, made for WAX.",
   "author": "gulkonster",
   "license": "MIT",
@@ -14,7 +14,8 @@
     "build": "electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
-    "dist": "node scripts/dist.mjs"
+    "dist": "node scripts/dist.mjs",
+    "check:doc-samples": "node scripts/check-doc-samples.mjs"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",

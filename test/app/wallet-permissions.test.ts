@@ -17,7 +17,7 @@ import {
   type PlanContext
 } from '../../src/main/wallet-permissions'
 import { convertPublicKey, encodeAction, EOSIO_ABI, generatePrivateKey, publicFromPrivate, publicKeyToString } from '../../src/chain-core'
-import { allowedSigners, defaultSigner } from '../../src/shared/permission-signers'
+import { allowedSigners, changeKeyDefaults, defaultSigner } from '../../src/shared/permission-signers'
 import type { PermissionIntent } from '../../src/shared/chain-types'
 
 const newPub = (): string => publicKeyToString(publicFromPrivate(generatePrivateKey()), 'new')
@@ -305,6 +305,18 @@ describe('who signs a change: only permissions the chain accepts', () => {
     expect((await plan({ kind: 'addKey', ...A, permission: 'claim', key: K3, weight: 1 }, 'claim', ctx(data()))).action.name).toBe('updateauth')
     expect((await plan({ kind: 'newPermission', ...A, permission: 'deep', parent: 'sub', key: K3 }, 'sub', ctx(data()))).action.name).toBe('updateauth')
     await refused({ kind: 'newPermission', ...A, permission: 'deep', parent: 'claim', key: K3 }, 'sub', ctx(data()), /Sign this change with claim or active or owner/)
+  })
+  it('change key: the permission itself when the vault can sign with it, else the nearest parent; a lost key is preselected', () => {
+    const options = ['active', 'owner']
+    // The vault holds the key of active: active signs, its own key is replaced.
+    expect(changeKeyDefaults('active', options, (p) => ['active', 'owner'].includes(p), [K1, K2], [K2])).toEqual({ signWith: 'active', oldKey: K2 })
+    // The key of active is lost, owner is in the vault: owner signs, the key not in the vault is replaced.
+    expect(changeKeyDefaults('active', options, (p) => p === 'owner', [K1, K2], [K2])).toEqual({ signWith: 'owner', oldKey: K1 })
+    expect(changeKeyDefaults('active', options, (p) => p === 'owner', [K1], [])).toEqual({ signWith: 'owner', oldKey: K1 })
+    // A custom permission: the nearest parent the vault can sign with.
+    expect(changeKeyDefaults('claim', ['claim', 'active', 'owner'], (p) => p !== 'claim', [K3], []).signWith).toBe('active')
+    // owner itself.
+    expect(changeKeyDefaults('owner', ['owner'], (p) => p === 'owner', [K1], [K1])).toEqual({ signWith: 'owner', oldKey: K1 })
   })
   it('link: the permission the action needs now or above; unlink: the linked permission or above', async () => {
     const game = perm('game', 'active', SINGLE, [{ account: 'eosio.token', action: 'transfer' }])

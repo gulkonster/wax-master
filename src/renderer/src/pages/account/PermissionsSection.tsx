@@ -54,6 +54,7 @@ export function PermissionsSection({ ctx }: { ctx: WalletContext }): React.JSX.E
       currentKeys: p.keys.map((k) => k.k1 || k.key),
       vaultKeys: p.keys.filter((k) => vaultKeys.includes(k.k1)).map((k) => k.k1),
       signOptions: ancestry(view.permissions, p.name),
+      canSign: view.control,
       threshold: p.threshold,
       others: [...p.accounts.map((a) => `${a.actor}@${a.permission}`), ...p.waits.map((w) => `wait ${w.waitSec} s`)]
     })
@@ -154,7 +155,7 @@ export function PermissionsSection({ ctx }: { ctx: WalletContext }): React.JSX.E
                 </label>
               )}
               <div className="perm-buttons">
-                {p.keys.some((k) => vaultKeys.includes(k.k1)) && (
+                {p.keys.length > 0 && ancestry(view.permissions, p.name).some((a) => view.control.includes(a)) && (
                   <button className="btn subtle sm" disabled={disabled} title={reason} onClick={() => changeKey(p)}>
                     Change key...
                   </button>

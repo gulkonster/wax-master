@@ -79,3 +79,22 @@ export function allowedSigners(perms: readonly PermissionNode[], intent: Permiss
 export function defaultSigner(options: readonly string[], canSign: (permission: string) => boolean): string {
   return options.find((p) => p !== 'owner' && canSign(p)) ?? options.find((p) => canSign(p)) ?? options[0] ?? ''
 }
+
+/**
+ * Change key: the signer and the key to replace that the dialog starts with.
+ * The signer is the permission itself when the vault can sign with it, else the
+ * nearest parent the vault can sign with. When the permission's own keys cannot
+ * sign (a lost key), the key to replace is one that is not in the vault.
+ */
+export function changeKeyDefaults(
+  permission: string,
+  options: readonly string[],
+  canSign: (permission: string) => boolean,
+  currentKeys: readonly string[],
+  vaultKeys: readonly string[]
+): { signWith: string; oldKey: string } {
+  const own = canSign(permission)
+  const signWith = own ? permission : (options.find((p) => p !== permission && canSign(p)) ?? options[0] ?? permission)
+  const oldKey = own ? (vaultKeys[0] ?? currentKeys[0] ?? '') : (currentKeys.find((k) => !vaultKeys.includes(k)) ?? currentKeys[0] ?? '')
+  return { signWith, oldKey }
+}

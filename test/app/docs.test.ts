@@ -357,6 +357,7 @@ const FEATURE_TOPICS: [string, keyof typeof HELP_TOPICS][] = [
   ['File changed on disk dialog', 'fileChanged'],
   ['Find in Files and Go to Symbol dialogs', 'editorSearch'],
   ['Add toolchain dialog', 'toolchains'],
+  ['WASM view (a .wasm file opened from the tree)', 'wasmView'],
   ['About dialog', 'about'],
   ['New version dialog', 'updateAvailable'],
   ['Not in this build dialog', 'comingLater'],
@@ -550,7 +551,8 @@ describe('context help', () => {
       ['pages/Setup.tsx', 'setup'],
       ['pages/ContractPage.tsx', 'contractPage'],
       ['pages/AccountPage.tsx', 'accountPage'],
-      ['pages/Home.tsx', 'home']
+      ['pages/Home.tsx', 'home'],
+      ['pages/WasmInfoView.tsx', 'wasmView']
     ]
     for (const [file, place] of pages) expect(readFileSync(join(RENDERER, file), 'utf8'), file).toContain(`<HelpButton place="${place}" />`)
   })

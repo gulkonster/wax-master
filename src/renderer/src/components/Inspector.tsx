@@ -111,7 +111,7 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
   const [stack, setStack] = useState(false)
   return (
     <div className="inspector">
-      {t.source === 'simulation' && <div className="sim-banner">Simulation - nothing was sent to the chain. Authorization checks are skipped and the result reflects the current state of {t.endpoint}.</div>}
+      {t.source === 'simulation' && <div className="sim-banner">Simulation - nothing was sent to the chain. Signatures are not checked and the result reflects the current state of {t.endpoint}.</div>}
       <div className="tr-grid">
         <span>Transaction</span>
         <span className="mono-small">{t.id || '-'}</span>

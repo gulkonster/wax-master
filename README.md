@@ -85,6 +85,7 @@ npm run dev
 
 - `npm test`: offline tests, including the release checks for transaction correctness (compared with an independent implementation and real WAX transactions) and approval integrity.
 - `npm run dist`: Windows installer in `dist/`.
+- `npm run check:doc-samples`: builds every C++ sample of the help pages with the installed toolchain (needs WSL and Help > Setup; not part of `npm test`).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 

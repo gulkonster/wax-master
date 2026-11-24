@@ -11,7 +11,7 @@ The app gives the entry a weight equal to the permission's threshold. The code m
 3. Read the new authority in the review dialog: the old keys are all still there and one entry `yourcontract@eosio.code` is added. Press **Send to confirmation** and approve.
 4. The permission now lists `yourcontract@eosio.code`. To take it away, use the switch again (or the remove button of the entry).
 
-The switch is not offered on `owner`, and the app refuses it there: a fault in the contract, or a later deployment of other code, could then replace the owner keys, and nothing could repair that. Use `active` or a custom permission. An entry already on `owner` can still be removed with the remove button of the entry. The switch adds the account's own contract only; another account's `eosio.code` is not added by **Add account** (a typed `updateauth` on the Contract page can, and its confirmation shows it).
+The switch is not offered on `owner`, and **Add account** does not add an `eosio.code` entry there: a fault in the contract, or a later deployment of other code, could then replace the owner keys, and nothing could repair that. Use `active` or a custom permission. An entry already on `owner` can still be removed with the remove button of the entry. The switch adds the account's own contract only; **Add account** does not add another account's `eosio.code` either. A typed `updateauth` on the Contract page can add either one, the account's own code on `owner` or another account's code, and its confirmation shows the whole authority.
 
 From the Contract page: open `eosio`, choose `updateauth` with the current keys written again plus the account entry. Give the entry a weight equal to the threshold:
 
