@@ -11,7 +11,7 @@ A normal account name has exactly 12 characters. Names of 1 to 11 characters are
 - A later bid must be higher than the highest bid by more than a tenth. The smallest next bid is the highest bid plus a tenth of it (rounded down to the token's smallest unit) plus one unit (0.00000001 WAX). For a highest bid of 1.00000000 WAX the smallest next bid is 1.10000001 WAX.
 - The highest bidder cannot bid again on the same name until another account outbids it.
 - When an account is outbid, its amount is written to the `bidrefunds` table under the name. It is paid back by the action `bidrefund`, which anyone can send. **Claim refund** in this section sends it.
-- The bidder pays the RAM of the auction row, and of the refund row of the account it outbids when that row is new.
+- The bidder pays the RAM of the auction row (272 bytes, seen on WAX Testnet), and of the refund row of the account it outbids when that row is new (248 bytes). When a higher bid comes in, the auction row moves to the new bidder and its RAM goes back to the old one. The RAM of a refund row goes back to the account that paid for it when the refund is claimed, not to the account that claims it.
 - Closing: at most one auction closes per day on the whole chain. It is the open auction with the highest bid, and only once its last bid is more than 24 hours old. A lower bid waits until every higher auction has closed, so a small bid on a busy chain can wait for a long time.
 - A closed auction keeps its row with the winner. The winner creates the account with `newaccount`, as the creator; the row is removed then. Nobody else can create the name.
 - A winning bid is spent. A bid cannot be taken back: it comes back only when another account outbids it.
@@ -80,7 +80,7 @@ On WAX Testnet, open your account and the **Name bids** section. Type a name of 
 
 ## What is needed
 
-- Liquid WAX on the bidding account for the bid, and a little RAM for the rows.
+- Liquid WAX on the bidding account for the bid, and about 520 bytes of free RAM for the rows (272 for the auction row, 248 for a refund row).
 - A key of the account in the vault.
 - For the win: a little more than a day after the last bid, and no higher open auction on the chain.
 

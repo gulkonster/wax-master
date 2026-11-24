@@ -271,9 +271,10 @@ export function NameBidsSection({ ctx, onCreate }: { ctx: WalletContext; onCreat
               </div>
             </div>
             <ViewOnlyLine ctx={ctx} />
-            <SendLine message={refund.message} />
           </div>
         )}
+        {/* Outside the refund card: the card goes when the claim is read back, the result line stays. */}
+        <SendLine message={refund.message} />
       </div>
 
       {showBidForm && (

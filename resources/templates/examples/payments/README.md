@@ -44,6 +44,7 @@ You need four accounts: the **contract account**, a **user account**, a **token 
 - `withdraw` refused with a message that names `eosio.code`: step 6 is missing.
 - A transfer to the contract refused with a RAM error: the contract account needs more RAM (step 5).
 - `withdraw` of more than the balance: refused with "the quantity is more than the balance".
+- A transfer refused with "withdraw the old balance of this symbol first": the list was changed with `deltoken` and `addtoken` and now names another contract for this symbol code, and the sender still has a balance of the old token. He withdraws it, then sends again.
 - **Request test tokens** or any other plain WAX transfer to the deployed contract account: before step 7 it is refused with "this token is not accepted here"; after step 7 it is recorded as a balance of the sender, for a faucet payment the faucet's account `faucet.wax`. Fund the contract account before deploying (step 3).
 - An NFT sent to the contract account: the handler also runs for `atomicassets::transfer`, whose data is not a token transfer, so the transfer fails. This contract does not take NFTs.
 
