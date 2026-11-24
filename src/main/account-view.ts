@@ -55,7 +55,47 @@ function permissions(raw: unknown): PermissionView[] {
   })
 }
 
-export async function accountView(name: string): Promise<AccountView> {
+/** Refund delay of the system contract: unstaked tokens can be claimed 3 days after the request. */
+export const REFUND_DELAY_SEC = 3 * 24 * 3600
+
+/** Permissions are listed in this order: active, owner, then the others by name. */
+function permOrder(a: string, b: string): number {
+  const rank = (p: string): number => (p === 'active' ? 0 : p === 'owner' ? 1 : 2)
+  return rank(a) - rank(b) || a.localeCompare(b)
+}
+
+/**
+ * Permissions whose threshold the vault's keys reach with their own weights.
+ * Only keys count (an account entry or a wait is not something the vault holds);
+ * each key counts once; a threshold of zero or less is never "controlled".
+ */
+export function controlledPermissions(perms: PermissionView[], vaultKeys: readonly string[]): string[] {
+  const mine = new Set(vaultKeys.map(toK1).filter((k) => k !== ''))
+  const out: string[] = []
+  for (const p of perms) {
+    if (!p.name || !(p.threshold > 0)) continue
+    const seen = new Set<string>()
+    let weight = 0
+    for (const k of p.keys) {
+      const k1 = k.k1 || toK1(k.key)
+      if (!k1 || seen.has(k1) || !mine.has(k1)) continue
+      seen.add(k1)
+      weight += k.weight > 0 ? k.weight : 0
+    }
+    if (weight >= p.threshold) out.push(p.name)
+  }
+  return [...new Set(out)].sort(permOrder)
+}
+
+/** Chain time ("2026-11-24T10:00:00.000", UTC without a zone) plus seconds, as ISO text; '' when not a time. */
+export function chainTimePlus(t: string, seconds: number): string {
+  if (!t) return ''
+  const d = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(t) ? t : `${t}Z`)
+  if (Number.isNaN(d.getTime())) return ''
+  return new Date(d.getTime() + seconds * 1000).toISOString()
+}
+
+export async function accountView(name: string, vaultKeys: readonly string[] = []): Promise<AccountView> {
   const n = currentNetwork()
   const a = await readCall((ep) => chain.getAccount(ep, name), n)
   const sym = n.symbol
@@ -70,10 +110,17 @@ export async function accountView(name: string): Promise<AccountView> {
     }
   }
   const self = (a.self_delegated_bandwidth ?? {}) as Record<string, unknown>
-  const staked = assetAmount(str(self.cpu_weight)) + assetAmount(str(self.net_weight))
+  const cpuSelf = assetAmount(str(self.cpu_weight))
+  const netSelf = assetAmount(str(self.net_weight))
+  const staked = cpuSelf + netSelf
   const refundReq = (a.refund_request ?? {}) as Record<string, unknown>
-  const refund = assetAmount(str(refundReq.cpu_amount)) + assetAmount(str(refundReq.net_amount))
+  const refundCpu = assetAmount(str(refundReq.cpu_amount))
+  const refundNet = assetAmount(str(refundReq.net_amount))
+  const refund = refundCpu + refundNet
+  const refundRequested = refund > 0 ? chainTimePlus(str(refundReq.request_time), 0) : ''
   const total = (a.total_resources ?? {}) as Record<string, unknown>
+  const byOthers = Math.max(0, assetAmount(str(total.cpu_weight)) + assetAmount(str(total.net_weight)) - staked)
+  const perms = permissions(a.permissions)
   const cpu = (a.cpu_limit ?? {}) as Record<string, unknown>
   const net = (a.net_limit ?? {}) as Record<string, unknown>
   let hasCode = false
@@ -96,9 +143,17 @@ export async function accountView(name: string): Promise<AccountView> {
     net: { used: num(net.used), max: num(net.max) },
     cpuWeight: str(total.cpu_weight) || fmt(0, prec, sym),
     netWeight: str(total.net_weight) || fmt(0, prec, sym),
-    permissions: permissions(a.permissions),
+    permissions: perms,
     hasCode,
-    created: str(a.created)
+    created: str(a.created),
+    cpuSelf: fmt(cpuSelf, prec, sym),
+    netSelf: fmt(netSelf, prec, sym),
+    stakedByOthers: fmt(byOthers, prec, sym),
+    refundCpu: fmt(refundCpu, prec, sym),
+    refundNet: fmt(refundNet, prec, sym),
+    refundRequested,
+    refundDue: refundRequested ? chainTimePlus(refundRequested, REFUND_DELAY_SEC) : '',
+    control: controlledPermissions(perms, vaultKeys)
   }
 }
 

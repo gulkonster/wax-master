@@ -227,6 +227,8 @@ export const chain = {
   getCodeHash: (ep: string, account: string) => request<{ account_name: string; code_hash: string }>(ep, '/v1/chain/get_code_hash', { body: { account_name: account } }),
   getCurrencyBalance: (ep: string, code: string, account: string, symbol?: string) =>
     request<string[]>(ep, '/v1/chain/get_currency_balance', { body: { code, account, symbol } }),
+  getCurrencyStats: (ep: string, code: string, symbol: string) =>
+    request<Record<string, unknown>>(ep, '/v1/chain/get_currency_stats', { body: { code, symbol } }),
   getTableRows: (ep: string, body: Record<string, unknown>) => request<{ rows: unknown[]; more: boolean; next_key?: string }>(ep, '/v1/chain/get_table_rows', { body }),
   getTableByScope: (ep: string, body: Record<string, unknown>) =>
     request<{ rows: { code: string; scope: string; table: string; payer: string; count: number }[]; more: string }>(ep, '/v1/chain/get_table_by_scope', { body }),
@@ -255,6 +257,8 @@ export const history = {
     ),
   getTransaction: (hist: string, id: string) =>
     request<Record<string, unknown>>(hist, `/v2/history/get_transaction?id=${encodeURIComponent(id)}`),
+  getTokens: (hist: string, account: string, limit: number) =>
+    request<Record<string, unknown>>(hist, `/v2/state/get_tokens?account=${encodeURIComponent(account)}&limit=${limit}`),
   health: (hist: string) => request<Record<string, unknown>>(hist, '/v2/health', { timeoutMs: 8000 })
 }
 

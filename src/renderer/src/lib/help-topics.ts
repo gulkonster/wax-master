@@ -16,6 +16,13 @@ export const HELP_TOPICS = {
   setup: 'first-start',
   contractPage: 'run-actions',
   accountPage: 'accounts-and-names',
+  /** Wallet sections of the Account page. */
+  walletOverview: 'wallet-overview',
+  walletTransfers: 'transfers',
+  walletRam: 'resources-ram',
+  walletCpuNet: 'resources-cpu-net',
+  walletFaucet: 'create-testnet-account',
+  walletTransactions: 'transaction-history',
   /** "Read more" under a CPU / NET / RAM refusal. */
   resourceRefusal: 'simulate-inspector',
   /** "Read more" under the ABI check text. */

@@ -8,7 +8,21 @@ import * as networks from './networks'
 import { accountActions, accountView } from './account-view'
 import { ContractHistory, getContractAbi, getContractDef, KEY_TYPES, packAction, queryRows } from './contract-view'
 import { dataDir } from './paths'
-import { chain, request } from './rpc'
+import { chain, history, request } from './rpc'
+import { vault } from './keys-service'
+import { addedTokens, MAX_HISTORY_TOKENS, precisionFromStats, TOKEN_SYMBOL, walletTokens } from './wallet-tokens'
+
+/** Public keys of the vault (empty when there is none or it cannot be read). */
+function vaultPublicKeys(): string[] {
+  try {
+    return vault()
+      .list()
+      .map((k) => k.publicKey)
+      .slice(0, 200)
+  } catch {
+    return []
+  }
+}
 import { NetworkStatusPoller, networkStatus } from './network-status'
 import { log } from './log'
 import { isUnknownAccount } from './account-pick'
@@ -139,7 +153,44 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
     )
   )
 
-  handle('chain:account', (_e, name) => accountView(chainName(name, 'account')))
+  // The control badge: the vault's public keys (readable while it is locked) against the account's permissions.
+  handle('chain:account', (_e, name) => accountView(chainName(name, 'account'), vaultPublicKeys()))
+
+  // Wallet token list: core token, the history service's tokens, the tokens added for this network.
+  handle('wallet:tokens', (_e, name) => {
+    const acc = chainName(name, 'account')
+    if (!acc) throw new Error('account: enter an account name')
+    const n = networks.currentNetwork()
+    return walletTokens(n, {
+      coreBalance: async () => (await networks.readCall((ep) => chain.getCurrencyBalance(ep, 'eosio.token', acc, n.symbol), n))[0] ?? '',
+      balance: (contract, symbol) => networks.readCall((ep) => chain.getCurrencyBalance(ep, contract, acc, symbol), n),
+      historyTokens: n.history ? () => history.getTokens(n.history!, acc, MAX_HISTORY_TOKENS) : undefined,
+      added: addedTokens().list(n.id)
+    })
+  })
+  // "Add token": the contract must have the token (its precision is read from the chain).
+  handle('wallet:addToken', async (_e, contract, symbol) => {
+    const code = chainName(contract, 'contract')
+    if (!code) throw new Error('contract: enter the token contract')
+    const sym = str(symbol, 'symbol', 7)
+    if (!TOKEN_SYMBOL.test(sym)) throw new Error('symbol: 1 to 7 capital letters')
+    const n = networks.currentNetwork()
+    let stats: unknown
+    try {
+      stats = await networks.readCall((ep) => chain.getCurrencyStats(ep, code, sym), n)
+    } catch (e) {
+      throw new Error(`${code} has no token ${sym} on ${n.name}: ${e instanceof Error ? e.message.slice(0, 200) : 'no answer'}`)
+    }
+    const precision = precisionFromStats(stats, sym)
+    if (precision === null) throw new Error(`${code} has no token ${sym} on ${n.name}.`)
+    return addedTokens().add(n.id, { contract: code, symbol: sym, precision })
+  })
+  handle('wallet:removeToken', (_e, contract, symbol) => {
+    const sym = str(symbol, 'symbol', 7)
+    if (!TOKEN_SYMBOL.test(sym)) throw new Error('symbol: 1 to 7 capital letters')
+    return addedTokens().remove(networks.currentNetwork().id, chainName(contract, 'contract'), sym)
+  })
+  handle('wallet:addedTokens', () => addedTokens().list(networks.currentNetwork().id))
   // Existence of an account (recipient check, "name is free"); a failed request is an error, not "missing".
   handle('chain:accountExists', async (_e, name) => {
     const acc = chainName(name, 'account')

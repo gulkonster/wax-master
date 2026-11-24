@@ -5,7 +5,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { RamMarket, RamPrice } from '../../../shared/ram-market'
-import { formatCost, formatUnits, parseAsset, ramCost, RAM_MAX_BUY } from '../../../shared/ram-market'
+import { formatCost, formatUnits, parseAsset, ramCost, ramForAmount, RAM_MAX_BUY } from '../../../shared/ram-market'
+import { amountUnits } from '../../../shared/wallet'
+import type { TxAction } from '../../../shared/api'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
 import { networkStore } from '../lib/networks'
 import { useStore } from '../lib/stores'
@@ -75,7 +77,10 @@ export function BuyRamPanel({
   initialBytes,
   onBought,
   onFaucet,
-  onClose
+  onClose,
+  byAmount,
+  blockedReason,
+  commandView
 }: {
   /** The account that gets the RAM. */
   receiver: string
@@ -85,6 +90,12 @@ export function BuyRamPanel({
   /** Called after the faucet answered (the page refreshes its balance). */
   onFaucet?: () => void
   onClose?: () => void
+  /** Offers "by amount" (eosio::buyram) next to "by bytes" (the wallet's RAM section). */
+  byAmount?: boolean
+  /** Set when nothing may be signed here (a view-only account): the button is disabled with this text. */
+  blockedReason?: string
+  /** Renders the form's Command view under it, with the action it will send. */
+  commandView?: (action: TxAction | null) => React.ReactNode
 }): React.JSX.Element {
   const net = useStore(networkStore).current
   const testnet = isWaxTestnet(net)
@@ -96,7 +107,13 @@ export function BuyRamPanel({
   const [bytesTouched, setBytesTouched] = useState(false)
   const bytes = /^\d{1,10}$/.test(bytesText) ? Number(bytesText) : NaN
   const bytesOk = Number.isInteger(bytes) && bytes >= 1 && bytes <= RAM_MAX_BUY
-  const cost = market && bytesOk ? ramCost(market, bytes) : null
+  const [mode, setMode] = useState<'bytes' | 'amount'>('bytes')
+  const [amountText, setAmountText] = useState('')
+  const [amountTouched, setAmountTouched] = useState(false)
+  const amount = market ? amountUnits(amountText, market.precision) : null
+  const amountOk = amount !== null && amount > 0
+  const amountBytes = market && amountOk ? ramForAmount(market, amount) : 0
+  const cost = mode === 'amount' ? (amountOk ? amount : null) : market && bytesOk ? ramCost(market, bytes) : null
 
   const [payer, setPayer] = useState('')
   const [payerChosen, setPayerChosen] = useState(false)
@@ -164,25 +181,29 @@ export function BuyRamPanel({
     if (pick !== payer) setPayer(pick)
   }, [payerChosen, market, cost, allRead, covers, candidates, receiver, signable, payer])
 
+  const signerOk = ACCOUNT_NAME.test(payer) && ACCOUNT_NAME.test(permission)
+  const action: TxAction | null = !signerOk
+    ? null
+    : mode === 'amount'
+      ? market && amountOk
+        ? { account: 'eosio', name: 'buyram', authorization: [{ actor: payer, permission }], data: { payer, receiver, quant: formatUnits(amount, market.precision, market.symbol) } }
+        : null
+      : bytesOk
+        ? { account: 'eosio', name: 'buyrambytes', authorization: [{ actor: payer, permission }], data: { payer, receiver, bytes } }
+        : null
+  const boughtText = mode === 'amount' && market && amountOk ? `RAM for ${formatUnits(amount, market.precision, market.symbol)}` : `${bytes.toLocaleString()} bytes of RAM`
+
   const buy = async (): Promise<void> => {
     setBytesTouched(true)
-    if (!bytesOk || !ACCOUNT_NAME.test(payer) || !ACCOUNT_NAME.test(permission)) return
+    setAmountTouched(true)
+    if (blockedReason || !action) return
     setBusy(true)
     setMessage(null)
     try {
-      const r = await withVault(() =>
-        window.wax.tx.run([
-          {
-            account: 'eosio',
-            name: 'buyrambytes',
-            authorization: [{ actor: payer, permission }],
-            data: { payer, receiver, bytes }
-          }
-        ])
-      )
+      const r = await withVault(() => window.wax.tx.run([action]))
       if (r.status === 'sent') {
-        setMessage({ text: `${bytes.toLocaleString()} bytes of RAM bought for ${receiver}.`, kind: 'good' })
-        toast('RAM bought', `${bytes.toLocaleString()} bytes for ${receiver}`, 'success')
+        setMessage({ text: `${boughtText} bought for ${receiver}.`, kind: 'good' })
+        toast('RAM bought', `${boughtText} for ${receiver}`, 'success')
         setTick((t) => t + 1)
         onBought?.()
       } else if (r.status === 'failed') setMessage({ text: r.error, kind: 'error' })
@@ -216,7 +237,33 @@ export function BuyRamPanel({
       <div className="buy-ram-title">Buy RAM for {receiver}</div>
       {marketError && <div className="acct-note">The RAM price could not be read: {marketError}</div>}
       {price && !price.available && <div className="acct-note">{price.reason}</div>}
+      {byAmount && (
+        <div className="seg-pick" role="radiogroup" aria-label="Buy by">
+          <label className="check-label">
+            <input type="radio" checked={mode === 'bytes'} onChange={() => setMode('bytes')} /> By bytes (buyrambytes)
+          </label>
+          <label className="check-label">
+            <input type="radio" checked={mode === 'amount'} onChange={() => setMode('amount')} /> By amount (buyram)
+          </label>
+        </div>
+      )}
       <div className="buy-ram-fields">
+        {mode === 'amount' ? (
+          <div className="field buy-ram-bytes">
+            <label>Amount{market ? ` (${market.symbol})` : ''}</label>
+            <input
+              className="input mono"
+              inputMode="decimal"
+              value={amountText}
+              placeholder={market ? `e.g. 1.${'0'.repeat(market.precision)}` : ''}
+              onChange={(e) => setAmountText(e.target.value.trim())}
+              onBlur={() => setAmountTouched(true)}
+            />
+            {amountTouched && !amountOk && market && (
+              <div className="acct-note bad">Enter an amount above zero with at most {market.precision} decimals.</div>
+            )}
+          </div>
+        ) : (
         <div className="field buy-ram-bytes">
           <label>Bytes</label>
           <input
@@ -228,6 +275,7 @@ export function BuyRamPanel({
           />
           {bytesTouched && !bytesOk && <div className="acct-note bad">Enter a whole number of bytes from 1 to {RAM_MAX_BUY.toLocaleString()}.</div>}
         </div>
+        )}
         <div className="field buy-ram-payer">
           <label>Paid by</label>
           <div className="signer-row">
@@ -248,6 +296,11 @@ export function BuyRamPanel({
         </div>
       </div>
       <div className="buy-ram-lines">
+        {mode === 'amount' ? (
+          <span>
+            You get: {!market ? (price ? 'not available' : 'reading the RAM market...') : amountOk ? `about ${amountBytes.toLocaleString()} bytes (after the 0.5% fee)` : '-'}
+          </span>
+        ) : (
         <span>
           Cost:{' '}
           {!market
@@ -260,6 +313,7 @@ export function BuyRamPanel({
                 : '-'
               : `about ${formatCost(cost, market.precision, market.symbol)}`}
         </span>
+        )}
         {payer && (
           <span>
             Balance of {payer}:{' '}
@@ -276,7 +330,7 @@ export function BuyRamPanel({
       )}
       <div className="buy-ram-actions">
         {faucetFirst && faucet}
-        <button className={`btn${faucetFirst ? '' : ' primary'}`} disabled={busy || !market || !ACCOUNT_NAME.test(payer)} onClick={() => void buy()}>
+        <button className={`btn${faucetFirst ? '' : ' primary'}`} disabled={busy || !market || !ACCOUNT_NAME.test(payer) || !!blockedReason} onClick={() => void buy()}>
           {busy ? 'Waiting for confirmation...' : 'Buy RAM'}
         </button>
         {!faucetFirst && faucet}
@@ -286,6 +340,8 @@ export function BuyRamPanel({
           </button>
         )}
       </div>
+      {blockedReason && <div className="acct-note">{blockedReason}</div>}
+      {commandView?.(action)}
       {message && <div className={message.kind === 'error' ? 'error-text' : message.kind === 'note' ? 'hint' : 'acct-note good'}>{message.text}</div>}
     </div>
   )

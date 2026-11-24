@@ -7,6 +7,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { WaxApi, WaxTerminalApi } from '../shared/api'
 import { themeFromArgv } from '../shared/theme'
 import { devUrlFromArgv, interfaceFor } from '../shared/preload-exposure'
+import { WINDOW_ERROR_CHANNEL } from '../shared/window-error'
 
 // The resolved theme (dark or light) on <html data-theme>: from the start
 // arguments before the first paint, then from the main process on each change.
@@ -84,7 +85,9 @@ const api: WaxApi = {
     setDirty: call('app:setDirty'),
     checkUpdates: call('app:checkUpdates'),
     clearData: call('app:clearData'),
-    quitNow: call('app:quitNow')
+    quitNow: call('app:quitNow'),
+    // One way, no answer: the main process writes a checked line to its log.
+    reportError: (report: unknown): void => ipcRenderer.send(WINDOW_ERROR_CHANNEL, report)
   },
   settings: {
     get: call('settings:get'),
@@ -153,6 +156,12 @@ const api: WaxApi = {
     accountExists: call('chain:accountExists'),
     actions: call('chain:actions'),
     ramPrice: call('chain:ramPrice')
+  },
+  wallet: {
+    tokens: call('wallet:tokens'),
+    addedTokens: call('wallet:addedTokens'),
+    addToken: call('wallet:addToken'),
+    removeToken: call('wallet:removeToken')
   },
   networkInfo: {
     overview: call('networkInfo:overview'),

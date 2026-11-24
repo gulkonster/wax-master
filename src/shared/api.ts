@@ -6,8 +6,9 @@ import type { InspectedTransaction } from './trace-types'
 import type { DeployPlan } from './chain-types'
 import type { RamPrice } from './ram-market'
 import type { NetworkHead, NetworkOverview } from './network-info'
-import type { AccountActionsPage, AccountView, NetworkInfo, NetworkKind, NetworkStatus } from './chain-types'
+import type { AccountActionsPage, AccountView, AddedToken, NetworkInfo, NetworkKind, NetworkStatus, WalletTokens } from './chain-types'
 import type { AuthLevel, ContractAbiView, ContractHistoryEntry, ContractHistoryKind, ContractHistoryList, PackResult, RowsQuery, RowsResult, ScopesResult } from './chain-types'
+import type { WindowErrorReport } from './window-error'
 
 /** How a vault key can be had back without the vault: none, a text file, shown once, brought by the user, in an exported vault. */
 export type KeyBackupState = 'none' | 'file' | 'shown' | 'imported' | 'vault-export'
@@ -364,6 +365,8 @@ export interface WaxApi {
     checkUpdates(): Promise<UpdateResult>
     clearData(includeVault: boolean, typed: string): Promise<void>
     quitNow(): Promise<void>
+    /** Sends an error of the page to the main log (one way, checked there). */
+    reportError(report: WindowErrorReport): void
   }
   settings: {
     get(): Promise<Settings>
@@ -460,6 +463,14 @@ export interface WaxApi {
     actions(name: string, skip: number): Promise<AccountActionsPage>
     /** RAM price of the current network for `bytes` (0: the market only), from the system RAM market. */
     ramPrice(bytes: number): Promise<RamPrice>
+  }
+  wallet: {
+    /** Core token, the history service's tokens of the account, and the tokens added for this network, with balances. */
+    tokens(account: string): Promise<WalletTokens>
+    addedTokens(): Promise<AddedToken[]>
+    /** Checked on the chain (the contract must have the token); returns the added tokens of this network. */
+    addToken(contract: string, symbol: string): Promise<AddedToken[]>
+    removeToken(contract: string, symbol: string): Promise<AddedToken[]>
   }
   networkInfo: {
     /** Chain state of a saved network for the Network page: get_info, RAM, RAM price, core token. */

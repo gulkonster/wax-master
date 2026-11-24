@@ -203,6 +203,9 @@
   --line-col: 48px;
   --find-min: 360px;
   --json-max: 260px;
+  --wallet-nav: 220px;
+  --wallet-card: 200px;
+  --wallet-gauges: 320px;
   --json-max-lg: 360px;
   --log-max: 300px;
   --foot-notes-max: 160px;
@@ -3627,4 +3630,245 @@ button.sb-item.mainnet:hover {
 .read-more {
   margin-left: var(--sp-1);
   font-size: inherit;
+}
+
+/* A view that failed to draw (components/ErrorBoundary.tsx). */
+.view-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  flex: 1;
+  padding: var(--sp-6);
+  color: var(--text-2);
+}
+.view-error h2 {
+  margin: 0;
+  font-weight: 600;
+  font-size: var(--fs-section);
+  color: var(--text-strong);
+}
+
+/* ------------------------------------------------------------------ wallet (Account page) */
+
+.wallet-error {
+  margin: var(--sp-4);
+}
+.wallet-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap-row);
+  padding: var(--sp-4) var(--sp-4) 0;
+}
+.wallet-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--gap-row);
+  min-width: 0;
+}
+.wallet-title h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  color: var(--text-strong);
+  word-break: break-all;
+}
+.wallet-created {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--text-3);
+}
+.control-badge {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--ctl);
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--radius);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+.control-badge.controlled {
+  background: var(--green-tint);
+  color: var(--green-text);
+}
+.control-badge.view-only {
+  background: var(--bg-surface-2);
+  color: var(--text-2);
+}
+.wallet-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--wallet-card), 1fr));
+  gap: var(--gap-row);
+  padding: var(--sp-4);
+}
+.sum-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--bg-surface);
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.sum-card.sum-gauges {
+  grid-column: span 2;
+  min-width: min(100%, var(--wallet-gauges));
+  padding: 0;
+}
+.sum-gauges .res-row {
+  padding: var(--sp-2) var(--sp-4);
+}
+.sum-label {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--text-3);
+}
+.sum-value {
+  font-family: var(--font-mono);
+  font-size: var(--fs-card);
+  line-height: var(--lh-card);
+  font-weight: 600;
+  color: var(--text-strong);
+  word-break: break-all;
+}
+.sum-sub {
+  font-family: var(--font-mono);
+  font-size: var(--fs-data);
+  line-height: var(--lh-data);
+  color: var(--text-2);
+  word-break: break-all;
+}
+.wallet-layout {
+  display: grid;
+  grid-template-columns: var(--wallet-nav) minmax(0, 1fr);
+  gap: var(--sp-4);
+  padding: 0 var(--sp-4) var(--sp-6);
+  align-items: start;
+}
+.wallet-nav {
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-1);
+  background: var(--bg-surface);
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.wallet-nav-item {
+  display: flex;
+  align-items: center;
+  min-height: var(--menu-item);
+  padding: 0 var(--sp-3);
+  border: none;
+  border-left: var(--bw-3) solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wallet-nav-item:hover {
+  background: var(--hover);
+}
+.wallet-nav-item.active {
+  background: var(--sel-bg);
+  border-left-color: var(--sel-line);
+  color: var(--sel-text);
+  font-weight: 600;
+}
+.wallet-content {
+  min-width: 0;
+}
+.wallet-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.wallet-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.wallet-section-head h3 {
+  margin: 0;
+  font-size: var(--fs-card);
+  line-height: var(--lh-card);
+  color: var(--text-strong);
+}
+.wallet-section-head .grow {
+  flex: 1;
+}
+.wallet-lead {
+  margin: 0;
+  color: var(--text-2);
+}
+.wallet-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-width: var(--form-col);
+}
+.wallet-form .field-row > .field {
+  flex: 1;
+  min-width: 0;
+}
+.wallet-add {
+  align-self: flex-start;
+}
+.wallet-command {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.wallet-command > .btn {
+  align-self: flex-start;
+}
+.token-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--gap-row);
+  min-height: var(--row);
+  padding: var(--sp-1) var(--sp-4);
+}
+.token-row.token-head {
+  min-height: var(--table-row);
+  font-size: var(--fs-caption);
+  color: var(--text-3);
+}
+.token-row .num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  word-break: break-all;
+}
+.token-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.token-symbol {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.token-contract {
+  color: var(--text-3);
+}
+.token-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.seg-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-group);
+}
+.perm-inline {
+  min-width: var(--field-perm);
 }

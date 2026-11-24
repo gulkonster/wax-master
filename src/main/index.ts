@@ -4,6 +4,7 @@ import { buildMenu, watchMenuKey } from './menu'
 import { hasBlockedSwitch } from './switches'
 import { registerIpc } from './ipc'
 import { guardWindow, registerCloseGuard } from './close-guard'
+import { registerWindowErrors } from './window-errors'
 import { registerChainIpc } from './ipc-chain'
 import { networkStatus, watchWindowForStatus } from './network-status'
 import { registerNetworkInfoIpc } from './ipc-network-info'
@@ -125,6 +126,7 @@ app.whenReady().then(() => {
   registerAppProtocol()
   registerIpc(() => mainWindow)
   registerCloseGuard(() => mainWindow)
+  registerWindowErrors()
   registerChainIpc(() => mainWindow)
   registerNetworkInfoIpc(() => mainWindow)
   registerKeys(() => mainWindow)

@@ -134,3 +134,30 @@ export function deployRamText(p: DeployRamFigures): string {
       : `RAM needed about ${p.ramNeeded.toLocaleString()} bytes; available ${available}.`
   return p.chainCodeUnread ? `${line} ${CODE_SIZE_UNREAD}` : line
 }
+
+/** Fee of the system contract on buyram and sellram, in whole units: 0.5 % rounded up, as the contract computes it. */
+export function ramFeeUnits(units: number): number {
+  return Math.floor((units + 199) / 200)
+}
+
+/**
+ * Bytes `buyram` gives for an amount in whole units of the core token: the fee is
+ * taken first, then the Bancor output of the RAM connector (truncated, as the
+ * contract does). 0 when the amount does not cover the fee.
+ */
+export function ramForAmount(market: RamMarket, units: number): number {
+  if (!Number.isFinite(units) || units <= 0) return 0
+  const input = units - ramFeeUnits(units)
+  if (input <= 0) return 0
+  return Math.max(0, Math.trunc((market.ramReserve * input) / (market.quoteReserve + input)))
+}
+
+/**
+ * Whole units of the core token `sellram` returns for `bytes`: the Bancor output
+ * of the token connector, less the 0.5 % fee rounded up.
+ */
+export function ramSellReturn(market: RamMarket, bytes: number): number {
+  if (!Number.isFinite(bytes) || bytes <= 0) return 0
+  const out = Math.trunc((market.quoteReserve * bytes) / (market.ramReserve + bytes))
+  return Math.max(0, out - ramFeeUnits(out))
+}

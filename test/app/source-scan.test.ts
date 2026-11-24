@@ -25,6 +25,20 @@ describe('source scan', () => {
       expect(hits).toEqual([])
     })
   }
+  it('effects with an expression body return nothing or a clean-up function', () => {
+    // React calls whatever an effect returns as its clean-up; a promise (scrollTo returns one
+    // in current Chromium) or any other value throws there and empties the window. An effect
+    // written as `() => expression` may only use one of these forms.
+    const allowed = /^(\(\) => |void |on\(|on[A-Z]\w*Change\(|window\.wax\.on\(|s\.subscribe\(|watch[A-Z]\w*\(|set[A-Z]\w*\(|post\()/
+    const bad: string[] = []
+    for (const f of files(join(root, 'renderer'))) {
+      const text = readFileSync(f, 'utf8')
+      for (const m of text.matchAll(/use(?:Layout)?Effect\(\s*\(\)\s*=>\s*([^\s{][^\n]*)/g)) {
+        if (!allowed.test(m[1])) bad.push(`${f}: ${m[1].trim()}`)
+      }
+    }
+    expect(bad).toEqual([])
+  })
   it('has no raw control characters or line or paragraph separators (written as escapes instead)', () => {
     // Tab, line feed and carriage return are ordinary text; anything else breaks the bundler or hides text.
     // eslint-disable-next-line no-control-regex

@@ -19,8 +19,11 @@ export function DocsPage(): React.JSX.Element {
   const [searchError, setSearchError] = useState('')
   const seq = useRef(0)
   const mainRef = useRef<HTMLDivElement>(null)
-  // A new topic starts at its top.
-  useEffect(() => mainRef.current?.scrollTo(0, 0), [history.current])
+  // A new topic starts at its top. A block body: an effect may return only a
+  // clean-up function, and scrollTo returns a promise in current Chromium.
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0)
+  }, [history.current])
 
   useEffect(() => {
     loadDocsIndex()

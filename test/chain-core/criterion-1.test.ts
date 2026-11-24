@@ -38,6 +38,15 @@ import {
   newaccount,
   buyrambytes,
   delegatebw,
+  buyram,
+  sellram,
+  undelegatebw,
+  refund,
+  voteproducer,
+  voterclaim,
+  claimgbmvote,
+  claimgenesis,
+  powerup,
   deleteauth,
   linkauth,
   unlinkauth,
@@ -192,6 +201,27 @@ describe('criterion 1: action data matches eosjs', () => {
       requirement: 'mine'
     })
     crossCheck(unlinkauth({ account: 'alice', code: 'eosio.token', type: 'transfer' }), EOSIO, { account: 'alice', code: 'eosio.token', type: 'transfer' })
+  })
+
+  it('buyram, sellram, undelegatebw, refund', () => {
+    crossCheck(buyram({ payer: 'alice', receiver: 'bob', quant: '1.50000000 WAX' }), EOSIO, { payer: 'alice', receiver: 'bob', quant: '1.50000000 WAX' })
+    crossCheck(sellram({ account: 'alice', bytes: 1024 }), EOSIO, { account: 'alice', bytes: 1024 })
+    crossCheck(sellram({ account: 'alice', bytes: 9007199254740993n }), EOSIO, { account: 'alice', bytes: '9007199254740993' })
+    const ud = undelegatebw({ from: 'alice', receiver: 'newacct1.wam', unstakeNet: '0.00000000 WAX', unstakeCpu: '2.00000000 WAX' })
+    crossCheck(ud, EOSIO, { from: 'alice', receiver: 'newacct1.wam', unstake_net_quantity: '0.00000000 WAX', unstake_cpu_quantity: '2.00000000 WAX' })
+    crossCheck(refund({ owner: 'alice' }), EOSIO, { owner: 'alice' })
+  })
+
+  it('voteproducer, voterclaim, claimgbmvote, claimgenesis, powerup', () => {
+    const v = voteproducer({ voter: 'alice', producers: ['zzz', 'bp.one', 'abc'] })
+    crossCheck(v, EOSIO, { voter: 'alice', proxy: '', producers: ['abc', 'bp.one', 'zzz'] })
+    crossCheck(voteproducer({ voter: 'alice', proxy: 'proxy.wam' }), EOSIO, { voter: 'alice', proxy: 'proxy.wam', producers: [] })
+    crossCheck(voteproducer({ voter: 'alice' }), EOSIO, { voter: 'alice', proxy: '', producers: [] })
+    crossCheck(voterclaim({ owner: 'alice' }), EOSIO, { owner: 'alice' })
+    crossCheck(claimgbmvote({ owner: 'alice' }), EOSIO, { owner: 'alice' })
+    crossCheck(claimgenesis({ claimer: 'alice' }), EOSIO, { claimer: 'alice' })
+    const p = powerup({ payer: 'alice', receiver: 'bob', days: 1, netFrac: 0, cpuFrac: '1000000000000', maxPayment: '1.00000000 WAX' })
+    crossCheck(p, EOSIO, { payer: 'alice', receiver: 'bob', days: 1, net_frac: 0, cpu_frac: '1000000000000', max_payment: '1.00000000 WAX' })
   })
 
   it('the embedded system ABIs encode the same as the on-chain ABIs', () => {

@@ -64,6 +64,27 @@ export const EOSIO_ABI: AbiDef = {
       f('stake_net_quantity', 'asset'),
       f('stake_cpu_quantity', 'asset'),
       f('transfer', 'bool')
+    ]),
+    st('buyram', [f('payer', 'name'), f('receiver', 'name'), f('quant', 'asset')]),
+    st('sellram', [f('account', 'name'), f('bytes', 'int64')]),
+    st('undelegatebw', [
+      f('from', 'name'),
+      f('receiver', 'name'),
+      f('unstake_net_quantity', 'asset'),
+      f('unstake_cpu_quantity', 'asset')
+    ]),
+    st('refund', [f('owner', 'name')]),
+    st('voteproducer', [f('voter', 'name'), f('proxy', 'name'), f('producers', 'name[]')]),
+    st('voterclaim', [f('owner', 'name')]),
+    st('claimgbmvote', [f('owner', 'name')]),
+    st('claimgenesis', [f('claimer', 'name')]),
+    st('powerup', [
+      f('payer', 'name'),
+      f('receiver', 'name'),
+      f('days', 'uint32'),
+      f('net_frac', 'int64'),
+      f('cpu_frac', 'int64'),
+      f('max_payment', 'asset')
     ])
   ],
   actions: [
@@ -75,7 +96,16 @@ export const EOSIO_ABI: AbiDef = {
     act('linkauth'),
     act('unlinkauth'),
     act('buyrambytes'),
-    act('delegatebw')
+    act('delegatebw'),
+    act('buyram'),
+    act('sellram'),
+    act('undelegatebw'),
+    act('refund'),
+    act('voteproducer'),
+    act('voterclaim'),
+    act('claimgbmvote'),
+    act('claimgenesis'),
+    act('powerup')
   ],
   ...emptyAbiParts
 }
@@ -325,5 +355,115 @@ export function delegatebw(args: {
     stake_net_quantity: args.stakeNet,
     stake_cpu_quantity: args.stakeCpu,
     transfer: args.transfer ?? false
+  })
+}
+
+/** Buys RAM for `receiver` worth `quant` of the core token (for example "1.00000000 WAX"). */
+export function buyram(args: { payer: string; receiver: string; quant: string; authorization?: PermissionLevel[] }): Action {
+  parseAsset(args.quant)
+  return mk('eosio', 'buyram', EOSIO_ABI, args.authorization ?? active(args.payer), {
+    payer: args.payer,
+    receiver: args.receiver,
+    quant: args.quant
+  })
+}
+
+/** Sells `bytes` of the account's own RAM back to the RAM market. */
+export function sellram(args: { account: string; bytes: number | bigint; authorization?: PermissionLevel[] }): Action {
+  const b = typeof args.bytes === 'bigint' ? args.bytes : Number.isSafeInteger(args.bytes) ? BigInt(args.bytes) : null
+  if (b === null || b <= 0n) throw new ChainCoreError('sellram.bytes', 'bytes must be a positive integer')
+  return mk('eosio', 'sellram', EOSIO_ABI, args.authorization ?? active(args.account), {
+    account: args.account,
+    bytes: b
+  })
+}
+
+/** Unstakes NET and CPU that `from` staked to `receiver`; the tokens come back through a refund after the waiting time. */
+export function undelegatebw(args: {
+  from: string
+  receiver: string
+  unstakeNet: string
+  unstakeCpu: string
+  authorization?: PermissionLevel[]
+}): Action {
+  parseAsset(args.unstakeNet)
+  parseAsset(args.unstakeCpu)
+  return mk('eosio', 'undelegatebw', EOSIO_ABI, args.authorization ?? active(args.from), {
+    from: args.from,
+    receiver: args.receiver,
+    unstake_net_quantity: args.unstakeNet,
+    unstake_cpu_quantity: args.unstakeCpu
+  })
+}
+
+/** Claims an unstake refund that is due. */
+export function refund(args: { owner: string; authorization?: PermissionLevel[] }): Action {
+  return mk('eosio', 'refund', EOSIO_ABI, args.authorization ?? active(args.owner), { owner: args.owner })
+}
+
+/**
+ * Votes for producers, or sets a proxy. Give either `producers` or `proxy`, not both.
+ * Producers are sorted by name value, as the chain requires; duplicates are rejected.
+ */
+export function voteproducer(args: {
+  voter: string
+  proxy?: string
+  producers?: string[]
+  authorization?: PermissionLevel[]
+}): Action {
+  const proxy = args.proxy ?? ''
+  const producers = [...(args.producers ?? [])]
+  if (proxy !== '' && producers.length > 0) throw new ChainCoreError('voteproducer', 'give either a proxy or producers, not both')
+  producers.forEach((p, i) => {
+    const problem = nameProblem(p)
+    if (problem) throw new ChainCoreError(`voteproducer.producers[${i}]`, problem)
+  })
+  producers.sort((a, b) => cmpBig(nameToUint64(a), nameToUint64(b)))
+  for (let i = 1; i < producers.length; i++) {
+    if (producers[i - 1] === producers[i]) throw new ChainCoreError('voteproducer.producers', `duplicate producer ${producers[i]}`)
+  }
+  return mk('eosio', 'voteproducer', EOSIO_ABI, args.authorization ?? active(args.voter), {
+    voter: args.voter,
+    proxy,
+    producers
+  })
+}
+
+/** Claims voter rewards. */
+export function voterclaim(args: { owner: string; authorization?: PermissionLevel[] }): Action {
+  return mk('eosio', 'voterclaim', EOSIO_ABI, args.authorization ?? active(args.owner), { owner: args.owner })
+}
+
+/** Claims the GBM voter reward. */
+export function claimgbmvote(args: { owner: string; authorization?: PermissionLevel[] }): Action {
+  return mk('eosio', 'claimgbmvote', EOSIO_ABI, args.authorization ?? active(args.owner), { owner: args.owner })
+}
+
+/** Claims genesis account tokens. */
+export function claimgenesis(args: { claimer: string; authorization?: PermissionLevel[] }): Action {
+  return mk('eosio', 'claimgenesis', EOSIO_ABI, args.authorization ?? active(args.claimer), { claimer: args.claimer })
+}
+
+/**
+ * Rents NET and CPU for `days`. `netFrac` and `cpuFrac` are fractions of the total
+ * weight scaled by 10^15; `maxPayment` caps the fee.
+ */
+export function powerup(args: {
+  payer: string
+  receiver: string
+  days: number
+  netFrac: number | bigint | string
+  cpuFrac: number | bigint | string
+  maxPayment: string
+  authorization?: PermissionLevel[]
+}): Action {
+  parseAsset(args.maxPayment)
+  return mk('eosio', 'powerup', EOSIO_ABI, args.authorization ?? active(args.payer), {
+    payer: args.payer,
+    receiver: args.receiver,
+    days: args.days,
+    net_frac: args.netFrac,
+    cpu_frac: args.cpuFrac,
+    max_payment: args.maxPayment
   })
 }

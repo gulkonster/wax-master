@@ -6,6 +6,13 @@ import {
   bytesToHex,
   decodeActionData,
   delegatebw,
+  buyram,
+  sellram,
+  undelegatebw,
+  refund,
+  voteproducer,
+  claimgenesis,
+  powerup,
   generatePrivateKey,
   headerFromChainInfo,
   hexToBytes,
@@ -138,6 +145,23 @@ describe('system action helpers', () => {
     expect(a.authorization[0].actor).toBe('alice')
     const d = delegatebw({ from: 'alice', receiver: 'bobbob', stakeNet: '1.00000000 WAX', stakeCpu: '1.00000000 WAX' })
     expect((decodeActionData(EOSIO_ABI, d) as { transfer: boolean }).transfer).toBe(false)
+  })
+
+  it('RAM, unstake, refund, vote and claim helpers default authorization and validate input', () => {
+    expect(buyram({ payer: 'alice', receiver: 'bob', quant: '1.00000000 WAX' }).authorization).toEqual([{ actor: 'alice', permission: 'active' }])
+    expect(() => buyram({ payer: 'alice', receiver: 'bob', quant: '1 wax' })).toThrow()
+    expect(decodeActionData(EOSIO_ABI, sellram({ account: 'alice', bytes: 1024 }))).toEqual({ account: 'alice', bytes: '1024' })
+    expect(() => sellram({ account: 'alice', bytes: 0 })).toThrow(/positive/)
+    expect(() => sellram({ account: 'alice', bytes: 1.5 })).toThrow(/positive/)
+    expect(() => undelegatebw({ from: 'alice', receiver: 'bob', unstakeNet: 'x', unstakeCpu: '1.00000000 WAX' })).toThrow()
+    expect(refund({ owner: 'alice' }).authorization[0].actor).toBe('alice')
+    const v = voteproducer({ voter: 'alice', producers: ['zzz', 'abc'] })
+    expect((decodeActionData(EOSIO_ABI, v) as { producers: string[] }).producers).toEqual(['abc', 'zzz'])
+    expect(() => voteproducer({ voter: 'alice', producers: ['abc', 'abc'] })).toThrow(/duplicate/)
+    expect(() => voteproducer({ voter: 'alice', proxy: 'p', producers: ['abc'] })).toThrow(/not both/)
+    expect(() => voteproducer({ voter: 'alice', producers: ['Bad'] })).toThrow()
+    expect(claimgenesis({ claimer: 'alice' }).authorization[0].actor).toBe('alice')
+    expect(() => powerup({ payer: 'a', receiver: 'b', days: 1, netFrac: 0, cpuFrac: 0, maxPayment: 'x' })).toThrow()
   })
 })
 

@@ -50,6 +50,46 @@ export interface AccountView {
   permissions: PermissionView[]
   hasCode: boolean
   created: string
+  /** Tokens this account staked to itself, for CPU and for NET (asset text). */
+  cpuSelf: string
+  netSelf: string
+  /** Tokens other accounts staked to this one (CPU plus NET, asset text). */
+  stakedByOthers: string
+  /** The refund in progress: CPU and NET parts, when it was asked for and when it can be claimed ('' when none). */
+  refundCpu: string
+  refundNet: string
+  refundRequested: string
+  refundDue: string
+  /**
+   * Permissions whose threshold the vault's keys reach with their own weights
+   * (keys only; accounts and waits are not counted). Empty: view only.
+   */
+  control: string[]
+}
+
+/** One token balance of the wallet's token list. */
+export interface TokenRow {
+  contract: string
+  symbol: string
+  precision: number
+  /** Asset text, e.g. "12.3400 ABC"; '' when the balance could not be read. */
+  balance: string
+  /** Where the row comes from: the chain's core token, the history service, or a token the user added. */
+  source: 'core' | 'history' | 'added'
+}
+
+export interface WalletTokens {
+  rows: TokenRow[]
+  /** 'none': the network has no history service; 'error': it did not answer (historyNote says why). */
+  history: 'ok' | 'none' | 'error'
+  historyNote: string
+}
+
+/** A token the user added for a network (contract and symbol, precision read from the chain). */
+export interface AddedToken {
+  contract: string
+  symbol: string
+  precision: number
 }
 
 export interface AccountActionRow {

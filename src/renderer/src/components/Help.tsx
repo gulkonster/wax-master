@@ -6,10 +6,11 @@ import type { MenuCommand } from '../../../shared/api'
 import type { MdDocument } from '../../../shared/markdown'
 import { emit } from '../lib/bus'
 import { emptyHistory, go, goBack, goForward, loadTopic, topicTitle, type DocsHistory } from '../lib/docs'
-import { Markdown } from '../lib/markdown'
+import { Markdown, type MarkdownHandlers } from '../lib/markdown'
 import { errorText } from '../lib/toast'
 import { IconArrowLeft, IconArrowRight } from './Icons'
 import { Modal } from './Modal'
+import { ErrorBoundary } from './ErrorBoundary'
 
 type Loaded = { id: string; doc: MdDocument; title: string | null } | { id: string; error: string }
 
@@ -64,17 +65,24 @@ export function DocViewer({
         </div>
       )}
       {shown && 'doc' in shown && (
-        <>
-          {showTitle && shown.title && shown.doc.blocks[0]?.t !== 'heading' && <h1 className="md-h1">{shown.title}</h1>}
-          <Markdown doc={shown.doc} handlers={{ onDoc: (t) => setHistory(go(history, t)), onCommand }} />
-        </>
+        <TopicView doc={shown.doc} title={showTitle ? shown.title : null} handlers={{ onDoc: (t) => setHistory(go(history, t)), onCommand }} />
       )}
     </div>
   )
 }
 
+/** One loaded topic: its title when the text has no heading of its own, then the text. */
+export function TopicView({ doc, title, handlers }: { doc: MdDocument; title: string | null; handlers: MarkdownHandlers }): React.JSX.Element {
+  return (
+    <>
+      {title && doc.blocks[0]?.t !== 'heading' && <h1 className="md-h1">{title}</h1>}
+      <Markdown doc={doc} handlers={handlers} />
+    </>
+  )
+}
+
 /** The help window over an open dialog. */
-export function HelpDialog({ topic, onClose }: { topic: string; onClose: () => void }): React.JSX.Element {
+export function HelpDialog({ topic, onClose, onHome }: { topic: string; onClose: () => void; onHome: () => void }): React.JSX.Element {
   const [history, setHistory] = useState<DocsHistory>(() => go(emptyHistory, topic))
   const [title, setTitle] = useState('Help')
   useEffect(() => setHistory((h) => go(h, topic)), [topic])
@@ -100,14 +108,16 @@ export function HelpDialog({ topic, onClose }: { topic: string; onClose: () => v
         </button>
       }
     >
-      <DocViewer
-        history={history}
-        setHistory={setHistory}
-        onCommand={(c) => {
-          onClose()
-          emit('menu-run', c)
-        }}
-      />
+      <ErrorBoundary what="This topic" resetKey={history.current ?? ''} onHome={onHome}>
+        <DocViewer
+          history={history}
+          setHistory={setHistory}
+          onCommand={(c) => {
+            onClose()
+            emit('menu-run', c)
+          }}
+        />
+      </ErrorBoundary>
     </Modal>
   )
 }

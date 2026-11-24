@@ -37,6 +37,15 @@
       ]
     },
     {
+      "id": "wallet",
+      "title": "Wallet",
+      "topics": [
+        { "id": "wallet-overview", "title": "The Account page as a wallet", "keywords": ["wallet", "balance", "view only", "you control", "badge", "summary", "sections"] },
+        { "id": "resources-ram", "title": "RAM", "keywords": ["ram", "buy ram", "sell ram", "buyrambytes", "buyram", "sellram", "price", "fee"] },
+        { "id": "resources-cpu-net", "title": "CPU and NET", "keywords": ["cpu", "net", "stake", "unstake", "refund", "claim refund", "delegatebw", "undelegatebw"] }
+      ]
+    },
+    {
       "id": "networks",
       "title": "Networks",
       "topics": [

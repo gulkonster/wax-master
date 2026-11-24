@@ -41,6 +41,7 @@ import { ProjectView } from './pages/ProjectView'
 import { ComingLater } from './pages/ComingLater'
 import { DocsPage } from './pages/DocsPage'
 import { HelpDialog } from './components/Help'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { go, pageHistory } from './lib/docs'
 
 export function App(): React.JSX.Element {
@@ -71,6 +72,7 @@ export function App(): React.JSX.Element {
   const [chainDialog, setChainDialog] = useState<null | 'create-account' | 'testnet-account' | 'clear-code' | 'open-transaction'>(null)
   const [changeKey, setChangeKey] = useState<null | Parameters<typeof ChangeKeyDialog>[0]>(null)
   const [helpTopic, setHelpTopic] = useState<string | null>(null)
+  const goHome = useCallback(() => setState((st) => ({ ...st, view: 'home' })), [])
 
   const openTransaction = useCallback(async (id: string) => {
     try {
@@ -398,23 +400,33 @@ export function App(): React.JSX.Element {
         <TopBar />
         <div className="main">
           <div className="column">
-            {state.view === 'home' && <Home />}
+            {/* A view that fails to draw shows an error panel with Back to Home; the views kept
+                while hidden each have their own, so one failing view does not drop another. */}
+            <ErrorBoundary resetKey={state.view} onHome={goHome}>
+              {state.view === 'home' && <Home />}
+              {state.view === 'setup' && <Setup />}
+              {state.view === 'settings' && <SettingsPage />}
+              {state.view === 'network' && <NetworkPage />}
+              {state.view === 'docs' && <DocsPage />}
+              {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && state.view !== 'settings' && state.view !== 'account' && state.view !== 'contract' && state.view !== 'network' && state.view !== 'docs' && <ComingLater what={state.view} />}
+            </ErrorBoundary>
             {state.project && (
               <div style={{ display: state.view === 'project' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
-                <ProjectView key={state.project.path} project={state.project} />
+                <ErrorBoundary resetKey={state.project.path} onHome={goHome} what="The project">
+                  <ProjectView key={state.project.path} project={state.project} />
+                </ErrorBoundary>
               </div>
             )}
-            {state.view === 'setup' && <Setup />}
-            {state.view === 'settings' && <SettingsPage />}
-            {state.view === 'network' && <NetworkPage />}
-            {state.view === 'docs' && <DocsPage />}
             <div style={{ display: state.view === 'account' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
-              <AccountPage />
+              <ErrorBoundary onHome={goHome} what="The Account page">
+                <AccountPage />
+              </ErrorBoundary>
             </div>
             <div style={{ display: state.view === 'contract' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
-              <ContractPage />
+              <ErrorBoundary onHome={goHome} what="The Contract page">
+                <ContractPage />
+              </ErrorBoundary>
             </div>
-            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && state.view !== 'settings' && state.view !== 'account' && state.view !== 'contract' && state.view !== 'network' && state.view !== 'docs' && <ComingLater what={state.view} />}
             <BottomPanel terminal={<TerminalPanel visible={state.panelOpen && state.panelTab === 'terminal'} />} />
           </div>
         </div>
@@ -497,7 +509,16 @@ export function App(): React.JSX.Element {
           WAX Master {update.latest} is available (you have {update.current}). Download it from the release page and verify it as the README describes.
         </Modal>
       )}
-      {helpTopic && <HelpDialog topic={helpTopic} onClose={() => setHelpTopic(null)} />}
+      {helpTopic && (
+        <HelpDialog
+          topic={helpTopic}
+          onClose={() => setHelpTopic(null)}
+          onHome={() => {
+            setHelpTopic(null)
+            goHome()
+          }}
+        />
+      )}
       <UnlockPromptHost />
       <Toasts />
     </AppContext.Provider>

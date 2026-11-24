@@ -34,7 +34,7 @@ function isEditorPageUrl(url: string): boolean {
 }
 
 /** Only the main editor page may call these handlers (not the confirmation page, not a sub frame). */
-function fromMainPage(e: IpcMainInvokeEvent): boolean {
+export function fromMainPage(e: Pick<IpcMainInvokeEvent, 'senderFrame' | 'sender'>): boolean {
   const url = e.senderFrame?.url ?? ''
   if (e.senderFrame !== e.sender.mainFrame) return false
   return isEditorPageUrl(url)

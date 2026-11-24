@@ -334,6 +334,12 @@ const FEATURE_TOPICS: [string, keyof typeof HELP_TOPICS][] = [
   ['Setup page', 'setup'],
   ['Contract page', 'contractPage'],
   ['Account page', 'accountPage'],
+  ['Wallet overview (Account page header)', 'walletOverview'],
+  ['Wallet tokens and transfer', 'walletTransfers'],
+  ['Wallet RAM', 'walletRam'],
+  ['Wallet CPU / NET', 'walletCpuNet'],
+  ['Wallet testnet faucet', 'walletFaucet'],
+  ['Wallet transactions', 'walletTransactions'],
   ['CPU / NET / RAM refusal', 'resourceRefusal'],
   ['ABI check', 'abiCheck']
 ]

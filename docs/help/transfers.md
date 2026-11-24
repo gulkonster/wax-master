@@ -4,13 +4,19 @@ A transfer moves tokens from one account to another. It is the `transfer` action
 
 ## How to do it here
 
-Transfers are sent from the Contract page today:
+The easiest way is the Tokens and Transfer sections of the Account page:
 
-1. Press the **Contracts** button in the top bar, type `eosio.token` (or the contract of the token) and press Enter.
-2. Choose the action `transfer`.
-3. Fill in the fields (see the table below).
-4. **Authorization** must be your account, usually with `active`.
-5. Press **Run** and check the confirmation window, then **Approve and send**.
+1. Open the Account page of the sending account. Its badge must read "You control: ...".
+2. In **Tokens** press **Transfer** on the row of the token you want to send, or open the **Transfer** section.
+3. **From**: the signer, an account and permission the vault can sign for.
+4. **To**: the recipient. The app checks that the account exists on this network; if it does not, nothing is signed and the form says so.
+5. **Amount**: the number, with the token's precision (WAX has 8 decimals). The form shows the symbol.
+6. **Memo**: free text, or what the recipient asked for.
+7. Check the action shown below the fields (JSON and `cleos` line) and approve in the confirmation window.
+
+An account that is shown as view only cannot send; its Transfer buttons are disabled.
+
+You can also send a transfer from the Contract page with the action `transfer` of the token's contract. The fields are the same:
 
 | Field | What to enter |
 |---|---|
@@ -19,7 +25,7 @@ Transfers are sent from the Contract page today:
 | `quantity` | Amount and symbol with all decimals, for example `1.00000000 WAX` |
 | `memo` | Free text, or what the recipient asked for |
 
-Before the confirmation, the app checks that the recipient exists on this network. If it does not, nothing is signed and the Result says so.
+On the Contract page, **Authorization** must be your account, usually with `active`, and the same recipient check runs before the confirmation.
 
 ## Example
 
@@ -44,4 +50,4 @@ The **Command** button above the fields shows the same action as JSON, as packed
 
 > Note: A transfer cannot be undone. Check the recipient and the memo in the confirmation window.
 
-See also [The token contract](doc:token-contract) and [Run actions](doc:run-actions).
+See also [The Account page as a wallet](doc:wallet-overview), [The token contract](doc:token-contract) and [Run actions](doc:run-actions).
