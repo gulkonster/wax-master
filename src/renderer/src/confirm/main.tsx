@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../styles.css'
 import './confirm.css'
+import { checkPassword } from '../../../shared/password'
 
 interface Blob {
   field: 'code' | 'abi'
@@ -44,6 +45,13 @@ declare global {
       revealLoad(): Promise<{ label: string; publicKey: string }>
       revealShow(password: string): Promise<string>
       revealCopy(password: string): Promise<boolean>
+      keyLoad(): Promise<unknown>
+      backupSave(password: string): Promise<'saved' | 'cancelled'>
+      codeCopy(): Promise<boolean>
+      codeSave(): Promise<'saved' | 'cancelled'>
+      codeDone(): Promise<boolean>
+      recover(code: string, password: string, again: string): Promise<unknown>
+      reset(typed: string): Promise<unknown>
     }
   }
 }
@@ -346,4 +354,359 @@ function Reveal(): React.JSX.Element {
   )
 }
 
-createRoot(document.getElementById('root')!).render(window.location.hash === '#reveal' ? <Reveal /> : <Confirm />)
+/** The reason of a refused call, without Electron's prefix. */
+function reason(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e)
+  return m.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+}
+
+function Foot({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div className="c-foot">
+      <div className="c-foot-actions">{children}</div>
+    </div>
+  )
+}
+
+/** One key to a plain-text file: the password again, the warning, then the system Save dialog (main process). */
+function Backup(): React.JSX.Element {
+  const [info, setInfo] = useState<{ label: string; publicKey: string } | null>(null)
+  const [pw, setPw] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    window.confirmation
+      .keyLoad()
+      .then((r) => setInfo(r as { label: string; publicKey: string }))
+      .catch(() => setError('Nothing to back up.'))
+  }, [])
+
+  const save = async (): Promise<void> => {
+    if (!pw || busy) return
+    setBusy(true)
+    setError('')
+    try {
+      const r = await window.confirmation.backupSave(pw)
+      if (r === 'saved') {
+        setSaved(true)
+        setPw('')
+      }
+    } catch (e) {
+      setError(reason(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="c-page">
+      <div className="c-header mainnet">
+        <div className="c-title">Back up key</div>
+        <div>The backup file holds the private key as readable text.</div>
+      </div>
+      <div className="c-body">
+        {info && (
+          <>
+            <Row label="Label">{info.label || '(no label)'}</Row>
+            <Row label="Public key" mono>
+              <span className="c-oneline">{info.publicKey}</span>
+            </Row>
+          </>
+        )}
+        <div className="banner warn c-gap">
+          The file will hold the private key as readable text. Anyone who gets the file controls the account. Keep it offline (a USB
+          stick, a printed page); not in a cloud folder, e-mail or chat.
+        </div>
+        {!saved && (
+          <div className="field c-gap">
+            <label>Vault password</label>
+            <input
+              className="input"
+              type="password"
+              autoFocus
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && void save()}
+            />
+          </div>
+        )}
+        {saved && <div className="banner green c-gap">Saved. Move the file to a safe offline place and delete it from this computer.</div>}
+        {error && <div className="error-text">{error}</div>}
+      </div>
+      <Foot>
+        <button className="btn" onClick={() => window.close()}>
+          {saved ? 'Close' : 'Cancel'}
+        </button>
+        {!saved && (
+          <button className="btn danger" disabled={!pw || busy} onClick={() => void save()}>
+            {busy ? 'Saving...' : 'Save as text file...'}
+          </button>
+        )}
+      </Foot>
+    </div>
+  )
+}
+
+/** The recovery code, shown once. */
+function Code({ given }: { given?: string }): React.JSX.Element {
+  const [code, setCode] = useState(given ?? '')
+  const [note, setNote] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (given) return
+    window.confirmation
+      .keyLoad()
+      .then((r) => setCode((r as { code: string }).code))
+      .catch(() => setError('No code to show.'))
+  }, [given])
+
+  const run = async (fn: () => Promise<unknown>, done: (r: unknown) => string): Promise<void> => {
+    setError('')
+    setNote('')
+    try {
+      setNote(done(await fn()))
+    } catch (e) {
+      setError(reason(e))
+    }
+  }
+
+  return (
+    <div className="c-page">
+      <div className="c-header test">
+        <div className="c-title">Vault recovery code</div>
+        <div>Shown once.</div>
+      </div>
+      <div className="c-body">
+        <div className="c-row c-stack">
+          <div className="c-label">Recovery code</div>
+          <div className="c-value c-key">{code}</div>
+        </div>
+        <div className="banner warn c-gap">
+          With this code the vault can be opened without the password. Keep it away from this computer. It is not shown again.
+        </div>
+        {note && <div className="hint c-gap">{note}</div>}
+        {error && <div className="error-text">{error}</div>}
+      </div>
+      <Foot>
+        <button
+          className="btn"
+          disabled={!code}
+          onClick={() =>
+            void run(
+              () => window.confirmation.codeSave(),
+              (r) => (r === 'saved' ? 'Saved as a text file. Move it away from this computer.' : '')
+            )
+          }
+        >
+          Save as text file...
+        </button>
+        <button
+          className="btn"
+          disabled={!code}
+          onClick={() => void run(() => window.confirmation.codeCopy(), () => 'Copied. The clipboard is cleared in 30 seconds if it still holds the code.')}
+        >
+          Copy
+        </button>
+        <button
+          className="btn primary"
+          onClick={() => {
+            setCode('')
+            void window.confirmation.codeDone()
+          }}
+        >
+          I saved it
+        </button>
+      </Foot>
+    </div>
+  )
+}
+
+/** Forgotten password: the recovery code and a new password, or a reset that keeps the old file. */
+function Recover(): React.JSX.Element {
+  const [info, setInfo] = useState<{ keys: number; recovery: boolean } | null>(null)
+  const [path, setPath] = useState<'code' | 'reset'>('code')
+  const [code, setCode] = useState('')
+  const [pw, setPw] = useState('')
+  const [again, setAgain] = useState('')
+  const [leftAgain, setLeftAgain] = useState(false)
+  const [typed, setTyped] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [newCode, setNewCode] = useState('')
+  const [resetFile, setResetFile] = useState('')
+
+  useEffect(() => {
+    window.confirmation
+      .keyLoad()
+      .then((r) => {
+        const i = r as { keys: number; recovery: boolean }
+        setInfo(i)
+        if (!i.recovery) setPath('reset')
+      })
+      .catch(() => setError('Nothing to recover.'))
+  }, [])
+
+  if (newCode) return <Code given={newCode} />
+
+  const strength = checkPassword(pw)
+  const canRecover = !!code.trim() && strength.allowed && pw === again && !busy
+  const recover = async (): Promise<void> => {
+    if (!canRecover) return
+    setBusy(true)
+    setError('')
+    try {
+      const r = (await window.confirmation.recover(code, pw, again)) as { code: string }
+      setCode('')
+      setPw('')
+      setAgain('')
+      setNewCode(r.code)
+    } catch (e) {
+      setError(reason(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const reset = async (): Promise<void> => {
+    if (typed !== 'RESET' || busy) return
+    setBusy(true)
+    setError('')
+    try {
+      const r = (await window.confirmation.reset(typed)) as { file: string }
+      setResetFile(r.file)
+    } catch (e) {
+      setError(reason(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (resetFile) {
+    return (
+      <div className="c-page">
+        <div className="c-header test">
+          <div className="c-title">The vault was reset</div>
+        </div>
+        <div className="c-body">
+          <p>
+            The old vault file is kept as <span className="mono-small">{resetFile}</span> in the data folder. If you remember its
+            password later, Manage Keypairs &gt; Import vault brings its keys back. Create the new vault in the main window.
+          </p>
+        </div>
+        <Foot>
+          <button className="btn primary" onClick={() => window.close()}>
+            Close
+          </button>
+        </Foot>
+      </div>
+    )
+  }
+
+  const n = info?.keys ?? 0
+  return (
+    <div className="c-page">
+      <div className="c-header test">
+        <div className="c-title">Forgot password</div>
+        <div>The vault opens with its password or its recovery code, and with nothing else.</div>
+      </div>
+      <div className="c-body">
+        <div className="c-choices">
+          <label className="c-choice">
+            <input type="radio" checked={path === 'code'} disabled={info !== null && !info.recovery} onChange={() => setPath('code')} /> I
+            have the recovery code
+          </label>
+          <label className="c-choice">
+            <input type="radio" checked={path === 'reset'} onChange={() => setPath('reset')} /> Reset the vault
+          </label>
+        </div>
+        {info && !info.recovery && <div className="hint c-gap">This vault has no recovery code.</div>}
+        {path === 'code' ? (
+          <>
+            <div className="field c-gap">
+              <label>Recovery code</label>
+              <input
+                className="input mono"
+                autoFocus
+                spellCheck={false}
+                placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label>New password</label>
+              <input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} />
+              {strength.text && <div className={strength.level === 'weak' ? 'hint warn-note' : 'hint'}>{strength.text}</div>}
+            </div>
+            <div className="field">
+              <label>New password again</label>
+              <input
+                className="input"
+                type="password"
+                value={again}
+                onChange={(e) => setAgain(e.target.value)}
+                onBlur={() => setLeftAgain(true)}
+                onKeyDown={(e) => e.key === 'Enter' && void recover()}
+              />
+              {leftAgain && again && pw !== again && <div className="hint">The two passwords are not the same.</div>}
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="c-gap">
+              The vault holds {n} {n === 1 ? 'key' : 'keys'}. Without the password or the recovery code they cannot be read by anyone. A
+              reset starts an empty vault. Accounts whose only key is in the old vault can no longer be controlled from here.
+            </p>
+            <p>The old file is not deleted: it is moved to vault-old-&lt;date&gt;.json in the data folder.</p>
+            <div className="field">
+              <label>
+                Type <b>RESET</b> to reset the vault
+              </label>
+              <input
+                className="input"
+                spellCheck={false}
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && void reset()}
+              />
+            </div>
+          </>
+        )}
+        {error && <div className="error-text">{error}</div>}
+      </div>
+      <Foot>
+        <button className="btn" disabled={busy} onClick={() => window.close()}>
+          Cancel
+        </button>
+        {path === 'code' ? (
+          <button className="btn primary" disabled={!canRecover} onClick={() => void recover()}>
+            {busy ? 'Opening...' : 'Set new password'}
+          </button>
+        ) : (
+          <button className="btn danger" disabled={typed !== 'RESET' || busy} onClick={() => void reset()}>
+            Reset the vault
+          </button>
+        )}
+      </Foot>
+    </div>
+  )
+}
+
+function Page(): React.JSX.Element {
+  switch (window.location.hash) {
+    case '#reveal':
+      return <Reveal />
+    case '#backup':
+      return <Backup />
+    case '#code':
+      return <Code />
+    case '#recover':
+      return <Recover />
+    default:
+      return <Confirm />
+  }
+}
+
+createRoot(document.getElementById('root')!).render(<Page />)

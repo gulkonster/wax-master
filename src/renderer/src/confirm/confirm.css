@@ -118,3 +118,25 @@
   word-break: normal;
   overflow-x: auto;
 }
+/* Key windows: space above a block, a key that never wraps, the two paths of the recovery window. */
+.c-gap {
+  margin-top: var(--sp-3);
+}
+.c-oneline {
+  white-space: nowrap;
+  word-break: normal;
+}
+.c-row .c-value:has(.c-oneline) {
+  overflow-x: auto;
+}
+.c-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.c-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  cursor: pointer;
+}

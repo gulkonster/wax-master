@@ -8,6 +8,7 @@ import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
 import { withVault } from '../lib/vault'
 import { AccountPicker, PermissionPicker } from './AccountPicker'
+import { NoBackupLine, useNoBackupGate } from './BackupWarning'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
@@ -27,8 +28,8 @@ function useVaultKeys(): VaultKey[] {
 
 function KeyPicker({ value, onChange, keys }: { value: string; onChange: (v: string) => void; keys: VaultKey[] }): React.JSX.Element {
   return (
-    <div style={{ display: 'flex', gap: 'var(--gap-row)' }}>
-      <select className="select" style={{ flex: 1 }} value={keys.some((k) => k.publicKey === value) ? value : ''} onChange={(e) => onChange(e.target.value)}>
+    <div className="key-picker">
+      <select className="select" value={keys.some((k) => k.publicKey === value) ? value : ''} onChange={(e) => onChange(e.target.value)}>
         <option value="">(paste a public key)</option>
         {keys.map((k) => (
           <option key={k.id} value={k.publicKey}>
@@ -36,7 +37,7 @@ function KeyPicker({ value, onChange, keys }: { value: string; onChange: (v: str
           </option>
         ))}
       </select>
-      <input className="input mono" style={{ flex: 2 }} value={value} onChange={(e) => onChange(e.target.value.trim())} placeholder="PUB_K1_... or EOS..." />
+      <input className="input mono" value={value} onChange={(e) => onChange(e.target.value.trim())} placeholder="PUB_K1_... or EOS..." />
     </div>
   )
 }
@@ -82,8 +83,10 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
   }, [keys, ownerKey])
 
   const ok = NAME.test(creator) && NAME.test(name) && NAME.test(creatorPerm) && !!ownerKey && !!activeKey && free !== 'taken'
+  const noBackup = useNoBackupGate()
 
   const create = async (): Promise<void> => {
+    if (!(await noBackup.gate([ownerKey, activeKey]))) return
     setBusy(true)
     setError('')
     try {
@@ -134,7 +137,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
     >
       <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 2 }}>
-          <label>Creator (pays; its key must be in the vault)</label>
+          <label>Creator (pays)</label>
           <AccountPicker mode="signer" value={creator} onChange={setCreator} />
         </div>
         <div style={{ flex: 1 }}>
@@ -143,7 +146,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
         </div>
       </div>
       <div className="field">
-        <label>New account name (12 characters a-z, 1-5; shorter names are premium)</label>
+        <label>New account name</label>
         <input
           className="input mono"
           value={name}
@@ -153,6 +156,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
           }}
           onBlur={() => void checkFree(name)}
         />
+        {free === null && <div className="hint">12 characters: a-z and 1-5; shorter names are premium.</div>}
         {free === 'checking' && <div className="acct-note">Checking the name...</div>}
         {free === 'free' && <div className="acct-note good">The name is free on {net?.name}.</div>}
         {free === 'taken' && <div className="acct-note bad">This name is taken on {net?.name}.</div>}
@@ -161,10 +165,12 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
       <div className="field">
         <label>Owner key</label>
         <KeyPicker value={ownerKey} onChange={setOwnerKey} keys={keys} />
+        <NoBackupLine publicKey={ownerKey} />
       </div>
       <div className="field">
         <label>Active key</label>
         <KeyPicker value={activeKey} onChange={setActiveKey} keys={keys} />
+        {activeKey !== ownerKey && <NoBackupLine publicKey={activeKey} />}
       </div>
       <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 1 }}>
@@ -185,6 +191,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
       </label>
       {error && <div className="error-text">{error}</div>}
       {trace && <InspectorBody t={trace} />}
+      {noBackup.element}
     </Modal>
   )
 }
@@ -220,7 +227,9 @@ export function ChangeKeyDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
+  const noBackup = useNoBackupGate()
   const change = async (): Promise<void> => {
+    if (!(await noBackup.gate([newKey]))) return
     setBusy(true)
     setError('')
     try {
@@ -256,9 +265,8 @@ export function ChangeKeyDialog({
       }
     >
       <p style={{ marginTop: 0 }}>
-        One key of <b>{permission}</b> is replaced by the new key with the same weight. The threshold ({threshold}), the other keys
-        {others.length > 0 ? `, the linked accounts and waits (${others.join(', ')})` : ''} stay as they are. The current permission is read again
-        from the chain before the confirmation.
+        One key of <b>{permission}</b> is replaced by the new key with the same weight; the threshold ({threshold}), the other keys
+        {others.length > 0 ? `, the linked accounts and waits (${others.join(', ')})` : ''} stay as they are.
       </p>
       <div className="field">
         <label>Key to replace</label>
@@ -275,6 +283,7 @@ export function ChangeKeyDialog({
         <label>New key</label>
         <KeyPicker value={newKey} onChange={setNewKey} keys={keys} />
         <div className="hint">Make sure the new key's private part is in the vault or backed up; otherwise you lose control of this permission.</div>
+        <NoBackupLine publicKey={newKey} />
       </div>
       <div className="field">
         <label>Sign the change with permission</label>
@@ -289,6 +298,7 @@ export function ChangeKeyDialog({
       </div>
       {error && <div className="error-text">{error}</div>}
       {trace && <InspectorBody t={trace} />}
+      {noBackup.element}
     </Modal>
   )
 }

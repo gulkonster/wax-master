@@ -4,14 +4,11 @@
 
 import { Store } from './stores'
 import { retryAfterUnlock } from '../../../shared/vault-locked'
+import type { VaultStatus } from '../../../shared/api'
 
-export interface VaultState {
-  exists: boolean
-  unlocked: boolean
-  keys: number
-}
+export type VaultState = VaultStatus
 
-export const vaultStore = new Store<VaultState>({ exists: false, unlocked: false, keys: 0 })
+export const vaultStore = new Store<VaultState>({ exists: false, unlocked: false, keys: 0, noBackup: 0, recovery: false })
 
 export async function refreshVault(): Promise<void> {
   vaultStore.set(await window.wax.keys.status())

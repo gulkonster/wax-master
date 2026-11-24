@@ -41,23 +41,17 @@ export function MainFileDialog({ project }: { project: OpenProject }): React.JSX
       }
     >
       <p style={{ marginTop: 0 }}>
-        This folder has no <span className="code-tag">waxmaster.json</span> yet. Choose the contract&apos;s main source file; the
-        other settings start with their defaults and can be changed in Project Settings.
+        This folder has no <span className="code-tag">waxmaster.json</span> yet: choose the contract&apos;s main source file
+        {project.eosproj ? ' (the other settings are taken from .eosproj)' : ' (the other settings start with their defaults)'}; you can change them in Project Settings.
       </p>
-      {project.eosproj && (
-        <div className="hint" style={{ fontSize: 'var(--fs-body)', lineHeight: 'var(--lh-body)', marginBottom: 'var(--sp-2)' }}>
-          Settings taken from .eosproj.
-          {project.eosproj.buildScript.trim() && (
-            <>
-              {' '}Its build script was not imported:
-              <div className="approval-command" style={{ margin: 'var(--sp-1h) 0' }}>{project.eosproj.buildScript}</div>
-              Set a custom build command in Project Settings if you still need one.
-            </>
-          )}
+      {project.eosproj && project.eosproj.buildScript.trim() && (
+        <div className="banner warn" style={{ marginBottom: 'var(--sp-2)' }}>
+          The .eosproj build script was not imported; set a custom build command in Project Settings if you still need it.
+          <div className="approval-command" style={{ margin: 'var(--sp-1h) 0 0' }}>{project.eosproj.buildScript}</div>
         </div>
       )}
       {project.candidates.length === 0 ? (
-        <div className="error-text">No .cpp file was found in this folder.</div>
+        <div className="banner">No .cpp file was found in this folder.</div>
       ) : (
         <div className="template-list">
           {project.candidates.map((c) => (

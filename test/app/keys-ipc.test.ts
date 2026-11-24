@@ -148,7 +148,10 @@ beforeEach(() => {
 })
 
 describe('sender checks', () => {
-  const channels = ['keys:status', 'keys:list', 'keys:lock', 'app:checkUpdates', 'toolchains:list']
+  const channels = [
+    'keys:status', 'keys:list', 'keys:lock', 'keys:backup', 'keys:forgot', 'keys:changePassword', 'keys:newRecoveryCode',
+    'keys:removeRecoveryCode', 'app:checkUpdates', 'toolchains:list'
+  ]
   for (const ch of channels) {
     it(`${ch} refuses a foreign origin, the confirmation page and a sub frame`, async () => {
       const fn = h.handlers.get(ch)!
@@ -184,6 +187,18 @@ describe('malformed input', () => {
     ['keys:accounts', ['text']],
     ['keys:accounts', [[1, 2]]],
     ['keys:importVault', [42]],
+    ['keys:create', ['abcde', 'abcde']],
+    ['keys:backup', [5]],
+    ['keys:backup', ['no-such-key']],
+    ['keys:changePassword', [1, 2, 3]],
+    ['keys:changePassword', [PW, 'new password one', 'new password two']],
+    ['keys:changePassword', [PW, 'abcde', 'abcde']],
+    ['keys:changePassword', ['wrong password!', 'new password one', 'new password one']],
+    ['keys:changePassword', [PW, 'x'.repeat(2000), 'x'.repeat(2000)]],
+    ['keys:newRecoveryCode', [{}]],
+    ['keys:newRecoveryCode', ['wrong password!']],
+    ['keys:removeRecoveryCode', [5]],
+    ['keys:removeRecoveryCode', ['wrong password!']],
     ['app:clearData', ['yes']],
     ['app:clearData', [true, 'wrong words']],
     ['app:clearData', [true, 5]],

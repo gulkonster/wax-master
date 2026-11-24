@@ -133,7 +133,7 @@ export async function createTestnetAccount(name: string, vault: Vault, fetcher: 
   }
   let owner: { publicKey: string }
   try {
-    owner = vault.addKey(keys.owner, `${name} owner (faucet)`)
+    owner = vault.addKey(keys.owner, `${name} owner (faucet)`, 'none')
   } catch {
     return {
       ok: false,
@@ -143,7 +143,7 @@ export async function createTestnetAccount(name: string, vault: Vault, fetcher: 
   }
   let active: { publicKey: string }
   try {
-    active = keys.active === keys.owner ? owner : vault.addKey(keys.active, `${name} active (faucet)`)
+    active = keys.active === keys.owner ? owner : vault.addKey(keys.active, `${name} active (faucet)`, 'none')
   } catch {
     return {
       ok: false,

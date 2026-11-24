@@ -232,14 +232,16 @@ export function DeployDialog({
       onClose={busy ? undefined : onClose}
       footer={
         <>
+          <div className="left">
+            <button className="btn" disabled={!valid || !!busy || !net} title="Compile the project again, then compare with the account" onClick={() => check(true)}>
+              {busy === 'rebuild' ? 'Building...' : busy === 'ensure' || busy === 'plan' ? 'Checking...' : 'Rebuild'}
+            </button>
+            <button className="btn" disabled={!plan || !!nothing || !!busy} onClick={() => void simulate()}>
+              {busy === 'simulate' ? 'Simulating...' : 'Simulate Deploy'}
+            </button>
+          </div>
           <button className="btn" disabled={!!busy} onClick={onClose}>
             Close
-          </button>
-          <button className="btn" disabled={!valid || !!busy || !net} title="Compile the project again, then compare with the account" onClick={() => check(true)}>
-            {busy === 'rebuild' ? 'Building...' : busy === 'ensure' || busy === 'plan' ? 'Checking...' : 'Rebuild'}
-          </button>
-          <button className="btn" disabled={!plan || !!nothing || !!busy} onClick={() => void simulate()}>
-            {busy === 'simulate' ? 'Simulating...' : 'Simulate Deploy'}
           </button>
           <button className={`btn ${net?.kind === 'mainnet' ? 'danger' : 'primary'}`} disabled={!plan || !!nothing || !!busy} onClick={() => void deploy()}>
             {busy === 'deploy' ? 'Waiting for confirmation...' : 'Deploy'}
@@ -247,11 +249,9 @@ export function DeployDialog({
         </>
       }
     >
-      <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
-        <div style={{ flex: 1 }}>
-          <label>Network</label>
-          <div className={`chip ui${net?.kind === 'mainnet' ? ' mainnet-text' : ''}`}>{net ? `${net.name} · ${net.endpoints[net.currentEndpoint]}` : '(none)'}</div>
-        </div>
+      <div className="field">
+        <label>Network</label>
+        <div className={`chip ui one-line${net?.kind === 'mainnet' ? ' mainnet-text' : ''}`}>{net ? `${net.name} · ${net.endpoints[net.currentEndpoint]}` : '(none)'}</div>
       </div>
       <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 2 }}>
@@ -271,42 +271,42 @@ export function DeployDialog({
           </button>
         </div>
       )}
-      <div className="hint">Deploys {project.config.deploy.target === 'both' ? 'WASM and ABI' : project.config.deploy.target === 'wasm' ? 'WASM only' : 'ABI only'} (Project Settings). The project is built first if it changed.</div>
-      {buildLine && <div className="hint">{buildLine}</div>}
+      <div className="hint">
+        Deploys {project.config.deploy.target === 'both' ? 'WASM and ABI' : project.config.deploy.target === 'wasm' ? 'WASM only' : 'ABI only'} (Project Settings).{' '}
+        {buildLine ? `${buildLine}.` : 'The project is built first if it changed.'}
+      </div>
       {plan && (
         <div className="deploy-plan">
-          <table className="tx-table">
-            <thead>
-              <tr>
-                <th />
-                <th>This build (SHA-256)</th>
-                <th>On the account now</th>
-                <th>Sent</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plan.wasmFile !== null || plan.wasmSha256 ? (
-                <tr>
-                  <td>WASM</td>
-                  <td className="mono-small" title={plan.wasmSha256 ?? ''}>
-                    {short(plan.wasmSha256)} {plan.wasmSize !== null && `(${plan.wasmSize.toLocaleString()} B)`}
-                  </td>
-                  <td className="mono-small" title={plan.chainCodeHash}>{short(plan.chainCodeHash || null)}</td>
-                  <td>{plan.sendWasm ? 'yes (setcode)' : 'unchanged'}</td>
-                </tr>
-              ) : null}
-              {plan.abiSha256 && (
-                <tr>
-                  <td>ABI</td>
-                  <td className="mono-small" title={plan.abiSha256}>
-                    {short(plan.abiSha256)} {plan.abiSize !== null && `(${plan.abiSize.toLocaleString()} B)`}
-                  </td>
-                  <td className="mono-small" title={plan.chainAbiHash}>{short(plan.chainAbiHash || null)}</td>
-                  <td>{plan.sendAbi ? 'yes (setabi)' : 'unchanged'}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          {plan.wasmSha256 || plan.wasmFile !== null ? (
+            <div className="plan-file">
+              <div className="plan-file-name">WASM</div>
+              <div className="plan-lines">
+                <span>This build (SHA-256)</span>
+                <span className="mono-small" title={plan.wasmSha256 ?? ''}>
+                  {short(plan.wasmSha256)} {plan.wasmSize !== null && `(${plan.wasmSize.toLocaleString()} B)`}
+                </span>
+                <span>On the account now</span>
+                <span className="mono-small" title={plan.chainCodeHash}>{short(plan.chainCodeHash || null)}</span>
+                <span>Sent</span>
+                <span>{plan.sendWasm ? 'yes (setcode)' : 'unchanged'}</span>
+              </div>
+            </div>
+          ) : null}
+          {plan.abiSha256 && (
+            <div className="plan-file">
+              <div className="plan-file-name">ABI</div>
+              <div className="plan-lines">
+                <span>This build (SHA-256)</span>
+                <span className="mono-small" title={plan.abiSha256 ?? ''}>
+                  {short(plan.abiSha256)} {plan.abiSize !== null && `(${plan.abiSize.toLocaleString()} B)`}
+                </span>
+                <span>On the account now</span>
+                <span className="mono-small" title={plan.chainAbiHash}>{short(plan.chainAbiHash || null)}</span>
+                <span>Sent</span>
+                <span>{plan.sendAbi ? 'yes (setabi)' : 'unchanged'}</span>
+              </div>
+            </div>
+          )}
           {nothing && <div className="c-done">Nothing to deploy: the account already has this build.</div>}
           {!nothing && !ramShort && (
             <div className="hint">

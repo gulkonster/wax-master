@@ -56,48 +56,36 @@ export function ToolchainManager({ busy, onBusy }: { busy: boolean; onBusy: (b: 
     <div>
       <h2>Toolchains</h2>
       <div className="card">
-      <table className="tx-table">
-        <thead>
-          <tr>
-            <th>Toolchain</th>
-            <th>Compiler</th>
-            <th>WSL</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {list.map((t) => (
-            <tr key={t.id}>
-              <td>
-                {t.label} {t.isDefault && <span className="badge green">default</span>}
-              </td>
-              <td className="mono-small">
-                {t.cdtVersion}
-              </td>
-              <td>{t.wslVersion}</td>
-              <td>
-                {!t.isDefault && (
-                  <button
-                    className="btn"
-                    disabled={busy}
-                    onClick={async () => {
-                      if (!window.confirm(`Remove ${t.label}? Projects that use it build with the default toolchain afterwards.`)) return
-                      try {
-                        await window.wax.toolchains.remove(t.id)
-                      } catch (e) {
-                        setError(errorText(e))
-                      }
-                      void reload()
-                    }}
-                  >
-                    Remove
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {list.map((t) => (
+        <div key={t.id} className="net-row">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="nowrap">
+              <b>{t.label}</b> {t.isDefault && <span className="badge green">default</span>}
+            </div>
+            <div className="endpoints">
+              <span className="nowrap">Compiler {t.cdtVersion}</span>
+              <span className="nowrap">WSL {t.wslVersion}</span>
+            </div>
+          </div>
+          {!t.isDefault && (
+            <button
+              className="btn"
+              disabled={busy}
+              onClick={async () => {
+                if (!window.confirm(`Remove ${t.label}? Projects that use it build with the default toolchain afterwards.`)) return
+                try {
+                  await window.wax.toolchains.remove(t.id)
+                } catch (e) {
+                  setError(errorText(e))
+                }
+                void reload()
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      ))}
       <button className="btn" disabled={busy || list.length === 0} onClick={() => void choose()}>
         Add from file...
       </button>
@@ -132,7 +120,7 @@ export function ToolchainManager({ busy, onBusy }: { busy: boolean; onBusy: (b: 
           {candidate.known ? (
             <div className="banner green">Known package: {candidate.known}</div>
           ) : (
-            <div className="error-text">
+            <div className="banner warn">
               This hash is not on the list of known CDT packages. Install it only if you trust where the file came from.
             </div>
           )}

@@ -59,8 +59,7 @@ export function ClearCodeDialog({ onClose }: { onClose: () => void }): React.JSX
       }
     >
       <p style={{ marginTop: 0 }}>
-        Removes the contract (code and ABI) from the account. Its tables stay on the chain. The confirmation window asks you to type the
-        account name.
+        Removes the contract (code and ABI) from the account; its tables stay on the chain.
       </p>
       <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 2 }}>

@@ -1,20 +1,18 @@
 // Manage Keypairs (screenshots 11, 11b, 12): vault password, key list with
 // labels and accounts, Create (Regenerate, Save), Import, reveal, delete,
-// Export / Import vault. Private keys never come back to this window.
+// Export / Import vault, key backups, change password and the recovery code.
+// Private keys and the recovery code never come back to this window.
 
 import { useCallback, useEffect, useState } from 'react'
 import { Modal } from './Modal'
 import { errorText, toast } from '../lib/toast'
 import { vaultStore, refreshVault, withVault } from '../lib/vault'
-import { passwordStrength } from './UnlockPrompt'
+import { CreateVaultText, PasswordHint, openForgotPassword } from './UnlockPrompt'
+import { checkPassword } from '../../../shared/password'
+import type { VaultKeyEntry } from '../../../shared/api'
 import { useStore } from '../lib/stores'
 
-interface KeyEntry {
-  id: string
-  label: string
-  publicKey: string
-  created: number
-}
+type KeyEntry = VaultKeyEntry
 
 interface KeyAccount {
   account: string
@@ -22,11 +20,24 @@ interface KeyAccount {
   key: string
 }
 
+type VaultAction = 'change-password' | 'new-code' | 'remove-code'
+
+/** Export vault: one encrypted file with every key (opens with the password or the recovery code). */
+function exportVault(): void {
+  withVault(() => window.wax.keys.exportVault()).then(
+    (ok) => ok && toast('Vault exported', 'The file is encrypted; it opens with the vault password or the recovery code.', 'success'),
+    (e) => {
+      const t = errorText(e)
+      if (t) toast('Export vault', t, 'error')
+    }
+  )
+}
+
 export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; filterAccount?: string | null }): React.JSX.Element {
   const vs = useStore(vaultStore)
   const [keys, setKeys] = useState<KeyEntry[]>([])
   const [accounts, setAccounts] = useState<KeyAccount[]>([])
-  const [mode, setMode] = useState<null | 'create' | 'import' | 'import-vault'>(null)
+  const [mode, setMode] = useState<null | 'create' | 'import' | 'import-vault' | 'backup-all' | VaultAction>(null)
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState<KeyEntry | null>(null)
   const [newPub, setNewPub] = useState('')
@@ -48,7 +59,15 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
 
   useEffect(() => {
     if (vs.exists) void load()
-  }, [vs.exists, vs.unlocked, load])
+  }, [vs.exists, vs.unlocked, vs.keys, vs.noBackup, load])
+
+  const backUp = (k: KeyEntry): void => {
+    setError('')
+    window.wax.keys.backup(k.id).then(
+      (r) => r === 'saved' && toast('Backup saved', k.label || k.publicKey, 'success'),
+      (e) => setError(errorText(e))
+    )
+  }
 
   if (!vs.exists) return <CreateVault onClose={onClose} />
 
@@ -83,7 +102,7 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
               Import
             </button>
           </div>
-          <button className="btn" onClick={() => void window.wax.keys.exportVault().then((ok) => ok && toast('Vault exported', 'The file is encrypted with your vault password.', 'success'))}>
+          <button className="btn" onClick={exportVault}>
             Export vault
           </button>
           <button className="btn" onClick={() => setMode('import-vault')}>
@@ -107,6 +126,32 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
           <UnlockInline />
         )}
       </div>
+      <div className="vault-line">
+        <span className="hint" style={{ marginTop: 0 }}>
+          Vault: {vs.recovery ? 'has a recovery code' : 'no recovery code'}.
+        </span>
+        <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={() => setMode('change-password')}>
+          Change password
+        </button>
+        <button className="btn sm" onClick={() => setMode('new-code')}>
+          New recovery code
+        </button>
+        {vs.recovery && (
+          <button className="btn sm" onClick={() => setMode('remove-code')}>
+            Remove recovery code
+          </button>
+        )}
+      </div>
+      {vs.noBackup > 0 && (
+        <div className="banner warn" style={{ marginTop: 'var(--sp-2)', display: 'flex', alignItems: 'center', gap: 'var(--gap-row)' }}>
+          <span style={{ flex: 1 }}>
+            {vs.noBackup} {vs.noBackup === 1 ? 'key exists' : 'keys exist'} only in this vault.
+          </span>
+          <button className="btn sm" onClick={() => setMode('backup-all')}>
+            Back up...
+          </button>
+        </div>
+      )}
       <div className="hint" style={{ margin: 'var(--sp-2) 0 var(--sp-3)' }}>
         Keep the owner keys of valuable accounts out of this app; use a dedicated permission for deploying and daily actions.
       </div>
@@ -134,6 +179,7 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
                   placeholder="label"
                   onBlur={(e) => e.target.value !== k.label && void window.wax.keys.setLabel(k.id, e.target.value).then(load)}
                 />
+                {k.backup === 'none' && <span className="badge warn">No backup</span>}
               </td>
               <td className="mono-small">
                 {k.publicKey}
@@ -151,6 +197,9 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
               <td className="actions">
                 <button className="btn subtle" onClick={() => void window.wax.keys.reveal(k.id)}>
                   Reveal
+                </button>{' '}
+                <button className="btn subtle" onClick={() => backUp(k)}>
+                  Back up
                 </button>{' '}
                 <button
                   className="btn subtle danger-text"
@@ -172,6 +221,12 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
       {mode === 'import' && <ImportKey onClose={() => (setMode(null), void load())} />}
       {mode === 'import-vault' && <ImportVault onClose={() => (setMode(null), void load())} />}
       {deleting && <DeleteKey entry={deleting} onClose={() => (setDeleting(null), void load())} />}
+      {mode === 'backup-all' && (
+        <BackupAll keys={keys.filter((k) => k.backup === 'none')} onBackUp={backUp} onClose={() => (setMode(null), void load())} />
+      )}
+      {(mode === 'change-password' || mode === 'new-code' || mode === 'remove-code') && (
+        <VaultPasswordAction action={mode} onClose={() => (setMode(null), void refreshVault())} />
+      )}
     </Modal>
   )
 }
@@ -187,7 +242,7 @@ function CreateVault({ onClose }: { onClose: () => void }): React.JSX.Element {
     try {
       await window.wax.keys.create(a, b)
       await refreshVault()
-      toast('Vault created', 'Export a backup from Manage Keypairs; there is no password recovery.', 'success')
+      toast('Vault created', 'Save the recovery code shown in the separate window.', 'success')
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -205,20 +260,17 @@ function CreateVault({ onClose }: { onClose: () => void }): React.JSX.Element {
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn primary" disabled={busy || a.length < 10 || a !== b} onClick={() => void create()}>
+          <button className="btn primary" disabled={busy || !checkPassword(a).allowed || a !== b} onClick={() => void create()}>
             {busy ? 'Creating...' : 'Create vault'}
           </button>
         </>
       }
     >
-      <p style={{ marginTop: 0 }}>
-        Private keys are stored encrypted with this password. It is never stored and cannot be recovered: if you forget it, the
-        keys in the vault are lost. At least 10 characters.
-      </p>
+      <CreateVaultText />
       <div className="field">
         <label>Password</label>
         <input className="input" type="password" autoFocus value={a} onChange={(e) => setA(e.target.value)} />
-        <div className="hint">{passwordStrength(a)}</div>
+        <PasswordHint password={a} />
       </div>
       <div className="field">
         <label>Password again</label>
@@ -264,8 +316,198 @@ export function UnlockInline({ onDone }: { onDone?: () => void }): React.JSX.Ele
       <button className="btn primary" disabled={!pw || busy} onClick={() => void unlock()}>
         {busy ? 'Unlocking...' : 'Unlock'}
       </button>
+      <button className="btn subtle sm" onClick={openForgotPassword}>
+        Forgot password?
+      </button>
       {error && <span className="error-text inline">{error}</span>}
     </div>
+  )
+}
+
+/**
+ * The second step of Create Keypair, "Back up this key": one of three choices
+ * must be taken before it closes (no close button, no Escape).
+ */
+export function BackupStep({ entry, testKeys, onDone }: { entry: KeyEntry; testKeys?: boolean; onDone: () => void }): React.JSX.Element {
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const saveFile = async (): Promise<void> => {
+    setBusy(true)
+    setError('')
+    try {
+      if ((await window.wax.keys.backup(entry.id)) === 'saved') onDone()
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const show = async (): Promise<void> => {
+    setError('')
+    try {
+      await window.wax.keys.reveal(entry.id)
+      onDone()
+    } catch (e) {
+      setError(errorText(e))
+    }
+  }
+  return (
+    <Modal size="m" name="backup-key" title="Back up this key">
+      <p style={{ marginTop: 0 }}>
+        The private key of <b>{entry.label || 'this key'}</b> exists only in this vault.
+        {testKeys && ' These are test keys of WAX Testnet; a backup still keeps the test account usable.'}
+      </p>
+      <div className="mono-small" style={{ whiteSpace: 'nowrap', overflowX: 'auto' }}>
+        {entry.publicKey}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
+        <button className="btn" disabled={busy} onClick={() => void saveFile()}>
+          {busy ? 'Waiting for the backup window...' : 'Save a backup file...'}
+        </button>
+        <button className="btn" disabled={busy} onClick={() => void show()}>
+          Show the key so I can write it down
+        </button>
+        <button className="btn" disabled={busy} onClick={onDone}>
+          Skip: I understand that losing the vault or its password loses this key
+        </button>
+      </div>
+      {error && <div className="error-text">{error}</div>}
+    </Modal>
+  )
+}
+
+/** The banner's "Back up...": Export vault for all keys at once, or one key at a time. */
+function BackupAll({ keys, onBackUp, onClose }: { keys: KeyEntry[]; onBackUp: (k: KeyEntry) => void; onClose: () => void }): React.JSX.Element {
+  return (
+    <Modal
+      size="m"
+      name="backup-all"
+      title="Back up keys"
+      onClose={onClose}
+      footer={
+        <>
+          <button className="btn" onClick={onClose}>
+            Close
+          </button>
+          <button className="btn primary" onClick={exportVault}>
+            Export vault...
+          </button>
+        </>
+      }
+    >
+      <p style={{ marginTop: 0 }}>
+        Export vault writes one encrypted file with every key; it opens with the vault password or the recovery code. Or back up one key
+        at a time:
+      </p>
+      {keys.map((k) => (
+        <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--gap-row)', marginTop: 'var(--sp-1)' }}>
+          <b>{k.label || 'unlabelled'}</b>
+          <span className="mono-small" style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {k.publicKey}
+          </span>
+          <button className="btn sm" onClick={() => onBackUp(k)}>
+            Back up
+          </button>
+          <button className="btn sm" onClick={() => void window.wax.keys.reveal(k.id)}>
+            Show key
+          </button>
+        </div>
+      ))}
+    </Modal>
+  )
+}
+
+/** Change password, New recovery code, Remove recovery code: the password again (new codes are shown in a separate window). */
+function VaultPasswordAction({ action, onClose }: { action: VaultAction; onClose: () => void }): React.JSX.Element {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [again, setAgain] = useState('')
+  const [leftAgain, setLeftAgain] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const change = action === 'change-password'
+  const title = change ? 'Change password' : action === 'new-code' ? 'New recovery code' : 'Remove recovery code'
+  const ready = !!current && (!change || (checkPassword(next).allowed && next === again)) && !busy
+  const run = async (): Promise<void> => {
+    if (!ready) return
+    setBusy(true)
+    setError('')
+    try {
+      if (change) {
+        await withVault(() => window.wax.keys.changePassword(current, next, again))
+        toast('Password changed', 'Copies of the vault exported earlier still open with the old password.', 'success')
+      } else if (action === 'new-code') {
+        await withVault(() => window.wax.keys.newRecoveryCode(current))
+      } else {
+        await withVault(() => window.wax.keys.removeRecoveryCode(current))
+      }
+      setCurrent('')
+      setNext('')
+      setAgain('')
+      onClose()
+    } catch (e) {
+      setError(errorText(e))
+      setBusy(false)
+    }
+  }
+  return (
+    <Modal
+      size="s"
+      name="vault-password-action"
+      title={title}
+      onClose={busy ? undefined : onClose}
+      footer={
+        <>
+          <button className="btn" disabled={busy} onClick={onClose}>
+            Cancel
+          </button>
+          <button className={action === 'remove-code' ? 'btn danger' : 'btn primary'} disabled={!ready} onClick={() => void run()}>
+            {title}
+          </button>
+        </>
+      }
+    >
+      <p style={{ marginTop: 0 }}>
+        {change
+          ? 'Copies of the vault exported earlier still open with the old password.'
+          : action === 'new-code'
+            ? 'The old code stops working. The new code is shown once in a separate window.'
+            : 'Without a recovery code a forgotten password cannot be recovered.'}
+      </p>
+      <div className="field">
+        <label>{change ? 'Current password' : 'Vault password'}</label>
+        <input
+          className="input"
+          type="password"
+          autoFocus
+          value={current}
+          onChange={(e) => setCurrent(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && void run()}
+        />
+      </div>
+      {change && (
+        <>
+          <div className="field">
+            <label>New password</label>
+            <input className="input" type="password" value={next} onChange={(e) => setNext(e.target.value)} />
+            <PasswordHint password={next} />
+          </div>
+          <div className="field">
+            <label>New password again</label>
+            <input
+              className="input"
+              type="password"
+              value={again}
+              onChange={(e) => setAgain(e.target.value)}
+              onBlur={() => setLeftAgain(true)}
+              onKeyDown={(e) => e.key === 'Enter' && void run()}
+            />
+            {leftAgain && again && next !== again && <div className="hint">The two passwords are not the same.</div>}
+          </div>
+        </>
+      )}
+      {error && <div className="error-text">{error}</div>}
+    </Modal>
   )
 }
 
@@ -273,6 +515,8 @@ function CreateKey({ initial, onClose }: { initial: string; onClose: () => void 
   const [pub, setPub] = useState(initial)
   const [label, setLabel] = useState('')
   const [error, setError] = useState('')
+  // After Save: the backup step for the stored key.
+  const [saved, setSaved] = useState<KeyEntry | null>(null)
   const regen = useCallback(async () => {
     try {
       setPub(await withVault(() => window.wax.keys.newPending()))
@@ -284,6 +528,7 @@ function CreateKey({ initial, onClose }: { initial: string; onClose: () => void 
     void window.wax.keys.discardPending()
     onClose()
   }
+  if (saved) return <BackupStep entry={saved} onDone={onClose} />
   return (
     <Modal
       size="m"
@@ -305,9 +550,9 @@ function CreateKey({ initial, onClose }: { initial: string; onClose: () => void 
             disabled={!pub}
             onClick={async () => {
               try {
-                await withVault(() => window.wax.keys.savePending(label))
+                const entry = await withVault(() => window.wax.keys.savePending(label))
                 toast('Key saved', pub, 'success')
-                onClose()
+                setSaved(entry)
               } catch (e) {
                 setError(errorText(e))
               }
@@ -320,7 +565,7 @@ function CreateKey({ initial, onClose }: { initial: string; onClose: () => void 
     >
       <div className="field">
         <label>Private</label>
-        <div className="chip">••••••••••••••••••••••••••••••••••• (hidden; use Reveal after saving)</div>
+        <div className="chip">••••••••••••••••••••••••••••••••••• (hidden; the next step offers a backup)</div>
       </div>
       <div className="field">
         <label>Public</label>
@@ -416,7 +661,7 @@ function ImportVault({ onClose }: { onClose: () => void }): React.JSX.Element {
       }
     >
       <div className="field">
-        <label>Password of the vault file you import</label>
+        <label>Password or recovery code of the vault file you import</label>
         <input className="input" type="password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} />
       </div>
       {error && <div className="error-text">{error}</div>}

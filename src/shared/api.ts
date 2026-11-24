@@ -8,6 +8,28 @@ import type { RamPrice } from './ram-market'
 import type { AccountActionsPage, AccountView, NetworkInfo, NetworkKind } from './chain-types'
 import type { AuthLevel, ContractAbiView, ContractHistoryEntry, ContractHistoryKind, ContractHistoryList, PackResult, RowsQuery, RowsResult, ScopesResult } from './chain-types'
 
+/** How a vault key can be had back without the vault: none, a text file, shown once, brought by the user, in an exported vault. */
+export type KeyBackupState = 'none' | 'file' | 'shown' | 'imported' | 'vault-export'
+
+export interface VaultKeyEntry {
+  id: string
+  label: string
+  publicKey: string
+  created: number
+  backup: KeyBackupState
+  backupAt: number
+}
+
+export interface VaultStatus {
+  exists: boolean
+  unlocked: boolean
+  keys: number
+  /** Keys whose only copy is the vault. */
+  noBackup: number
+  /** The vault has a recovery code. */
+  recovery: boolean
+}
+
 export interface AppInfo {
   name: string
   version: string
@@ -411,21 +433,30 @@ export interface WaxApi {
     historyRemove(account: string, kind: ContractHistoryKind, list: ContractHistoryList, id: string): Promise<ContractHistoryEntry[]>
   }
   keys: {
-    status(): Promise<{ exists: boolean; unlocked: boolean; keys: number }>
-    create(password: string, again: string): Promise<{ exists: boolean; unlocked: boolean; keys: number }>
-    unlock(password: string): Promise<{ exists: boolean; unlocked: boolean; keys: number }>
-    lock(): Promise<{ exists: boolean; unlocked: boolean; keys: number }>
-    list(): Promise<{ id: string; label: string; publicKey: string; created: number }[]>
+    status(): Promise<VaultStatus>
+    create(password: string, again: string): Promise<VaultStatus>
+    unlock(password: string): Promise<VaultStatus>
+    lock(): Promise<VaultStatus>
+    list(): Promise<VaultKeyEntry[]>
     newPending(): Promise<string>
-    savePending(label: string): Promise<{ id: string; label: string; publicKey: string; created: number }>
+    savePending(label: string): Promise<VaultKeyEntry>
     discardPending(): Promise<void>
-    import(privateKey: string, label: string): Promise<{ id: string; label: string; publicKey: string; created: number }>
+    import(privateKey: string, label: string): Promise<VaultKeyEntry>
     setLabel(id: string, label: string): Promise<void>
     remove(id: string): Promise<void>
     reveal(id: string): Promise<void>
     accounts(keys: string[]): Promise<{ account: string; permission: string; key: string }[]>
     exportVault(): Promise<boolean>
-    importVault(password: string): Promise<number | null>
+    /** The secret is the imported file's password or recovery code. */
+    importVault(secret: string): Promise<number | null>
+    /** Opens the separate backup window for one key; tells only whether a file was saved. */
+    backup(id: string): Promise<'saved' | 'cancelled'>
+    /** Opens the separate forgotten-password window. */
+    forgot(): Promise<void>
+    changePassword(current: string, next: string, again: string): Promise<VaultStatus>
+    /** The new code is shown once in a separate window, never here. */
+    newRecoveryCode(password: string): Promise<VaultStatus>
+    removeRecoveryCode(password: string): Promise<VaultStatus>
   }
   tx: {
     /** The confirmation's title is made by the main process from the decoded actions. */
@@ -480,7 +511,7 @@ export interface WaxApi {
   on(event: 'menu', cb: (cmd: MenuCommand) => void): () => void
   on(event: 'output', cb: (e: OutputEvent) => void): () => void
   on(event: 'update-available', cb: (r: UpdateResult) => void): () => void
-  on(event: 'vault-changed', cb: (s: { exists: boolean; unlocked: boolean; keys: number }) => void): () => void
+  on(event: 'vault-changed', cb: (s: VaultStatus) => void): () => void
   on(event: 'network-changed', cb: (n: NetworkInfo, note: string) => void): () => void
   on(event: 'setup-progress', cb: (line: string) => void): () => void
   on(event: 'files-changed', cb: () => void): () => void

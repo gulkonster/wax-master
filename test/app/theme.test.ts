@@ -281,12 +281,12 @@ describe('colour tokens', () => {
     expect(mainSrc('index.ts')).toContain("backgroundColor: windowBackground('chrome')")
     expect(mainSrc('index.ts')).toContain('titleBarOverlay: titleBarOverlay()')
     expect(mainSrc('index.ts')).toContain('themeArgs()')
-    for (const f of ['confirm-window.ts', 'keys-service.ts']) {
+    for (const f of ['confirm-window.ts', 'key-windows.ts']) {
       expect(mainSrc(f), f).toContain("backgroundColor: windowBackground('content')")
       expect(mainSrc(f), f).toContain('themeArgs()')
       expect(mainSrc(f), f).toMatch(/followTheme\(win, 'content'\)/)
     }
-    for (const f of ['index.ts', 'confirm-window.ts', 'keys-service.ts']) expect(mainSrc(f), f).not.toMatch(HEX)
+    for (const f of ['index.ts', 'confirm-window.ts', 'key-windows.ts', 'keys-service.ts']) expect(mainSrc(f), f).not.toMatch(HEX)
   })
 
   it('both preloads apply only the two theme values to <html>', () => {

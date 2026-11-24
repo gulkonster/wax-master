@@ -23,7 +23,9 @@ function freshKey(): { text: string; pub: string } {
 describe('vault', () => {
   it('refuses short passwords', async () => {
     const { v } = newVault()
-    await expect(v.create('short')).rejects.toThrow(/at least 10/)
+    await expect(v.create('short')).rejects.toThrow(/at least 6/)
+    expect(v.exists()).toBe(false)
+    await expect(v.create('sixsix')).resolves.toMatch(/^[0-9A-Z]{5}(-[0-9A-Z]{5}){4}$/)
   })
 
   it('stores keys encrypted: no private key text, hex or bytes in the file', async () => {
@@ -122,7 +124,8 @@ describe('vault', () => {
     const { v } = newVault()
     await v.create(PW)
     const e = v.generateKey('generated')
-    expect(Object.keys(e).sort()).toEqual(['created', 'id', 'label', 'publicKey'])
+    expect(Object.keys(e).sort()).toEqual(['backup', 'backupAt', 'created', 'id', 'label', 'publicKey'])
+    expect(e.backup).toBe('none')
     const digest = sha256(new TextEncoder().encode('x'))
     const sig = v.withPrivateKey(e.publicKey, (p) => signDigest(digest, p))
     expect(verifySignature(digest, sig, e.publicKey)).toBe(true)
@@ -205,8 +208,16 @@ describe('vault file values are checked before use', () => {
     ['p', (f) => (f.kdf.p = 2)],
     ['salt too short', (f) => (f.kdf.salt = b64(8))],
     ['salt too long', (f) => (f.kdf.salt = b64(65))],
-    ['check iv', (f) => (f.check.iv = b64(16))],
-    ['check tag', (f) => (f.check.tag = b64(12))],
+    ['wrapped key iv', (f) => (f.wrapped.iv = b64(16))],
+    ['wrapped key length', (f) => (f.wrapped.data = b64(31))],
+    ['wrapped key missing', (f) => delete f.wrapped],
+    ['recovery kdf N', (f) => (f.recovery.kdf.N = 3)],
+    ['recovery wrap tag', (f) => (f.recovery.wrapped.tag = b64(8))],
+    ['recovery missing (null is the removed code)', (f) => delete f.recovery],
+    ['version 3', (f) => (f.version = 3)],
+    ['backup state', (f) => (f.keys[0].backup = { state: 'maybe', at: 1 })],
+    ['backup date', (f) => (f.keys[0].backup = { state: 'file', at: 'today' })],
+    ['wrapped key tag', (f) => (f.wrapped.tag = b64(12))],
     ['key iv', (f) => (f.keys[0].enc.iv = b64(8))],
     ['key tag', (f) => (f.keys[0].enc.tag = b64(32))],
     ['key without enc', (f) => delete f.keys[0].enc],
@@ -250,6 +261,7 @@ describe('vault file values are checked before use', () => {
     const { raw } = await goodFile()
     const { validateVaultFile } = await import('../../src/main/vault')
     raw.kdf.N = 2 ** 15
+    raw.recovery.kdf.N = 2 ** 15
     expect(validateVaultFile(raw, 2 ** 15)).toBe(true)
     raw.kdf.N = 2 ** 20
     expect(validateVaultFile(raw, 2 ** 15)).toBe(true)

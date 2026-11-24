@@ -3,7 +3,7 @@
 // focused, one confirmation at a time, and a locked vault stopping before any
 // window.
 
-import { mkdtempSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -16,6 +16,8 @@ const h = vi.hoisted(() => ({
   windows: [] as FakeWin[],
   sent: [] as { channel: string; args: unknown[] }[],
   frameSent: [] as { channel: string; args: unknown[] }[],
+  editorSent: [] as { channel: string; args: unknown[] }[],
+  savePath: '',
   dark: true,
   nextId: 100
 }))
@@ -109,7 +111,7 @@ vi.mock('electron', () => {
     dialog: {
       showMessageBox: async () => ({ response: 0 }),
       showOpenDialog: async () => ({ canceled: true, filePaths: [] }),
-      showSaveDialog: async () => ({ canceled: true })
+      showSaveDialog: async () => (h.savePath ? { canceled: false, filePath: h.savePath } : { canceled: true })
     },
     shell: {},
     protocol: {},
@@ -140,6 +142,10 @@ import { applyThemeSetting } from '../../src/main/theme'
 import { WINDOW_COLORS } from '../../src/shared/theme'
 import { BUSY_MESSAGE, LOCKED_MESSAGE, type ApprovalRecord, type Signer } from '../../src/main/signer'
 import { UnlockCancelled, isVaultLocked, retryAfterUnlock } from '../../src/shared/vault-locked'
+import { setLogSink } from '../../src/main/log'
+import { chain } from '../../src/main/rpc'
+import { FILE_EXISTS } from '../../src/main/key-backup'
+import { WRONG_SECRET } from '../../src/main/vault'
 
 const PW = 'correct horse battery staple'
 const EDITOR_ID = 1
@@ -183,9 +189,15 @@ const fakeSigner = {
 let revealWin: FakeWin
 let keyId: string
 
+/** The editor window as the main process sees it: everything sent to it is kept. */
+const editorWindow = {
+  isDestroyed: () => false,
+  webContents: { send: (channel: string, ...args: unknown[]) => h.editorSent.push({ channel, args }) }
+}
+
 beforeAll(async () => {
   h.dataDir = mkdtempSync(join(tmpdir(), 'wm-c2w-'))
-  registerKeys(() => null)
+  registerKeys(() => editorWindow as never)
   // The window handlers below use a stand-in signer (approval content is tested in criterion-2-signer).
   registerConfirmWindow(fakeSigner)
   await call('keys:create', editor(), PW, PW)
@@ -455,5 +467,172 @@ describe('the confirmation and reveal windows follow the theme', () => {
       { channel: 'theme', args: ['dark'] }
     ])
     void win
+  })
+})
+
+describe('recovery code, recovery password and key backup stay out of the editor window and the log', () => {
+  const NEW_PW = 'a new password from the recovery path'
+  const logLines: string[] = []
+  /** Everything the editor window received: return values of its calls and messages sent to it. */
+  const editorSaw: unknown[] = []
+
+  async function fromEditor(channel: string, ...args: unknown[]): Promise<unknown> {
+    const r = await call(channel, editor(), ...args)
+    editorSaw.push(r)
+    return r
+  }
+  const lastWindow = (): FakeWin => h.windows[h.windows.length - 1]
+  const winEvent = (w: FakeWin): unknown => frameEvent(w.webContents.id, 'app://bundle/confirm.html')
+  function expectHidden(secret: string): void {
+    const seen = JSON.stringify([editorSaw, h.editorSent])
+    const plain = secret.replace(/-/g, '')
+    expect(seen.includes(secret) || seen.includes(plain)).toBe(false)
+    expect(logLines.some((l) => l.includes(secret) || l.includes(plain))).toBe(false)
+  }
+
+  beforeAll(() => {
+    setLogSink((line) => logLines.push(line))
+  })
+
+  it('the editor preload exposes no key-window call; the key-window preload exposes no editor call', () => {
+    const editorPreload = readFileSync(join(__dirname, '../../src/preload/index.ts'), 'utf8')
+    expect(editorPreload).not.toMatch(/'(keywin|reveal|confirm):/)
+    const keyPreload = readFileSync(join(__dirname, '../../src/preload/confirm.ts'), 'utf8')
+    expect(keyPreload).not.toMatch(/'keys:/)
+    expect([...keyPreload.matchAll(/'(keywin:\w+)'/g)].map((m) => m[1]).sort()).toEqual(
+      ['keywin:backupSave', 'keywin:codeCopy', 'keywin:codeDone', 'keywin:codeSave', 'keywin:load', 'keywin:recover', 'keywin:reset'].sort()
+    )
+  })
+
+  it('a new recovery code is shown only in its own window; every other sender is refused', async () => {
+    await call('keys:unlock', editor(), PW).catch(() => undefined)
+    const status = await fromEditor('keys:newRecoveryCode', PW)
+    expect(Object.keys(status as object).sort()).toEqual(['exists', 'keys', 'noBackup', 'recovery', 'unlocked'])
+    const codeWin = lastWindow()
+    expect(codeWin.url).toMatch(/confirm\.html#code$/)
+    const { code } = (await call('keywin:load', winEvent(codeWin))) as { code: string }
+    expect(code).toMatch(/^[0-9A-Z]{5}(-[0-9A-Z]{5}){4}$/)
+    const { win: confirmWin } = openOne('appr-code')
+    for (const e of [editor(), editor('confirm.html'), frameEvent(revealWin.webContents.id, 'app://bundle/confirm.html'), confirmEvent(confirmWin)]) {
+      for (const ch of ['keywin:load', 'keywin:codeCopy', 'keywin:codeSave', 'keywin:codeDone']) {
+        await expect(call(ch, e)).rejects.toThrow('Refused')
+      }
+    }
+    // A sub frame of the code window is refused too.
+    await expect(call('keywin:load', frameEvent(codeWin.webContents.id, 'app://bundle/confirm.html', false))).rejects.toThrow('Refused')
+    await expect(call('keywin:codeDone', winEvent(codeWin))).resolves.toBe(true)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(codeWin.destroyed).toBe(true)
+    expectHidden(code)
+  })
+
+  it('forgot password: the code and the new password go only to the recovery window; a wrong code is the wrong-password error', async () => {
+    await fromEditor('keys:newRecoveryCode', PW)
+    const codeWin = lastWindow()
+    const { code } = (await call('keywin:load', winEvent(codeWin))) as { code: string }
+    await call('keywin:codeDone', winEvent(codeWin))
+    await call('keys:lock', editor())
+
+    await fromEditor('keys:forgot')
+    const recoverWin = lastWindow()
+    expect(recoverWin.url).toMatch(/confirm\.html#recover$/)
+    // The editor cannot drive the recovery window.
+    for (const ch of ['keywin:recover', 'keywin:reset', 'keywin:load']) {
+      await expect(call(ch, editor(), code, NEW_PW, NEW_PW)).rejects.toThrow('Refused')
+    }
+    await expect(call('keywin:recover', frameEvent(revealWin.webContents.id, 'app://bundle/confirm.html'), code, NEW_PW, NEW_PW)).rejects.toThrow(
+      'Refused'
+    )
+    expect(await call('keywin:load', winEvent(recoverWin))).toMatchObject({ mode: 'recover', recovery: true })
+    const wrongCode = await call('keywin:recover', winEvent(recoverWin), 'ABCDE-FGHJK-MNPQR-STVWX-YZ012', NEW_PW, NEW_PW).catch((e) => e.message)
+    const wrongPw = await call('keys:unlock', editor(), 'not the password').catch((e) => e.message)
+    expect(wrongCode).toBe(WRONG_SECRET)
+    expect(wrongPw).toBe(WRONG_SECRET)
+    await expect(call('keywin:recover', winEvent(recoverWin), code, NEW_PW, 'different')).rejects.toThrow(/not the same/)
+    expect(vault().isUnlocked()).toBe(false)
+
+    const r = (await call('keywin:recover', winEvent(recoverWin), code.toLowerCase(), NEW_PW, NEW_PW)) as { code: string }
+    expect(vault().isUnlocked()).toBe(true)
+    // The same window now shows the new code; it is its own (code mode) and refuses recovery calls.
+    expect(await call('keywin:load', winEvent(recoverWin))).toEqual({ mode: 'code', code: r.code })
+    await expect(call('keywin:recover', winEvent(recoverWin), r.code, NEW_PW, NEW_PW)).rejects.toThrow('Refused')
+    await call('keywin:codeDone', winEvent(recoverWin))
+    editorSaw.push(await fromEditor('keys:status'))
+
+    expectHidden(code)
+    expectHidden(r.code)
+    expectHidden(NEW_PW)
+    // Every message the editor got is the vault status, nothing else.
+    for (const m of h.editorSent) {
+      expect(m.channel).toBe('vault-changed')
+      expect(Object.keys(m.args[0] as object).sort()).toEqual(['exists', 'keys', 'noBackup', 'recovery', 'unlocked'])
+    }
+    // Back to the suite's password.
+    await call('keys:changePassword', editor(), NEW_PW, PW, PW)
+  })
+
+  it('a key backup file is written by the main process; the editor learns only "saved"', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wm-backup-'))
+    h.savePath = join(dir, 'backup.txt')
+    vi.spyOn(chain, 'getAccountsByAuthorizers').mockResolvedValue({ accounts: [{ account_name: 'alice', permission_name: 'active' }] } as never)
+    await call('keys:unlock', editor(), PW).catch(() => undefined)
+    const entry = (await fromEditor('keys:import', privateKeyToString(generatePrivateKey(), 'wif'), 'backup me')) as { id: string; publicKey: string }
+    const priv = await vault().revealPrivateKey(entry.id, PW)
+
+    const outcome = call('keys:backup', editor(), entry.id)
+    await new Promise((r) => setTimeout(r, 0))
+    const backupWin = lastWindow()
+    expect(backupWin.url).toMatch(/confirm\.html#backup$/)
+    for (const e of [editor(), frameEvent(revealWin.webContents.id, 'app://bundle/confirm.html')]) {
+      await expect(call('keywin:backupSave', e, PW)).rejects.toThrow('Refused')
+    }
+    expect(existsSync(h.savePath)).toBe(false)
+    await expect(call('keywin:backupSave', winEvent(backupWin), 'wrong password')).rejects.toThrow(WRONG_SECRET)
+    expect(existsSync(h.savePath)).toBe(false)
+    expect(await call('keywin:backupSave', winEvent(backupWin), PW)).toBe('saved')
+    const text = readFileSync(h.savePath, 'utf8')
+    expect(text.startsWith('WAX Master key backup')).toBe(true)
+    expect(text.includes(priv)).toBe(true)
+    expect(text.includes(entry.publicKey)).toBe(true)
+    expect(text.includes('alice@active')).toBe(true)
+    expect(text).toContain('Anyone who has this file controls every account that uses this key.')
+    // Never over an existing file.
+    await expect(call('keywin:backupSave', winEvent(backupWin), PW)).rejects.toThrow(FILE_EXISTS)
+    expect(readFileSync(h.savePath, 'utf8')).toBe(text)
+
+    ;(backupWin as unknown as { close(): void }).close()
+    const r = await outcome
+    editorSaw.push(r)
+    expect(r).toBe('saved')
+    expect(vault().list().find((k) => k.id === entry.id)!.backup).toBe('file')
+    editorSaw.push(await fromEditor('keys:list'))
+    expectHidden(priv)
+    expect(logLines.filter((l) => l.includes('Key backup file written'))).toHaveLength(1)
+    expect(logLines.some((l) => l.includes(dir))).toBe(false)
+    h.savePath = ''
+  })
+
+  it('the key backup window closed without saving tells the editor "cancelled"', async () => {
+    const outcome = call('keys:backup', editor(), keyId)
+    await new Promise((r) => setTimeout(r, 0))
+    ;(lastWindow() as unknown as { close(): void }).close()
+    await expect(outcome).resolves.toBe('cancelled')
+  })
+
+  it('reset needs the typed word and keeps the old file; afterwards a new vault starts', async () => {
+    await fromEditor('keys:forgot')
+    const recoverWin = lastWindow()
+    for (const word of ['reset', 'RESET ', '', 'Reset']) {
+      await expect(call('keywin:reset', winEvent(recoverWin), word)).rejects.toThrow(/Type RESET/)
+      expect(vault().exists()).toBe(true)
+    }
+    await expect(call('keywin:reset', winEvent(recoverWin), 7)).rejects.toThrow('Refused')
+    const { file } = (await call('keywin:reset', winEvent(recoverWin), 'RESET')) as { file: string }
+    expect(file).toMatch(/^vault-old-\d{4}-\d{2}-\d{2}(-\d+)?\.json$/)
+    expect(readdirSync(h.dataDir)).toContain(file)
+    expect(vault().exists()).toBe(false)
+    expect(vault().isUnlocked()).toBe(false)
+    // The suite's vault again (other suites of this file ran before).
+    await call('keys:create', editor(), PW, PW)
   })
 })

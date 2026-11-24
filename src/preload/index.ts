@@ -172,7 +172,12 @@ const api: WaxApi = {
     reveal: call('keys:reveal'),
     accounts: call('keys:accounts'),
     exportVault: call('keys:exportVault'),
-    importVault: call('keys:importVault')
+    importVault: call('keys:importVault'),
+    backup: call('keys:backup'),
+    forgot: call('keys:forgot'),
+    changePassword: call('keys:changePassword'),
+    newRecoveryCode: call('keys:newRecoveryCode'),
+    removeRecoveryCode: call('keys:removeRecoveryCode')
   },
   tx: {
     run: call('tx:run'),

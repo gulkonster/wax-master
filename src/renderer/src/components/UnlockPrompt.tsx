@@ -1,31 +1,45 @@
 // The one place where the vault password is asked in the editor window: over
 // the window the user is in, when an operation needs keys (withVault), from the
 // status bar and from Accounts > Unlock Vault / Create Vault. After a correct
-// password the operation that asked runs at once.
+// password the operation that asked runs at once. "Forgot password?" opens the
+// separate recovery window; when the vault is opened there, the operation runs
+// too, and after a reset this prompt turns into "Create the vault".
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Modal } from './Modal'
 import { errorText, toast } from '../lib/toast'
 import { refreshVault, unlockPromptStore, vaultStore } from '../lib/vault'
 import { useStore } from '../lib/stores'
+import { MIN_PASSWORD_LENGTH, checkPassword } from '../../../shared/password'
 
-/** The vault password rule of the main process (vault.ts MIN_PASSWORD_LENGTH). */
-export const VAULT_PASSWORD_MIN = 10
+/** The text under a new-password field: nothing, too short, the weak-password warning (yellow) or "Good". */
+export function PasswordHint({ password }: { password: string }): React.JSX.Element | null {
+  const c = checkPassword(password)
+  if (!c.text) return null
+  return <div className={c.level === 'weak' ? 'hint warn-note' : 'hint'}>{c.text}</div>
+}
 
-export function passwordStrength(pw: string): string {
-  if (!pw) return ''
-  if (pw.length < VAULT_PASSWORD_MIN) return `Too short (${pw.length}/${VAULT_PASSWORD_MIN})`
-  const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(pw)).length
-  if (pw.length >= 16 && kinds >= 3) return 'Strong'
-  if (pw.length >= 12 && kinds >= 2) return 'Fair; longer is better'
-  return 'Weak; use a longer password or a few unrelated words'
+/** The text of every "create the vault" form. */
+export function CreateVaultText(): React.JSX.Element {
+  return (
+    <p style={{ marginTop: 0 }}>
+      Private keys are stored encrypted with this password; at least {MIN_PASSWORD_LENGTH} characters. Next, a recovery code is shown
+      once in a separate window: with it a forgotten password can be replaced. Keys you create here exist only in this vault until you
+      back them up.
+    </p>
+  )
+}
+
+/** Opens the separate recovery window. */
+export function openForgotPassword(): void {
+  window.wax.keys.forgot().catch((e) => toast('Forgot password', errorText(e), 'error'))
 }
 
 /** Shows the prompt while a request is open. Rendered once, after every other dialog of the window. */
 export function UnlockPromptHost(): React.JSX.Element | null {
   const req = useStore(unlockPromptStore)
   if (!req) return null
-  return <UnlockPrompt onDone={req.done} />
+  return <UnlockPrompt onDone={req.done} forgot={openForgotPassword} />
 }
 
 export function UnlockPrompt({
@@ -38,14 +52,26 @@ export function UnlockPrompt({
 }): React.JSX.Element {
   const vs = useStore(vaultStore)
   // The mode is fixed when the prompt opens; creating the vault does not switch it to Unlock.
-  const [create] = useState(!vs.exists)
+  // Only a reset in the recovery window (the vault is gone) switches Unlock to Create.
+  const [create, setCreate] = useState(!vs.exists)
   const [pw, setPw] = useState('')
   const [again, setAgain] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [leftAgain, setLeftAgain] = useState(false)
 
-  const ready = create ? pw.length >= VAULT_PASSWORD_MIN && pw === again : pw.length > 0
+  useEffect(() => {
+    if (create || busy) return
+    // Opened in the recovery window with the code: the operation goes on.
+    if (vs.unlocked) onDone(true)
+    else if (!vs.exists) {
+      setCreate(true)
+      setPw('')
+      setError('')
+    }
+  }, [vs.unlocked, vs.exists, create, busy, onDone])
+
+  const ready = create ? checkPassword(pw).allowed && pw === again : pw.length > 0
   const submit = async (): Promise<void> => {
     if (!ready || busy) return
     setBusy(true)
@@ -53,7 +79,7 @@ export function UnlockPrompt({
     try {
       if (create) {
         await window.wax.keys.create(pw, again)
-        toast('Vault created', 'Export a backup from Manage Keypairs; there is no password recovery.', 'success')
+        toast('Vault created', 'Save the recovery code shown in the separate window.', 'success')
       } else {
         await window.wax.keys.unlock(pw)
       }
@@ -87,12 +113,7 @@ export function UnlockPrompt({
         </>
       }
     >
-      {create && (
-        <p style={{ marginTop: 0 }}>
-          Private keys are stored encrypted with this password. It is never stored and cannot be recovered: if you forget it, the keys
-          in the vault are lost. At least {VAULT_PASSWORD_MIN} characters.
-        </p>
-      )}
+      {create && <CreateVaultText />}
       <div className="field">
         <label>{create ? 'Password' : 'Vault password'}</label>
         <input
@@ -103,7 +124,7 @@ export function UnlockPrompt({
           onChange={(e) => setPw(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void submit()}
         />
-        {create && <div className="hint">{passwordStrength(pw)}</div>}
+        {create && <PasswordHint password={pw} />}
         {!create && forgot && (
           <button className="btn subtle sm" style={{ marginTop: 'var(--sp-1)' }} onClick={forgot}>
             Forgot password?

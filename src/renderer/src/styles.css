@@ -969,6 +969,10 @@ input[type='radio'] {
   line-height: var(--lh-caption);
   color: var(--text-3);
 }
+/* A warning under a field (weak password, key without backup): yellow, never blocking. */
+.hint.warn-note {
+  color: var(--warn-text);
+}
 .code-tag {
   display: inline-block;
   padding: 0 var(--sp-1);
@@ -1043,6 +1047,10 @@ input[type='radio'] {
 .badge.red {
   background: var(--red-tint);
   color: var(--red-text);
+}
+.badge.warn {
+  background: var(--warn-tint);
+  color: var(--warn-text);
 }
 .badge.perm-owner,
 .badge.info {
@@ -3139,4 +3147,53 @@ button.sb-item.mainnet:hover {
 }
 .buy-ram .error-text {
   margin-top: 0;
+}
+
+/* Dialog checks: keys and names stay on one line; label / value lines for one or two items. */
+.chip.one-line {
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-wrap: normal;
+}
+.key-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-row);
+}
+.key-picker .select,
+.key-picker .input {
+  width: 100%;
+}
+.plan-file {
+  margin-top: var(--sp-3);
+}
+.plan-file-name {
+  margin-bottom: var(--sp-1);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.plan-lines {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--sp-1) var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg-surface);
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius);
+}
+.plan-lines > span:nth-child(odd) {
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.plan-lines > span:nth-child(even) {
+  min-width: 0;
+  white-space: nowrap;
+}
+.tr-grid .mono-small {
+  white-space: nowrap;
+  overflow-x: auto;
+}
+.net-row .mono,
+.net-row .endpoints label {
+  white-space: nowrap;
 }
