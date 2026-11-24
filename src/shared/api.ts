@@ -16,6 +16,14 @@ export interface AppInfo {
   platform: string
 }
 
+export interface UpdateResult {
+  current: string
+  latest: string | null
+  newer: boolean
+  url: string
+  error?: string
+}
+
 export interface Settings {
   fontSize: number
   defaultProjectFolder: string
@@ -225,6 +233,8 @@ export interface WaxApi {
     info(): Promise<AppInfo>
     openExternal(url: string): Promise<boolean>
     setDirty(count: number): Promise<void>
+    checkUpdates(): Promise<UpdateResult>
+    clearData(includeVault: boolean, typed: string): Promise<void>
     quitNow(): Promise<void>
   }
   settings: {
@@ -366,6 +376,7 @@ export interface WaxApi {
   }
   on(event: 'menu', cb: (cmd: MenuCommand) => void): () => void
   on(event: 'output', cb: (e: OutputEvent) => void): () => void
+  on(event: 'update-available', cb: (r: UpdateResult) => void): () => void
   on(event: 'vault-changed', cb: (s: { exists: boolean; unlocked: boolean; keys: number }) => void): () => void
   on(event: 'network-changed', cb: (n: NetworkInfo, note: string) => void): () => void
   on(event: 'setup-progress', cb: (line: string) => void): () => void

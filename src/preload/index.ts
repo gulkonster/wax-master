@@ -9,13 +9,15 @@ const call =
   (...args: unknown[]): Promise<never> =>
     ipcRenderer.invoke(channel, ...args) as Promise<never>
 
-const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'terminal-data', 'terminal-exit', 'network-changed', 'vault-changed', 'editor-status', 'editor-message'])
+const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'terminal-data', 'terminal-exit', 'network-changed', 'vault-changed', 'update-available', 'editor-status', 'editor-message'])
 
 const api: WaxApi = {
   app: {
     info: call('app:info'),
     openExternal: call('app:openExternal'),
     setDirty: call('app:setDirty'),
+    checkUpdates: call('app:checkUpdates'),
+    clearData: call('app:clearData'),
     quitNow: call('app:quitNow')
   },
   settings: {

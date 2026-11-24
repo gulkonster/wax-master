@@ -6,7 +6,8 @@ import type { PermissionLevel } from '../chain-core'
 import type { InspectedTransaction } from '../shared/trace-types'
 import { arr, chainName, obj, oneOf, optStr, str } from '../shared/validate'
 import { handle } from './ipc'
-import { signer } from './keys-service'
+import { signer, vault } from './keys-service'
+import { getSettings } from './store'
 import { openConfirmation } from './confirm-window'
 import { simulate, probeSimulation } from './simulate'
 import { fromHistory, fromNodeAnswer, fromNodeError } from './trace'
@@ -47,6 +48,7 @@ async function signAndSend(
 ): Promise<TxOutcome> {
   const { record, secret } = await signer().prepare({ networkId, actions, purpose, artifacts })
   const outcome = await openConfirmation(win, record, secret)
+  if (outcome.approved && getSettings().lockAfterSignature) vault().lock()
   const ctx = { source: 'sent' as const, network: record.network.name, endpoint: record.endpoint }
   if (outcome.approved) return { status: 'sent', trace: fromNodeAnswer(outcome.result.response, ctx) }
   if (outcome.reason === 'error') {

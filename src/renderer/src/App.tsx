@@ -8,6 +8,8 @@ import { Setup, refreshToolchainLabel } from './pages/Setup'
 import { Modal } from './components/Modal'
 import { AccountPage } from './pages/AccountPage'
 import { KeysDialog } from './components/KeysDialog'
+import { SettingsPage } from './pages/SettingsPage'
+import type { UpdateResult } from '../../shared/api'
 import { InspectorDialog } from './components/Inspector'
 import { DeployDialog } from './components/DeployDialog'
 import { CreateAccountDialog, ChangeKeyDialog } from './components/AccountDialogs'
@@ -52,6 +54,8 @@ export function App(): React.JSX.Element {
   const [dialog, setDialog] = useState<null | 'add-network' | 'manage-networks' | 'starred'>(null)
   const [keysOpen, setKeysOpen] = useState<null | { filter: string | null }>(null)
   const [inspect, setInspect] = useState<InspectedTransaction | null>(null)
+  const [update, setUpdate] = useState<UpdateResult | null>(null)
+  useEffect(() => window.wax.on('update-available', (r: UpdateResult) => setUpdate(r)), [])
   const [deployOpen, setDeployOpen] = useState<null | { askAccount: boolean }>(null)
   const [chainDialog, setChainDialog] = useState<null | 'create-account' | 'testnet-account' | 'clear-code' | 'open-transaction'>(null)
   const [changeKey, setChangeKey] = useState<null | Parameters<typeof ChangeKeyDialog>[0]>(null)
@@ -216,6 +220,16 @@ export function App(): React.JSX.Element {
         case 'setup':
           actions.setView('setup')
           break
+        case 'settings':
+          actions.setView('settings')
+          break
+        case 'check-updates':
+          void window.wax.app.checkUpdates().then((r) => {
+            if (r.newer) setUpdate(r)
+            else if (r.error) toast('Could not check for updates', r.error, 'error')
+            else toast('Up to date', r.latest ? `WAX Master ${r.current} is the latest version.` : `No release is published yet (this is ${r.current}).`, 'success')
+          })
+          break
         case 'manage-keypairs':
           setKeysOpen({ filter: null })
           break
@@ -308,13 +322,14 @@ export function App(): React.JSX.Element {
               </div>
             )}
             {state.view === 'setup' && <Setup />}
+            {state.view === 'settings' && <SettingsPage />}
             <div style={{ display: state.view === 'account' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
               <AccountPage />
             </div>
             <div style={{ display: state.view === 'contract' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
               <ContractPage />
             </div>
-            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && state.view !== 'account' && state.view !== 'contract' && <ComingLater what={state.view} />}
+            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && state.view !== 'settings' && state.view !== 'account' && state.view !== 'contract' && <ComingLater what={state.view} />}
             <BottomPanel terminal={<TerminalPanel visible={state.panelOpen && state.panelTab === 'terminal'} />} />
           </div>
         </div>
@@ -369,6 +384,30 @@ export function App(): React.JSX.Element {
         />
       )}
       {changeKey && <ChangeKeyDialog {...changeKey} onClose={() => setChangeKey(null)} />}
+      {update && (
+        <Modal
+          title="A new version is available"
+          onClose={() => setUpdate(null)}
+          footer={
+            <>
+              <button className="btn" onClick={() => setUpdate(null)}>
+                Later
+              </button>
+              <button
+                className="btn purple"
+                onClick={() => {
+                  void window.wax.app.openExternal(update.url)
+                  setUpdate(null)
+                }}
+              >
+                Open the release page
+              </button>
+            </>
+          }
+        >
+          WAX Master {update.latest} is available (you have {update.current}). Download it from the release page and verify it as the README describes.
+        </Modal>
+      )}
       <Toasts />
     </AppContext.Provider>
   )

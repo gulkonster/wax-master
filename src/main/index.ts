@@ -7,6 +7,7 @@ import { guardWindow, registerCloseGuard } from './close-guard'
 import { registerChainIpc } from './ipc-chain'
 import { registerKeys } from './keys-service'
 import { registerTxIpc } from './ipc-tx'
+import { registerAppIpc } from './ipc-app'
 import { registerEditorIpc } from './ipc-editor'
 import { stopEditor } from './clangd'
 import { currentNetwork, endpointOf, listNetworks, onNetworksChanged, selectNetwork } from './networks'
@@ -103,6 +104,7 @@ app.whenReady().then(() => {
   registerChainIpc(() => mainWindow)
   registerKeys(() => mainWindow)
   registerTxIpc(() => mainWindow)
+  registerAppIpc(() => mainWindow)
   registerEditorIpc()
   const refreshMenu = (): void => {
     const cur = currentNetwork().id
