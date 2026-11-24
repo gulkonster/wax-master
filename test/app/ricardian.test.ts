@@ -208,6 +208,94 @@ describe('paths stay inside the project', () => {
     await expect(createRicardianFiles(root, cfg)).rejects.toThrow('outside the project')
     expect(existsSync(join(outside, 'hello.contracts.md'))).toBe(false)
   })
+
+  it('refuses a contracts or clauses file that is a link, also one that points nowhere', async () => {
+    const outside = mkdtempSync(join(tmpdir(), 'wm-ric-out-'))
+    const cases: { file: string; target: string }[] = [
+      { file: 'hello.contracts.md', target: join(outside, 'existing.md') },
+      { file: 'hello.contracts.md', target: join(outside, 'missing.md') },
+      { file: 'hello.clauses.md', target: join(outside, 'missing-clauses.md') }
+    ]
+    writeFileSync(join(outside, 'existing.md'), 'outside text')
+    for (const c of cases) {
+      const { root, cfg } = project()
+      mkdirSync(join(root, 'resource'))
+      try {
+        symlinkSync(c.target, join(root, 'resource', c.file), 'file')
+      } catch {
+        // Without the right to make file links, a junction stands in for the link.
+        try {
+          symlinkSync(c.target, join(root, 'resource', c.file), 'junction')
+        } catch {
+          return // links cannot be made here
+        }
+      }
+      await expect(createRicardianFiles(root, cfg)).rejects.toThrow(`resource/${c.file} is a link; it is not written`)
+    }
+    expect(readFileSync(join(outside, 'existing.md'), 'utf8')).toBe('outside text')
+    expect(existsSync(join(outside, 'missing.md'))).toBe(false)
+    expect(existsSync(join(outside, 'missing-clauses.md'))).toBe(false)
+  })
+})
+
+describe('only plain names are written', () => {
+  const withBadNames = (): string => {
+    const abi = JSON.parse(ABI)
+    abi.structs.push({ name: 'odd', base: '', fields: [{ name: 'ok', type: 'name' }, { name: 'bad<b>', type: 'name' }, { name: 'alsook', type: 'x\ny' }] })
+    abi.actions.push({ name: 'x</h1>\n<h1 class="contract">hi', type: 'ping', ricardian_contract: '' })
+    abi.actions.push({ name: 'odd', type: 'odd', ricardian_contract: '' })
+    return JSON.stringify(abi)
+  }
+
+  it('lists a parameter only with a plain name and type', () => {
+    const odd = actionsFromAbi(withBadNames()).find((a) => a.name === 'odd')
+    expect(odd?.params).toEqual([{ name: 'ok', type: 'name' }])
+    expect(
+      actionsFromAbi(JSON.stringify({ ...JSON.parse(ABI), structs: [{ name: 'hi', base: '', fields: [{ name: 'v', type: 'pair_name_uint64[]?' }, { name: 'w', type: 'uint8$' }] }] }))[0].params
+    ).toEqual([
+      { name: 'v', type: 'pair_name_uint64[]?' },
+      { name: 'w', type: 'uint8$' }
+    ])
+  })
+
+  it('writes nothing for an action name that is not a chain name, and a second run changes no byte', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'wm-ric-'))
+    const cfg = config()
+    writeFileSync(join(root, ricardianPaths(cfg).abi), withBadNames())
+    const r = await createRicardianFiles(root, cfg)
+    expect(r.added).toEqual(['hi', 'move', 'ping', 'setmsg', 'odd'])
+    expect(r.message).toBe('resource/hello.contracts.md: added 5, kept 0; skipped 1: not a valid action name; resource/hello.clauses.md created.')
+    const first = readFileSync(join(root, 'resource/hello.contracts.md'))
+    expect(first.toString('utf8')).not.toContain('x</h1>')
+    expect(first.toString('utf8')).not.toContain('bad<b>')
+    const again = await createRicardianFiles(root, cfg)
+    expect(again.added).toEqual([])
+    expect(again.message).toBe('resource/hello.contracts.md: added 0, kept 5; skipped 1: not a valid action name.')
+    expect(readFileSync(join(root, 'resource/hello.contracts.md')).equals(first)).toBe(true)
+  })
+})
+
+describe('old bytes are never written again', () => {
+  it('keeps a file with a byte-order mark and bytes that are not UTF-8 exactly as the start of the new file', async () => {
+    const { root, cfg } = project()
+    mkdirSync(join(root, 'resource'))
+    const old = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from('Intro é\n', 'utf8'),
+      Buffer.from([0xff, 0xfe, 0x80, 0xc3]),
+      Buffer.from('\n<h1 class="contract">hi</h1>\nown text', 'latin1')
+    ])
+    writeFileSync(join(root, 'resource/hello.contracts.md'), old)
+    const r = await createRicardianFiles(root, cfg)
+    expect(r.added).toEqual(['move', 'ping', 'setmsg'])
+    expect(r.kept).toEqual(['hi'])
+    const now = readFileSync(join(root, 'resource/hello.contracts.md'))
+    expect(now.length).toBeGreaterThan(old.length)
+    expect(now.subarray(0, old.length).equals(old)).toBe(true)
+    expect(now.subarray(old.length).toString('utf8')).toMatch(/^\n\n<h1 class="contract">move<\/h1>\n/)
+    const lines = now.toString('utf8').split('\n')
+    expect(lines[r.line - 1]).toBe('<h1 class="contract">move</h1>')
+  })
 })
 
 describe('Problems hint on the Ricardian warnings', () => {

@@ -1,0 +1,11 @@
+{
+  "groups": [
+    {
+      "title": "Bad",
+      "topics": [
+        { "id": "broken", "title": "Broken" },
+        { "id": "missing-file", "title": "No file" }
+      ]
+    }
+  ]
+}

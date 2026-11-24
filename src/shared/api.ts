@@ -351,6 +351,8 @@ export type MenuCommand =
   | 'check-updates'
   | 'about'
   | 'home'
+  /** Opens the Documentation page. */
+  | 'docs'
   /** Sent by the main process on F10 or an Alt tap: the drawn menu bar takes the focus. */
   | 'focus-menu'
 
@@ -553,6 +555,10 @@ export interface WaxApi {
   ricardian: {
     /** Writes or extends the open project's Ricardian files from its built ABI. */
     create(): Promise<RicardianResult>
+  }
+  docs: {
+    /** Text of one file of the shipped documentation: `index.json` or `<topic id>.md`. */
+    read(name: string): Promise<string>
   }
   on(event: 'menu', cb: (cmd: MenuCommand) => void): () => void
   on(event: 'output', cb: (e: OutputEvent) => void): () => void

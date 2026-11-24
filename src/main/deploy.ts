@@ -44,6 +44,43 @@ export function requiredFeature(importName: string): string | null {
   return FEATURE_OF_IMPORT[importName] ?? null
 }
 
+/** Bytes held by base64 text (with or without the padding). */
+export function base64Size(text: string | undefined | null): number {
+  const s = (text ?? '').replace(/\s+/g, '').replace(/=+$/, '')
+  return Math.floor((s.length * 3) / 4)
+}
+
+/**
+ * RAM a deployment adds to the account. The chain bills setcode at 10 x the
+ * code size and setabi at the ABI size, each less what it replaces, so a
+ * redeployment counts only the difference. Never below zero.
+ */
+export function deployRam(i: {
+  sendWasm: boolean
+  wasmSize: number
+  chainCodeSize: number
+  sendAbi: boolean
+  abiSize: number
+  chainAbiSize: number
+}): { needed: number; newBytes: number; replacedBytes: number } {
+  const newBytes = (i.sendWasm ? i.wasmSize * 10 : 0) + (i.sendAbi ? i.abiSize : 0)
+  const replacedBytes = (i.sendWasm ? i.chainCodeSize * 10 : 0) + (i.sendAbi ? i.chainAbiSize : 0)
+  return { needed: Math.max(0, newBytes - replacedBytes), newBytes, replacedBytes }
+}
+
+/**
+ * Size of the code now on an account. Read only when the account has code and
+ * new code is sent; a failed read counts as zero and is reported as unread.
+ */
+export async function chainCodeSize(hasCode: boolean, read: () => Promise<{ wasm?: string }>): Promise<{ size: number; unread: boolean }> {
+  if (!hasCode) return { size: 0, unread: false }
+  try {
+    return { size: base64Size((await read()).wasm), unread: false }
+  } catch {
+    return { size: 0, unread: true }
+  }
+}
+
 interface PlanBytes {
   networkId: string
   account: string
@@ -123,8 +160,16 @@ export async function planDeploy(input: { networkId?: string; account: string; p
       }
     }
   }
-  // RAM: setcode costs about 10x the code size; the ABI its own size.
-  const ramNeeded = (sendWasm && wasm ? wasm.length * 10 : 0) + (sendAbi && abi ? abi.length : 0)
+  // RAM: setcode costs about 10x the code size, the ABI its own size; both less what they replace.
+  const onAccount = await chainCodeSize(sendWasm && codeHash !== '', () => readCall((ep) => chain.getRawCodeAndAbi(ep, input.account), network))
+  const ram = deployRam({
+    sendWasm,
+    wasmSize: wasm?.length ?? 0,
+    chainCodeSize: onAccount.size,
+    sendAbi,
+    abiSize: abi?.length ?? 0,
+    chainAbiSize: chainAbiHash ? base64Size(rawAbi?.abi) : 0
+  })
   const quota = Number(account.ram_quota ?? 0)
   const usage = Number(account.ram_usage ?? 0)
   const id = randomUUID()
@@ -155,7 +200,10 @@ export async function planDeploy(input: { networkId?: string; account: string; p
     chainAbiHash,
     sendWasm,
     sendAbi,
-    ramNeeded,
+    ramNeeded: ram.needed,
+    ramNew: ram.newBytes,
+    ramReplaced: ram.replacedBytes,
+    chainCodeUnread: onAccount.unread,
     ramAvailable: quota < 0 ? -1 : Math.max(0, quota - usage),
     missingFeatures: missing
   }

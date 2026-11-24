@@ -172,8 +172,17 @@ export interface DeployPlan {
   chainAbiHash: string
   sendWasm: boolean
   sendAbi: boolean
-  /** Estimated RAM in bytes for the parts that will be sent. */
+  /**
+   * Estimated RAM in bytes the deployment adds: the parts that will be sent,
+   * less what they replace on the account; never below zero.
+   */
   ramNeeded: number
+  /** RAM of the parts that will be sent (10 x code size, plus the ABI size). */
+  ramNew: number
+  /** RAM of what those parts replace on the account (0 for a first deployment). */
+  ramReplaced: number
+  /** The size of the code on the account could not be read; it was counted as zero. */
+  chainCodeUnread: boolean
   /** Free RAM of the account in bytes; -1 = unlimited. */
   ramAvailable: number
   missingFeatures: { name: string; feature: string }[]

@@ -183,6 +183,25 @@ describe('token template', () => {
     expect(cpp).toMatch(/\/\/ The balance reaches zero: remove the row\./)
   })
 
+  it('says what other contracts see and what the rows cost in bytes', () => {
+    const flat = hpp.replace(/\s*\n\s*\*\s*/g, ' ')
+    expect(flat).toContain(
+      'A contract compiled with the standard token header still fails in its own get_balance for an account without a row, as it does for an account that never held the token.'
+    )
+    expect(flat).toContain('A row is 128 bytes; the first row of an account costs 112 bytes more for its table.')
+    expect(flat).toContain(
+      "The holder who sends a part takes over the 128 bytes; the 112 stay with the payer of the account's first row until the account's last row is removed."
+    )
+    // The comment above add_balance belongs to it: no blank line between them.
+    expect(cpp).toMatch(/\/\/ first receipt\.\nvoid mytoken::add_balance\(/)
+  })
+
+  it('describes the template in New Project', () => {
+    expect(TEMPLATES.find((t) => t.id === 'token')?.description).toBe(
+      'A token contract (create, issue, transfer, retire); balance rows are removed at zero.'
+    )
+  })
+
   it('ships transfers commented out in the header, the source and the Ricardian file', () => {
     expect(cppCode(hpp)).not.toContain('transfers')
     expect(cppCode(cpp)).not.toContain('transfers')

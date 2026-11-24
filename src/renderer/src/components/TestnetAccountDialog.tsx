@@ -75,6 +75,7 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
     <Modal
       size="m"
       name="testnet-account"
+      help="testnetAccount"
       title="Create Testnet Account"
       onClose={busy ? undefined : onClose}
       footer={

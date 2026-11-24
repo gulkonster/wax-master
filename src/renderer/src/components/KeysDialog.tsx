@@ -268,6 +268,7 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
     <Modal
       size="l"
       name="manage-keypairs"
+      help="manageKeypairs"
       title={header}
       onClose={onClose}
       footer={

@@ -3,7 +3,7 @@
 import { createContext, useContext } from 'react'
 import type { AppInfo, OpenProject, ProjectEntry, Settings, SettingsPatch } from '../../shared/api'
 
-export type View = 'home' | 'project' | 'contract' | 'account' | 'network' | 'keys' | 'settings' | 'setup'
+export type View = 'home' | 'project' | 'contract' | 'account' | 'network' | 'keys' | 'settings' | 'setup' | 'docs'
 export type PanelTab = 'terminal' | 'output' | 'problems'
 
 export interface Cursor {

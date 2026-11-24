@@ -9,6 +9,7 @@ import { IconFolder } from '../components/Icons'
 import { useToolchains } from '../components/ToolchainManager'
 import { AccountPicker, PermissionPicker } from '../components/AccountPicker'
 import { emit } from '../lib/bus'
+import { HelpButton } from '../components/HelpButton'
 
 /** Saves the settings; resolves to null on success or to the reason it failed. */
 export type SettingsSaver = () => Promise<string | null>
@@ -62,7 +63,10 @@ export function ProjectSettings({
     <div className="settings-tab">
     <div className="page-scroll">
       <div className="form-page wide">
-        <h1>Project Settings</h1>
+        <h1 className="with-help">
+          Project Settings
+          <HelpButton place="projectSettings" />
+        </h1>
         <div className="path-line" title={project.path}>
           <IconFolder />
           <span>{project.path}</span>

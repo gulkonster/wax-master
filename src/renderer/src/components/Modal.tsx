@@ -3,6 +3,8 @@ import type { DialogSize } from '../../../shared/api'
 import { AppContext } from '../state'
 import { errorText } from '../lib/toast'
 import { IconClose } from './Icons'
+import { HelpButton } from './HelpButton'
+import type { HelpPlace } from '../lib/help-topics'
 
 /** Dialog widths: S (text input, delete, unlock), M (forms), L (lists and tables). */
 export type ModalSize = 's' | 'm' | 'l'
@@ -27,7 +29,8 @@ export function Modal({
   footer,
   onClose,
   size,
-  name
+  name,
+  help
 }: {
   title: React.ReactNode
   children: React.ReactNode
@@ -36,6 +39,8 @@ export function Modal({
   size: ModalSize
   /** Name under which a size the user drags is remembered in the settings. */
   name: string
+  /** The place whose documentation topic the "?" of the title row opens. */
+  help?: HelpPlace
 }): React.JSX.Element {
   const app = useContext(AppContext)
   const stored = app?.state.settings?.dialogSizes?.[name] ?? null
@@ -109,6 +114,7 @@ export function Modal({
       >
         <div className="modal-head">
           <div className="modal-title">{title}</div>
+          {help && <HelpButton place={help} />}
           {onClose && (
             <button className="icon-btn" title="Close" onClick={onClose}>
               <IconClose />

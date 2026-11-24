@@ -151,6 +151,7 @@ const BEFORE = [
   'Network > Open Transaction by Id...',
   'Help',
   'Help > Documentation',
+  'Help > Project Page',
   'Help > Ask a Question',
   'Help > Report an Issue',
   'Help > Request a Feature',
@@ -226,7 +227,7 @@ describe('menu model (one source for the application menu and the drawn menu bar
       { id: 'b', name: 'Net B', current: true }
     ])
     const help = t.items.find((i) => i.label === 'Help')!.submenu!
-    help.find((i) => i.label === 'Documentation')!.click!()
+    help.find((i) => i.label === 'Project Page')!.click!()
     help.find((i) => i.label === 'Verify This Download')!.click!()
     expect(t.links).toEqual(['https://github.com/gulkonster/wax-master#readme', 'https://github.com/gulkonster/wax-master#verify-your-download'])
     t.items.find((i) => i.label === 'File')!.submenu!.find((i) => i.label === 'Exit')!.click!()

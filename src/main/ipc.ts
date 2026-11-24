@@ -22,6 +22,7 @@ import { runBuild, defaultBuildArgs, ensureBuilt, rebuild } from './build'
 import { optStr } from '../shared/validate'
 import { createRicardianFiles } from './ricardian'
 import { run as runHelper } from './helper'
+import { docsDir, readDocsFile } from './docs'
 import { join, resolve } from 'node:path'
 
 type Handler = (e: IpcMainInvokeEvent, ...args: unknown[]) => unknown
@@ -320,6 +321,11 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     const r = await createRicardianFiles(p.root, p.config)
     e.sender.send('files-changed')
     return r
+  })
+  // One file of the shipped documentation: only index.json or <topic id>.md of that folder.
+  handle('docs:read', (_e, name, ...rest) => {
+    if (rest.length > 0) throw new Error('One argument expected')
+    return readDocsFile(docsDir(), str(name, 'name', 80))
   })
 
   // Terminal and clipboard: only the terminal frame (app://terminal) may call these.

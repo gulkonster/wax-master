@@ -112,3 +112,25 @@ export function ramCost(market: RamMarket, bytes: number): number | null {
   // The contract divides by the literal 0.995 (1 - RAM_FEE).
   return Math.trunc(Math.max(0, input) / 0.995)
 }
+
+/** What the RAM line of the Deploy dialog is made from (fields of the deploy plan). */
+export interface DeployRamFigures {
+  ramNeeded: number
+  ramNew: number
+  ramReplaced: number
+  ramAvailable: number
+  chainCodeUnread: boolean
+}
+
+/** Note added when the size of the code on the account could not be read. */
+export const CODE_SIZE_UNREAD = 'The size of the code now on the account could not be read; counted as a first deployment.'
+
+/** The RAM line of the Deploy dialog: a first deployment, or the difference to what is replaced. */
+export function deployRamText(p: DeployRamFigures): string {
+  const available = p.ramAvailable < 0 ? 'unlimited' : `${p.ramAvailable.toLocaleString()} bytes`
+  const line =
+    p.ramReplaced > 0
+      ? `RAM needed about ${p.ramNeeded.toLocaleString()} bytes more than now (new code and ABI ${p.ramNew.toLocaleString()} bytes, replacing ${p.ramReplaced.toLocaleString()} bytes); available ${available}.`
+      : `RAM needed about ${p.ramNeeded.toLocaleString()} bytes; available ${available}.`
+  return p.chainCodeUnread ? `${line} ${CODE_SIZE_UNREAD}` : line
+}

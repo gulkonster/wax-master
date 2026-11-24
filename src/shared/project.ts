@@ -129,7 +129,7 @@ export type TemplateId = 'empty' | 'hello' | 'token'
 export const TEMPLATES: { id: TemplateId; label: string; description: string }[] = [
   { id: 'empty', label: 'Empty', description: 'A contract with one empty action.' },
   { id: 'hello', label: 'Hello World', description: 'The classic "hi" action that prints a greeting.' },
-  { id: 'token', label: 'Token', description: 'A standard token contract (create, issue, transfer, retire).' }
+  { id: 'token', label: 'Token', description: 'A token contract (create, issue, transfer, retire); balance rows are removed at zero.' }
 ]
 
 function given(r: Record<string, unknown>, k: string): boolean {

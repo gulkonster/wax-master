@@ -10,6 +10,7 @@ import { BuyRamPanel, useRamMarket } from '../components/BuyRamPanel'
 import { FaucetButton, isWaxTestnet } from '../components/FaucetButton'
 import { accountRamDefault } from '../../../shared/ram-market'
 import { IconClose, IconContract, IconKey, IconLock, IconPlus, IconRefresh, IconStar, IconUser } from '../components/Icons'
+import { HelpButton } from '../components/HelpButton'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
@@ -125,6 +126,7 @@ export function AccountPage(): React.JSX.Element {
         <button className="icon-btn" title="Keys" disabled={!active} onClick={() => emit('open-keys', active)}>
           <IconKey />
         </button>
+        <HelpButton place="accountPage" />
       </div>
       {back && active && starred && (
         <div className="banner green back-banner">

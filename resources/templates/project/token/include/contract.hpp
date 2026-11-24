@@ -15,11 +15,17 @@ using namespace eosio;
  * Balance rows are removed at zero. Rules that follow from it:
  * 1. A missing row means a zero balance. get_balance returns zero in the
  *    token's precision for a holder without a row and fails only for an
- *    unknown token.
+ *    unknown token. A contract compiled with the standard token header still
+ *    fails in its own get_balance for an account without a row, as it does
+ *    for an account that never held the token.
  * 2. When an outgoing transfer or retire takes a balance to zero, the row is
  *    erased in sub_balance. That needs nobody's signature and gives the RAM
  *    back at once to the row's payer: the holder if he ever sent a part of
- *    his balance, otherwise whoever paid when the row was created.
+ *    his balance, otherwise whoever paid when the row was created. A row is
+ *    128 bytes; the first row of an account costs 112 bytes more for its
+ *    table. The holder who sends a part takes over the 128 bytes; the 112
+ *    stay with the payer of the account's first row until the account's last
+ *    row is removed.
  * 3. The next transfer to that account creates the row again by the usual
  *    rule (the receiver pays if he signed, otherwise the sender), exactly like
  *    a first receipt. Nothing is lost; RAM only moves.

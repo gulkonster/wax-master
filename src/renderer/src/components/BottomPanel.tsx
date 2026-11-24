@@ -5,6 +5,7 @@ import { emit } from '../lib/bus'
 import { appendOutput, clearOutput, outputStore, problemsStore, useStore } from '../lib/stores'
 import { IconClose, IconError, IconInfo, IconWarning } from './Icons'
 import { RICARDIAN_HINT, classifyLine, cleanLine, countProblems, isRicardianWarning, type ClassifiedLine } from '../../../shared/output-lines'
+import { ReadMore } from './HelpButton'
 
 const TABS: { id: PanelTab; label: string }[] = [
   { id: 'terminal', label: 'Terminal' },
@@ -135,6 +136,11 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
                       >
                         {RICARDIAN_HINT}
                       </span>
+                    </span>
+                  )}
+                  {p.source === 'abi' && (
+                    <span className="problem-hint" onClick={(ev) => ev.stopPropagation()}>
+                      <ReadMore place="abiCheck" />
                     </span>
                   )}
                   {p.file && (

@@ -4,6 +4,7 @@ import type { InspectedTransaction } from '../../../shared/trace-types'
 import type { OpenProject } from '../../../shared/api'
 import { Modal } from './Modal'
 import { InspectorBody } from './Inspector'
+import { ReadMore } from './HelpButton'
 import { errorText, toast } from '../lib/toast'
 import { networkStore } from '../lib/networks'
 import { useStore } from '../lib/stores'
@@ -11,10 +12,11 @@ import { ensureBuild } from '../lib/build'
 import { withVault } from '../lib/vault'
 import { emit } from '../lib/bus'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
+import { CANCELLED_NOT_SENT, outcomeLine } from '../lib/tx-outcome'
 import { ACCOUNT_NAME, AccountPicker, PermissionPicker, usePickList } from './AccountPicker'
 import { BuyRamPanel, useRamMarket } from './BuyRamPanel'
 import { FaucetButton } from './FaucetButton'
-import { ramToBuy } from '../../../shared/ram-market'
+import { deployRamText, ramToBuy } from '../../../shared/ram-market'
 import { useApp } from '../state'
 import { lastOpened } from './ChainButtons'
 import { lastDeployPick, preselectAccount, rememberDeployPick } from '../lib/deploy-account'
@@ -70,6 +72,8 @@ export function DeployDialog({
   const { price: ramPrice } = useRamMarket()
   const target = project.config.deploy.target
   const [error, setError] = useState('')
+  /** Neutral note after Deploy (a cancel); never in the error style. */
+  const [sendNote, setSendNote] = useState('')
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
 
   const valid = ACCOUNT_NAME.test(account) && ACCOUNT_NAME.test(permission)
@@ -111,6 +115,7 @@ export function DeployDialog({
     setBuildLine('')
     setBuyOpen(false)
     setRamNote('')
+    setSendNote('')
     try {
       setBusy(always ? 'rebuild' : 'ensure')
       const r = await ensureBuild(showPanel, always)
@@ -182,6 +187,7 @@ export function DeployDialog({
     if (!plan) return
     setBusy('simulate')
     setError('')
+    setSendNote('')
     try {
       setTrace(await withPlan(plan.id, (id) => window.wax.deploy.simulate(id)))
     } catch (e) {
@@ -195,6 +201,7 @@ export function DeployDialog({
     if (!plan) return
     setBusy('deploy')
     setError('')
+    setSendNote('')
     try {
       // A locked vault is asked for here; the same plan is sent after the unlock. A plan that
       // was used up by an earlier attempt is prepared again from the same build (no compile).
@@ -206,16 +213,18 @@ export function DeployDialog({
       } else {
         // The plan is used up: it is prepared again from the same build, so Deploy can be pressed again.
         await loadPlan().catch(() => undefined)
-        if (r.status === 'failed') {
-          setError(r.error)
-          if (r.trace) setTrace(r.trace)
-        } else setError('Cancelled; nothing was sent.')
+        if (r.status === 'failed' && r.trace) setTrace(r.trace)
+        // A cancel is a neutral note; a refusal is explained once, by the inspector below when it has the text.
+        const line = outcomeLine(r, CANCELLED_NOT_SENT)
+        if (line?.kind === 'error') setError(line.text)
+        else if (line) setSendNote(line.text)
       }
     } catch (e) {
       // Failed after the plan was used (for example a network error while the transaction was
       // prepared): the plan is prepared again from the same build, so Deploy can be pressed again.
       await loadPlan().catch(() => undefined)
-      if (!isUnlockCancelled(e)) setError(errorText(e))
+      if (isUnlockCancelled(e)) setSendNote(CANCELLED_NOT_SENT)
+      else setError(errorText(e))
     } finally {
       setBusy(null)
     }
@@ -228,6 +237,7 @@ export function DeployDialog({
     <Modal
       size="l"
       name="deploy"
+      help="deploy"
       title={askAccount ? 'Deploy to Account' : 'Deploy'}
       onClose={busy ? undefined : onClose}
       footer={
@@ -309,15 +319,11 @@ export function DeployDialog({
           )}
           {nothing && <div className="c-done">Nothing to deploy: the account already has this build.</div>}
           {!nothing && !ramShort && (
-            <div className="hint">
-              RAM needed about {plan.ramNeeded.toLocaleString()} bytes; available {plan.ramAvailable < 0 ? 'unlimited' : `${plan.ramAvailable.toLocaleString()} bytes`}.
-            </div>
+            <div className="hint">{deployRamText(plan)}</div>
           )}
           {!nothing && ramShort && (
             <div className="banner warn ram-warn">
-              <span className="grow">
-                RAM needed about {plan.ramNeeded.toLocaleString()} bytes; available {plan.ramAvailable.toLocaleString()} bytes.
-              </span>
+              <span className="grow">{deployRamText(plan)}</span>
               {!buyOpen && (
                 <span className="ram-warn-actions">
                   {ramPrice?.available && (
@@ -347,7 +353,17 @@ export function DeployDialog({
           )}
         </div>
       )}
-      {error && <div className="error-text">{error}</div>}
+      {sendNote && <div className="hint">{sendNote}</div>}
+      {error && (
+        <div className="error-text">
+          {error}
+          {/^(ABI check:|The ABI of this build)/.test(error) && (
+            <div>
+              <ReadMore place="abiCheck" />
+            </div>
+          )}
+        </div>
+      )}
       {trace && (
         <div style={{ marginTop: 'var(--sp-3)' }}>
           <InspectorBody t={trace} />

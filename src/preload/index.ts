@@ -226,6 +226,9 @@ const api: WaxApi = {
   ricardian: {
     create: call('ricardian:create')
   },
+  docs: {
+    read: call('docs:read')
+  },
   on(event: string, cb: (...args: never[]) => void): () => void {
     return subscribe(EVENTS, event, cb)
   }

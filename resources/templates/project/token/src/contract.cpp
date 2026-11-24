@@ -145,7 +145,6 @@ void %CLASS%::sub_balance(const name& owner, const asset& value) {
 
 // A missing row is created again here, paid by ram_payer, exactly like a
 // first receipt.
-
 void %CLASS%::add_balance(const name& owner, const asset& value, const name& ram_payer) {
   accounts to_acnts(get_self(), owner.value);
   auto to = to_acnts.find(value.symbol.code().raw());

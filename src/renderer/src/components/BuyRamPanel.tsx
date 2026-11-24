@@ -104,7 +104,7 @@ export function BuyRamPanel({
   const [balances, setBalances] = useState<Record<string, string | null>>({})
   const [tick, setTick] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState<null | { text: string; bad: boolean }>(null)
+  const [message, setMessage] = useState<null | { text: string; kind: 'good' | 'note' | 'error' }>(null)
 
   // The account itself, then accounts the vault can sign for.
   const candidates = useMemo(() => {
@@ -181,14 +181,15 @@ export function BuyRamPanel({
         ])
       )
       if (r.status === 'sent') {
-        setMessage({ text: `${bytes.toLocaleString()} bytes of RAM bought for ${receiver}.`, bad: false })
+        setMessage({ text: `${bytes.toLocaleString()} bytes of RAM bought for ${receiver}.`, kind: 'good' })
         toast('RAM bought', `${bytes.toLocaleString()} bytes for ${receiver}`, 'success')
         setTick((t) => t + 1)
         onBought?.()
-      } else if (r.status === 'failed') setMessage({ text: r.error, bad: true })
-      else setMessage({ text: 'Cancelled; nothing was bought.', bad: false })
+      } else if (r.status === 'failed') setMessage({ text: r.error, kind: 'error' })
+      // A cancel is a neutral note, never an error.
+      else setMessage({ text: 'Cancelled; nothing was bought.', kind: 'note' })
     } catch (e) {
-      if (!isUnlockCancelled(e)) setMessage({ text: errorText(e), bad: true })
+      setMessage(isUnlockCancelled(e) ? { text: 'Cancelled; nothing was bought.', kind: 'note' } : { text: errorText(e), kind: 'error' })
     } finally {
       setBusy(false)
     }
@@ -285,7 +286,7 @@ export function BuyRamPanel({
           </button>
         )}
       </div>
-      {message && <div className={message.bad ? 'error-text' : 'acct-note good'}>{message.text}</div>}
+      {message && <div className={message.kind === 'error' ? 'error-text' : message.kind === 'note' ? 'hint' : 'acct-note good'}>{message.text}</div>}
     </div>
   )
 }

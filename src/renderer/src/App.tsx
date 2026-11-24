@@ -39,6 +39,9 @@ import { AboutDialog } from './components/AboutDialog'
 import { Home } from './pages/Home'
 import { ProjectView } from './pages/ProjectView'
 import { ComingLater } from './pages/ComingLater'
+import { DocsPage } from './pages/DocsPage'
+import { HelpDialog } from './components/Help'
+import { go, pageHistory } from './lib/docs'
 
 export function App(): React.JSX.Element {
   const [state, setState] = useState<AppState>({
@@ -67,6 +70,7 @@ export function App(): React.JSX.Element {
   const [deployOpen, setDeployOpen] = useState<null | { askAccount: boolean }>(null)
   const [chainDialog, setChainDialog] = useState<null | 'create-account' | 'testnet-account' | 'clear-code' | 'open-transaction'>(null)
   const [changeKey, setChangeKey] = useState<null | Parameters<typeof ChangeKeyDialog>[0]>(null)
+  const [helpTopic, setHelpTopic] = useState<string | null>(null)
 
   const openTransaction = useCallback(async (id: string) => {
     try {
@@ -85,6 +89,14 @@ export function App(): React.JSX.Element {
       on('open-keys', (a) => setKeysOpen({ filter: (a as string | null) ?? null })),
       on('open-transaction', (id) => void openTransaction(id as string)),
       on('change-key', (p) => setChangeKey(p as Parameters<typeof ChangeKeyDialog>[0])),
+      // Help for a place: over an open dialog in the help window, else on the Documentation page.
+      on('open-help', (id) => {
+        if (document.querySelector('.modal')) setHelpTopic(id as string)
+        else {
+          pageHistory.set(go(pageHistory.get(), id as string))
+          setState((st) => ({ ...st, view: 'docs' }))
+        }
+      }),
       on('open-account-page', (n) => {
         setState((st) => ({ ...st, view: 'account' }))
         setTimeout(() => emit('open-account', n), 0)
@@ -322,6 +334,9 @@ export function App(): React.JSX.Element {
         case 'about':
           setAboutOpen(true)
           break
+        case 'docs':
+          actions.setView('docs')
+          break
         case 'toggle-terminal':
           setState((st) => ({ ...st, panelOpen: !(st.panelOpen && st.panelTab === 'terminal'), panelTab: 'terminal' }))
           break
@@ -392,13 +407,14 @@ export function App(): React.JSX.Element {
             {state.view === 'setup' && <Setup />}
             {state.view === 'settings' && <SettingsPage />}
             {state.view === 'network' && <NetworkPage />}
+            {state.view === 'docs' && <DocsPage />}
             <div style={{ display: state.view === 'account' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
               <AccountPage />
             </div>
             <div style={{ display: state.view === 'contract' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
               <ContractPage />
             </div>
-            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && state.view !== 'settings' && state.view !== 'account' && state.view !== 'contract' && state.view !== 'network' && <ComingLater what={state.view} />}
+            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && state.view !== 'settings' && state.view !== 'account' && state.view !== 'contract' && state.view !== 'network' && state.view !== 'docs' && <ComingLater what={state.view} />}
             <BottomPanel terminal={<TerminalPanel visible={state.panelOpen && state.panelTab === 'terminal'} />} />
           </div>
         </div>
@@ -481,6 +497,7 @@ export function App(): React.JSX.Element {
           WAX Master {update.latest} is available (you have {update.current}). Download it from the release page and verify it as the README describes.
         </Modal>
       )}
+      {helpTopic && <HelpDialog topic={helpTopic} onClose={() => setHelpTopic(null)} />}
       <UnlockPromptHost />
       <Toasts />
     </AppContext.Provider>

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import '../styles.css'
 import './confirm.css'
 import { checkPassword } from '../../../shared/password'
+import { confirmPageKind, notSentText } from './not-sent'
 
 interface Blob {
   field: 'code' | 'abi'
@@ -40,7 +41,7 @@ declare global {
   interface Window {
     confirmation: {
       load(): Promise<Approval>
-      approve(id: string, typedName?: string): Promise<{ ok: boolean; transactionId?: string; error?: string; notReady?: boolean }>
+      approve(id: string, typedName?: string): Promise<{ ok: boolean; transactionId?: string; error?: string; notReady?: boolean; refused?: boolean }>
       cancel(id: string): Promise<boolean>
       revealLoad(): Promise<{ label: string; publicKey: string }>
       revealShow(password: string): Promise<string>
@@ -107,6 +108,8 @@ function useArmed(delay: number): { armed: boolean; waitMs: number } {
 
 function Confirm(): React.JSX.Element {
   const [a, setA] = useState<Approval | null>(null)
+  // Nothing to load is the only bare page; a failed send keeps the transaction and adds one line.
+  const [loadError, setLoadError] = useState('')
   const [error, setError] = useState('')
   const [typed, setTyped] = useState('')
   const [left, setLeft] = useState(0)
@@ -119,7 +122,7 @@ function Confirm(): React.JSX.Element {
     window.confirmation
       .load()
       .then(setA)
-      .catch(() => setError('Nothing to confirm.'))
+      .catch(() => setLoadError('Nothing to confirm.'))
   }, [])
 
   useEffect(() => {
@@ -130,8 +133,9 @@ function Confirm(): React.JSX.Element {
     return () => clearInterval(t)
   }, [a])
 
-  if (error) return <div className="c-page">{error}</div>
-  if (!a) return <div className="c-page">Loading...</div>
+  const kind = confirmPageKind(loadError, a !== null)
+  if (kind === 'bare') return <div className="c-page">{loadError}</div>
+  if (kind === 'loading' || !a) return <div className="c-page">Loading...</div>
 
   const mainnet = a.network.kind !== 'testnet' && a.network.kind !== 'local'
   const expired = left <= 0
@@ -148,7 +152,7 @@ function Confirm(): React.JSX.Element {
       setNote(r.error ?? '')
     } else {
       setState('failed')
-      setError(r.error ?? 'Failed')
+      setError(notSentText(r.error, r.refused === true))
     }
   }
 

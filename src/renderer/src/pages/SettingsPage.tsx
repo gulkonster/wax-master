@@ -3,6 +3,7 @@ import type { ThemeSetting } from '../../../shared/api'
 import { useApp } from '../state'
 import { Modal } from '../components/Modal'
 import { errorText, toast } from '../lib/toast'
+import { HelpButton } from '../components/HelpButton'
 
 const VAULT_WORDS = 'delete my keys'
 
@@ -17,7 +18,10 @@ export function SettingsPage(): React.JSX.Element {
   return (
     <div className="page-scroll">
       <div className="form-page">
-        <h1>Settings</h1>
+        <h1 className="with-help">
+          Settings
+          <HelpButton place="settings" />
+        </h1>
         <h2>Appearance</h2>
         <div className="card">
         <div className="field">

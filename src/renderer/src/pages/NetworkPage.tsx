@@ -15,6 +15,7 @@ import { errorText, toast } from '../lib/toast'
 import { IconCopy, IconPencil, IconClose } from '../components/Icons'
 import { StatusDot } from '../components/StatusDot'
 import { EditNetworkDialog, RemoveNetworkDialog } from '../components/NetworkDialogs'
+import { HelpButton } from '../components/HelpButton'
 
 /** How often the page reads get_info and the head block while it is visible. */
 export const HEAD_INTERVAL_MS = 2000
@@ -206,6 +207,7 @@ function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint:
           <button className="btn" onClick={() => setDialog('remove')}>
             <IconClose size="sm" /> Remove
           </button>
+          <HelpButton place="networkPage" />
         </div>
         <div className="network-fields">
           <label htmlFor="network-endpoint">API endpoint</label>

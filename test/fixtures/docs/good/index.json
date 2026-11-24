@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "start",
+      "title": "Start",
+      "topics": [
+        { "id": "welcome", "title": "Welcome", "keywords": ["intro"] },
+        { "id": "ram-basics", "title": "RAM basics", "keywords": ["memory"] }
+      ]
+    },
+    {
+      "title": "More",
+      "topics": [{ "id": "faucet", "title": "Testnet tokens" }]
+    }
+  ]
+}

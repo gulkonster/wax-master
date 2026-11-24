@@ -139,6 +139,7 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
     <Modal
       size="m"
       name="add-network"
+      help="addNetwork"
       title="Connect to Custom Network"
       onClose={onClose}
       footer={
@@ -338,6 +339,7 @@ export function ManageNetworksDialog({ onClose }: { onClose: () => void }): Reac
     <Modal
       size="l"
       name="manage-networks"
+      help="manageNetworks"
       title="Manage Networks"
       onClose={onClose}
       footer={

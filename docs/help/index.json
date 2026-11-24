@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "groups": [
+    {
+      "id": "start",
+      "title": "Start",
+      "topics": [
+        { "id": "what-is-wax-master", "title": "What WAX Master is", "keywords": ["about", "overview", "features"] },
+        { "id": "first-start", "title": "First start and the toolchain", "keywords": ["setup", "wsl", "install", "cdt", "toolchain"] },
+        { "id": "first-contract", "title": "Your first contract from zero", "keywords": ["tutorial", "hello world", "testnet", "faucet", "deploy", "ram", "hi"] },
+        { "id": "window-tour", "title": "A tour of the window", "keywords": ["menu", "top bar", "status bar", "panel", "layout"] }
+      ]
+    },
+    {
+      "id": "projects",
+      "title": "Projects and building",
+      "topics": [
+        { "id": "project-files", "title": "Project files and settings", "keywords": ["waxmaster.json", "project settings", "template", "eosproj", "folder"] },
+        { "id": "build-output-problems", "title": "Build, Output and Problems", "keywords": ["build", "compile", "ctrl+b", "output", "problems", "warning", "error"] },
+        { "id": "compiler-errors", "title": "Common compiler errors", "keywords": ["error", "compile", "clang", "undeclared", "include"] },
+        { "id": "abi-check", "title": "ABI check messages", "keywords": ["abi", "unknown type", "deploy stopped", "table type"] },
+        { "id": "ricardian", "title": "Ricardian contracts", "keywords": ["ricardian", "contracts.md", "clauses", "warning"] },
+        { "id": "custom-build-command", "title": "Custom build commands and trust", "keywords": ["build command", "approval", "trust", "script"] },
+        { "id": "toolchain-versions", "title": "Toolchain versions", "keywords": ["cdt", "version", "deb", "toolchain"] }
+      ]
+    },
+    {
+      "id": "accounts",
+      "title": "Accounts and keys",
+      "topics": [
+        { "id": "accounts-and-names", "title": "Accounts and names", "keywords": ["account", "name", "permission", "owner", "active", "account page"] },
+        { "id": "vault", "title": "The vault (password, lock, recovery code)", "keywords": ["vault", "password", "lock", "unlock", "recovery", "forgot password", "reset"] },
+        { "id": "key-backups", "title": "Backing up keys", "keywords": ["backup", "export", "private key", "no backup", "recovery"] },
+        { "id": "create-testnet-account", "title": "Create a testnet account", "keywords": ["faucet", "testnet", "test tokens", "free account"] },
+        { "id": "create-account", "title": "Create an account", "keywords": ["newaccount", "create account", "creator", "ram"] },
+        { "id": "starred-accounts", "title": "Starred accounts", "keywords": ["star", "starred", "deploy account", "find an account"] }
+      ]
+    },
+    {
+      "id": "networks",
+      "title": "Networks",
+      "topics": [
+        { "id": "mainnet-and-testnet", "title": "Mainnet and testnet", "keywords": ["mainnet", "testnet", "local", "kind", "chain id"] },
+        { "id": "add-remove-networks", "title": "Add and remove networks", "keywords": ["add network", "remove network", "restore", "manage networks"] },
+        { "id": "network-page", "title": "The Network page", "keywords": ["network page", "blocks", "ram price", "producer", "chain state"] },
+        { "id": "network-status", "title": "The status mark", "keywords": ["status", "green", "orange", "red", "dot", "not reachable"] },
+        { "id": "endpoints", "title": "Endpoints", "keywords": ["endpoint", "api", "history service", "hyperion", "url"] }
+      ]
+    },
+    {
+      "id": "tokens",
+      "title": "Tokens",
+      "topics": [
+        { "id": "transfers", "title": "Transfers and memos", "keywords": ["transfer", "memo", "send", "wax", "eosio.token"] },
+        { "id": "token-contract", "title": "The token contract", "keywords": ["token", "create", "issue", "retire", "open", "close", "transfers", "zero balance"] }
+      ]
+    },
+    {
+      "id": "chain",
+      "title": "Contracts on the chain",
+      "topics": [
+        { "id": "deploy", "title": "Deploy", "keywords": ["deploy", "setcode", "setabi", "hash", "ram", "buy ram"] },
+        { "id": "run-actions", "title": "Run actions", "keywords": ["action", "run", "contract page", "eosio.code", "linkauth", "unlinkauth", "updateauth", "permission"] },
+        { "id": "read-tables", "title": "Read tables", "keywords": ["table", "rows", "scope", "query", "get_table_rows"] },
+        { "id": "simulate-inspector", "title": "Simulate and the transaction inspector", "keywords": ["simulate", "inspector", "trace", "console", "refused", "cpu", "net"] },
+        { "id": "transaction-history", "title": "Transaction history", "keywords": ["history", "transactions", "transaction id", "hyperion"] }
+      ]
+    },
+    {
+      "id": "safety",
+      "title": "Safety",
+      "topics": [
+        { "id": "mainnet-confirmation", "title": "The mainnet confirmation", "keywords": ["confirmation", "mainnet", "approve", "sign", "typed name"] },
+        { "id": "what-the-app-contacts", "title": "What the app contacts", "keywords": ["privacy", "network", "faucet", "updates", "addresses"] },
+        { "id": "verify-download", "title": "Verify your download", "keywords": ["verify", "sha256", "hash", "attestation", "installer"] }
+      ]
+    }
+  ]
+}

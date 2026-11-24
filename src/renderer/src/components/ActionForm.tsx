@@ -10,6 +10,7 @@ import { copyText } from '../lib/clipboard'
 import { IconCheck, IconChevronDown, IconChevronRight, IconClock, IconCopy, IconFunction, IconHeart, IconPlay, IconClose, IconPlus } from './Icons'
 import { withVault } from '../lib/vault'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
+import { CANCELLED_NOT_SIGNED, formLineClass, outcomeLine, type FormLine } from '../lib/tx-outcome'
 import { AccountPicker, PermissionPicker } from './AccountPicker'
 
 // ---------------------------------------------------------------- shared dropdown
@@ -422,7 +423,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
   }
 
   const [result, setResult] = useState<InspectedTransaction | null>(null)
-  const [resultNote, setResultNote] = useState('')
+  const [resultNote, setResultNote] = useState<FormLine | null>(null)
   const [running, setRunning] = useState<null | 'run' | 'simulate'>(null)
 
   const txActions = (): { account: string; name: string; authorization: AuthLevel[]; data: unknown }[] | null => {
@@ -440,13 +441,13 @@ export function ActionForm({ account, view, network }: { account: string; view: 
     const acts = txActions()
     if (!acts) return
     setRunning('run')
-    setResultNote('')
+    setResultNote(null)
     try {
       // A recipient that does not exist stops the action before the confirmation.
       for (const name of recipientNames(fields, acts[0].data as Record<string, unknown>)) {
         if (!(await window.wax.chain.accountExists(name))) {
           setResult(null)
-          setResultNote(`This account does not exist on ${network.name}: ${name}. Nothing was signed.`)
+          setResultNote({ kind: 'error', text: `This account does not exist on ${network.name}: ${name}. Nothing was signed.` })
           return
         }
       }
@@ -454,15 +455,16 @@ export function ActionForm({ account, view, network }: { account: string; view: 
       const r = await withVault(() => window.wax.tx.run(acts))
       if (r.status === 'sent') {
         setResult(r.trace)
-        setResultNote('')
+        setResultNote(null)
         emit('output-line', `Transaction ${r.trace.id} sent to ${r.trace.endpoint}
 `)
-      } else if (r.status === 'failed') {
-        setResult(r.trace)
-        setResultNote(r.error)
-      } else setResultNote('Cancelled; nothing was signed.')
+      } else {
+        // A cancel is a neutral note; a refusal is explained once, in the result below.
+        if (r.status === 'failed') setResult(r.trace)
+        setResultNote(outcomeLine(r, CANCELLED_NOT_SIGNED))
+      }
     } catch (e) {
-      setResultNote(isUnlockCancelled(e) ? 'Cancelled; nothing was signed.' : errorText(e))
+      setResultNote(isUnlockCancelled(e) ? { kind: 'note', text: CANCELLED_NOT_SIGNED } : { kind: 'error', text: errorText(e) })
       setResult(null)
     } finally {
       setRunning(null)
@@ -473,11 +475,11 @@ export function ActionForm({ account, view, network }: { account: string; view: 
     const acts = txActions()
     if (!acts) return
     setRunning('simulate')
-    setResultNote('')
+    setResultNote(null)
     try {
       setResult(await window.wax.tx.simulate(acts))
     } catch (e) {
-      setResultNote(errorText(e))
+      setResultNote({ kind: 'error', text: errorText(e) })
       setResult(null)
     } finally {
       setRunning(null)
@@ -666,7 +668,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
               {simSupport === 'unknown' && <div className="hint">Simulate: not verified for this endpoint.</div>}
               {simSupport === 'unsupported' && <div className="hint">Simulate: this endpoint does not offer it.</div>}
               {running === 'run' && <div>Waiting for the confirmation window...</div>}
-              {resultNote && <div className="error-text">{resultNote}</div>}
+              {resultNote && <div className={formLineClass(resultNote)}>{resultNote.text}</div>}
               {!result && !resultNote && !running && <div>(None)</div>}
               {result && (
                 <div className="result-line">

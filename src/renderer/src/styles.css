@@ -3424,3 +3424,207 @@ button.sb-item.mainnet:hover {
   margin: var(--sp-2) 0 0;
   padding-left: var(--sp-6);
 }
+
+/* ------------------------------------------------------------------ documentation */
+
+.with-help {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.modal-head .help-btn {
+  margin-right: 0;
+}
+.docs-page {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.docs-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: var(--sidebar);
+  flex-shrink: 0;
+  padding: var(--sp-4) var(--sp-3);
+  background: var(--bg-chrome);
+  border-right: var(--bw) solid var(--border);
+}
+.docs-side .input {
+  width: 100%;
+  height: var(--ctl-lg);
+}
+.docs-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.docs-group + .docs-group {
+  margin-top: var(--sp-4);
+}
+.docs-group-title {
+  padding: 0 var(--sp-2) var(--sp-1);
+  color: var(--text-3);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  font-weight: 600;
+}
+.docs-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-half);
+  width: 100%;
+  min-height: var(--tree-row);
+  padding: var(--sp-1) var(--sp-2);
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.docs-item:hover {
+  background: var(--hover);
+}
+.docs-item.sel {
+  background: var(--sel-bg);
+  color: var(--sel-text);
+  box-shadow: inset var(--bw-3) 0 0 var(--sel-line);
+}
+.docs-item-title {
+  font-size: var(--fs-tree);
+}
+.docs-item.hit + .docs-item.hit {
+  margin-top: var(--sp-1);
+}
+.docs-item.hit .docs-item-title {
+  font-weight: 600;
+}
+.docs-item-group,
+.docs-item-snippet {
+  color: var(--text-3);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+}
+.docs-main {
+  min-width: 0;
+}
+.docs-content {
+  max-width: var(--form-col);
+  margin: 0 auto;
+  padding: var(--sp-4) var(--sp-6) var(--sp-12);
+}
+.doc-viewer {
+  user-select: text;
+}
+.doc-nav {
+  display: flex;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-3);
+}
+.doc-missing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+/* A documentation topic. Built from the parsed file only (lib/markdown.tsx). */
+.md {
+  color: var(--text);
+}
+.md-h1 {
+  margin: 0 0 var(--sp-4);
+  font-family: var(--font-display);
+  font-size: var(--fs-page);
+  line-height: var(--lh-page);
+  color: var(--text-strong);
+}
+.md-h2 {
+  margin: var(--gap-section) 0 var(--sp-3);
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
+  color: var(--text-strong);
+}
+.md-h3 {
+  margin: var(--gap-group) 0 var(--sp-2);
+  font-size: var(--fs-card);
+  line-height: var(--lh-card);
+  color: var(--text-strong);
+}
+.md-p,
+.md-list {
+  margin: 0 0 var(--sp-3);
+}
+.md-list {
+  padding-left: var(--sp-6);
+}
+.md-list li + li {
+  margin-top: var(--sp-1);
+}
+.md-code {
+  padding: 0 var(--sp-1);
+  background: var(--bg-surface-2);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--fs-data);
+}
+.md-pre {
+  position: relative;
+  margin: 0 0 var(--sp-3);
+}
+.md-pre pre {
+  max-height: none;
+  white-space: pre;
+  word-break: normal;
+  overflow-x: auto;
+}
+.md-link {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent-text);
+  text-align: left;
+  cursor: pointer;
+}
+.md-link:hover {
+  text-decoration: underline;
+}
+.md-do {
+  margin: 0 var(--sp-1);
+  vertical-align: baseline;
+}
+.md-table-wrap {
+  margin: 0 0 var(--sp-3);
+  overflow-x: auto;
+}
+.md-table {
+  border-collapse: collapse;
+}
+.md-table th,
+.md-table td {
+  padding: var(--sp-1h) var(--sp-3);
+  border: var(--bw) solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.md-table th {
+  background: var(--bg-surface-2);
+  font-weight: 600;
+}
+.md-note {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--info-tint);
+  border-left: var(--bw-3) solid var(--info-text);
+  border-radius: var(--radius);
+}
+.md-note p {
+  margin: 0;
+}
+.md-note p + p {
+  margin-top: var(--sp-2);
+}
+.read-more {
+  margin-left: var(--sp-1);
+  font-size: inherit;
+}

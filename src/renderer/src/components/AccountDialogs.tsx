@@ -7,6 +7,8 @@ import { networkStore } from '../lib/networks'
 import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
 import { withVault } from '../lib/vault'
+import { isUnlockCancelled } from '../../../shared/vault-locked'
+import { CANCELLED_NOT_SENT, formLineClass, outcomeLine, type FormLine } from '../lib/tx-outcome'
 import { AccountPicker, PermissionPicker } from './AccountPicker'
 import { NoBackupLine, useNoBackupGate } from './BackupWarning'
 
@@ -58,7 +60,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
   const [netStake, setNetStake] = useState(zero)
   const [transfer, setTransfer] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  const [line, setLine] = useState<FormLine | null>(null)
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
   // The new name is checked to be free when the field is left.
   const [free, setFree] = useState<null | 'checking' | 'free' | 'taken' | { error: string }>(null)
@@ -88,7 +90,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
   const create = async (): Promise<void> => {
     if (!(await noBackup.gate([ownerKey, activeKey]))) return
     setBusy(true)
-    setError('')
+    setLine(null)
     try {
       const r = await withVault(() =>
         window.wax.accounts.create({
@@ -107,12 +109,13 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
         setTrace(r.trace)
         toast('Account created', name, 'success')
         emit('open-account-page', name)
-      } else if (r.status === 'failed') {
-        setError(r.error)
-        if (r.trace) setTrace(r.trace)
+      } else {
+        // A cancel is a neutral note; a refusal is explained once, by the inspector below when it has the text.
+        if (r.status === 'failed' && r.trace) setTrace(r.trace)
+        setLine(outcomeLine(r, CANCELLED_NOT_SENT))
       }
     } catch (e) {
-      setError(errorText(e))
+      setLine(isUnlockCancelled(e) ? { kind: 'note', text: CANCELLED_NOT_SENT } : { kind: 'error', text: errorText(e) })
     } finally {
       setBusy(false)
     }
@@ -122,6 +125,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
     <Modal
       size="m"
       name="create-account"
+      help="createAccount"
       title={`Create Account on ${net?.name ?? ''}`}
       onClose={busy ? undefined : onClose}
       footer={
@@ -189,7 +193,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
       <label style={{ display: 'flex', gap: 'var(--sp-2)', alignItems: 'center' }}>
         <input type="checkbox" checked={transfer} onChange={(e) => setTransfer(e.target.checked)} /> Transfer the staked tokens to the new account
       </label>
-      {error && <div className="error-text">{error}</div>}
+      {line && <div className={formLineClass(line)}>{line.text}</div>}
       {trace && <InspectorBody t={trace} />}
       {noBackup.element}
     </Modal>
@@ -225,24 +229,25 @@ export function ChangeKeyDialog({
   // The permission itself signs by default when the vault has its key; a parent is a choice.
   const [signWith, setSignWith] = useState(vaultKeys.length > 0 ? permission : (signOptions[1] ?? permission))
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  const [line, setLine] = useState<FormLine | null>(null)
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
   const noBackup = useNoBackupGate()
   const change = async (): Promise<void> => {
     if (!(await noBackup.gate([newKey]))) return
     setBusy(true)
-    setError('')
+    setLine(null)
     try {
       const r = await withVault(() => window.wax.accounts.changeKey({ account, permission, oldKey, newKey, signWith }))
       if (r.status === 'sent') {
         setTrace(r.trace)
         toast('Key changed', `${account}@${permission}`, 'success')
-      } else if (r.status === 'failed') {
-        setError(r.error)
-        if (r.trace) setTrace(r.trace)
+      } else {
+        // A cancel is a neutral note; a refusal is explained once, by the inspector below when it has the text.
+        if (r.status === 'failed' && r.trace) setTrace(r.trace)
+        setLine(outcomeLine(r, CANCELLED_NOT_SENT))
       }
     } catch (e) {
-      setError(errorText(e))
+      setLine(isUnlockCancelled(e) ? { kind: 'note', text: CANCELLED_NOT_SENT } : { kind: 'error', text: errorText(e) })
     } finally {
       setBusy(false)
     }
@@ -251,6 +256,7 @@ export function ChangeKeyDialog({
     <Modal
       size="m"
       name="change-key"
+      help="changeKey"
       title={`Change key of ${account}@${permission}`}
       onClose={busy ? undefined : onClose}
       footer={
@@ -296,7 +302,7 @@ export function ChangeKeyDialog({
           ))}
         </select>
       </div>
-      {error && <div className="error-text">{error}</div>}
+      {line && <div className={formLineClass(line)}>{line.text}</div>}
       {trace && <InspectorBody t={trace} />}
       {noBackup.element}
     </Modal>

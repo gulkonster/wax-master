@@ -228,6 +228,23 @@ export const IconArrowDown = (p: P): React.JSX.Element => (
     <path d="M8 3v10M4 9l4 4 4-4" />
   </Svg>
 )
+export const IconArrowLeft = (p: P): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M13 8H3M7 4L3 8l4 4" />
+  </Svg>
+)
+export const IconArrowRight = (p: P): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M3 8h10M9 4l4 4-4 4" />
+  </Svg>
+)
+/** A question mark in a circle: opens the documentation of the place. */
+export const IconHelp = (p: P): React.JSX.Element => (
+  <Svg {...p}>
+    <circle cx="8" cy="8" r="6.5" />
+    <path d="M6.2 6.3a1.9 1.9 0 0 1 3.7.4c0 1.3-1.9 1.6-1.9 2.8M8 11.5v.01" />
+  </Svg>
+)
 
 /** The application symbol (same artwork as build/icon.svg) in the title bar; its size is --app-icon. */
 export function AppIcon(): React.JSX.Element {

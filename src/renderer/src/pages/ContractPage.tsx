@@ -8,6 +8,7 @@ import { lastOpened } from '../components/ChainButtons'
 import { ActionForm } from '../components/ActionForm'
 import { TableView } from '../components/TableView'
 import { IconClose, IconContract, IconPlus, IconRefresh, IconStar } from '../components/Icons'
+import { HelpButton } from '../components/HelpButton'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
@@ -79,6 +80,7 @@ export function ContractPage(): React.JSX.Element {
             <IconStar filled={starred} />
           </button>
         </div>
+        <HelpButton place="contractPage" />
       </div>
       {active && net.current ? (
         <ContractBody key={`${net.current.id}:${active}`} name={active} />

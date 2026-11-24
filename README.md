@@ -62,7 +62,7 @@ Existing EOS Studio projects open as they are (File > Open Project); settings ar
 
 - A computer that is already infected cannot be made safe by this app.
 - Keep the owner keys of valuable accounts out of the app. Use dedicated permissions for deploying and daily actions.
-- There is no password recovery for the vault. Export a backup (Manage Keypairs > Export vault); the export is encrypted with the same password.
+- When the vault is created you get a recovery code, shown once: keep it away from this computer. With it, "Forgot password?" on the unlock prompt sets a new password. Without the password and the code the keys cannot be opened, so also export a backup (Manage Keypairs > Vault > Export vault; encrypted with the same password) or back up single keys.
 - The terminal is your own shell; commands you run there act with your rights.
 - A project's custom build command runs only after you approve it, and runs with your rights inside the toolchain environment.
 - Simulation runs against the current chain state and skips authorization checks, so a real transaction can still fail.

@@ -5,6 +5,7 @@ import { errorText } from '../lib/toast'
 import { toolchainStore } from '../lib/stores'
 import { ToolchainManager } from '../components/ToolchainManager'
 import { IconCheck } from '../components/Icons'
+import { HelpButton } from '../components/HelpButton'
 
 type RowState = 'ok' | 'bad' | 'busy' | 'waiting'
 
@@ -178,7 +179,10 @@ export function Setup(): React.JSX.Element {
   return (
     <div className="page-scroll">
       <div className="form-page wide">
-        <h1>Setup</h1>
+        <h1 className="with-help">
+          Setup
+          <HelpButton place="setup" />
+        </h1>
         <p className="lead">
           WAX Master builds contracts with WAX CDT inside a private Linux environment (WSL). These steps prepare it once.
         </p>

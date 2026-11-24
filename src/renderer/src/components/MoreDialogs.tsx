@@ -8,6 +8,8 @@ import { networkStore } from '../lib/networks'
 import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
 import { withVault } from '../lib/vault'
+import { isUnlockCancelled } from '../../../shared/vault-locked'
+import { CANCELLED_NOT_SENT, formLineClass, outcomeLine, type FormLine } from '../lib/tx-outcome'
 import { AccountPicker, PermissionPicker } from './AccountPicker'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
@@ -21,22 +23,23 @@ export function ClearCodeDialog({ onClose }: { onClose: () => void }): React.JSX
   const [account, setAccount] = useState('')
   const [permission, setPermission] = useState('active')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
+  const [line, setLine] = useState<FormLine | null>(null)
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
   const go = async (): Promise<void> => {
     setBusy(true)
-    setError('')
+    setLine(null)
     try {
       const r = await withVault(() => window.wax.accounts.clearCode(account, permission))
       if (r.status === 'sent') {
         setTrace(r.trace)
         toast('Contract code cleared', account, 'success')
-      } else if (r.status === 'failed') {
-        setError(r.error)
-        if (r.trace) setTrace(r.trace)
+      } else {
+        // A cancel is a neutral note; a refusal is explained once, by the inspector below when it has the text.
+        if (r.status === 'failed' && r.trace) setTrace(r.trace)
+        setLine(outcomeLine(r, CANCELLED_NOT_SENT))
       }
     } catch (e) {
-      setError(errorText(e))
+      setLine(isUnlockCancelled(e) ? { kind: 'note', text: CANCELLED_NOT_SENT } : { kind: 'error', text: errorText(e) })
     } finally {
       setBusy(false)
     }
@@ -79,7 +82,7 @@ export function ClearCodeDialog({ onClose }: { onClose: () => void }): React.JSX
           <PermissionPicker account={account} value={permission} onChange={setPermission} />
         </div>
       </div>
-      {error && <div className="error-text">{error}</div>}
+      {line && <div className={formLineClass(line)}>{line.text}</div>}
       {trace && <InspectorBody t={trace} />}
     </Modal>
   )

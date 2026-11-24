@@ -222,6 +222,8 @@ export const chain = {
   getAbi: (ep: string, account: string) => request<{ account_name: string; abi?: unknown }>(ep, '/v1/chain/get_abi', { body: { account_name: account } }),
   getRawAbi: (ep: string, account: string) =>
     request<{ account_name: string; code_hash: string; abi_hash: string; abi: string }>(ep, '/v1/chain/get_raw_abi', { body: { account_name: account } }),
+  getRawCodeAndAbi: (ep: string, account: string) =>
+    request<{ account_name: string; wasm: string; abi: string }>(ep, '/v1/chain/get_raw_code_and_abi', { body: { account_name: account } }),
   getCodeHash: (ep: string, account: string) => request<{ account_name: string; code_hash: string }>(ep, '/v1/chain/get_code_hash', { body: { account_name: account } }),
   getCurrencyBalance: (ep: string, code: string, account: string, symbol?: string) =>
     request<string[]>(ep, '/v1/chain/get_currency_balance', { body: { code, account, symbol } }),

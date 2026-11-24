@@ -27,6 +27,11 @@ extraResources:
     to: resources
     filter:
       - 'templates/**'
+  - from: docs/help
+    to: resources/docs
+    filter:
+      - '*.md'
+      - index.json
   - from: build/icon.ico
     to: icon.ico
   - from: LICENSE

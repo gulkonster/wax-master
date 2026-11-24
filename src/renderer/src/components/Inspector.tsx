@@ -6,6 +6,7 @@ import { useState } from 'react'
 import type { InspectedTransaction, ResourceKind, ResourceProblem, TraceNode } from '../../../shared/trace-types'
 import { Modal } from './Modal'
 import { IconChevronDown, IconChevronRight } from './Icons'
+import { ReadMore } from './HelpButton'
 
 const NOT_RETURNED = 'not returned by this endpoint'
 
@@ -99,7 +100,9 @@ function ResourceState({ r, endpoint }: { r: ResourceProblem; endpoint: string }
           <span>{st.ram ? `${fmtBytes(st.ram.used)} used of ${fmtBytes(st.ram.quota)} · ${st.ram.quota < 0 ? 'unlimited' : `${fmtBytes(Math.max(0, st.ram.quota - st.ram.used))} available`}` : `(${NOT_RETURNED})`}</span>
         </div>
       )}
-      <div className="hint">Node error: {r.errorName}</div>
+      <div className="hint">
+        Node error: {r.errorName} <ReadMore place="resourceRefusal" />
+      </div>
     </div>
   )
 }

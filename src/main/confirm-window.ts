@@ -101,11 +101,13 @@ export function registerConfirmWindow(signer: Signer): void {
     } catch (err) {
       // The vault may have locked itself while this window was open: shown without the code.
       const message = withoutLockedCode(err instanceof Error ? err.message : String(err))
-      // A failed approval is used up (single use); the window shows the error and closes on Close.
+      const details = (err as { details?: unknown }).details
+      // A failed approval is used up (single use); the window keeps the transaction, adds why it was not sent and closes on Close.
       p.secret.fill(0)
-      p.settle({ approved: false, reason: 'error', error: message, details: (err as { details?: unknown }).details })
+      p.settle({ approved: false, reason: 'error', error: message, details })
       pendingByWindow.delete(e.sender.id)
-      return { ok: false, error: message }
+      // refused: the node answered with an error (not a timeout or a local failure).
+      return { ok: false, error: message, refused: details !== undefined }
     }
   })
   ipcMain.handle('confirm:cancel', (e, id: unknown) => {

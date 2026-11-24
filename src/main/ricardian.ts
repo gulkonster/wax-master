@@ -1,7 +1,8 @@
 // Ricardian files of a project: `<contract>.contracts.md` with one section per
 // action of the built ABI, and `<contract>.clauses.md` when it does not exist.
 // An existing file is only ever extended at its end: sections for actions that
-// have none are appended, nothing already in the file is changed or moved.
+// have none are appended, nothing already in the file is read back or written
+// again, so its old bytes stay exactly as they were.
 
 import { existsSync, promises as fsp, realpathSync } from 'node:fs'
 import { dirname, isAbsolute, relative, resolve } from 'node:path'
@@ -24,6 +25,12 @@ export interface RicardianAction {
   name: string
   params: RicardianParam[]
 }
+
+/** An action name as the chain writes it; anything else gets no section. */
+const ACTION_NAME = /^[a-z1-5.]{1,13}$/
+/** Parameter names and types listed in a section: plain words only. */
+const PARAM_NAME = /^[A-Za-z0-9_]{1,64}$/
+const PARAM_TYPE = /^[A-Za-z0-9_[\]?$]{1,64}$/
 
 /** The heading the ABI generator looks for in front of each action's text. */
 const CONTRACT_HEADING = /<h1 class="contract">\s*([^<]*?)\s*<\/h1>/g
@@ -52,7 +59,8 @@ export function actionsFromAbi(abi: AbiDef | string): RicardianAction[] {
     }
     return chain.flat()
   }
-  return def.actions.map((a) => ({ name: a.name, params: fieldsOf(a.type) }))
+  const plain = (p: RicardianParam): boolean => PARAM_NAME.test(p.name) && PARAM_TYPE.test(p.type)
+  return def.actions.map((a) => ({ name: a.name, params: fieldsOf(a.type).filter(plain) }))
 }
 
 function titleOf(action: string): string {
@@ -97,11 +105,20 @@ export function contractSectionNames(text: string): Set<string> {
   return out
 }
 
+/** True for a name that may get a section: a chain action name. */
+export function isActionName(name: string): boolean {
+  return ACTION_NAME.test(name)
+}
+
 export interface ExtendResult {
   /** The new file text; it starts with the old text unchanged. */
   text: string
+  /** The part appended to the old text (empty when nothing was added). */
+  appended: string
   added: string[]
   kept: string[]
+  /** Actions without a section because their name is not a chain action name. */
+  skipped: number
   /** 1-based line of the first added section (0 when nothing was added). */
   firstAddedLine: number
 }
@@ -113,7 +130,12 @@ export function extendContracts(existing: string, actions: RicardianAction[]): E
   const kept: string[] = []
   const seen = new Set<string>()
   const missing: RicardianAction[] = []
+  let skipped = 0
   for (const a of actions) {
+    if (!isActionName(a.name)) {
+      skipped++
+      continue
+    }
     if (seen.has(a.name)) continue
     seen.add(a.name)
     if (have.has(a.name)) kept.push(a.name)
@@ -122,7 +144,7 @@ export function extendContracts(existing: string, actions: RicardianAction[]): E
       missing.push(a)
     }
   }
-  if (missing.length === 0) return { text: existing, added, kept, firstAddedLine: 0 }
+  if (missing.length === 0) return { text: existing, appended: '', added, kept, skipped, firstAddedLine: 0 }
   const eol = existing.includes('\r\n') ? '\r\n' : '\n'
   let prefix = existing
   if (prefix.length > 0) {
@@ -132,7 +154,7 @@ export function extendContracts(existing: string, actions: RicardianAction[]): E
   }
   const firstAddedLine = prefix.length === 0 ? 1 : prefix.split('\n').length
   const text = prefix + missing.map((a) => ricardianSection(a, eol)).join(eol)
-  return { text, added, kept, firstAddedLine }
+  return { text, appended: text.slice(existing.length), added, kept, skipped, firstAddedLine }
 }
 
 function inside(root: string, target: string): boolean {
@@ -160,6 +182,19 @@ async function readLimited(abs: string, what: string): Promise<string> {
   return fsp.readFile(abs, 'utf8')
 }
 
+/** Whether a file to be written exists; a link in its place is refused, also one that points nowhere. */
+async function existingTarget(abs: string, what: string): Promise<boolean> {
+  let st
+  try {
+    st = await fsp.lstat(abs)
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return false
+    throw e
+  }
+  if (st.isSymbolicLink()) throw new Error(`${what} is a link; it is not written`)
+  return true
+}
+
 /** Project-relative paths the command reads and writes. */
 export function ricardianPaths(config: ProjectConfig): { abi: string; contracts: string; clauses: string } {
   const resource = effectiveResource(config).replace(/\\/g, '/').replace(/\/+$/, '')
@@ -183,21 +218,27 @@ export async function createRicardianFiles(root: string, config: ProjectConfig):
 
   const contractsAbs = containedPath(root, paths.contracts)
   const clausesAbs = containedPath(root, paths.clauses)
-  const existed = existsSync(contractsAbs)
+  const existed = await existingTarget(contractsAbs, paths.contracts)
+  const clausesExisted = await existingTarget(clausesAbs, paths.clauses)
+  // The old text is read only to find its sections and its line ends; it is never written back.
   const old = existed ? await readLimited(contractsAbs, paths.contracts) : ''
   const r = extendContracts(old, actions)
   await fsp.mkdir(dirname(contractsAbs), { recursive: true })
-  if (r.added.length > 0) await fsp.writeFile(contractsAbs, r.text, 'utf8')
-  else if (!existed) await fsp.writeFile(contractsAbs, '', 'utf8')
+  if (existed) {
+    if (r.appended.length > 0) await fsp.appendFile(contractsAbs, r.appended, { encoding: 'utf8', flag: 'a' })
+  } else {
+    await fsp.writeFile(contractsAbs, r.text, { encoding: 'utf8', flag: 'wx' })
+  }
 
   let clausesCreated = false
-  if (!existsSync(clausesAbs)) {
+  if (!clausesExisted) {
     await fsp.writeFile(clausesAbs, ricardianClauses(), { encoding: 'utf8', flag: 'wx' })
     clausesCreated = true
   }
 
   const parts = [`added ${r.added.length}, kept ${r.kept.length}`]
   if (actions.length === 0) parts.push('the ABI has no actions')
+  if (r.skipped > 0) parts.push(`skipped ${r.skipped}: not a valid action name`)
   if (clausesCreated) parts.push(`${paths.clauses} created`)
   return {
     contractsFile: paths.contracts,

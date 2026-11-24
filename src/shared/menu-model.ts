@@ -157,7 +157,8 @@ export const MENU_MODEL: readonly MenuModelMenu[] = [
   {
     label: 'Help',
     items: [
-      link('Documentation', `${REPO_URL}#readme`),
+      cmd('Documentation', 'docs'),
+      link('Project Page', `${REPO_URL}#readme`),
       link('Ask a Question', `${REPO_URL}/discussions`),
       link('Report an Issue', `${REPO_URL}/issues/new`),
       link('Request a Feature', `${REPO_URL}/issues/new?labels=enhancement`),
