@@ -22,6 +22,7 @@ import { ContractPage } from './pages/ContractPage'
 import { AddNetworkDialog, ManageNetworksDialog, StarredManager } from './components/NetworkDialogs'
 import { refreshNetworks, watchNetworkEvents } from './lib/networks'
 import { errorText, toast } from './lib/toast'
+import { failureText, type SaveAllResult } from './lib/save-result'
 import { TopBar } from './components/TopBar'
 import { StatusBar } from './components/StatusBar'
 import { BottomPanel } from './components/BottomPanel'
@@ -51,6 +52,8 @@ export function App(): React.JSX.Element {
   const [newTemplate, setNewTemplate] = useState<TemplateId | undefined>(undefined)
   const [unsaved, setUnsaved] = useState<null | ((r: 'save' | 'discard' | 'cancel') => void)>(null)
   const dirtyRef = useRef(0)
+  const [dirtyNames, setDirtyNames] = useState<string[]>([])
+  useEffect(() => on('dirty-names', (n) => setDirtyNames(n as string[])), [])
   const [dialog, setDialog] = useState<null | 'add-network' | 'manage-networks' | 'starred'>(null)
   const [keysOpen, setKeysOpen] = useState<null | { filter: string | null }>(null)
   const [inspect, setInspect] = useState<InspectedTransaction | null>(null)
@@ -107,7 +110,13 @@ export function App(): React.JSX.Element {
     const answer = await new Promise<'save' | 'discard' | 'cancel'>((resolve) => setUnsaved(() => resolve))
     setUnsaved(null)
     if (answer === 'cancel') return false
-    if (answer === 'save') await new Promise((resolve) => emit('save-all-then', resolve))
+    if (answer === 'save') {
+      const r = await new Promise<SaveAllResult>((resolve) => emit('save-all-then', resolve))
+      if (r.failed.length) {
+        toast('Not saved, so the project stays open', failureText(r.failed), 'error')
+        return false
+      }
+    }
     return true
   }, [])
 
@@ -205,7 +214,10 @@ export function App(): React.JSX.Element {
           })
           break
         case 'save-all-and-quit':
-          emit('save-all-then', () => void window.wax.app.quitNow())
+          emit('save-all-then', (r: SaveAllResult) => {
+            if (r.failed.length) toast('Not saved, so WAX Master stays open', failureText(r.failed), 'error')
+            else void window.wax.app.quitNow()
+          })
           break
         case 'open-project':
           void actions.openProjectDialog()
@@ -357,7 +369,7 @@ export function App(): React.JSX.Element {
             </>
           }
         >
-          Some files of the current project have unsaved changes. Save them first?
+          {dirtyNames.length} item(s) of the current project have unsaved changes: {dirtyNames.join(', ')}. Save them first?
         </Modal>
       )}
       {dialog === 'add-network' && <AddNetworkDialog onClose={() => setDialog(null)} />}

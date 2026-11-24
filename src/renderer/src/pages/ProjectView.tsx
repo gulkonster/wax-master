@@ -7,7 +7,9 @@ import { useApp } from '../state'
 import { FileTree, type TreeMenuAction } from '../components/FileTree'
 import { InputDialog } from '../components/Modal'
 import { IconClose, IconGear, IconHammer, IconPlus, IconShip } from '../components/Icons'
-import { ProjectSettings } from './ProjectSettings'
+import { ProjectSettings, type SettingsSaver } from './ProjectSettings'
+import { Modal } from '../components/Modal'
+import { failureText, type SaveAllResult, type SaveFailure } from '../lib/save-result'
 import { startBuild } from '../lib/build'
 import { problemsStore } from '../lib/stores'
 import type { Problem, WasmInfo } from '../../../shared/api'
@@ -27,6 +29,36 @@ interface Doc {
   model: monaco.editor.ITextModel | null
   savedVersion: number
   viewState: monaco.editor.ICodeEditorViewState | null
+  /** Modification time and size of the file as last read or written by this tab. */
+  mtimeMs?: number
+  size?: number
+  /** True while the text is replaced by the disk content (not a user edit). */
+  reloading?: boolean
+  /** True while the file is compared with the disk. */
+  syncing?: boolean
+}
+
+type ConflictChoice = 'overwrite' | 'reload' | 'cancel'
+
+const isDirtyDoc = (d: Doc): boolean => !!d.model && d.model.getAlternativeVersionId() !== d.savedVersion
+
+/** Replaces the text of a model by a minimal edit, so cursor and scroll stay where they are. */
+function replaceText(model: monaco.editor.ITextModel, text: string): void {
+  const crlf = (text.match(/\r\n/g) ?? []).length
+  const lf = (text.match(/\n/g) ?? []).length - crlf
+  const eol = crlf > lf ? monaco.editor.EndOfLineSequence.CRLF : monaco.editor.EndOfLineSequence.LF
+  if (model.getEndOfLineSequence() !== eol) model.setEOL(eol)
+  const old = model.getValue()
+  const next = eol === monaco.editor.EndOfLineSequence.CRLF ? text.replace(/\r?\n/g, '\r\n') : text.replace(/\r\n/g, '\n')
+  if (old === next) return
+  let a = 0
+  const max = Math.min(old.length, next.length)
+  while (a < max && old.charCodeAt(a) === next.charCodeAt(a)) a++
+  let b = 0
+  while (b < max - a && old.charCodeAt(old.length - 1 - b) === next.charCodeAt(next.length - 1 - b)) b++
+  const start = model.getPositionAt(a)
+  const end = model.getPositionAt(old.length - b)
+  model.applyEdits([{ range: new monaco.Range(start.lineNumber, start.column, end.lineNumber, end.column), text: next.slice(a, next.length - b) }])
 }
 
 function dirname(rel: string): string {
@@ -44,6 +76,17 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
   const [input, setInput] = useState<null | { title: string; label: string; initial: string; ok: (v: string) => Promise<void> }>(null)
   const [findOpen, setFindOpen] = useState(false)
   const [symbolsOpen, setSymbolsOpen] = useState(false)
+  const [conflict, setConflict] = useState<null | { title: string; resolve: (c: ConflictChoice) => void }>(null)
+  const settingsSaver = useRef<SettingsSaver | null>(null)
+  const onSettingsDirty = useCallback((d: boolean) => {
+    setDirty((s) => {
+      if (s.has('settings') === d) return s
+      const n = new Set(s)
+      if (d) n.add('settings')
+      else n.delete('settings')
+      return n
+    })
+  }, [])
   /** Where to put the cursor once a tab's model is shown. */
   const pendingReveal = useRef<{ id: string; range: monaco.IRange } | null>(null)
 
@@ -105,8 +148,16 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
 
   useEffect(() => {
     void refreshTree()
-    const off = window.wax.on('files-changed', () => void refreshTree())
-    return off
+    const off = window.wax.on('files-changed', () => {
+      void refreshTree()
+      void syncRef.current()
+    })
+    const onFocus = (): void => void syncRef.current()
+    window.addEventListener('focus', onFocus)
+    return () => {
+      off()
+      window.removeEventListener('focus', onFocus)
+    }
   }, [refreshTree])
 
   // Open the main file when the project opens.
@@ -142,7 +193,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
   const track = (id: string, model: monaco.editor.ITextModel): void => {
     model.onDidChangeContent(() => {
       const d = docs.current.get(id)
-      if (!d?.model || d.model !== model) return
+      if (!d?.model || d.model !== model || d.reloading) return
       const isDirty = model.getAlternativeVersionId() !== d.savedVersion
       setDirty((s) => {
         if (s.has(id) === isDirty) return s
@@ -201,6 +252,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
       let info: string | undefined
       let model: monaco.editor.ITextModel | null = null
       let savedVersion = 0
+      let stamp: { mtimeMs: number; size: number } | undefined
       if (adopted) {
         model = adopted.model
         savedVersion = adopted.savedVersion
@@ -212,9 +264,10 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
           monaco.editor.getModel(uri)?.dispose()
           model = monaco.editor.createModel(f.content, languageFor(rel), uri)
           savedVersion = model.getAlternativeVersionId()
+          stamp = { mtimeMs: f.mtimeMs, size: f.size }
         }
       }
-      docs.current.set(id, { model, savedVersion, viewState: null })
+      docs.current.set(id, { model, savedVersion, viewState: null, ...stamp })
       if (model) {
         track(id, model)
         openDocument(model)
@@ -223,6 +276,8 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
       if (model && model.getAlternativeVersionId() !== savedVersion) setDirty((s) => new Set(s).add(id))
       switchTo(id)
       applyMarkers()
+      // A model taken over from a preview has no disk stamp yet.
+      if (adopted) void syncFile(id)
     } catch (e) {
       toast('Could not open the file', errorText(e), 'error')
     }
@@ -292,20 +347,130 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     })
   }
 
-  const save = async (id: string | null): Promise<void> => {
-    if (!id) return
-    const tab = tabsRef.current.find((t) => t.id === id)
+  /** Compares one open file with the disk; a tab without unsaved edits follows the disk. */
+  const syncFile = async (id: string): Promise<void> => {
     const d = docs.current.get(id)
-    if (!tab || !d?.model) return
+    if (!d?.model || !id.startsWith('file:') || d.syncing) return
+    const rel = id.slice(5)
+    d.syncing = true
     try {
-      if (tab.kind === 'file') await window.wax.files.write(tab.rel, d.model.getValue())
-      else if (tab.kind === 'external') await window.wax.files.writeExternal(tab.token, d.model.getValue())
-      else return
+      const st = await window.wax.files.stat(rel)
+      if (!st || (d.mtimeMs === st.mtimeMs && d.size === st.size)) return
+      if (isDirtyDoc(d)) {
+        // Edited here: the question comes when saving. Without a stamp, take the current one.
+        if (d.mtimeMs === undefined) {
+          d.mtimeMs = st.mtimeMs
+          d.size = st.size
+        }
+        return
+      }
+      const f = await window.wax.files.read(rel)
+      if (f.binary || f.tooLarge || !d.model || isDirtyDoc(d)) return
+      applyDisk(id, d, f.content)
+      d.mtimeMs = f.mtimeMs
+      d.size = f.size
+    } catch {
+      // The file may be gone or locked right now; the next check tries again.
+    } finally {
+      d.syncing = false
+    }
+  }
+
+  /** Puts the disk text into a tab's model as the saved state (not a user edit). */
+  const applyDisk = (id: string, d: Doc, content: string): void => {
+    if (!d.model) return
+    d.reloading = true
+    try {
+      replaceText(d.model, content)
+    } finally {
+      d.reloading = false
+    }
+    d.savedVersion = d.model.getAlternativeVersionId()
+    setDirty((s) => {
+      if (!s.has(id)) return s
+      const n = new Set(s)
+      n.delete(id)
+      return n
+    })
+    documentSaved(d.model)
+  }
+
+  const syncWasm = async (): Promise<void> => {
+    for (const t of tabsRef.current) {
+      if (t.kind !== 'file' || !t.wasm) continue
+      try {
+        const info = await window.wax.files.wasmInfo(t.rel)
+        if (info.sha256 !== t.wasm.sha256 || info.size !== t.wasm.size)
+          setTabs((list) => list.map((x) => (x.id === t.id && x.kind === 'file' ? { ...x, wasm: info } : x)))
+      } catch {
+        // Removed or unreadable: the tab keeps what it shows.
+      }
+    }
+  }
+
+  const syncAll = async (): Promise<void> => {
+    await Promise.all([...docs.current.keys()].map((id) => syncFile(id)))
+    await syncWasm()
+  }
+  const syncRef = useRef(syncAll)
+  syncRef.current = syncAll
+
+  const askConflict = (title: string): Promise<ConflictChoice> => new Promise((resolve) => setConflict({ title, resolve }))
+
+  /** Saves one tab. Resolves to null when it is saved (or there is nothing to save), else the reason it was not. */
+  const saveTab = async (id: string): Promise<string | null> => {
+    const tab = tabsRef.current.find((t) => t.id === id)
+    if (!tab) return null
+    if (tab.kind === 'settings') {
+      if (!settingsSaver.current) return 'The settings page is not available'
+      return settingsSaver.current()
+    }
+    const d = docs.current.get(id)
+    if (!d?.model) return null
+    try {
+      if (tab.kind === 'file') {
+        if (d.mtimeMs !== undefined) {
+          const st = await window.wax.files.stat(tab.rel)
+          if (st && (st.mtimeMs !== d.mtimeMs || st.size !== d.size)) {
+            const choice = await askConflict(tab.title)
+            if (choice === 'cancel') return 'not saved, the file on disk is newer'
+            if (choice === 'reload') {
+              const f = await window.wax.files.read(tab.rel)
+              if (f.binary || f.tooLarge) return 'the file on disk cannot be shown as text'
+              applyDisk(id, d, f.content)
+              d.mtimeMs = f.mtimeMs
+              d.size = f.size
+              return null
+            }
+          }
+        }
+        const stamp = await window.wax.files.write(tab.rel, d.model.getValue())
+        d.mtimeMs = stamp.mtimeMs
+        d.size = stamp.size
+      } else if (tab.kind === 'external') await window.wax.files.writeExternal(tab.token, d.model.getValue())
+      else return null
       markSaved(id)
       if (tab.kind === 'file') documentSaved(d.model)
+      return null
     } catch (e) {
-      toast('Could not save', errorText(e), 'error')
+      return errorText(e)
     }
+  }
+
+  /** Saves the given tabs one after the other and lists the ones that failed. */
+  const saveMany = async (ids: string[]): Promise<SaveFailure[]> => {
+    const failed: SaveFailure[] = []
+    for (const id of ids) {
+      const error = await saveTab(id)
+      if (error !== null) failed.push({ title: tabsRef.current.find((t) => t.id === id)?.title ?? id, error })
+    }
+    return failed
+  }
+
+  const save = async (id: string | null): Promise<void> => {
+    if (!id) return
+    const failed = await saveMany([id])
+    if (failed.length) toast('Could not save', failureText(failed), 'error')
   }
 
   const saveAs = async (): Promise<void> => {
@@ -444,7 +609,9 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
             void saveAs()
             break
           case 'save-all':
-            for (const id of dirty) void save(id)
+            void saveMany(tabsRef.current.map((t) => t.id).filter((id) => dirty.has(id))).then((failed) => {
+              if (failed.length) toast('Could not save these files', failureText(failed), 'error')
+            })
             break
           case 'project-settings':
             openSettings()
@@ -552,7 +719,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     () =>
       on('save-all-then', (done) => {
         const ids = tabsRef.current.map((t) => t.id).filter((id) => dirty.has(id))
-        void Promise.all(ids.map((id) => save(id))).then(() => (done as () => void)())
+        void saveMany(ids).then((failed) => (done as (r: SaveAllResult) => void)({ failed }))
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [dirty]
@@ -560,8 +727,15 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
 
   useEffect(() => {
     emit('dirty-count', dirty.size)
-  }, [dirty])
-  useEffect(() => () => emit('dirty-count', 0), [])
+    emit('dirty-names', tabs.filter((t) => dirty.has(t.id)).map((t) => t.title))
+  }, [dirty, tabs])
+  useEffect(
+    () => () => {
+      emit('dirty-count', 0)
+      emit('dirty-names', [])
+    },
+    []
+  )
 
   const activeTab = tabs.find((t) => t.id === active)
   const showEditor = activeTab && activeTab.kind !== 'settings' && !(activeTab.kind === 'file' && activeTab.info)
@@ -611,9 +785,9 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
         </div>
         <div className="editor-host">
           <div className="monaco-mount" ref={mountRef} style={{ visibility: showEditor ? 'visible' : 'hidden' }} />
-          {activeTab?.kind === 'settings' && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', background: 'var(--bg)' }}>
-              <ProjectSettings project={project} />
+          {tabs.some((t) => t.kind === 'settings') && (
+            <div style={{ position: 'absolute', inset: 0, display: activeTab?.kind === 'settings' ? 'flex' : 'none', background: 'var(--bg)' }}>
+              <ProjectSettings project={project} onDirty={onSettingsDirty} saverRef={settingsSaver} />
             </div>
           )}
           {activeTab?.kind === 'file' && activeTab.wasm && (
@@ -634,6 +808,33 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
             void openLocation(uri, range)
           }}
         />
+      )}
+      {conflict && (
+        <Modal
+          title="File changed on disk"
+          onClose={() => {
+            conflict.resolve('cancel')
+            setConflict(null)
+          }}
+          footer={
+            <>
+              {(['cancel', 'reload', 'overwrite'] as const).map((c) => (
+                <button
+                  key={c}
+                  className={c === 'overwrite' ? 'btn purple' : 'btn'}
+                  onClick={() => {
+                    conflict.resolve(c)
+                    setConflict(null)
+                  }}
+                >
+                  {c === 'cancel' ? 'Cancel' : c === 'reload' ? 'Reload from disk' : 'Overwrite'}
+                </button>
+              ))}
+            </>
+          }
+        >
+          &quot;{conflict.title}&quot; was changed on disk after you opened it. Overwrite the file with your version, reload it from disk (your edits are lost), or cancel?
+        </Modal>
       )}
       {input && (
         <InputDialog

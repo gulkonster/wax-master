@@ -5,7 +5,7 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, lstatSync, mkdirSync, promises as fsp, readFileSync, readdirSync, realpathSync, statSync, writeFileSync, type Dirent } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import type { ExternalFile, FileContent, OpenProject, TreeNode } from '../shared/api'
+import type { ExternalFile, FileContent, FileStamp, OpenProject, TreeNode } from '../shared/api'
 import { PROJECT_FILE, defaultConfig, normalizeConfig, safeProjectPath, type ProjectConfig, type TemplateId } from '../shared/project'
 import { findProject, upsertProject } from './store'
 import { readJson, writeJson } from './jsonfile'
@@ -277,10 +277,24 @@ export async function readProjectFile(rel: string): Promise<FileContent> {
   const abs = resolveInProject(rel)
   const st = await fsp.stat(abs)
   if (!st.isFile()) throw new Error('Not a file')
-  if (st.size > MAX_EDIT_SIZE) return { path: toRel(abs), content: '', size: st.size, binary: false, tooLarge: true }
+  const mtimeMs = st.mtimeMs
+  if (st.size > MAX_EDIT_SIZE) return { path: toRel(abs), content: '', size: st.size, mtimeMs, binary: false, tooLarge: true }
   const buf = await fsp.readFile(abs)
-  if (looksBinary(buf)) return { path: toRel(abs), content: '', size: st.size, binary: true, tooLarge: false }
-  return { path: toRel(abs), content: buf.toString('utf8'), size: st.size, binary: false, tooLarge: false }
+  if (looksBinary(buf)) return { path: toRel(abs), content: '', size: st.size, mtimeMs, binary: true, tooLarge: false }
+  return { path: toRel(abs), content: buf.toString('utf8'), size: st.size, mtimeMs, binary: false, tooLarge: false }
+}
+
+/** Modification time and size of a project file, or null when it does not exist (or is not a file). */
+export async function statProjectFile(rel: string): Promise<FileStamp | null> {
+  const abs = resolveInProject(rel)
+  try {
+    const st = await fsp.stat(abs)
+    return st.isFile() ? { mtimeMs: st.mtimeMs, size: st.size } : null
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null
+    throw e
+  }
 }
 
 /** Reads raw bytes of a project file (used by the main process only, e.g. .wasm info). */
@@ -299,7 +313,7 @@ export function refuseGitPath(rel: string): void {
   }
 }
 
-export async function writeProjectFile(rel: string, content: string): Promise<void> {
+export async function writeProjectFile(rel: string, content: string): Promise<FileStamp> {
   refuseGitPath(rel)
   const abs = resolveInProject(rel)
   await fsp.mkdir(dirname(abs), { recursive: true })
@@ -309,6 +323,8 @@ export async function writeProjectFile(rel: string, content: string): Promise<vo
     current.hasConfigFile = true
     notify('config')
   }
+  const st = await fsp.stat(abs)
+  return { mtimeMs: st.mtimeMs, size: st.size }
 }
 
 export async function createEntry(rel: string, dir: boolean): Promise<void> {

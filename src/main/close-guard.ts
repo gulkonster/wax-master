@@ -27,7 +27,7 @@ export function guardWindow(win: BrowserWindow): void {
       defaultId: 0,
       cancelId: 2,
       title: 'Unsaved changes',
-      message: `${dirtyCount} file(s) have unsaved changes.`,
+      message: `${dirtyCount} item(s) have unsaved changes.`,
       detail: 'Save them before closing WAX Master?'
     })
     if (r === 0) win.webContents.send('menu', 'save-all-and-quit')

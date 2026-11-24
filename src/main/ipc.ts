@@ -151,9 +151,11 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   handle('files:tree', () => projects.projectTree())
   handle('files:read', (_e, rel) => projects.readProjectFile(relPath(rel, 'path')))
   handle('files:write', async (e, rel, content) => {
-    await projects.writeProjectFile(relPath(rel, 'path'), str(content, 'content', 20 * 1024 * 1024))
+    const stamp = await projects.writeProjectFile(relPath(rel, 'path'), str(content, 'content', 20 * 1024 * 1024))
     e.sender.send('files-changed')
+    return stamp
   })
+  handle('files:stat', (_e, rel) => projects.statProjectFile(relPath(rel, 'path')))
   handle('files:create', async (e, rel, dir) => {
     await projects.createEntry(relPath(rel, 'path'), bool(dir, 'dir'))
     e.sender.send('files-changed')

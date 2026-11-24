@@ -14,7 +14,7 @@ vi.mock('electron', () => ({
   }
 }))
 
-import { openProject, registerExternal, resolveInProject } from '../../src/main/projects'
+import { openProject, readProjectFile, registerExternal, resolveInProject, statProjectFile, writeProjectFile } from '../../src/main/projects'
 
 let base: string
 let root: string
@@ -71,5 +71,25 @@ describe('registerExternal', () => {
     const f = join(base, 'big.txt')
     writeFileSync(f, Buffer.alloc(5 * 1024 * 1024 + 1, 97))
     expect(() => registerExternal(f)).toThrow(/too large/)
+  })
+})
+
+describe('file stamps', () => {
+  it('stat reports mtime and size, null for a missing file or a folder', async () => {
+    const st = await statProjectFile('src/a.cpp')
+    expect(st?.size).toBe(6)
+    expect(st?.mtimeMs).toBeGreaterThan(0)
+    expect(await statProjectFile('src/none.cpp')).toBeNull()
+    expect(await statProjectFile('src')).toBeNull()
+  })
+  it('read and write return the same stamp as stat', async () => {
+    const w = await writeProjectFile('src/b.cpp', 'int y;\n')
+    const r = await readProjectFile('src/b.cpp')
+    expect(r.mtimeMs).toBe(w.mtimeMs)
+    expect(r.size).toBe(w.size)
+    expect(await statProjectFile('src/b.cpp')).toEqual(w)
+  })
+  it('stat refuses a path outside the project', async () => {
+    await expect(statProjectFile('link/secret.txt')).rejects.toThrow('outside')
   })
 })

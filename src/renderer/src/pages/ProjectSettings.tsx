@@ -8,7 +8,18 @@ import { errorText, toast } from '../lib/toast'
 import { IconFolder } from '../components/Icons'
 import { useToolchains } from '../components/ToolchainManager'
 
-export function ProjectSettings({ project }: { project: OpenProject }): React.JSX.Element {
+/** Saves the settings; resolves to null on success or to the reason it failed. */
+export type SettingsSaver = () => Promise<string | null>
+
+export function ProjectSettings({
+  project,
+  onDirty,
+  saverRef
+}: {
+  project: OpenProject
+  onDirty: (dirty: boolean) => void
+  saverRef: { current: SettingsSaver | null }
+}): React.JSX.Element {
   const { actions } = useApp()
   const [cfg, setCfg] = useState<ProjectConfig>(project.config)
   const [error, setError] = useState('')
@@ -26,17 +37,24 @@ export function ProjectSettings({ project }: { project: OpenProject }): React.JS
     setSaved(false)
   }
 
-  const save = async (): Promise<void> => {
+  useEffect(() => {
+    onDirty(!saved)
+  }, [saved, onDirty])
+
+  const save: SettingsSaver = async () => {
     try {
       setError('')
       const p = await window.wax.projects.saveConfig(cfg)
       actions.projectOpened(p)
       setSaved(true)
       toast('Project settings saved', '', 'success')
+      return null
     } catch (e) {
       setError(errorText(e))
+      return errorText(e)
     }
   }
+  saverRef.current = save
 
   return (
     <div className="page-scroll">

@@ -63,10 +63,18 @@ export interface OpenProject {
   eosproj?: { buildScript: string }
 }
 
+/** What identifies one state of a file on disk. */
+export interface FileStamp {
+  mtimeMs: number
+  size: number
+}
+
 export interface FileContent {
   path: string
   content: string
   size: number
+  /** Modification time on disk, in milliseconds. */
+  mtimeMs: number
   binary: boolean
   /** True when the file is too large to edit. */
   tooLarge: boolean
@@ -256,7 +264,10 @@ export interface WaxApi {
   files: {
     tree(): Promise<TreeNode>
     read(rel: string): Promise<FileContent>
-    write(rel: string, content: string): Promise<void>
+    /** Writes the file and returns its new modification time and size. */
+    write(rel: string, content: string): Promise<FileStamp>
+    /** Modification time and size, or null when the file does not exist. */
+    stat(rel: string): Promise<FileStamp | null>
     create(rel: string, dir: boolean): Promise<void>
     rename(from: string, to: string): Promise<void>
     remove(rel: string): Promise<void>

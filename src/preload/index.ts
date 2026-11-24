@@ -82,6 +82,7 @@ const api: WaxApi = {
     tree: call('files:tree'),
     read: call('files:read'),
     write: call('files:write'),
+    stat: call('files:stat'),
     create: call('files:create'),
     rename: call('files:rename'),
     remove: call('files:remove'),
