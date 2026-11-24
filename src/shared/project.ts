@@ -34,6 +34,7 @@ export interface ProjectConfig {
 export const PROJECT_FILE = 'waxmaster.json'
 
 const CONTRACT_NAME = /^[a-z1-5.]{1,12}$/
+const ACCOUNT = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
 export function isValidContract(name: string): boolean {
   return CONTRACT_NAME.test(name) && !name.startsWith('.') && !name.endsWith('.')
@@ -98,13 +99,14 @@ export function normalizeConfig(raw: unknown, fallbackContract: string): Project
   const networks: Record<string, DeployAccount> = {}
   const nr = deployRaw.networks
   if (typeof nr === 'object' && nr !== null) {
-    for (const [id, v] of Object.entries(nr as Record<string, unknown>)) {
+    for (const [id, v] of Object.entries(nr as Record<string, unknown>).slice(0, 50)) {
+      if (!/^[a-z0-9-]{1,64}$/.test(id)) continue
       if (typeof v === 'object' && v !== null) {
         const a = (v as Record<string, unknown>).account
         const p = (v as Record<string, unknown>).permission
         networks[id] = {
-          account: typeof a === 'string' ? a : '',
-          permission: typeof p === 'string' && p ? p : 'active'
+          account: typeof a === 'string' && ACCOUNT.test(a) ? a : '',
+          permission: typeof p === 'string' && ACCOUNT.test(p) ? p : 'active'
         }
       }
     }
