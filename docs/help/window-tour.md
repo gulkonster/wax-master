@@ -12,7 +12,7 @@ The window has a menu bar, a top bar with four buttons, the page in the middle, 
 | Contract | Project Settings, Build, Deploy, Deploy to Account, Simulate Deploy, Create Ricardian Files |
 | Accounts | Create Account, Create Testnet Account, Manage Keypairs, the vault item, Clear Contract Code |
 | Network | the network list, Add Network, Manage Networks, Network Page, Open Transaction by Id |
-| Help | Documentation, Setup, Check for Updates, Verify This Download, About |
+| Help | Documentation, Project Page, Ask a Question, Report an Issue, Request a Feature, Setup, Check for Updates, Verify This Download, About WAX Master |
 
 The vault item of the Accounts menu changes with the vault: **Create Vault...**, **Unlock Vault...** or **Lock Vault**.
 
@@ -34,7 +34,7 @@ The vault item of the Accounts menu changes with the vault: **Create Vault...**,
 
 ## Bottom panel
 
-Three tabs: **Terminal** (PowerShell, Command Prompt or the toolchain's Linux shell), **Output** (build and transaction lines) and **Problems** (errors and warnings of the last build). Toggle it with Ctrl+` or the panel button in the status bar.
+Three tabs: **Terminal** (PowerShell, Command Prompt or the toolchain's Linux shell), **Output** (build and transaction lines) and **Problems** (errors and warnings of the last build). Ctrl+` opens it on the Terminal tab or closes it; the panel button in the status bar opens or closes it too.
 
 ## Status bar
 

@@ -18,7 +18,7 @@
         { "id": "project-files", "title": "Project files and settings", "keywords": ["waxmaster.json", "project settings", "template", "eosproj", "folder"] },
         { "id": "build-output-problems", "title": "Build, Output and Problems", "keywords": ["build", "compile", "ctrl+b", "output", "problems", "warning", "error"] },
         { "id": "compiler-errors", "title": "Common compiler errors", "keywords": ["error", "compile", "clang", "undeclared", "include"] },
-        { "id": "abi-check", "title": "ABI check messages", "keywords": ["abi", "unknown type", "deploy stopped", "table type"] },
+        { "id": "abi-check", "title": "ABI check messages", "keywords": ["abi", "unknown type", "unknown type in abi", "deploy stopped", "table type"] },
         { "id": "ricardian", "title": "Ricardian contracts", "keywords": ["ricardian", "contracts.md", "clauses", "warning"] },
         { "id": "custom-build-command", "title": "Custom build commands and trust", "keywords": ["build command", "approval", "trust", "script"] },
         { "id": "toolchain-versions", "title": "Toolchain versions", "keywords": ["cdt", "version", "deb", "toolchain"] }
@@ -88,6 +88,31 @@
         { "id": "read-tables", "title": "Read tables", "keywords": ["table", "rows", "scope", "query", "get_table_rows"] },
         { "id": "simulate-inspector", "title": "Simulate and the transaction inspector", "keywords": ["simulate", "inspector", "trace", "console", "refused", "cpu", "net"] },
         { "id": "transaction-history", "title": "Transaction history", "keywords": ["history", "transactions", "transaction id", "hyperion"] }
+      ]
+    },
+    {
+      "id": "writing",
+      "title": "Writing contracts",
+      "topics": [
+        { "id": "contract-actions-auth", "title": "Actions and authority checks", "keywords": ["action", "require_auth", "has_auth", "is_account", "require_recipient", "permission_level", "missing authority", "linkauth", "get_self"] },
+        { "id": "contract-tables", "title": "Tables, scopes and payers", "keywords": ["multi_index", "table", "scope", "payer", "ram payer", "table payer", "emplace", "modify", "erase", "secondary index", "primary key", "same_payer"] },
+        { "id": "contract-singletons", "title": "Singletons", "keywords": ["singleton", "config", "settings", "global state", "get_or_default"] },
+        { "id": "contract-inline-actions", "title": "Inline actions", "keywords": ["inline action", "send", "action_wrapper", "eosio.code", "transfer from contract", "deferred"] },
+        { "id": "contract-notifications", "title": "Notifications (on_notify)", "keywords": ["on_notify", "notification", "require_recipient", "transfer listener", "deposit", "incoming transfer", "receive tokens"] },
+        { "id": "contract-read-other-table", "title": "Reading another contract's table", "keywords": ["another contract", "other contract", "read table", "balance", "eosio.token accounts"] },
+        { "id": "contract-time", "title": "Time", "keywords": ["time", "current_time_point", "time_point_sec", "block time", "timestamp", "deadline", "timer", "now"] },
+        { "id": "contract-random", "title": "Random numbers (ORNG)", "keywords": ["random", "orng", "orng.wax", "rng", "requestrand", "receiverand", "dice", "randomness"] },
+        { "id": "contract-assets", "title": "Assets and symbols", "keywords": ["asset", "symbol", "precision", "decimals", "extended_asset", "amount", "overflow"] },
+        { "id": "contract-errors", "title": "Error messages", "keywords": ["check", "assert", "assertion failure", "eosio_assert", "error message", "print", "debug"] },
+        { "id": "contract-upgrade", "title": "Upgrading a contract and its tables", "keywords": ["upgrade", "upgrade contract", "migrate", "migration", "binary_extension", "redeploy", "change table", "new field"] }
+      ]
+    },
+    {
+      "id": "reference",
+      "title": "Reference",
+      "topics": [
+        { "id": "troubleshooting", "title": "Troubleshooting", "keywords": ["problem", "not working", "fails", "refused", "transaction refused", "error", "help", "fix"] },
+        { "id": "glossary", "title": "Glossary", "keywords": ["glossary", "terms", "words", "meaning", "definition", "what is"] }
       ]
     },
     {

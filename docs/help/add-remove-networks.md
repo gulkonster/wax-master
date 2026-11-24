@@ -14,9 +14,9 @@ Add a network:
 
 Edit a network: Network > Manage Networks > **Edit**. Endpoints (one per line, same chain id) and the history service can be changed for every network. Name and kind can be changed only for networks you added. The chain id never changes.
 
-Remove a network: Network > Manage Networks > **Remove** (or **Remove** on the Network page). The question lists the starred accounts that are forgotten and which network is selected next. The last network cannot be removed.
+Remove a network: Network > Manage Networks > **Remove** (or **Remove** on the Network page). The question lists the starred accounts and added tokens that are forgotten and which network is selected next. The last network cannot be removed.
 
-Restore the defaults: Network > Manage Networks > **Restore default networks** brings back WAX Mainnet and WAX Testnet with their endpoints.
+Restore the defaults: Network > Manage Networks > **Restore default networks** brings back WAX Mainnet or WAX Testnet, whichever was removed, with its endpoints. The button is off while both are in the list.
 
 [Add Network](app:add-network) [Manage Networks](app:manage-networks)
 

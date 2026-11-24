@@ -343,6 +343,25 @@ describe('every updateauth is checked in prepare, whatever asked for it', () => 
     expect(owner.record.actions[0].name).toBe('updateauth')
   })
 
+  it('permissions created earlier in the same transaction are known: a new one under active cannot carry active', async () => {
+    const withParent = (permission: string, parent: string, auth: Record<string, unknown>): typeof transfer => {
+      const a = updateauth(permission, auth)
+      return { ...a, data: { ...(a.data as Record<string, unknown>), parent } as never }
+    }
+    const keyB = { threshold: 1, keys: [{ key: pub, weight: 1 }] }
+    const onlyB = { threshold: 1, accounts: [lvl('alice', 'b')] }
+    const s = signerFor()
+    const err = (await s.prepare({ networkId: 'n1', actions: [withParent('b', 'active', keyB), withParent('active', 'owner', onlyB)] }).catch((e) => e)) as Error
+    expect(err).toBeInstanceOf(Error)
+    expect(err.message).toMatch(/alice@active could not reach its threshold 1: the keys and accounts that can sign add up to 0\./)
+    expect(err.message).toMatch(/Nothing was prepared\.$/)
+    expect(s.busy()).toBe(false)
+    expect(sent).toHaveLength(0)
+    // Under owner, b is not below active: the same pair is prepared.
+    const { record } = await s.prepare({ networkId: 'n1', actions: [withParent('b', 'owner', keyB), withParent('active', 'owner', onlyB)] })
+    expect(record.actions.map((a) => a.name)).toEqual(['updateauth', 'updateauth'])
+  })
+
   it('Change key on a key-plus-account permission still passes', async () => {
     const { changeKeyActions } = await import('../../src/main/accounts')
     const next = publicKeyToString(publicFromPrivate(generatePrivateKey()), 'new')

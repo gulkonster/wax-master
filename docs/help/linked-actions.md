@@ -11,13 +11,13 @@ Whoever holds a key of the linked permission can send that action for your accou
 - **Link**: the permission the action needs now, or one above it. That is its own link if it has one, else the link of every action of that contract, else `active`. So moving a link from `claim` to `game` can be signed by `claim`, `active` or `owner`.
 - **Unlink**: the permission the action is linked to, or one above it.
 
-The dialog lists only these permissions and picks the nearest one your vault can sign with.
+The dialog lists these permissions and picks the nearest one your vault can sign with. When the links come from the history service, it also lists `active` and the permissions above it; when no list of links can be read, it lists every permission and the chain decides.
 
 ## How to do it here
 
 1. Create the custom permission first (see [Custom permissions](doc:custom-permissions)), for example `claim`.
-2. Open the account on the Account page and choose **Linked actions**. It lists the links of each permission.
-3. Press **Link an action to a permission**. Pick the permission, the contract and the action (the action list comes from the contract's ABI) and approve.
+2. Open the account on the Account page and choose **Linked actions**. It lists every link: the contract and action, and the permission it is linked to.
+3. In the form **Link an action to a permission**, enter the **Contract**, pick the **Action** (the list comes from the contract's ABI) and the **Permission** (`owner` is not offered). Press **Link an action to a permission**, check the review, press **Send to confirmation** and approve.
 4. To use it: open the contract, choose that action and, in Authorization, choose your account with permission `claim`.
 5. To remove a link, press **Unlink** on its row.
 

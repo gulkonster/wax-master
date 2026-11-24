@@ -4,11 +4,12 @@
 // read only from the expected forms, lists are cut at fixed sizes.
 
 import type { AbiDef } from '../chain-core'
-import type { NetworkInfo, PowerupResourceView, PowerupStateView, ProducerRow, SystemFeatures, VoterClaimView, VotingView } from '../shared/chain-types'
+import type { NetworkInfo, PowerupResourceView, PowerupStateView, ProducerRow, ProxyInfoView, SystemFeatures, VoterClaimView, VotingView } from '../shared/chain-types'
 import { formatUnits, readAsset, rescaleUnits } from '../shared/wallet'
 import { CLAIM_INTERVAL_SEC, claimChoices, MAX_VOTE_PRODUCERS, voterRewardEstimate } from '../shared/wallet-voting'
 import type { ReadCall } from './contract-view'
 import { chain } from './rpc'
+import { WAX_CHAIN_IDS } from './account-view'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 /** Producer rows read at most (pages of PRODUCER_PAGE). */
@@ -197,8 +198,23 @@ export async function votingView(n: NetworkInfo, def: AbiDef, account: string, r
     producers,
     producersCut: cut,
     current: parseVoter(voterRow, account, n.precision, n.symbol),
-    claims: claimViews(actions, voterRow, global, genesis, headMs, n.precision, n.symbol)
+    claims: claimViews(actions, voterRow, global, genesis, headMs, n.precision, n.symbol),
+    waxRewardRule: WAX_CHAIN_IDS.includes(n.chainId)
   }
+}
+
+/** Whether `name` is registered as a proxy: its own row of the voters table with is_proxy set. */
+export function parseProxyInfo(row: Row | undefined, name: string): ProxyInfoView {
+  return { name, registered: !!row && row.owner === name && activeFlag(row.is_proxy) }
+}
+
+/** Reads the voters row of a proxy account; the chain refuses a vote through an account that is not registered as a proxy. */
+export async function proxyInfo(n: NetworkInfo, name: string, readCall: ReadCall): Promise<ProxyInfoView> {
+  const r = await readCall(
+    (ep) => chain.getTableRows(ep, { json: true, code: 'eosio', scope: 'eosio', table: 'voters', lower_bound: name, upper_bound: name, limit: 1 }),
+    n
+  )
+  return parseProxyInfo(rowsOf(r, 1)[0], name)
 }
 
 function resource(v: unknown, precision: number, symbol: string): PowerupResourceView | null {
@@ -219,6 +235,8 @@ function resource(v: unknown, precision: number, symbol: string): PowerupResourc
   const maxPrice = price(r.max_price)
   if (weight === null || utilization === null || adjusted === null || exponent === null || exponent < 1 || exponent > 100 || decay === null || ts === null) return null
   if (minPrice === null || maxPrice === null || BigInt(weight) <= 0n) return null
+  // The price runs from min_price up to max_price, and no more than the weight can be rented.
+  if (BigInt(maxPrice) < BigInt(minPrice) || BigInt(utilization) > BigInt(weight) || BigInt(adjusted) > BigInt(weight)) return null
   return { weight, utilization, adjustedUtilization: adjusted, utilizationTimestamp: Math.floor(ts / 1000), decaySecs: decay, exponent, minPrice, maxPrice }
 }
 

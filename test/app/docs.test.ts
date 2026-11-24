@@ -349,9 +349,98 @@ const FEATURE_TOPICS: [string, keyof typeof HELP_TOPICS][] = [
   ['Wallet contract', 'walletContract'],
   ['Wallet voting and rewards', 'walletVoting'],
   ['Wallet PowerUp', 'walletPowerup'],
+  ['Home page (projects)', 'home'],
+  ['New Project dialog', 'newProject'],
+  ['Choose the main file dialog', 'mainFile'],
+  ['New file, folder and rename dialogs of the project tree', 'projectTree'],
+  ['Unsaved changes dialog', 'unsavedChanges'],
+  ['File changed on disk dialog', 'fileChanged'],
+  ['Find in Files and Go to Symbol dialogs', 'editorSearch'],
+  ['Add toolchain dialog', 'toolchains'],
+  ['About dialog', 'about'],
+  ['New version dialog', 'updateAvailable'],
+  ['Not in this build dialog', 'comingLater'],
+  ['Vault dialogs (create, unlock, password, import)', 'vault'],
+  ['Key backup dialogs (no backup, back up, delete key)', 'keyBackup'],
+  ['Clear Contract Code dialog', 'clearCode'],
+  ['Edit network dialog', 'editNetwork'],
+  ['Starred accounts dialog', 'starredAccounts'],
+  ['Transaction inspector dialog', 'inspector'],
+  ['Open Transaction by Id dialog', 'openTransaction'],
+  ['Settings: Appearance', 'settingsAppearance'],
+  ['Settings: Editor', 'settingsEditor'],
+  ['Settings: Key vault', 'settingsVault'],
+  ['Settings: Updates', 'settingsUpdates'],
+  ['Settings: Data and Clear All App Data dialog', 'settingsData'],
   ['CPU / NET / RAM refusal', 'resourceRefusal'],
-  ['ABI check', 'abiCheck']
+  ['Refused transaction (inspector, Contract page result, wallet forms)', 'txRefusal'],
+  ['ABI check', 'abiCheck'],
+  ['Ricardian warning in Problems', 'ricardianWarning']
 ]
+
+/**
+ * Every dialog (by its Modal name) and the help place of its "?". A dialog
+ * whose place comes from its caller or its form has `null` here; the test still
+ * requires a help attribute on it. A new dialog without a row here fails.
+ */
+const DIALOG_HELP: Record<string, keyof typeof HELP_TOPICS | null> = {
+  'unsaved-changes': 'unsavedChanges',
+  'update-available': 'updateAvailable',
+  about: 'about',
+  'create-account': 'createAccount',
+  'change-key': 'changeKey',
+  'no-backup': 'keyBackup',
+  deploy: 'deploy',
+  'find-in-files': 'editorSearch',
+  'symbol-search': 'editorSearch',
+  transaction: 'inspector',
+  'manage-keypairs': 'manageKeypairs',
+  'create-vault': 'vault',
+  'backup-key': 'keyBackup',
+  'backup-all': 'keyBackup',
+  'vault-password-action': 'vault',
+  'create-keypair': 'manageKeypairs',
+  'import-keypair': 'manageKeypairs',
+  'import-vault': 'vault',
+  'delete-key': 'keyBackup',
+  'main-file': 'mainFile',
+  'text-input': null,
+  'clear-code': 'clearCode',
+  'add-network': 'addNetwork',
+  'remove-network': 'manageNetworks',
+  'manage-networks': 'manageNetworks',
+  'edit-network': 'editNetwork',
+  'starred-accounts': 'starredAccounts',
+  'new-project': 'newProject',
+  'testnet-account': 'testnetAccount',
+  'add-toolchain': 'toolchains',
+  'unlock-vault': 'vault',
+  'permission-change': null,
+  'coming-later': 'comingLater',
+  'file-changed': 'fileChanged',
+  'clear-data': 'settingsData'
+}
+/** Dialogs without a "?": the help window shows the documentation itself. */
+const DIALOGS_WITHOUT_HELP = new Set(['help'])
+
+/** The opening tag of every Modal in a source text: its name and its help attribute. */
+function modalTags(text: string): { name: string; help: string | null; tag: string }[] {
+  const out: { name: string; help: string | null; tag: string }[] = []
+  const lines = text.replace(/\r\n/g, '\n').split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    if (!/<Modal\b/.test(lines[i])) continue
+    // A one-line tag ends on its own line; a multi-line tag ends at a line holding only ">".
+    let tag = lines[i]
+    if (!/>\s*$/.test(lines[i]) || /<Modal\s*$/.test(lines[i])) {
+      let j = i + 1
+      while (j < lines.length && !/^\s*>\s*$/.test(lines[j])) tag += '\n' + lines[j++]
+    }
+    const name = /\bname="([^"]+)"/.exec(tag)?.[1] ?? ''
+    const help = /\bhelp=(?:"([^"]+)"|\{[^}]+\})/.exec(tag)
+    out.push({ name, help: help ? (help[1] ?? '{}') : null, tag })
+  }
+  return out
+}
 
 function sources(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
@@ -403,6 +492,56 @@ describe('context help', () => {
     expect(modal).toContain('{help && <HelpButton place={help} />}')
   })
 
+  it('every dialog of the program has its "?", and the list of dialogs is complete', () => {
+    const found = new Map<string, string | null>()
+    for (const f of sources(RENDERER)) {
+      for (const m of modalTags(readFileSync(f, 'utf8'))) {
+        expect(m.name, `${f}: a Modal without a name\n${m.tag}`).not.toBe('')
+        found.set(m.name, m.help)
+        if (DIALOGS_WITHOUT_HELP.has(m.name)) continue
+        expect(m.help, `${f}: dialog "${m.name}" has no help place`).not.toBeNull()
+        expect(Object.keys(DIALOG_HELP), `${f}: dialog "${m.name}" is not in the list of dialogs`).toContain(m.name)
+        const want = DIALOG_HELP[m.name]
+        if (want) expect(m.help, `${f}: dialog "${m.name}"`).toBe(want)
+      }
+    }
+    expect([...found.keys()].sort()).toEqual([...Object.keys(DIALOG_HELP), ...DIALOGS_WITHOUT_HELP].sort())
+  })
+
+  it('every text-input dialog names its help place', () => {
+    for (const f of sources(RENDERER)) {
+      const text = readFileSync(f, 'utf8').replace(/\r\n/g, '\n')
+      for (const m of text.matchAll(/<InputDialog\b([\s\S]*?)\/>/g)) expect(m[1], f).toMatch(/\bhelp="[A-Za-z]+"/)
+    }
+    expect(readFileSync(join(RENDERER, 'components/Modal.tsx'), 'utf8')).toContain('help={props.help}')
+  })
+
+  it('every section of the Account page and every group of the Settings page has its "?"', () => {
+    const sections: [string, string][] = [
+      ['pages/account/TokensSection.tsx', 'walletTransfers'],
+      ['pages/account/TransferSection.tsx', 'walletTransfers'],
+      ['pages/account/RamSection.tsx', 'walletRam'],
+      ['pages/account/CpuNetSection.tsx', 'walletCpuNet'],
+      ['pages/account/PermissionsSection.tsx', 'walletPermissions'],
+      ['pages/account/LinksSection.tsx', 'walletLinks'],
+      ['pages/account/ContractSection.tsx', 'walletContract'],
+      ['pages/account/CreateAccountSection.tsx', 'walletCreateAccount'],
+      ['pages/account/VotingSection.tsx', 'walletVoting'],
+      ['pages/account/PowerupSection.tsx', 'walletPowerup'],
+      ['pages/account/FaucetSection.tsx', 'walletFaucet'],
+      ['pages/account/TransactionsSection.tsx', 'walletTransactions']
+    ]
+    for (const [file, place] of sections) expect(readFileSync(join(RENDERER, file), 'utf8'), file).toContain(`<HelpButton place="${place}" />`)
+    // A new section file gets a row above.
+    const files = readdirSync(join(RENDERER, 'pages/account')).filter((n) => n.endsWith('Section.tsx'))
+    expect(files.map((n) => `pages/account/${n}`).sort()).toEqual(sections.map(([f]) => f).sort())
+
+    const settings = readFileSync(join(RENDERER, 'pages/SettingsPage.tsx'), 'utf8').replace(/\r\n/g, '\n')
+    const groups = [...settings.matchAll(/<h2\b[^>]*>([\s\S]*?)<\/h2>/g)].map((m) => m[1])
+    expect(groups.length).toBeGreaterThan(0)
+    for (const g of groups) expect(g, g.trim()).toMatch(/<HelpButton place="settings[A-Z]\w*" \/>/)
+  })
+
   it('each page of the list has its "?"', () => {
     const pages: [string, string][] = [
       ['pages/NetworkPage.tsx', 'networkPage'],
@@ -410,7 +549,8 @@ describe('context help', () => {
       ['pages/SettingsPage.tsx', 'settings'],
       ['pages/Setup.tsx', 'setup'],
       ['pages/ContractPage.tsx', 'contractPage'],
-      ['pages/AccountPage.tsx', 'accountPage']
+      ['pages/AccountPage.tsx', 'accountPage'],
+      ['pages/Home.tsx', 'home']
     ]
     for (const [file, place] of pages) expect(readFileSync(join(RENDERER, file), 'utf8'), file).toContain(`<HelpButton place="${place}" />`)
   })

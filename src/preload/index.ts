@@ -169,6 +169,7 @@ const api: WaxApi = {
     contractInfo: call('wallet:contractInfo'),
     system: call('wallet:system'),
     voting: call('wallet:voting'),
+    proxyInfo: call('wallet:proxyInfo'),
     powerup: call('wallet:powerup')
   },
   networkInfo: {

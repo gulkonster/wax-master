@@ -13,7 +13,7 @@ A permission lists entries, each with a **weight**, and has a **threshold**. A s
 
 1. Open the account on the Account page and choose **Keys and permissions**.
 2. Under the permission, use **Add key** or **Add account** and give the entry a weight; use **Set threshold** to change the threshold.
-3. Check the full new authority in the confirmation window. The app refuses a permission whose entries could never add up to its threshold.
+3. Press **Review change** and check the full new authority in the review dialog, then press **Send to confirmation** and approve in the confirmation window. The app refuses a permission whose entries could never add up to its threshold.
 
 ## What counts toward the threshold
 
@@ -37,7 +37,7 @@ A 2-of-2 permission whose two keys are both in your vault is signed in one confi
 
 ## Example: 2-of-2
 
-`active` of `sharedacct111` has threshold 2 and two keys of weight 1:
+`active` of `sharedacct11` has threshold 2 and two keys of weight 1:
 
 ```json
 {

@@ -6,7 +6,7 @@ The Account page shows one account's money and resources and lets you manage the
 
 Press the **Account** button in the top bar and choose or type an account name.
 
-The header shows the account name, its star, its creation date and a control badge:
+The header shows the account name, its creation date and a control badge. The star for the account is in the address bar, next to the name field.
 
 | Badge | Meaning |
 |---|---|
@@ -15,7 +15,7 @@ The header shows the account name, its star, its creation date and a control bad
 
 Below the header a summary band shows the totals: the total, the available (liquid) balance, the staked part (CPU and NET), tokens in a refund that is still waiting, and tokens staked to this account by others. Next to it, gauges show RAM, CPU and NET with what is used and the total.
 
-The Tokens section lists the core token read from the chain; tokens other than the core token are listed as the history service reports them, with the contract under each name.
+The Tokens section lists the core token read from the chain, the tokens the history service reports for the account, and tokens you add with **Add token** (by contract and symbol; an added token is listed for every account on that network). The contract is shown under each name.
 
 A list of sections sits on the left of the page. Each section is one job:
 
@@ -36,11 +36,11 @@ A section is left out when the chain does not offer what it needs.
 
 Sections with more than one form show one form at a time, chosen by a switch (for example **Buy | Sell** in RAM).
 
-Every form has the same shape: one sentence on what it does, its fields, the action it will send shown below the fields (as JSON and as a `cleos` line), a **?** button that opens its help page, and a button that opens the confirmation window. A signer picker lets you choose which permission signs, from those the vault can satisfy.
+Every section has the same shape: one sentence on what it does, a **?** button that opens its help page, and its forms. A form has its fields, a permission picker for the signer, a button that opens the confirmation window, and a **Command** button that shows the action it will send (as JSON, packed hex and a `cleos` line).
 
 ## View only accounts
 
-Opening an account you do not control is safe. Every section shows its data. Every button that would sign is disabled and says why. Import a key of the account (Accounts > Manage Keypairs) and the badge changes after the page is read again.
+Opening an account you do not control is safe. Every section shows its data. Every button that would sign is disabled and says why. Import a key of the account (Accounts > Manage Keypairs) and the page reads the account again; the badge changes.
 
 ## Example
 
@@ -49,7 +49,7 @@ Open your testnet account `k3vtq2mabx41`: the badge reads "You control: active, 
 ## What is needed
 
 - A selected network that answers.
-- For a signing form: a key of the account (or of an account it trusts) in an unlocked vault. The vault asks for its password in place when it is locked.
+- For a signing form: a key of the account in an unlocked vault. The vault asks for its password in place when it is locked.
 - On a mainnet network, the usual confirmation rules apply to every form.
 
 > Note: The badge counts keys that are directly in the permission. Waiting times are not counted.

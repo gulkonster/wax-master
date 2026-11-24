@@ -7,7 +7,7 @@ A build compiles the project's C++ source into two files: the WASM (the code the
 1. Open the project.
 2. Press Ctrl+B, or Contract > Build, or the **Build** button above the file tree.
 3. The Output panel opens and shows the command line, the compiler's lines as they come, and the result.
-4. If there are errors, open Problems (View > Problems or Ctrl+Shift+M). Click an entry to jump to the place in the source.
+4. If the build fails with errors, the Problems tab opens by itself (or open it with View > Problems or Ctrl+Shift+M). Click an entry to jump to the place in the source.
 
 Colours in Output: errors red, warnings yellow, notes grey. Only the `file:line:column` part of a line is a link; click it to open that place. The status bar shows the error and warning counts of the last build.
 

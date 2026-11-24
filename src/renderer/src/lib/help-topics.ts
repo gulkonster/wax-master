@@ -32,10 +32,41 @@ export const HELP_TOPICS = {
   walletContract: 'contract-section',
   walletVoting: 'voting-rewards',
   walletPowerup: 'powerup',
+  /** Pages and dialogs of the projects, the editor and the window. */
+  home: 'what-is-wax-master',
+  newProject: 'project-files',
+  mainFile: 'project-files',
+  projectTree: 'project-files',
+  unsavedChanges: 'project-files',
+  fileChanged: 'project-files',
+  editorSearch: 'window-tour',
+  toolchains: 'toolchain-versions',
+  about: 'what-is-wax-master',
+  updateAvailable: 'verify-download',
+  comingLater: 'what-is-wax-master',
+  /** Dialogs of the vault and the keys. */
+  vault: 'vault',
+  keyBackup: 'key-backups',
+  /** Dialogs of the chain. */
+  clearCode: 'contract-section',
+  editNetwork: 'endpoints',
+  starredAccounts: 'starred-accounts',
+  inspector: 'simulate-inspector',
+  openTransaction: 'transaction-history',
+  /** Groups of the Settings page. */
+  settingsAppearance: 'window-tour',
+  settingsEditor: 'window-tour',
+  settingsVault: 'vault',
+  settingsUpdates: 'what-the-app-contacts',
+  settingsData: 'what-the-app-contacts',
   /** "Read more" under a CPU / NET / RAM refusal. */
-  resourceRefusal: 'simulate-inspector',
+  resourceRefusal: 'troubleshooting',
+  /** "Read more" under the error of a refused transaction. */
+  txRefusal: 'troubleshooting',
   /** "Read more" under the ABI check text. */
-  abiCheck: 'abi-check'
+  abiCheck: 'abi-check',
+  /** "Read more" next to a Ricardian warning in Problems. */
+  ricardianWarning: 'ricardian'
 } as const
 
 export type HelpPlace = keyof typeof HELP_TOPICS

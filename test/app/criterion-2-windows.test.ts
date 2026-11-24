@@ -295,7 +295,7 @@ describe('reveal:* only from the reveal window', () => {
   })
 })
 
-describe('task 5a: Approve only 1.5 s after the window is shown and focused', () => {
+describe('Approve only 1.5 s after the window is shown and focused', () => {
   it('a click right after the window appears is refused and uses up nothing', async () => {
     approveCalls.length = 0
     let now = 1_000_000
@@ -358,7 +358,7 @@ describe('the Approve button says what it waits for', () => {
   })
 })
 
-describe('task 5b and 5c: one confirmation at a time; a locked vault stops before any window', () => {
+describe('one confirmation at a time; a locked vault stops before any window', () => {
   it('a second request while a confirmation is open is refused before any window', async () => {
     const { win } = openOne()
     expect(hasOpenConfirmation()).toBe(true)

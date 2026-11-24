@@ -8,6 +8,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }): React.JSX.Ele
     <Modal
       size="s"
       name="about"
+      help="about"
       title="About WAX Master"
       onClose={onClose}
       footer={

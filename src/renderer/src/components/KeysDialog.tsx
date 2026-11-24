@@ -385,6 +385,7 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
       {renaming && (
         <InputDialog
           title="Rename key"
+          help="manageKeypairs"
           label="Label"
           initial={renaming.label}
           okLabel="Rename"
@@ -427,6 +428,7 @@ function CreateVault({ onClose }: { onClose: () => void }): React.JSX.Element {
     <Modal
       size="s"
       name="create-vault"
+      help="vault"
       title="Create the key vault"
       onClose={onClose}
       footer={
@@ -484,7 +486,7 @@ export function BackupStep({ entry, testKeys, onDone }: { entry: KeyEntry; testK
     }
   }
   return (
-    <Modal size="m" name="backup-key" title="Back up this key">
+    <Modal size="m" name="backup-key" help="keyBackup" title="Back up this key">
       <p style={{ marginTop: 0 }}>
         The private key of <b>{entry.label || 'this key'}</b> exists only in this vault.
         {testKeys && ' These are test keys of WAX Testnet; a backup still keeps the test account usable.'}
@@ -514,6 +516,7 @@ function BackupAll({ keys, onBackUp, onClose }: { keys: KeyEntry[]; onBackUp: (k
     <Modal
       size="m"
       name="backup-all"
+      help="keyBackup"
       title="Back up keys"
       onClose={onClose}
       footer={
@@ -595,6 +598,7 @@ function VaultPasswordAction({ action, onClose }: { action: VaultAction; onClose
     <Modal
       size="s"
       name="vault-password-action"
+      help="vault"
       title={title}
       onClose={busy ? undefined : onClose}
       footer={
@@ -674,6 +678,7 @@ function CreateKey({ initial, onClose }: { initial: string; onClose: () => void 
     <Modal
       size="m"
       name="create-keypair"
+      help="manageKeypairs"
       title="Create Keypair"
       onClose={close}
       footer={
@@ -729,6 +734,7 @@ function ImportKey({ onClose }: { onClose: () => void }): React.JSX.Element {
     <Modal
       size="m"
       name="import-keypair"
+      help="manageKeypairs"
       title="Import Keypair"
       onClose={onClose}
       footer={
@@ -775,6 +781,7 @@ function ImportVault({ onClose }: { onClose: () => void }): React.JSX.Element {
     <Modal
       size="s"
       name="import-vault"
+      help="vault"
       title="Import vault"
       onClose={onClose}
       footer={
@@ -818,6 +825,7 @@ function DeleteKey({ entry, onClose }: { entry: KeyEntry; onClose: () => void })
     <Modal
       size="s"
       name="delete-key"
+      help="keyBackup"
       title="Delete key"
       onClose={onClose}
       footer={

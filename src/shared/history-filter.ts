@@ -11,6 +11,18 @@ const DAY = /^\d{4}-\d\d-\d\d$/
 /** Rows per page of the Transactions list. */
 export const ACTIONS_PAGE = 20
 
+/**
+ * The history service answers only while skip + limit stays within this many
+ * rows (beyond it, it refuses the query with a search-engine error), so the
+ * list ends there and a date range reaches older actions.
+ */
+export const HISTORY_WINDOW = 10_000
+
+/** Whether the page after the one at `skip` would pass the history service's window. */
+export function nextPagePassesWindow(skip: number, limit = ACTIONS_PAGE): boolean {
+  return skip + 2 * limit > HISTORY_WINDOW
+}
+
 /** The start of a local day ("2026-11-24") as a UTC time; '' when it is not a day. */
 export function dayStart(day: string): string {
   if (!DAY.test(day)) return ''
@@ -64,7 +76,7 @@ export function actionsQuery(f: AccountActionsFilter): string {
 
 /** Number of pages for a total of rows (0 when the total is not known). */
 export function pageCount(total: number, perPage = ACTIONS_PAGE): number {
-  return total > 0 ? Math.ceil(total / perPage) : 0
+  return total > 0 ? Math.ceil(Math.min(total, HISTORY_WINDOW) / perPage) : 0
 }
 
 /** The filter of the Transactions fields (action, first and last local day), or the reason it cannot be used. */

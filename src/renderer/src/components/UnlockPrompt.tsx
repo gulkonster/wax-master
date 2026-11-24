@@ -100,6 +100,7 @@ export function UnlockPrompt({
     <Modal
       size="s"
       name="unlock-vault"
+      help="vault"
       title={create ? 'Create the vault' : 'Unlock the vault to go on'}
       onClose={cancel}
       footer={

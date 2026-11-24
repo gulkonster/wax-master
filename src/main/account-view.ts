@@ -2,7 +2,7 @@
 // All chain data is untrusted: values are type-checked and passed on as text.
 
 import type { AccountActionRow, AccountActionsFilter, AccountActionsPage, AccountView, PermissionView } from '../shared/chain-types'
-import { actionsQuery, ACTIONS_PAGE } from '../shared/history-filter'
+import { actionsQuery, ACTIONS_PAGE, nextPagePassesWindow } from '../shared/history-filter'
 import { chain, history } from './rpc'
 import { parsePublicKey, publicKeyToString } from '../chain-core'
 import { currentNetwork, readCall, WAX_TESTNET_CHAIN } from './networks'
@@ -216,5 +216,8 @@ export async function accountActions(name: string, skip: number, filter: Account
   const totalRaw = num(r.total?.value)
   const total = Number.isSafeInteger(totalRaw) && totalRaw > 0 ? totalRaw : 0
   const totalExact = total > 0 && r.total?.relation !== 'gte'
-  return { rows, historyAvailable: true, more: list.length === limit && (total === 0 || !totalExact || skip + list.length < total), total, totalExact }
+  const more = list.length === limit && (total === 0 || !totalExact || skip + list.length < total)
+  // The service refuses a page that passes its window: the list ends one page before it.
+  const windowEnd = more && nextPagePassesWindow(skip, limit)
+  return { rows, historyAvailable: true, more: more && !windowEnd, total, totalExact, windowEnd }
 }

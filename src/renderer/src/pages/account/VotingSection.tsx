@@ -4,13 +4,18 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { VoterClaimView, VotingView } from '../../../../shared/chain-types'
-import { claimAction, voteAction } from '../../../../shared/wallet-voting'
+import { claimAction, voteAction, WAX_REWARD_MIN_PRODUCERS } from '../../../../shared/wallet-voting'
 import { networkStore } from '../../lib/networks'
 import { useStore } from '../../lib/stores'
 import { errorText } from '../../lib/toast'
 import { AccountPicker, PermissionPicker } from '../../components/AccountPicker'
 import { HelpButton } from '../../components/HelpButton'
 import { CommandView, FormSwitch, recipientProblem, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
+
+/** The system contract refuses a vote from an account without a row in the voters table (it has never staked). */
+const NO_STAKE = 'Stake CPU or NET first: the chain accepts a vote only from an account that has staked.'
+/** The system contract refuses a proxy vote from an account that is itself registered as a proxy. */
+const PROXY_CANNOT_USE_PROXY = 'An account registered as a proxy cannot vote through a proxy.'
 
 export function VotingSection({ ctx }: { ctx: WalletContext }): React.JSX.Element {
   const { view } = ctx
@@ -54,7 +59,7 @@ export function VotingSection({ ctx }: { ctx: WalletContext }): React.JSX.Elemen
               <span>Current vote</span>
               <span className="num">
                 {!current
-                  ? 'none: the account has not voted'
+                  ? 'none: the account has never staked'
                   : current.proxy
                     ? `through the proxy ${current.proxy}`
                     : current.producers.length
@@ -81,7 +86,11 @@ export function VotingSection({ ctx }: { ctx: WalletContext }): React.JSX.Elemen
             ]}
             onChange={setForm}
           />
-          {form === 'producers' ? <VoteProducers ctx={ctx} data={data} /> : <VoteProxy ctx={ctx} current={current?.proxy ?? ''} />}
+          {form === 'producers' ? (
+            <VoteProducers ctx={ctx} data={data} />
+          ) : (
+            <VoteProxy ctx={ctx} current={current?.proxy ?? ''} blocked={!current ? NO_STAKE : current.isProxy ? PROXY_CANNOT_USE_PROXY : ''} />
+          )}
         </>
       )}
     </section>
@@ -159,8 +168,11 @@ function VoteProducers({ ctx, data }: { ctx: WalletContext; data: VotingView }):
   const inactive = [...chosen].filter((p) => !rank.has(p)).sort()
 
   const removing = chosen.size === 0
+  // With nothing ticked the vote is removed: a vote for producers, or a vote through a proxy.
+  const hasVote = initial.length > 0 || !!data.current?.proxy
+  const noStake = !data.current
   const built = voteAction(view.name, permission, { kind: 'producers', producers: [...chosen] }, data.maxProducers)
-  const action = 'action' in built && !(removing && initial.length === 0) ? built.action : null
+  const action = 'action' in built && !noStake && !(removing && !hasVote) ? built.action : null
   const problem = 'problem' in built ? built.problem : ''
 
   const toggle = (name: string): void =>
@@ -175,7 +187,7 @@ function VoteProducers({ ctx, data }: { ctx: WalletContext; data: VotingView }):
     <div className="buy-ram">
       <div className="buy-ram-title">Vote for producers</div>
       <div className="hint">
-        Choose up to {data.maxProducers} producers from the active ones, listed by votes. A new vote replaces the whole earlier vote, including a proxy.
+        Choose up to {data.maxProducers} producers from the active ones, listed by votes. A new vote replaces the whole earlier vote, including a proxy; with nothing ticked, the button removes the vote.
       </div>
       <div className="field-row">
         <div className="field">
@@ -210,6 +222,13 @@ function VoteProducers({ ctx, data }: { ctx: WalletContext; data: VotingView }):
         {shown.length === 0 && <div className="hint">No active producer matches.</div>}
       </div>
       {data.producersCut && <div className="hint">Only the first {data.producers.length} active producers by votes are listed.</div>}
+      {data.waxRewardRule && (
+        <div className="hint">On WAX, voting rewards build up only while the vote names at least {WAX_REWARD_MIN_PRODUCERS} producers, or a proxy.</div>
+      )}
+      {data.waxRewardRule && chosen.size >= 1 && chosen.size < WAX_REWARD_MIN_PRODUCERS && (
+        <div className="acct-note">{chosen.size} chosen: this vote earns no voting rewards.</div>
+      )}
+      {noStake && <div className="acct-note bad">{NO_STAKE}</div>}
       {problem && <div className="acct-note bad">{problem}</div>}
       <div className="buy-ram-actions">
         <button
@@ -227,7 +246,7 @@ function VoteProducers({ ctx, data }: { ctx: WalletContext; data: VotingView }):
   )
 }
 
-function VoteProxy({ ctx, current }: { ctx: WalletContext; current: string }): React.JSX.Element {
+function VoteProxy({ ctx, current, blocked }: { ctx: WalletContext; current: string; blocked: string }): React.JSX.Element {
   const { view } = ctx
   const net = useStore(networkStore).current
   const [permission, setPermission] = useState(view.control[0] ?? 'active')
@@ -237,11 +256,21 @@ function VoteProxy({ ctx, current }: { ctx: WalletContext; current: string }): R
   useEffect(() => setProxy(current), [current])
 
   const built = voteAction(view.name, permission, { kind: 'proxy', proxy })
-  const action = 'action' in built ? built.action : null
+  const action = 'action' in built && !blocked ? built.action : null
 
   const submit = async (): Promise<void> => {
     if (ctx.viewOnly || !action) return
-    const p = await recipientProblem(proxy.trim(), net?.name ?? 'this network')
+    const name = proxy.trim()
+    let p = await recipientProblem(name, net?.name ?? 'this network')
+    if (!p) {
+      // The chain accepts a vote only through an account registered as a proxy.
+      try {
+        const info = await window.wax.wallet.proxyInfo(name)
+        if (!info.registered) p = `${name} is not registered as a proxy; the chain refuses the vote.`
+      } catch (e) {
+        p = `Could not check ${name}: ${errorText(e)}`
+      }
+    }
     setProblem(p)
     if (p) return
     await send([action], `Voting through the proxy ${proxy.trim()}.`)
@@ -263,6 +292,7 @@ function VoteProxy({ ctx, current }: { ctx: WalletContext; current: string }): R
           <PermissionPicker account={view.name} value={permission} onChange={setPermission} />
         </div>
       </div>
+      {blocked && <div className="acct-note bad">{blocked}</div>}
       <div className="buy-ram-actions">
         <button className="btn primary" disabled={busy || ctx.viewOnly || !action} onClick={() => void submit()}>
           {busy ? 'Waiting for confirmation...' : 'Vote through proxy'}

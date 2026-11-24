@@ -5,7 +5,7 @@ On WAX an account is created by another account, the creator. The creator pays f
 ## How to do it here
 
 1. Make or choose the keys first: Accounts > Manage Keypairs > **Create**. A key made here has a backup step; see [Backing up keys](doc:key-backups).
-2. Open Accounts > Create Account (or Create Account... in the Account button's list).
+2. Open Accounts > Create Account... (or Create Account... in the Account button's list).
 3. **Creator (pays)** and **Permission**: an account the vault can sign for, usually with `active`.
 4. **New account name**: 12 characters, a-z and 1-5. When you leave the field the app checks that the name is free on this network.
 5. **Owner key** and **Active key**: pick a vault key from the list or paste a public key (`PUB_K1_...` or `EOS...`).
@@ -15,7 +15,7 @@ On WAX an account is created by another account, the creator. The creator pays f
 
 If a chosen key has no backup yet, the dialog says so before it goes on; on a mainnet network it asks a blocking question.
 
-The same form is the **Create account** section of the Account page: choose it, fill in the fields and the section shows the actions it will send. The menu command stays as well.
+The same form is the **Create account** section of the Account page, with the open account as the creator. If the vault cannot sign for that creator, the section says so and **Create** stays disabled. The menu command stays as well.
 
 [Create Account](app:create-account)
 

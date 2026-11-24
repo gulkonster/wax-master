@@ -32,6 +32,7 @@ export function NewProjectDialog({ onClose, initialTemplate }: { onClose: () => 
     <Modal
       size="m"
       name="new-project"
+      help="newProject"
       title="New Project"
       onClose={onClose}
       footer={

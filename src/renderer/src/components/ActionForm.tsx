@@ -12,6 +12,7 @@ import { withVault } from '../lib/vault'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
 import { CANCELLED_NOT_SIGNED, formLineClass, outcomeLine, type FormLine } from '../lib/tx-outcome'
 import { AccountPicker, PermissionPicker } from './AccountPicker'
+import { ReadMore } from './HelpButton'
 
 // ---------------------------------------------------------------- shared dropdown
 
@@ -675,7 +676,11 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                   {result.source === 'simulation' ? 'Simulation' : 'Transaction'} <span className="mono-small">{result.id.slice(0, 16)}…</span> · {result.status}
                   {result.block ? ` · block ${result.block}` : ''}
                   {result.cpuUs !== null ? ` · CPU ${result.cpuUs} µs` : ''}
-                  {result.errorMessage && <div className="error-text">{result.errorMessage}</div>}
+                  {result.errorMessage && (
+                    <div className="error-text">
+                      {result.errorMessage} <ReadMore place="txRefusal" />
+                    </div>
+                  )}
                   <div>
                     <button className="btn" style={{ marginTop: 'var(--sp-2)' }} onClick={() => emit('show-inspector', result)}>
                       Open in inspector

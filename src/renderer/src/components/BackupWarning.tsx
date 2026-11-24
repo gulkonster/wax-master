@@ -91,6 +91,7 @@ export function useNoBackupGate(): { gate: (publicKeys: string[]) => Promise<boo
     <Modal
       size="s"
       name="no-backup"
+      help="keyBackup"
       title="This key has no backup"
       onClose={busy ? undefined : () => open.done(false)}
       footer={

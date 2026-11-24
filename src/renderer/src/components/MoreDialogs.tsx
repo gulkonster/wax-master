@@ -48,6 +48,7 @@ export function ClearCodeDialog({ onClose, initialAccount = '' }: { onClose: () 
     <Modal
       size="m"
       name="clear-code"
+      help="clearCode"
       title={`Clear Contract Code on ${net?.name ?? ''}`}
       onClose={busy ? undefined : onClose}
       footer={

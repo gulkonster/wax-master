@@ -136,7 +136,8 @@ export function InputDialog({
   initial,
   okLabel = 'OK',
   onOk,
-  onClose
+  onClose,
+  help
 }: {
   title: string
   label: string
@@ -144,9 +145,11 @@ export function InputDialog({
   okLabel?: string
   onOk: (value: string) => Promise<void> | void
   onClose: () => void
+  /** The place whose documentation topic the "?" of the title row opens. */
+  help: HelpPlace
 }): React.JSX.Element {
   return (
-    <InputDialogInner title={title} label={label} initial={initial} okLabel={okLabel} onOk={onOk} onClose={onClose} />
+    <InputDialogInner title={title} label={label} initial={initial} okLabel={okLabel} onOk={onOk} onClose={onClose} help={help} />
   )
 }
 
@@ -158,6 +161,8 @@ function InputDialogInner(props: {
   okLabel: string
   onOk: (value: string) => Promise<void> | void
   onClose: () => void
+  /** The place whose documentation topic the "?" of the title row opens. */
+  help: HelpPlace
 }): React.JSX.Element {
   const [value, setValue] = useState(props.initial)
   const [error, setError] = useState('')
@@ -173,6 +178,7 @@ function InputDialogInner(props: {
     <Modal
       size="s"
       name="text-input"
+      help={props.help}
       title={props.title}
       onClose={props.onClose}
       footer={

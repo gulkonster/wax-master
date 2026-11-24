@@ -9,6 +9,7 @@ import { copyText } from '../../lib/clipboard'
 import { withVault } from '../../lib/vault'
 import { errorText, toast } from '../../lib/toast'
 import { IconCopy } from '../../components/Icons'
+import { ReadMore } from '../../components/HelpButton'
 import { refreshPickLists } from '../../components/AccountPicker'
 import { scheduleReadsAfterSend } from './wallet-form'
 
@@ -233,7 +234,11 @@ export function FormSwitch<T extends string>({ label, value, options, onChange }
 
 export function SendLine({ message }: { message: SendMessage }): React.JSX.Element | null {
   if (!message) return null
-  return <div className={message.kind === 'error' ? 'error-text' : message.kind === 'note' ? 'hint' : 'acct-note good'}>{message.text}</div>
+  return (
+    <div className={message.kind === 'error' ? 'error-text' : message.kind === 'note' ? 'hint' : 'acct-note good'}>
+      {message.text} {message.kind === 'error' && <ReadMore place="txRefusal" />}
+    </div>
+  )
 }
 
 /** Existence of an account before a transfer or a stake: null when it exists, else the text that stops the form. */

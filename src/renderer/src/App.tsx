@@ -448,6 +448,7 @@ export function App(): React.JSX.Element {
         <Modal
           size="s"
           name="unsaved-changes"
+          help="unsavedChanges"
           title="Unsaved changes"
           onClose={() => unsaved('cancel')}
           footer={
@@ -482,6 +483,7 @@ export function App(): React.JSX.Element {
       {chainDialog === 'open-transaction' && (
         <InputDialog
           title="Open Transaction by Id"
+          help="openTransaction"
           label="Transaction id (64 hex characters)"
           initial=""
           okLabel="Open"
@@ -496,6 +498,7 @@ export function App(): React.JSX.Element {
         <Modal
           size="s"
           name="update-available"
+          help="updateAvailable"
           title="A new version is available"
           onClose={() => setUpdate(null)}
           footer={

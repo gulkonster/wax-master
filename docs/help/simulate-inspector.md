@@ -10,7 +10,7 @@ Simulate an action:
 2. Press **Simulate** instead of Run. No key and no confirmation are needed.
 3. Result shows "Simulation" with its status. Press **Open in inspector**.
 
-Simulate a deployment: Contract > Simulate Deploy, or **Simulate Deploy** in the Deploy dialog.
+Simulate a deployment: press **Simulate Deploy** in the Deploy dialog. Contract > Simulate Deploy opens that dialog.
 
 The inspector shows:
 

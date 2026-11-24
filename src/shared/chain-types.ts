@@ -129,6 +129,8 @@ export interface AccountActionsPage {
   /** Number of matching actions the history service reports (0 when it reports none); `totalExact` false when it is a lower bound. */
   total?: number
   totalExact?: boolean
+  /** True when older matching actions exist but lie beyond the history service's window of 10,000 rows. */
+  windowEnd?: boolean
 }
 
 /** Filters of the Transactions list: an action name and a time range (ISO times in UTC); empty means no filter. */
@@ -170,9 +172,17 @@ export interface VotingView {
   producers: ProducerRow[]
   /** True when the list was cut at its size limit. */
   producersCut: boolean
-  /** The account's row of the voters table; null when the account has never voted or staked. */
+  /** The account's row of the voters table; null when the account has never staked (the chain then refuses a vote). */
   current: { proxy: string; producers: string[]; staked: string; isProxy: boolean } | null
   claims: VoterClaimView[]
+  /** True on the WAX chains, whose system contract pays voter rewards only for a vote naming at least WAX_REWARD_MIN_PRODUCERS producers, or a proxy. */
+  waxRewardRule: boolean
+}
+
+/** Whether an account is registered as a proxy (its voters row has is_proxy). */
+export interface ProxyInfoView {
+  name: string
+  registered: boolean
 }
 
 export interface PowerupResourceView {

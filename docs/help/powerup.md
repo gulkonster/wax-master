@@ -4,13 +4,13 @@ PowerUp rents CPU and NET for a fixed time (one day on WAX) for a small fee, wit
 
 ## How to do it here
 
-Open the Account page, then the **PowerUp** section. The section is shown only when the chain's system contract has the PowerUp market (the `powup.state` table).
+Open the Account page, then the **PowerUp** section. The section is shown only when the chain's system contract has the PowerUp market (the `powerup` action and a row in the `powup.state` table).
 
 1. The section shows how much of the CPU and NET market is rented now and the smallest fee.
-2. **Receiver**: the account that gets the CPU and NET. It is this account by default; you can rent for another account. The fee is paid by this account.
+2. **Receiver**: the account that gets the CPU and NET. It is this account by default; you can rent for another account. The fee is paid by this account (**Payer**, with the permission that signs).
 3. **CPU** and **NET**: the size, given as an amount of staked tokens. The account gets the share of CPU or NET that this much stake would give for the rental time. When the account has its own CPU stake, a line estimates the CPU time from it.
 4. **Cost** is computed from the market before anything is signed. **Most it may take** (`max_payment`) is the cost plus 5 %, because the market can move a little before the transaction is in a block.
-5. Press **PowerUp**. The market is read again, the cost is computed again, and the confirmation window shows the `eosio::powerup` action with `max_payment`.
+5. Press **PowerUp**. The market is read again and the cost is computed again. When the new cost is at most the **Most it may take** shown, the confirmation window shows the `eosio::powerup` action with the new `max_payment`. So the fee taken is never above the figure you saw. When the new cost is higher, nothing is sent: the section shows "The cost rose to ... since it was shown" with the new figures, and pressing **PowerUp** again accepts them. The balance is checked again against the new figure too.
 
 ### How the cost is computed
 
@@ -30,6 +30,6 @@ On WAX Testnet, enter `10` for CPU and leave NET empty. The section shows a cost
 - Liquid tokens on this account for the fee.
 - A key of the account in the vault.
 - If the chain refuses with "max_payment is less than calculated fee", the market price rose since the cost was computed. Nothing was paid: press **PowerUp** again.
-- "calculated fee is below minimum": rent a larger amount.
+- If the form says the cost is below the smallest fee (the chain's "calculated fee is below minimum"), rent a larger amount. The app checks this before anything is signed.
 
 See also [CPU and NET](doc:resources-cpu-net) and [The Account page as a wallet](doc:wallet-overview).

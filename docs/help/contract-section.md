@@ -1,14 +1,14 @@
 # The Contract section
 
-The Contract section of the Account page is about the code on the account: the code hash, the ABI hash and when they were last updated. You can open the account as a contract, deploy a build to it, or clear its code.
+The Contract section of the Account page is about the code on the account: the code hash, the ABI hash and when the code was last updated. You can open the account as a contract, deploy a build to it, or clear its code.
 
 ## How to do it here
 
 1. Open the account on the Account page and choose **Contract**.
 2. Read the code hash and the ABI hash. An account without code shows "no contract", one without an ABI shows "no ABI".
-3. **Open as contract** opens the account on the Contract page, where you run its actions and read its tables. See [Run actions](doc:run-actions) and [Read tables](doc:read-tables).
-4. **Deploy to this account...** opens the deploy dialog for the current project with this account selected. Deploy offers starred accounts only: when this account is not starred, the dialog names it and asks you to star it first, and no other account is selected. See [Deploy](doc:deploy).
-5. **Clear code** sends `setcode` and `setabi` with empty content, which removes the contract. The confirmation window shows both actions and asks you to type the account name, on every network.
+3. **Open as contract** opens the account on the Contract page, where you run its actions and read its tables. It is available when the account has code. See [Run actions](doc:run-actions) and [Read tables](doc:read-tables).
+4. **Deploy to this account...** opens the deploy dialog for the current project with this account selected. It needs an open project. Deploy offers starred accounts only: when this account is not starred, the dialog names it and asks you to star it first, and no other account is selected. See [Deploy](doc:deploy).
+5. **Clear code** opens the Clear Contract Code dialog with this account filled in. Choose the permission and press **Clear code**: it sends `setcode` and `setabi` with empty content, which removes the contract. The confirmation window shows both actions and asks you to type the account name, on every network.
 
 The permission actions (`updateauth`, `linkauth`, `unlinkauth`, `deleteauth`) are on the Contract page of `eosio`, or in the **Keys and permissions** and **Linked actions** sections. See [Owner, active and permissions](doc:permissions-overview).
 

@@ -128,7 +128,11 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
           {t.cpuUs !== null ? `${t.cpuUs} µs` : `(${NOT_RETURNED})`} / {t.netBytes !== null ? `${t.netBytes} bytes` : `(${NOT_RETURNED})`}
         </span>
       </div>
-      {t.errorMessage && <div className="tr-big-error">{t.errorMessage}</div>}
+      {t.errorMessage && (
+        <div className="tr-big-error">
+          {t.errorMessage} {!t.resource && <ReadMore place="txRefusal" />}
+        </div>
+      )}
       {t.resource && <ResourceState r={t.resource} endpoint={t.endpoint} />}
       {t.errorStack && (
         <>
@@ -159,6 +163,7 @@ export function InspectorDialog({ t, onClose }: { t: InspectedTransaction; onClo
     <Modal
       size="l"
       name="transaction"
+      help="inspector"
       title={t.source === 'simulation' ? 'Simulation result' : 'Transaction'}
       onClose={onClose}
       footer={

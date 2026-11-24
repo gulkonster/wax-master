@@ -28,4 +28,5 @@ After the deploy in [Your first contract from zero](doc:first-contract), the Acc
 
 - A history service for the network. Without one, the Account page says "This network has no history service configured" and Open Transaction by Id says so too. Add one in Network > Manage Networks > Edit > History service. See [Endpoints](doc:endpoints).
 - A moment after sending: a history service can show a new transaction a few seconds later.
+- The history service lists at most the latest 10,000 matching actions of a query; it refuses pages beyond that. The list then ends with "The history service lists the latest 10,000 matching actions; set a date range to see older ones." Set **From day** and **To day** to reach older actions: each date range starts its own 10,000.
 - A history service keeps what its operator decided. Very old transactions may be missing: "The history service does not know this transaction."

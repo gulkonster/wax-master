@@ -8,7 +8,7 @@ The app gives the entry a weight equal to the permission's threshold. The code m
 
 1. Open your contract account on the Account page and choose **Keys and permissions**.
 2. On the permission (usually `active`) use the switch **Allow this account's contract to send actions (eosio.code)**.
-3. Read the new authority in the confirmation window: the old keys are all still there and one entry `yourcontract@eosio.code` is added. Approve.
+3. Read the new authority in the review dialog: the old keys are all still there and one entry `yourcontract@eosio.code` is added. Press **Send to confirmation** and approve.
 4. The permission now lists `yourcontract@eosio.code`. To take it away, use the switch again (or the remove button of the entry).
 
 The switch is not offered on `owner`, and the app refuses it there: a fault in the contract, or a later deployment of other code, could then replace the owner keys, and nothing could repair that. Use `active` or a custom permission. An entry already on `owner` can still be removed with the remove button of the entry. The switch adds the account's own contract only; another account's `eosio.code` is not added by **Add account** (a typed `updateauth` on the Contract page can, and its confirmation shows it).
@@ -20,7 +20,7 @@ From the Contract page: open `eosio`, choose `updateauth` with the current keys 
   "threshold": 1,
   "keys": [ { "key": "PUB_K1_...", "weight": 1 } ],
   "accounts": [
-    { "permission": { "actor": "mycontract111", "permission": "eosio.code" }, "weight": 1 }
+    { "permission": { "actor": "mycontract11", "permission": "eosio.code" }, "weight": 1 }
   ],
   "waits": []
 }
@@ -30,7 +30,7 @@ Replace `PUB_K1_...` with the key the permission has now. `updateauth` replaces 
 
 ## Example
 
-A token vault contract on `mycontract111` pays out with an inline `transfer`. Add `mycontract111@eosio.code` to its `active`, then call the payout action. The inline transfer passes.
+A token vault contract on `mycontract11` pays out with an inline `transfer`. Add `mycontract11@eosio.code` to its `active`, then call the payout action. The inline transfer passes.
 
 ## What is needed
 

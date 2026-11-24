@@ -11,6 +11,14 @@ import type { TxAction } from './api'
  */
 export const MAX_VOTE_PRODUCERS = 30
 
+/**
+ * On WAX, voter rewards build up only while the vote names at least this many
+ * producers, or a proxy (the WAX system contract, voting.cpp). The number is
+ * compiled into the WAX contract and stands in no table, so it is a constant
+ * here and is said only on the WAX chain ids.
+ */
+export const WAX_REWARD_MIN_PRODUCERS = 16
+
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
 /** Antelope name order: the order of the 64-bit value of the name, which the contract requires for the producer list. */

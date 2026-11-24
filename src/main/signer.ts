@@ -304,9 +304,12 @@ export class Signer {
   /**
    * Refuses an `updateauth` whose authority no signature could satisfy (the
    * same check and sentence as the wallet's review), against the account read
-   * from the signing endpoint now.
+   * from the signing endpoint now. `earlier` holds the `updateauth` data of
+   * the actions before this one in the same transaction: the permissions they
+   * create are known with their parent, so an entry pointing below this
+   * permission through one of them is counted as the circle it is.
    */
-  private async checkReach(endpoint: string, data: Record<string, unknown>): Promise<void> {
+  private async checkReach(endpoint: string, data: Record<string, unknown>, earlier: readonly Record<string, unknown>[] = []): Promise<void> {
     const account = String(data.account ?? '')
     const permission = String(data.permission ?? '')
     const raw = (data.auth ?? {}) as Record<string, unknown>
@@ -322,6 +325,11 @@ export class Signer {
     }
     const current = await this.readAccount(endpoint, account)
     const perms = current ? readPermissions(current) : []
+    for (const e of earlier) {
+      const name = String(e.permission ?? '')
+      if (String(e.account ?? '') !== account || !name || perms.some((p) => p.name === name)) continue
+      perms.push({ name, parent: String(e.parent ?? ''), auth: { threshold: 1, keys: [], accounts: [], waits: [] }, linked: null })
+    }
     const levelExists = async (actor: string, perm: string): Promise<boolean> => {
       const other = actor === account ? current : await this.readAccount(endpoint, actor)
       return !!other && readPermissions(other).some((p) => p.name === perm)
@@ -403,8 +411,12 @@ export class Signer {
     const clear = decoded.some((a) => isSystem(a, 'setcode') && String(systemData(a).code ?? '') === '')
 
     // Every new authority must be reachable by a signature, whatever asked for it.
+    // Permissions created by an earlier updateauth of the same transaction count too.
+    const earlier: Record<string, unknown>[] = []
     for (const a of decoded) {
-      if (isSystem(a, 'updateauth')) await this.checkReach(endpoint, systemData(a))
+      if (!isSystem(a, 'updateauth')) continue
+      await this.checkReach(endpoint, systemData(a), earlier)
+      earlier.push(systemData(a))
     }
 
     // Keys for every distinct authorization.

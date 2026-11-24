@@ -13,6 +13,7 @@ import { generatePrivateKey, publicFromPrivate, publicKeyToString } from '../../
 import type { NetworkInfo, PermissionView } from '../../src/shared/chain-types'
 import { ramForAmount, ramSellReturn, ramFeeUnits, type RamMarket } from '../../src/shared/ram-market'
 import { amountUnits, assetUnits, memoBytes, quantityText } from '../../src/shared/wallet'
+import { ACTIONS_PAGE, HISTORY_WINDOW, nextPagePassesWindow, pageCount } from '../../src/shared/history-filter'
 
 function newKey(): { k1: string; legacy: string } {
   const pub = publicFromPrivate(generatePrivateKey())
@@ -242,6 +243,48 @@ describe('wallet amounts', () => {
 describe('wallet calls in the editor preload', () => {
   it('exposes the wallet calls', () => {
     const preload = readFileSync(join(__dirname, '../../src/preload/index.ts'), 'utf8')
-    for (const c of ['wallet:tokens', 'wallet:addedTokens', 'wallet:balance', 'wallet:addToken', 'wallet:removeToken','wallet:permPreview', 'wallet:permSend', 'wallet:links', 'wallet:contractInfo', 'wallet:system', 'wallet:voting', 'wallet:powerup']) expect(preload).toContain(`call('${c}')`)
+    for (const c of ['wallet:tokens', 'wallet:addedTokens', 'wallet:balance', 'wallet:addToken', 'wallet:removeToken','wallet:permPreview', 'wallet:permSend', 'wallet:links', 'wallet:contractInfo', 'wallet:system', 'wallet:voting', 'wallet:proxyInfo', 'wallet:powerup']) expect(preload).toContain(`call('${c}')`)
+  })
+})
+
+describe('history pages end where the service ends', () => {
+  const row = (i: number): Record<string, unknown> => ({
+    trx_id: i.toString(16).padStart(64, '0'),
+    act: { account: 'eosio.token', name: 'transfer', data: {} },
+    '@timestamp': '2026-11-24T10:00:00.000',
+    block_num: i
+  })
+  const page = (total: number, relation = 'eq'): unknown => ({ actions: Array.from({ length: ACTIONS_PAGE }, (_, i) => row(i + 1)), total: { value: total, relation } })
+
+  it('no page passes skip + limit 10,000; the last one says so', async () => {
+    expect(HISTORY_WINDOW).toBe(10_000)
+    expect(nextPagePassesWindow(9_960)).toBe(false)
+    expect(nextPagePassesWindow(9_980)).toBe(true)
+    expect(pageCount(50_000)).toBe(500)
+    expect(pageCount(45)).toBe(3)
+    const { accountActions } = await import('../../src/main/account-view')
+    const { currentNetwork } = await import('../../src/main/networks')
+    const { history } = await import('../../src/main/rpc')
+    if (!currentNetwork().history) return expect.fail('the default network has a history service')
+    const spy = vi.spyOn(history, 'getActions')
+    try {
+      spy.mockResolvedValue(page(50_000, 'gte') as never)
+      const early = await accountActions('alice', 0)
+      expect(early.more).toBe(true)
+      expect(early.windowEnd).toBe(false)
+      const last = await accountActions('alice', 9_980)
+      expect(last.more).toBe(false)
+      expect(last.windowEnd).toBe(true)
+      expect(spy.mock.calls.every((c) => c[2] + c[3] <= HISTORY_WINDOW)).toBe(true)
+      // A list that ends by itself before the window is not marked.
+      spy.mockResolvedValue(page(40) as never)
+      const short = await accountActions('alice', 20)
+      expect(short.more).toBe(false)
+      expect(short.windowEnd).toBe(false)
+    } finally {
+      spy.mockRestore()
+    }
+    const src = readFileSync(join(__dirname, '../../src/renderer/src/pages/account/TransactionsSection.tsx'), 'utf8')
+    expect(src).toContain('The history service lists the latest 10,000 matching actions; set a date range to see older ones.')
   })
 })

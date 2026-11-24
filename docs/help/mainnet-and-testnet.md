@@ -16,7 +16,7 @@ The app decides the kind from the chain, not from the name you give:
 
 - A known main chain (WAX Mainnet, EOS, Telos) is always mainnet, whatever was saved.
 - WAX Testnet is testnet.
-- `local` is allowed only when every endpoint is on this computer (`localhost`, `127.0.0.1`).
+- `local` is allowed only when every endpoint is on this computer (`localhost`, `127.0.0.1`, `[::1]` or a name ending in `.localhost`).
 - Any other chain counts as mainnet until you mark it as a test network. The app then asks in its own dialog: **Treat as a test network** or **Cancel**.
 
 ## How to do it here

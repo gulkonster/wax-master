@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import type { TxAction } from '../../../../shared/api'
 import type { PowerupStateView } from '../../../../shared/chain-types'
-import { POWERUP_MARGIN_PERCENT, powerupAction, powerupQuote } from '../../../../shared/powerup'
+import { POWERUP_MARGIN_PERCENT, powerupAction, powerupQuote, requoteDecision } from '../../../../shared/powerup'
 import { amountUnits, assetUnits, formatUnits } from '../../../../shared/wallet'
 import { networkStore } from '../../lib/networks'
 import { useStore } from '../../lib/stores'
@@ -90,7 +90,9 @@ export function PowerupSection({ ctx }: { ctx: WalletContext }): React.JSX.Eleme
   const submit = async (): Promise<void> => {
     setCpu((f) => ({ ...f, touched: true }))
     setNetAmt((f) => ({ ...f, touched: true }))
-    if (ctx.viewOnly || !action || cpuU === null || netU === null) return
+    if (ctx.viewOnly || !action || !quote || cpuU === null || netU === null) return
+    // The most it may take, as the page shows it at this click: nothing above it is signed.
+    const shownMax = quote.maxPayment
     const p = receiver === view.name ? null : await recipientProblem(receiver, net?.name ?? 'this network')
     setProblem(p)
     if (p) return
@@ -98,9 +100,21 @@ export function PowerupSection({ ctx }: { ctx: WalletContext }): React.JSX.Eleme
     const fresh = await read()
     if (!fresh) return
     const q = powerupQuote(fresh, cpuU, netU, fresh.headTime)
-    const a = build(fresh, q)
+    const decision = requoteDecision(shownMax, q)
+    if (decision === 'feeRose') {
+      setProblem(
+        `The cost rose to ${formatUnits(q.fee, fresh.precision, fresh.symbol)} since it was shown (most it may take now ${formatUnits(q.maxPayment, fresh.precision, fresh.symbol)}). Press PowerUp again to accept it.`
+      )
+      return
+    }
+    const a = decision === 'send' ? build(fresh, q) : null
     if (!a) {
       setProblem(q.problem || 'The PowerUp could not be built.')
+      return
+    }
+    const freshAvailable = assetUnits(view.liquid, fresh.precision, fresh.symbol)
+    if (freshAvailable !== null && q.maxPayment > freshAvailable) {
+      setProblem(`More than the available balance of ${view.name}.`)
       return
     }
     await send([a], `PowerUp sent for ${receiver}.`, () => {
@@ -170,6 +184,7 @@ export function PowerupSection({ ctx }: { ctx: WalletContext }): React.JSX.Eleme
                   onChange={(e) => {
                     const text = e.target.value.trim()
                     setCpu((f) => ({ ...f, text }))
+                    setProblem(null)
                   }}
                   onBlur={() => setCpu((f) => ({ ...f, touched: true }))}
                 />
@@ -184,6 +199,7 @@ export function PowerupSection({ ctx }: { ctx: WalletContext }): React.JSX.Eleme
                   onChange={(e) => {
                     const text = e.target.value.trim()
                     setNetAmt((f) => ({ ...f, text }))
+                    setProblem(null)
                   }}
                   onBlur={() => setNetAmt((f) => ({ ...f, touched: true }))}
                 />

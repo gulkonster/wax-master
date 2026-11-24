@@ -1,12 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { nameToUint64 } from '../../src/chain-core'
 import type { AbiDef } from '../../src/chain-core'
-import { claimAction, claimChoices, MAX_VOTE_PRODUCERS, nameValue, sortNames, voteAction, voterRewardEstimate } from '../../src/shared/wallet-voting'
-import { amountForFrac, decayedAdjusted, fracForStake, POWERUP_FRAC, powerupAction, powerupFee, powerupQuote, type PowerupResource, type PowerupState } from '../../src/shared/powerup'
+import { claimAction, claimChoices, MAX_VOTE_PRODUCERS, nameValue, sortNames, voteAction, voterRewardEstimate, WAX_REWARD_MIN_PRODUCERS } from '../../src/shared/wallet-voting'
+import { amountForFrac, decayedAdjusted, fracForStake, POWERUP_FRAC, powerupAction, powerupFee, powerupQuote, requoteDecision, type PowerupResource, type PowerupState } from '../../src/shared/powerup'
 import { actionsQuery, checkActionsFilter, dayEnd, dayStart, filterOf, pageCount } from '../../src/shared/history-filter'
-import { claimViews, parsePowerupState, parseProducers, parseVoter, systemFeatures } from '../../src/main/wallet-system'
+import { claimViews, parsePowerupState, parseProducers, parseProxyInfo, parseVoter, proxyInfo, systemFeatures, votingView } from '../../src/main/wallet-system'
+import { WAX_CHAIN_IDS } from '../../src/main/account-view'
+import { chain } from '../../src/main/rpc'
+import type { ReadCall } from '../../src/main/contract-view'
+import type { NetworkInfo } from '../../src/shared/chain-types'
 
 const fixture = JSON.parse(readFileSync(join(__dirname, '../fixtures/chain/wax-testnet-eosio-system.json'), 'utf8')) as {
   actions: string[]
@@ -174,6 +178,58 @@ describe('producers and voters rows are checked', () => {
   })
 })
 
+describe('voting follows the rules of the system contract', () => {
+  const net = (chainId: string): NetworkInfo => ({
+    id: 'n',
+    name: 'Net',
+    kind: 'testnet',
+    chainId,
+    symbol: 'WAX',
+    precision: 8,
+    endpoints: ['https://node.example'],
+    preset: false,
+    currentEndpoint: 0
+  })
+  const readCall: ReadCall = (fn) => fn('https://node.example')
+  afterEach(() => vi.restoreAllMocks())
+
+  it('a proxy is registered only by its own voters row with is_proxy', () => {
+    expect(parseProxyInfo(undefined, 'proxy1')).toEqual({ name: 'proxy1', registered: false })
+    expect(parseProxyInfo({ owner: 'proxy1', is_proxy: 0 }, 'proxy1').registered).toBe(false)
+    expect(parseProxyInfo({ owner: 'other', is_proxy: 1 }, 'proxy1').registered).toBe(false)
+    expect(parseProxyInfo({ owner: 'proxy1', is_proxy: 1 }, 'proxy1').registered).toBe(true)
+  })
+  it('the proxy row is read from the voters table by its name', async () => {
+    const spy = vi.spyOn(chain, 'getTableRows').mockResolvedValue({ rows: [{ owner: 'proxy1', is_proxy: 1 }], more: false })
+    expect(await proxyInfo(net('x'), 'proxy1', readCall)).toEqual({ name: 'proxy1', registered: true })
+    expect(spy.mock.calls[0][1]).toMatchObject({ code: 'eosio', scope: 'eosio', table: 'voters', lower_bound: 'proxy1', upper_bound: 'proxy1' })
+    spy.mockResolvedValue({ rows: [], more: false })
+    expect((await proxyInfo(net('x'), 'nobody', readCall)).registered).toBe(false)
+  })
+  it('the 16-producer rule is flagged on the WAX chain ids only; no voters row means never staked', async () => {
+    vi.spyOn(chain, 'getTableRows').mockResolvedValue({ rows: [], more: false })
+    const def = abiOf(STANDARD_ACTIONS, STANDARD_TABLES)
+    const wax = await votingView(net(WAX_CHAIN_IDS[1]), def, 'alice', readCall)
+    expect(wax.waxRewardRule).toBe(true)
+    expect(wax.current).toBeNull()
+    expect((await votingView(net(WAX_CHAIN_IDS[0]), def, 'alice', readCall)).waxRewardRule).toBe(true)
+    expect((await votingView(net('aa'.repeat(32)), def, 'alice', readCall)).waxRewardRule).toBe(false)
+    expect(WAX_REWARD_MIN_PRODUCERS).toBe(16)
+  })
+  it('the Voting section names the refusals before anything is sent', () => {
+    const src = readFileSync(join(__dirname, '../../src/renderer/src/pages/account/VotingSection.tsx'), 'utf8')
+    expect(src).toContain('none: the account has never staked')
+    expect(src).toContain('Stake CPU or NET first: the chain accepts a vote only from an account that has staked.')
+    expect(src).toContain('is not registered as a proxy; the chain refuses the vote.')
+    expect(src).toContain('An account registered as a proxy cannot vote through a proxy.')
+    expect(src).toContain('window.wax.wallet.proxyInfo(')
+    expect(src).toContain('On WAX, voting rewards build up only while the vote names at least {WAX_REWARD_MIN_PRODUCERS} producers, or a proxy.')
+    expect(src).toContain('chosen: this vote earns no voting rewards.')
+    // A proxy vote counts as a vote that the Producers form can remove.
+    expect(src).toContain('const hasVote = initial.length > 0 || !!data.current?.proxy')
+  })
+})
+
 /** A simple market: weight 2^20 (shares exact in binary), prices 1000 to 101000 units, exponent 2. */
 const simple: PowerupResource = {
   weight: '1048576',
@@ -255,6 +311,34 @@ describe('PowerUp cost', () => {
     expect(parsePowerupState({ ...p, cpu: { ...(p.cpu as object), weight: '-5' } }, 0, 8, 'WAX')).toBeNull()
     expect(parsePowerupState({ ...p, cpu: { ...(p.cpu as object), exponent: 'x' } }, 0, 8, 'WAX')).toBeNull()
     expect(parsePowerupState({ ...p, net: null }, 0, 8, 'WAX')).toBeNull()
+  })
+  it('a row with max_price below min_price or utilization above the weight is not in the expected form, and nothing throws', () => {
+    const p = fixture.powupState
+    const cpu = p.cpu as Record<string, unknown>
+    const weight = BigInt(cpu.weight as string)
+    const rows = [
+      { ...p, cpu: { ...cpu, max_price: '1.00000000 WAX', min_price: '2.00000000 WAX' } },
+      { ...p, cpu: { ...cpu, utilization: (weight + 1n).toString() } },
+      { ...p, cpu: { ...cpu, adjusted_utilization: (weight + 1n).toString() } }
+    ]
+    for (const row of rows) expect(() => parsePowerupState(row, 0, 8, 'WAX')).not.toThrow()
+    for (const row of rows) expect(parsePowerupState(row, 0, 8, 'WAX')).toBeNull()
+    // A fee that would not be a finite number is null, and the quote turns it into words.
+    const steep: PowerupResource = { ...simple, exponent: 100, adjustedUtilization: '10000000000000000' }
+    expect(powerupFee(steep, 1, 10_000_000_000_000_000)).toBeNull()
+    expect(() => powerupQuote(state(steep), 16n, 0n, 1000)).not.toThrow()
+    expect(powerupQuote(state(steep), 16n, 0n, 1000).problem).not.toBe('')
+  })
+  it('the fresh quote at the click: lower or equal to the shown ceiling is sent, above it nothing is sent', () => {
+    const shown = powerupQuote(state(simple), BigInt(EIGHTH), 0n, 1000)
+    expect(shown.maxPayment).toBe(907n + 46n)
+    const lower = powerupQuote(state(simple), BigInt(EIGHTH) / 2n, 0n, 1000)
+    expect(requoteDecision(shown.maxPayment, lower)).toBe('send')
+    expect(requoteDecision(shown.maxPayment, { ...shown, fee: shown.maxPayment })).toBe('send')
+    const moved = powerupQuote(state({ ...simple, utilization: '524288', adjustedUtilization: '524288' }), BigInt(EIGHTH), 0n, 1000)
+    expect(moved.fee > shown.maxPayment).toBe(true)
+    expect(requoteDecision(shown.maxPayment, moved)).toBe('feeRose')
+    expect(requoteDecision(shown.maxPayment, { ...shown, problem: 'x' })).toBe('problem')
   })
 })
 

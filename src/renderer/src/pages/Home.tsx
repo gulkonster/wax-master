@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ProjectEntry } from '../../../shared/api'
 import { useApp } from '../state'
 import { IconClose, IconFolder, IconFolderOpen, IconList, IconPlus, IconStar } from '../components/Icons'
+import { HelpButton } from '../components/HelpButton'
 
 export function Home(): React.JSX.Element {
   const { state, actions } = useApp()
@@ -21,7 +22,10 @@ export function Home(): React.JSX.Element {
     <div className="page-scroll">
       <div className="home">
         <div className="page-head">
-          <h1>Projects</h1>
+          <h1 className="with-help">
+            Projects
+            <HelpButton place="home" />
+          </h1>
           <button className="btn primary" onClick={() => actions.newProject()}>
             <IconPlus /> New
           </button>

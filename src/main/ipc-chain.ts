@@ -11,7 +11,7 @@ import { dataDir } from './paths'
 import { chain, history, request } from './rpc'
 import { vault } from './keys-service'
 import { linksFromAccount, linksFromHistory } from './wallet-permissions'
-import { powerupState, powerupStateRow, systemFeatures, votingView } from './wallet-system'
+import { powerupState, powerupStateRow, proxyInfo, systemFeatures, votingView } from './wallet-system'
 import { checkActionsFilter } from '../shared/history-filter'
 import type { AbiDef } from '../chain-core'
 import { addedTokens, MAX_HISTORY_TOKENS, NETWORK_ID_FORM, precisionFromStats, TOKEN_SYMBOL, tokenBalance, walletTokens } from './wallet-tokens'
@@ -275,6 +275,12 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
     const def = await getContractDef(n, 'eosio', networks.readCall)
     if (!def.actions.some((x) => x.name === 'voteproducer')) throw new Error(`The system contract of ${n.name} offers no voting.`)
     return votingView(n, def, acc, networks.readCall)
+  })
+  // Whether an account is registered as a proxy (read-only: its row of the voters table).
+  handle('wallet:proxyInfo', (_e, name) => {
+    const acc = chainName(name, 'account')
+    if (!acc) throw new Error('account: enter an account name')
+    return proxyInfo(networks.currentNetwork(), acc, networks.readCall)
   })
   // The PowerUp market (powup.state) of the current network; null when the chain has none.
   handle('wallet:powerup', () => powerupState(networks.currentNetwork(), networks.readCall))

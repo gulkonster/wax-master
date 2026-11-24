@@ -6,7 +6,7 @@ import type { InspectedTransaction } from './trace-types'
 import type { DeployPlan } from './chain-types'
 import type { RamPrice } from './ram-market'
 import type { NetworkHead, NetworkOverview } from './network-info'
-import type { AccountActionsFilter, PowerupStateView, SystemFeatures, VotingView } from './chain-types'
+import type { AccountActionsFilter, PowerupStateView, ProxyInfoView, SystemFeatures, VotingView } from './chain-types'
 import type { AccountActionsPage, AccountView, AddedToken, ContractInfoView, LinkedActionsView, NetworkInfo, NetworkKind, NetworkStatus, PermissionIntent, PermissionPlanView, TokenBalance, WalletTokens } from './chain-types'
 import type { AuthLevel, ContractAbiView, ContractHistoryEntry, ContractHistoryKind, ContractHistoryList, PackResult, RowsQuery, RowsResult, ScopesResult } from './chain-types'
 import type { WindowErrorReport } from './window-error'
@@ -488,6 +488,8 @@ export interface WaxApi {
     system(): Promise<SystemFeatures>
     /** Active producers, the account's current vote, and the reward claims the system ABI offers. */
     voting(account: string): Promise<VotingView>
+    /** Whether the account is registered as a proxy, from its row of the voters table. */
+    proxyInfo(account: string): Promise<ProxyInfoView>
     /** The PowerUp market of the current network, checked; null when the chain has none. */
     powerup(): Promise<PowerupStateView | null>
   }

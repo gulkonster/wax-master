@@ -5,14 +5,14 @@ WAX Testnet is a copy of WAX where tokens have no value. Its faucet, a free serv
 ## How to do it here
 
 1. Select WAX Testnet in the Network button. On another network the dialog shows a **Switch to WAX Testnet** button.
-2. Open Accounts > Create Testnet Account.
+2. Open Accounts > Create Testnet Account...
 3. The **Account name** field holds a random name. Keep it or type your own: exactly 12 characters, a-z and 1-5.
 4. Press **Create account**. If the vault is locked or does not exist, the password is asked right there.
 5. The faucet creates the account with an owner key and an active key. Both are stored in your vault.
 6. A **Back up this key** step follows for each key. See [Backing up keys](doc:key-backups).
 7. **Request test tokens** asks the faucet for test WAX for the new account. **Open account** opens it on the Account page.
 
-To get test tokens for an account you already have: type its name in the field and press **Request tokens**, or use **Request testnet tokens** on its Account page under Resources.
+To get test tokens for an account you already have: type its name in the field and press **Request tokens**, or use **Request testnet tokens** in the **Testnet faucet** section of its Account page.
 
 [Create Testnet Account](app:create-testnet-account)
 
@@ -25,7 +25,7 @@ Name `k3vtq2mabx41` (any free name works). After Create account the dialog says 
 - WAX Testnet in the network list (Network > Manage Networks > Restore default networks brings it back).
 - An internet connection to the faucet.
 
-> Note: The faucet service made these keys and has seen them. Use such an account for testing only. To own it alone, replace both keys with keys made in your vault (Account page > Permission Keys > Change key...).
+> Note: The faucet service made these keys and has seen them. Use such an account for testing only. To own it alone, replace both keys with keys made in your vault (Account page > Keys and permissions > Change key...).
 
 ## When it fails
 

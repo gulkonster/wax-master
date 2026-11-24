@@ -124,7 +124,7 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
                   </span>
                   <span className="problem-message">{p.message}</span>
                   {p.severity === 'warning' && isRicardianWarning(p.message) && (
-                    <span className="problem-hint">
+                    <span className="problem-hint" onClick={(ev) => ev.stopPropagation()}>
                       <span
                         className="out-link"
                         role="button"
@@ -135,7 +135,8 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
                         }}
                       >
                         {RICARDIAN_HINT}
-                      </span>
+                      </span>{' '}
+                      <ReadMore place="ricardianWarning" />
                     </span>
                   )}
                   {p.source === 'abi' && (

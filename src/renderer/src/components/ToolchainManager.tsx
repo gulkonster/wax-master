@@ -96,6 +96,7 @@ export function ToolchainManager({ busy, onBusy }: { busy: boolean; onBusy: (b: 
         <Modal
           size="m"
           name="add-toolchain"
+          help="toolchains"
           title="Add toolchain"
           onClose={() => setCandidate(null)}
           footer={

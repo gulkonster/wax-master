@@ -63,7 +63,7 @@ export function decayedAdjusted(r: PowerupResource, nowSec: number): number {
  * The part of the increase that lies below `adjusted_utilization` is paid at
  * the price p(adjusted) for its share of the weight; the rest is paid as
  * f(end) - f(start). The sum is rounded up. Returns null when the market has no
- * weight or not enough left.
+ * weight or not enough left, or when the fee is not a finite number.
  */
 export function powerupFee(r: PowerupResource, increase: number, adjusted: number): number | null {
   if (increase <= 0) return 0
@@ -88,6 +88,8 @@ export function powerupFee(r: PowerupResource, increase: number, adjusted: numbe
     start = adjusted
   }
   if (start < end) fee += integral(start, end)
+  // A row with prices or weights out of their range can give an infinite or undefined fee.
+  if (!Number.isFinite(fee)) return null
   return Math.ceil(fee)
 }
 
@@ -137,6 +139,18 @@ export function powerupQuote(s: PowerupState, cpuStake: bigint, netStake: bigint
   if (feeUnits < BigInt(s.minFee)) return { ...empty, fee: feeUnits, problem: 'The cost is below the smallest fee; rent a larger amount.' }
   const margin = (feeUnits * POWERUP_MARGIN_PERCENT + 99n) / 100n
   return { cpuFrac, netFrac, fee: feeUnits, maxPayment: feeUnits + (margin > 0n ? margin : 1n), problem: '' }
+}
+
+/**
+ * What to do with the quote computed again from a fresh read just before the
+ * confirmation. The page never signs more than the "most it may take" it
+ * showed: a fresh cost above that figure sends nothing (the page shows the new
+ * cost, and pressing PowerUp again accepts it). A lower or equal cost is sent.
+ */
+export function requoteDecision(shownMaxPayment: bigint, fresh: PowerupQuote): 'send' | 'feeRose' | 'problem' {
+  if (fresh.problem) return 'problem'
+  if (fresh.fee > shownMaxPayment) return 'feeRose'
+  return 'send'
 }
 
 export function powerupAction(a: {

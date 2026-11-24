@@ -1,0 +1,64 @@
+# Troubleshooting
+
+Find what you see in the left column of a section, then follow the fix or the linked page. Most problems show their own message: read it first, it usually names the cause.
+
+## Building
+
+| What you see | Usual cause | Fix |
+|---|---|---|
+| The build does not start; the status bar says "Toolchain not set up" | The toolchain is not installed | Help > Setup; see [First start and the toolchain](doc:first-start) |
+| Builds stopped working after a Windows update | The Linux environment of the toolchain is damaged | Help > Setup > **Repair toolchain** |
+| Red lines in Output | Errors in the source | Fix the **first** red line first; see [Common compiler errors](doc:compiler-errors) |
+| `ABI check:` lines, Deploy stopped | A table or action uses a type the ABI does not define | [ABI check messages](doc:abi-check) |
+| An action is missing from the ABI | No `[[eosio::action]]`, or the contract name in Project Settings differs from `[[eosio::contract("...")]]` | [Common compiler errors](doc:compiler-errors) |
+| Ricardian warnings | Actions without plain-language text | Contract > Create Ricardian Files; see [Ricardian contracts](doc:ricardian) |
+
+[Setup](app:setup) [Show Output](app:show-output) [Show Problems](app:show-problems)
+
+## Deploying
+
+| What you see | Usual cause | Fix |
+|---|---|---|
+| A yellow line: RAM needed and available | The account has too little RAM for the code | **Buy RAM** in the Deploy dialog; see [Deploy](doc:deploy) and [RAM](doc:resources-ram) |
+| "The vault has no key for ..." | The deploy account's key is not in the vault | Import the key (Accounts > Manage Keypairs); see [The vault](doc:vault) |
+| "Nothing to deploy: the account already has this build." | The same WASM and ABI are on the account | Nothing to do; change the code and build if you meant to |
+| The new code reads old rows wrong | The row struct changed | [Upgrading a contract and its tables](doc:contract-upgrade) |
+
+## Transactions
+
+| What you see | Usual cause | Fix |
+|---|---|---|
+| `assertion failure with message: ...` | A `check` in the contract refused the action | The text is the contract's own message; see [Error messages](doc:contract-errors) |
+| `missing authority of ...` | The action needs another signer | Set Authorization to that account; see [Actions and authority checks](doc:contract-actions-auth) |
+| An error naming `eosio.code` among the provided permissions | An inline action of your contract without `eosio.code` | [The eosio.code permission](doc:eosio-code) |
+| Refused for CPU or NET | Not enough staked or rented CPU or NET at this moment | Wait for it to recover, stake, or PowerUp; see [CPU and NET](doc:resources-cpu-net) and [PowerUp](doc:powerup) |
+| `insufficient ram` | The RAM payer of a new row has too little RAM | [RAM](doc:resources-ram); see who pays in [Tables, scopes and payers](doc:contract-tables) |
+| `cannot charge RAM to other accounts during notify` | A transfer listener makes the user pay | Pay with `get_self()`; see [Notifications](doc:contract-notifications) |
+| Expired | The confirmation took too long | Run it again |
+| The deposit to your contract is not credited | The handler is not `on_notify("eosio.token::transfer")`, or it returned early | [Notifications](doc:contract-notifications) |
+| A custom permission cannot sign an action | No link from the action to the permission | [Linked actions (linkauth)](doc:linked-actions) |
+
+**Simulate** on the Contract page shows the result of an action without sending it; the inspector shows every inline action and notification. See [Simulate and the transaction inspector](doc:simulate-inspector).
+
+## Accounts, keys and the vault
+
+| What you see | Fix |
+|---|---|
+| Forgot the vault password | **Forgot password?** on the unlock prompt: the recovery code sets a new password; see [The vault](doc:vault) |
+| The Account page says **View only** | No key of the account is in the vault; **Import key**; see [The Account page as a wallet](doc:wallet-overview) |
+| The faucet refuses | It limits how often it works, or the name is taken; see [Create a testnet account](doc:create-testnet-account) |
+| Afraid of locking yourself out while changing a key | [Changing a key safely](doc:change-key-safely) |
+
+## Networks and tables
+
+| What you see | Fix |
+|---|---|
+| The status dot is orange or red | Hover over it for the reason; see [The status mark](doc:network-status) and [Endpoints](doc:endpoints) |
+| "No rows." for a table that has rows | Another scope; many contracts use the user's account as scope; see [Read tables](doc:read-tables) |
+| "This account has no contract (no ABI)" | The account has no contract on this network, or you are on another network; see [Mainnet and testnet](doc:mainnet-and-testnet) |
+
+## What is needed
+
+- The exact message. **Show full error** in the inspector and the Output panel can both be copied into a search or a bug report.
+
+See also the [Glossary](doc:glossary).

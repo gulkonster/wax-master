@@ -33,18 +33,25 @@ A permission has one or more keys or accounts, each with a **weight**, and a **t
 2. Type an account name in the address field and press Enter. Each account opens in its own tab.
 3. The buttons next to the address field: **Star** (see [Starred accounts](doc:starred-accounts)), **Open as contract**, and **Keys** (Manage Keypairs, showing this account's keys).
 
-The page has these sections:
+The page shows a badge ("You control: ..." or "View only"), a summary band (Total balance, Available, Staked (CPU / NET), Refunding, and RAM, CPU and NET gauges) and these sections in the list on the left:
 
 | Section | What it shows |
 |---|---|
-| Account | Total Balance, Available, Staked, Refund |
-| Resources | RAM, CPU and NET with used and total. **Buy RAM** opens a form to buy RAM for this account; on WAX Testnet **Request testnet tokens** asks the faucet for test tokens. |
-| Permission Keys | Each permission with its threshold, keys and accounts and their weights. A green **vault** mark means that key is in your vault. |
+| Tokens | The tokens the account holds, each with **Transfer** |
+| Transfer | Sends tokens; see [Transfers and memos](doc:transfers) |
+| RAM | RAM used and total; buy and sell RAM |
+| CPU / NET | Stake, unstake and refund |
+| Keys and permissions | Each permission with its threshold, keys and accounts and their weights. A green **vault** mark means that key is in your vault. |
+| Linked actions | Actions that a custom permission may sign |
+| Contract | The code and ABI on the account, **Open as contract**, **Deploy to this account...**, **Clear code** |
+| Create account | The Create Account form, with this account as the creator |
+| Voting and rewards, PowerUp | Shown only when the chain's system contract offers them |
+| Testnet faucet | WAX Testnet only: **Request testnet tokens** asks the faucet for test tokens |
 | Transactions | The latest actions of the account, when the network has a history service |
 
 ## Change a key
 
-When a permission has a key that is in your vault, **Change key...** appears under it.
+In **Keys and permissions**, a permission with a key that is in your vault shows **Change key...**.
 
 1. Press **Change key...**.
 2. Choose the key to replace and the new key (from the vault or pasted as a public key).

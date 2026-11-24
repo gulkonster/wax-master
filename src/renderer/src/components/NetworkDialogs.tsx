@@ -276,6 +276,7 @@ export function RemoveNetworkDialog({ network, onClose, onRemoved }: { network: 
     <Modal
       size="s"
       name="remove-network"
+      help="manageNetworks"
       title={`Remove ${network.name}?`}
       onClose={onClose}
       footer={
@@ -445,6 +446,7 @@ export function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; 
     <Modal
       size="m"
       name="edit-network"
+      help="editNetwork"
       title={`Edit ${network.name}`}
       onClose={onClose}
       footer={
@@ -506,6 +508,7 @@ export function StarredManager({ onClose }: { onClose: () => void }): React.JSX.
     <Modal
       size="l"
       name="starred-accounts"
+      help="starredAccounts"
       title={`Starred accounts on ${net.current?.name ?? ''}`}
       onClose={onClose}
       footer={

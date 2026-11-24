@@ -23,6 +23,7 @@ export function MainFileDialog({ project }: { project: OpenProject }): React.JSX
     <Modal
       size="m"
       name="main-file"
+      help="mainFile"
       title="Choose the main file"
       footer={
         <>

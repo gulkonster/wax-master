@@ -22,7 +22,10 @@ export function SettingsPage(): React.JSX.Element {
           Settings
           <HelpButton place="settings" />
         </h1>
-        <h2>Appearance</h2>
+        <h2 className="with-help">
+          Appearance
+          <HelpButton place="settingsAppearance" />
+        </h2>
         <div className="card">
         <div className="field">
           <label>Theme</label>
@@ -34,7 +37,10 @@ export function SettingsPage(): React.JSX.Element {
           <div className="hint">System follows the Windows setting for apps and changes with it.</div>
         </div>
         </div>
-        <h2>Editor</h2>
+        <h2 className="with-help">
+          Editor
+          <HelpButton place="settingsEditor" />
+        </h2>
         <div className="card">
         <div className="field">
           <label>Font size</label>
@@ -64,7 +70,10 @@ export function SettingsPage(): React.JSX.Element {
           </div>
         </div>
         </div>
-        <h2>Key vault</h2>
+        <h2 className="with-help">
+          Key vault
+          <HelpButton place="settingsVault" />
+        </h2>
         <div className="card">
         <div className="field">
           <label>Lock after inactivity</label>
@@ -79,13 +88,19 @@ export function SettingsPage(): React.JSX.Element {
           <input type="checkbox" checked={s.lockAfterSignature} onChange={(e) => set({ lockAfterSignature: e.target.checked })} /> Lock the vault after every signature
         </label>
         </div>
-        <h2>Updates</h2>
+        <h2 className="with-help">
+          Updates
+          <HelpButton place="settingsUpdates" />
+        </h2>
         <div className="card">
         <label className="check-label">
           <input type="checkbox" checked={s.updateCheck} onChange={(e) => set({ updateCheck: e.target.checked })} /> Check GitHub for a new version once a day (only a notice; nothing is downloaded)
         </label>
         </div>
-        <h2>Data</h2>
+        <h2 className="with-help">
+          Data
+          <HelpButton place="settingsData" />
+        </h2>
         <div className="card">
         <p className="lead" style={{ marginTop: 0 }}>
           Settings, networks and stars are in %APPDATA%\WAX Master, the toolchain in %LOCALAPPDATA%\WAX Master. Your projects are never touched.
@@ -108,6 +123,7 @@ function ClearData({ onClose }: { onClose: () => void }): React.JSX.Element {
     <Modal
       size="s"
       name="clear-data"
+      help="settingsData"
       title="Clear All App Data"
       onClose={onClose}
       footer={

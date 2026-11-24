@@ -1,6 +1,6 @@
 # Endpoints
 
-An endpoint is the address of a node's API, for example `https://testnet.waxsweden.org`. WAX Master reads the chain and sends transactions through the network's current endpoint. A network can have several endpoints of the same chain; if one is slow or down, choose another.
+An endpoint is the address of a node's API, for example `https://testnet.waxsweden.org`. WAX Master reads the chain and sends transactions through the network's current endpoint. A network can have several endpoints of the same chain; if one is slow or down, choose another. When the current endpoint gives no answer or a server error while the app reads the chain, the app tries the network's other endpoints in turn, uses the first that answers from then on and says so in a notice.
 
 A **history service** is a separate address (Hyperion) that answers questions about the past: an account's transactions, a transaction by id. Without it, those parts of the app say that the network has no history service.
 
@@ -35,6 +35,6 @@ WAX Testnet's first endpoint answers slowly (orange dot). Open the Network page 
 
 - `https://` addresses. `http://` is allowed only for a node on this computer.
 - An address without a user name or password in it.
-- A path after the host name is dropped; only the scheme and host are kept.
+- A path after the host name is dropped; only the scheme, the host and the port are kept.
 
 See also [The status mark](doc:network-status) and [Transaction history](doc:transaction-history).

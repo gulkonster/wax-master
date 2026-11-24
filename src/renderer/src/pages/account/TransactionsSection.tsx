@@ -18,6 +18,7 @@ export function TransactionsSection({ name, refresh = 0 }: { name: string; refre
   const [more, setMore] = useState(false)
   const [total, setTotal] = useState(0)
   const [totalExact, setTotalExact] = useState(false)
+  const [windowEnd, setWindowEnd] = useState(false)
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(0)
   // The fields, and the filter in use (applied with the button or Enter).
@@ -43,6 +44,7 @@ export function TransactionsSection({ name, refresh = 0 }: { name: string; refre
         setMore(r.more)
         setTotal(r.total ?? 0)
         setTotalExact(r.totalExact === true)
+        setWindowEnd(r.windowEnd === true)
       } catch (e) {
         setHistoryNote(`Transactions could not be loaded: ${errorText(e)}`)
       } finally {
@@ -163,6 +165,9 @@ export function TransactionsSection({ name, refresh = 0 }: { name: string; refre
             {loading ? 'Loading...' : 'Older'}
           </button>
         </div>
+      )}
+      {!historyNote && windowEnd && (
+        <div className="hint">The history service lists the latest 10,000 matching actions; set a date range to see older ones.</div>
       )}
     </section>
   )

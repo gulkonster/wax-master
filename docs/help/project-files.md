@@ -22,7 +22,7 @@ New project:
 3. Enter the name: 1 to 12 characters, a-z, 1-5 and dots. It becomes the contract name.
 4. Choose the Location. The project is created in a new folder named after it.
 
-Open a project: File > Open Project, or a row on the Home page. A folder from EOS Studio opens as it is; its settings are taken from `.eosproj`, except its build script.
+Open a project: File > Open Project, or a row on the Home page. A folder without `waxmaster.json` first asks for its main source file (Choose the main file); the other settings start with their defaults. For a folder from EOS Studio they are taken from `.eosproj`, except its build script.
 
 Change the settings: Contract > Project Settings (Ctrl+,). Press **Save** at the bottom; **Discard changes** returns to the saved values.
 
@@ -35,11 +35,11 @@ Change the settings: Contract > Project Settings (Ctrl+,). Press **Save** at the
 | Main file | `src/<name>.cpp` | The file passed to the compiler |
 | Contract name (`-contract`) | the project name | The contract name in the ABI |
 | Version of CDT used in build | the default toolchain | See [Toolchain versions](doc:toolchain-versions) |
-| Include search path (`-I`) | `include` | Folder for headers |
-| Resource path (`-R`) | `resource` | Folder for Ricardian files |
+| Add directory to include search path (`-I`) | `include` | Folder for headers |
+| Add a resource path for inclusion (`-R`) | `resource` | Folder for Ricardian files |
 | Write output to (`-o`) | `<name>.wasm` | The WASM file; the ABI gets the same name with `.abi` |
 | Custom build command | empty | See [Custom build commands and trust](doc:custom-build-command) |
-| Deploy WASM and/or ABI | Both | What Deploy sends |
+| Deploy WASM and/or ABI | Both WASM and ABI | What Deploy sends |
 | Deploy to (one line per network) | empty | The starred account and permission Deploy uses on that network |
 
 ## Example

@@ -819,6 +819,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
         <Modal
           size="s"
           name="file-changed"
+          help="fileChanged"
           title="File changed on disk"
           onClose={() => {
             conflict.resolve('cancel')
@@ -847,6 +848,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
       {input && (
         <InputDialog
           title={input.title}
+          help="projectTree"
           label={input.label}
           initial={input.initial}
           onOk={input.ok}
