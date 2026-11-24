@@ -1,0 +1,2165 @@
+{
+ "chain": "testnet",
+ "chainId": "f16b1833c747c43682f4386fca9cbb327929334a762755ebec17f6f23c9b8a12",
+ "transactions": [
+  {
+   "chain": "testnet",
+   "chainId": "f16b1833c747c43682f4386fca9cbb327929334a762755ebec17f6f23c9b8a12",
+   "block_num": 439087715,
+   "block_id": "1a2bf263928ff38d0ee1848359260335bf35247bdee612ebdb3989b2ceb0b2f7",
+   "trx": {
+    "id": "63c44d0994a7a61c8efdc2560bb7250494dbd67491113a3b1859a385cfca8886",
+    "signatures": [
+     "SIG_K1_K57PJvncJkx6ja44g59VzdUeMCRtij3A8gvf7L2z5Y4tEoPTY48iMZ73zTpK5rSyxN44hxZGusBvYWuCzTMnkQGGpf8Ez5"
+    ],
+    "compression": "none",
+    "packed_context_free_data": "",
+    "context_free_data": [],
+    "packed_trx": "02d0046bddf13bda25f4000000000100a6823403ea3055000000572d3ccdcd011042c62a1bac315500000000a8ed3232281042c62a1bac3155a034a37752c5a64e00e1f50500000000085741580000000007706c617923333700",
+    "transaction": {
+     "expiration": "2026-11-23T23:45:06",
+     "ref_block_num": 61917,
+     "ref_block_prefix": 4096121403,
+     "max_net_usage_words": 0,
+     "max_cpu_usage_ms": 0,
+     "delay_sec": 0,
+     "context_free_actions": [],
+     "actions": [
+      {
+       "account": "eosio.token",
+       "name": "transfer",
+       "authorization": [
+        {
+         "actor": "eosusatest11",
+         "permission": "active"
+        }
+       ],
+       "data": {
+        "from": "eosusatest11",
+        "to": "dungeonrogue",
+        "quantity": "1.00000000 WAX",
+        "memo": "play#37"
+       },
+       "hex_data": "1042c62a1bac3155a034a37752c5a64e00e1f50500000000085741580000000007706c6179233337"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "chain": "testnet",
+   "chainId": "f16b1833c747c43682f4386fca9cbb327929334a762755ebec17f6f23c9b8a12",
+   "block_num": 439087716,
+   "block_id": "1a2bf264dc2466abd91c54c58f209a336aef18f2dd3a83e4f716c6b6fe10ab9f",
+   "trx": {
+    "id": "4d0750a0aeec67aad239a893fa777f9c8f5c7335a8337cee36bfefb7c3e2ad10",
+    "signatures": [
+     "SIG_K1_K1suMvx3cckCdZMWmYSgkMTmD24CaXMbPB6EPq5n5EuuNVdG9H1kWNZa4tHadY8KLNZWPbEJoLZFX8Z7aZMGzHBWS9BXCT"
+    ],
+    "compression": "none",
+    "packed_context_free_data": "",
+    "context_free_data": [],
+    "packed_trx": "1ed0046b5ef2aeda5ae100000000014088ca741bd7b2af00b055176385e8ad0140c85599ee18555e00000000a8ed323208320000000000000000",
+    "transaction": {
+     "expiration": "2026-11-23T23:45:34",
+     "ref_block_num": 62046,
+     "ref_block_prefix": 3780827822,
+     "max_net_usage_words": 0,
+     "max_cpu_usage_ms": 0,
+     "delay_sec": 0,
+     "context_free_actions": [],
+     "actions": [
+      {
+       "account": "pythiavote44",
+       "name": "processreqs",
+       "authorization": [
+        {
+         "actor": "ftellvoter44",
+         "permission": "active"
+        }
+       ],
+       "data": {
+        "max_requests": 50
+       },
+       "hex_data": "3200000000000000"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "chain": "testnet",
+   "chainId": "f16b1833c747c43682f4386fca9cbb327929334a762755ebec17f6f23c9b8a12",
+   "block_num": 439087764,
+   "block_id": "1a2bf294e8682b83163cab0cc545da9e0f5013e5120325e0c5b9ea7d8d688494",
+   "trx": {
+    "id": "fe6642fb9e58b4da0d14a4360bd4591e56e26450de258e5c24c311a313facfba",
+    "signatures": [
+     "SIG_K1_Jw8HU3R7yXLJ12Z5m5dwcGyjHADwJnJk3uvqbhNSwQdk96YPMMf2pd3EnQyU45gCRYUgAgfMkzS6zgnfRcNJNhphXcB87Y"
+    ],
+    "compression": "zlib",
+    "packed_context_free_data": "789c63000000010001",
+    "context_free_data": [],
+    "packed_trx": "789c93bec092cdfbe92b97f10d06060606c6054a46d377852df6027118a6de7dcac8c0c0307d5186832d4c221326c0c6ca80004f83773f544470151263773f3c8ce02f480dddfd50e52042203874f7437e7524f5bd42d75890f97385af310000402e232c",
+    "transaction": {
+     "expiration": "2026-11-23T23:45:31",
+     "ref_block_num": 61965,
+     "ref_block_prefix": 3627223797,
+     "max_net_usage_words": 0,
+     "max_cpu_usage_ms": 0,
+     "delay_sec": 0,
+     "context_free_actions": [],
+     "actions": [
+      {
+       "account": "delphioracle",
+       "name": "write",
+       "authorization": [
+        {
+         "actor": "bp.alcor",
+         "permission": "delphioracle"
+        }
+       ],
+       "data": {
+        "owner": "bp.alcor",
+        "quotes": [
+         {
+          "value": 5,
+          "pair": "waxpbtc"
+         },
+         {
+          "value": 33,
+          "pair": "waxpusd"
+         },
+         {
+          "value": 195,
+          "pair": "waxpeth"
+         },
+         {
+          "value": 49444,
+          "pair": "waxpeos"
+         },
+         {
+          "value": 9999,
+          "pair": "usdcusd"
+         },
+         {
+          "value": 9988,
+          "pair": "usdtusd"
+         }
+        ]
+       },
+       "hex_data": "00000097a268403d06050000000000000000000000e553bbe1210000000000000000000020615dbbe1c300000000000000000000a06555bbe124c1000000000000000000005355bbe10f2700000000000000000020618d12d6042700000000000000000020619d13d6"
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "abis": {
+  "eosio.token": {
+   "version": "eosio::abi/1.1",
+   "types": [],
+   "structs": [
+    {
+     "name": "account",
+     "base": "",
+     "fields": [
+      {
+       "name": "balance",
+       "type": "asset"
+      }
+     ]
+    },
+    {
+     "name": "close",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      },
+      {
+       "name": "symbol",
+       "type": "symbol"
+      }
+     ]
+    },
+    {
+     "name": "create",
+     "base": "",
+     "fields": [
+      {
+       "name": "issuer",
+       "type": "name"
+      },
+      {
+       "name": "maximum_supply",
+       "type": "asset"
+      }
+     ]
+    },
+    {
+     "name": "currency_stats",
+     "base": "",
+     "fields": [
+      {
+       "name": "supply",
+       "type": "asset"
+      },
+      {
+       "name": "max_supply",
+       "type": "asset"
+      },
+      {
+       "name": "issuer",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "issue",
+     "base": "",
+     "fields": [
+      {
+       "name": "to",
+       "type": "name"
+      },
+      {
+       "name": "quantity",
+       "type": "asset"
+      },
+      {
+       "name": "memo",
+       "type": "string"
+      }
+     ]
+    },
+    {
+     "name": "open",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      },
+      {
+       "name": "symbol",
+       "type": "symbol"
+      },
+      {
+       "name": "ram_payer",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "retire",
+     "base": "",
+     "fields": [
+      {
+       "name": "quantity",
+       "type": "asset"
+      },
+      {
+       "name": "memo",
+       "type": "string"
+      }
+     ]
+    },
+    {
+     "name": "transfer",
+     "base": "",
+     "fields": [
+      {
+       "name": "from",
+       "type": "name"
+      },
+      {
+       "name": "to",
+       "type": "name"
+      },
+      {
+       "name": "quantity",
+       "type": "asset"
+      },
+      {
+       "name": "memo",
+       "type": "string"
+      }
+     ]
+    }
+   ],
+   "actions": [
+    {
+     "name": "close",
+     "type": "close",
+     "ricardian_contract": "---\nspec_version: \"0.2.0\"\ntitle: Close Token Balance\nsummary: 'Close {{nowrap owner}}’s zero quantity balance'\nicon: http://127.0.0.1/ricardian_assets/eosio.contracts/icons/token.png#207ff68b0406eaa56618b08bda81d6a0954543f36adc328ab3065f31a5c5d654\n---\n\n{{owner}} agrees to close their zero quantity balance for the {{symbol_to_symbol_code symbol}} token.\n\nRAM will be refunded to the RAM payer of the {{symbol_to_symbol_code symbol}} token balance for {{owner}}."
+    },
+    {
+     "name": "create",
+     "type": "create",
+     "ricardian_contract": "---\nspec_version: \"0.2.0\"\ntitle: Create New Token\nsummary: 'Create a new token'\nicon: http://127.0.0.1/ricardian_assets/eosio.contracts/icons/token.png#207ff68b0406eaa56618b08bda81d6a0954543f36adc328ab3065f31a5c5d654\n---\n\n{{$action.account}} agrees to create a new token with symbol {{asset_to_symbol_code maximum_supply}} to be managed by {{issuer}}.\n\nThis action will not result any any tokens being issued into circulation.\n\n{{issuer}} will be allowed to issue tokens into circulation, up to a maximum supply of {{maximum_supply}}.\n\nRAM will deducted from {{$action.account}}’s resources to create the necessary records."
+    },
+    {
+     "name": "issue",
+     "type": "issue",
+     "ricardian_contract": "---\nspec_version: \"0.2.0\"\ntitle: Issue Tokens into Circulation\nsummary: 'Issue {{nowrap quantity}} into circulation and transfer into {{nowrap to}}’s account'\nicon: http://127.0.0.1/ricardian_assets/eosio.contracts/icons/token.png#207ff68b0406eaa56618b08bda81d6a0954543f36adc328ab3065f31a5c5d654\n---\n\nThe token manager agrees to issue {{quantity}} into circulation, and transfer it into {{to}}’s account.\n\n{{#if memo}}There is a memo attached to the transfer stating:\n{{memo}}\n{{/if}}\n\nIf {{to}} does not have a balance for {{asset_to_symbol_code quantity}}, or the token manager does not have a balance for {{asset_to_symbol_code quantity}}, the token manager will be designated as the RAM payer of the {{asset_to_symbol_code quantity}} token balance for {{to}}. As a result, RAM will be deducted from the token manager’s resources to create the necessary records.\n\nThis action does not allow the total quantity to exceed the max allowed supply of the token."
+    },
+    {
+     "name": "open",
+     "type": "open",
+     "ricardian_contract": "---\nspec_version: \"0.2.0\"\ntitle: Open Token Balance\nsummary: 'Open a zero quantity balance for {{nowrap owner}}'\nicon: http://127.0.0.1/ricardian_assets/eosio.contracts/icons/token.png#207ff68b0406eaa56618b08bda81d6a0954543f36adc328ab3065f31a5c5d654\n---\n\n{{ram_payer}} agrees to establish a zero quantity balance for {{owner}} for the {{symbol_to_symbol_code symbol}} token.\n\nIf {{owner}} does not have a balance for {{symbol_to_symbol_code symbol}}, {{ram_payer}} will be designated as the RAM payer of the {{symbol_to_symbol_code symbol}} token balance for {{owner}}. As a result, RAM will be deducted from {{ram_payer}}’s resources to create the necessary records."
+    },
+    {
+     "name": "retire",
+     "type": "retire",
+     "ricardian_contract": "---\nspec_version: \"0.2.0\"\ntitle: Remove Tokens from Circulation\nsummary: 'Remove {{nowrap quantity}} from circulation'\nicon: http://127.0.0.1/ricardian_assets/eosio.contracts/icons/token.png#207ff68b0406eaa56618b08bda81d6a0954543f36adc328ab3065f31a5c5d654\n---\n\nThe token manager agrees to remove {{quantity}} from circulation, taken from their own account.\n\n{{#if memo}} There is a memo attached to the action stating:\n{{memo}}\n{{/if}}"
+    },
+    {
+     "name": "transfer",
+     "type": "transfer",
+     "ricardian_contract": "---\nspec_version: \"0.2.0\"\ntitle: Transfer Tokens\nsummary: 'Send {{nowrap quantity}} from {{nowrap from}} to {{nowrap to}}'\nicon: http://127.0.0.1/ricardian_assets/eosio.contracts/icons/transfer.png#5dfad0df72772ee1ccc155e670c1d124f5c5122f1d5027565df38b418042d1dd\n---\n\n{{from}} agrees to send {{quantity}} to {{to}}.\n\n{{#if memo}}There is a memo attached to the transfer stating:\n{{memo}}\n{{/if}}\n\nIf {{from}} is not already the RAM payer of their {{asset_to_symbol_code quantity}} token balance, {{from}} will be designated as such. As a result, RAM will be deducted from {{from}}’s resources to refund the original RAM payer.\n\nIf {{to}} does not have a balance for {{asset_to_symbol_code quantity}}, {{from}} will be designated as the RAM payer of the {{asset_to_symbol_code quantity}} token balance for {{to}}. As a result, RAM will be deducted from {{from}}’s resources to create the necessary records."
+    }
+   ],
+   "tables": [
+    {
+     "name": "accounts",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "account"
+    },
+    {
+     "name": "stat",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "currency_stats"
+    }
+   ],
+   "ricardian_clauses": [],
+   "error_messages": [],
+   "abi_extensions": [],
+   "variants": [],
+   "action_results": []
+  },
+  "pythiavote44": {
+   "version": "eosio::abi/1.2",
+   "types": [],
+   "structs": [
+    {
+     "name": "batchcommit",
+     "base": "",
+     "fields": [
+      {
+       "name": "voter",
+       "type": "name"
+      },
+      {
+       "name": "commits",
+       "type": "commit_entry[]"
+      }
+     ]
+    },
+    {
+     "name": "batchreveal",
+     "base": "",
+     "fields": [
+      {
+       "name": "voter",
+       "type": "name"
+      },
+      {
+       "name": "reveals",
+       "type": "reveal_entry[]"
+      }
+     ]
+    },
+    {
+     "name": "commit_entry",
+     "base": "",
+     "fields": [
+      {
+       "name": "identifier",
+       "type": "uint64"
+      },
+      {
+       "name": "timestamp",
+       "type": "uint64"
+      },
+      {
+       "name": "ancillary_data",
+       "type": "bytes"
+      },
+      {
+       "name": "hash",
+       "type": "checksum256"
+      }
+     ]
+    },
+    {
+     "name": "commitvote",
+     "base": "",
+     "fields": [
+      {
+       "name": "voter",
+       "type": "name"
+      },
+      {
+       "name": "identifier",
+       "type": "uint64"
+      },
+      {
+       "name": "timestamp",
+       "type": "uint64"
+      },
+      {
+       "name": "ancillary_data",
+       "type": "bytes"
+      },
+      {
+       "name": "hash",
+       "type": "checksum256"
+      }
+     ]
+    },
+    {
+     "name": "pending_reward",
+     "base": "",
+     "fields": [
+      {
+       "name": "voter",
+       "type": "name"
+      },
+      {
+       "name": "weight",
+       "type": "uint128"
+      }
+     ]
+    },
+    {
+     "name": "price_request",
+     "base": "",
+     "fields": [
+      {
+       "name": "request_id",
+       "type": "uint64"
+      },
+      {
+       "name": "request_hash",
+       "type": "checksum256"
+      },
+      {
+       "name": "requester",
+       "type": "name"
+      },
+      {
+       "name": "identifier",
+       "type": "uint64"
+      },
+      {
+       "name": "timestamp",
+       "type": "uint64"
+      },
+      {
+       "name": "ancillary_data",
+       "type": "bytes"
+      },
+      {
+       "name": "last_voting_round",
+       "type": "uint32"
+      },
+      {
+       "name": "is_governance",
+       "type": "bool"
+      },
+      {
+       "name": "roll_count",
+       "type": "uint32"
+      },
+      {
+       "name": "resolved_price",
+       "type": "int128"
+      },
+      {
+       "name": "is_resolved",
+       "type": "bool"
+      }
+     ]
+    },
+    {
+     "name": "processreqs",
+     "base": "",
+     "fields": [
+      {
+       "name": "max_requests",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "prunefreqs",
+     "base": "",
+     "fields": [
+      {
+       "name": "round_id",
+       "type": "uint32"
+      },
+      {
+       "name": "max_rows",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "pruneround",
+     "base": "",
+     "fields": [
+      {
+       "name": "round_id",
+       "type": "uint32"
+      },
+      {
+       "name": "max_rows",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "requestprice",
+     "base": "",
+     "fields": [
+      {
+       "name": "requester",
+       "type": "name"
+      },
+      {
+       "name": "identifier",
+       "type": "uint64"
+      },
+      {
+       "name": "timestamp",
+       "type": "uint64"
+      },
+      {
+       "name": "ancillary_data",
+       "type": "bytes"
+      }
+     ]
+    },
+    {
+     "name": "reveal_entry",
+     "base": "",
+     "fields": [
+      {
+       "name": "identifier",
+       "type": "uint64"
+      },
+      {
+       "name": "timestamp",
+       "type": "uint64"
+      },
+      {
+       "name": "ancillary_data",
+       "type": "bytes"
+      },
+      {
+       "name": "price",
+       "type": "int128"
+      },
+      {
+       "name": "salt",
+       "type": "int128"
+      }
+     ]
+    },
+    {
+     "name": "revealvote",
+     "base": "",
+     "fields": [
+      {
+       "name": "voter",
+       "type": "name"
+      },
+      {
+       "name": "identifier",
+       "type": "uint64"
+      },
+      {
+       "name": "timestamp",
+       "type": "uint64"
+      },
+      {
+       "name": "ancillary_data",
+       "type": "bytes"
+      },
+      {
+       "name": "price",
+       "type": "int128"
+      },
+      {
+       "name": "salt",
+       "type": "int128"
+      }
+     ]
+    },
+    {
+     "name": "rewardbatch",
+     "base": "",
+     "fields": [
+      {
+       "name": "request_id",
+       "type": "uint64"
+      },
+      {
+       "name": "round_id",
+       "type": "uint32"
+      },
+      {
+       "name": "max_rows",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "round_config",
+     "base": "",
+     "fields": [
+      {
+       "name": "round_id",
+       "type": "uint32"
+      },
+      {
+       "name": "snapshot_id",
+       "type": "uint128"
+      },
+      {
+       "name": "min_participation",
+       "type": "uint128"
+      },
+      {
+       "name": "min_agreement_bps",
+       "type": "uint64"
+      },
+      {
+       "name": "total_staked",
+       "type": "uint128"
+      },
+      {
+       "name": "commit_end",
+       "type": "time_point_sec"
+      },
+      {
+       "name": "reveal_end",
+       "type": "time_point_sec"
+      }
+     ]
+    },
+    {
+     "name": "round_snapshot",
+     "base": "",
+     "fields": [
+      {
+       "name": "round_id",
+       "type": "uint32"
+      },
+      {
+       "name": "total_stake",
+       "type": "uint128"
+      },
+      {
+       "name": "is_frozen",
+       "type": "bool"
+      }
+     ]
+    },
+    {
+     "name": "setconfig",
+     "base": "",
+     "fields": [
+      {
+       "name": "finder_contract",
+       "type": "name"
+      },
+      {
+       "name": "stake_contract",
+       "type": "name"
+      },
+      {
+       "name": "token_contract",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "setmaxrolls",
+     "base": "",
+     "fields": [
+      {
+       "name": "max_rolls",
+       "type": "uint32"
+      }
+     ]
+    },
+    {
+     "name": "setphaselen",
+     "base": "",
+     "fields": [
+      {
+       "name": "phase_length",
+       "type": "uint32"
+      }
+     ]
+    },
+    {
+     "name": "setthreshold",
+     "base": "",
+     "fields": [
+      {
+       "name": "gat_percentage",
+       "type": "uint64"
+      },
+      {
+       "name": "spat_bps",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "slash_job",
+     "base": "",
+     "fields": [
+      {
+       "name": "request_id",
+       "type": "uint64"
+      },
+      {
+       "name": "round_id",
+       "type": "uint32"
+      },
+      {
+       "name": "resolved_price",
+       "type": "int128"
+      },
+      {
+       "name": "slash_pool",
+       "type": "int128"
+      },
+      {
+       "name": "correct_weight",
+       "type": "uint128"
+      },
+      {
+       "name": "reward_per_weight",
+       "type": "int128"
+      },
+      {
+       "name": "reward_paid",
+       "type": "int128"
+      },
+      {
+       "name": "phase",
+       "type": "uint8"
+      }
+     ]
+    },
+    {
+     "name": "slashbatch",
+     "base": "",
+     "fields": [
+      {
+       "name": "request_id",
+       "type": "uint64"
+      },
+      {
+       "name": "round_id",
+       "type": "uint32"
+      },
+      {
+       "name": "max_rows",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "vote_frequency",
+     "base": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "uint64"
+      },
+      {
+       "name": "request_id",
+       "type": "uint64"
+      },
+      {
+       "name": "round_id",
+       "type": "uint32"
+      },
+      {
+       "name": "price",
+       "type": "int128"
+      },
+      {
+       "name": "vote_count",
+       "type": "uint128"
+      }
+     ]
+    },
+    {
+     "name": "vote_instance",
+     "base": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "uint64"
+      },
+      {
+       "name": "request_id",
+       "type": "uint64"
+      },
+      {
+       "name": "round_id",
+       "type": "uint32"
+      },
+      {
+       "name": "total_votes",
+       "type": "uint128"
+      },
+      {
+       "name": "total_correct_votes",
+       "type": "uint128"
+      },
+      {
+       "name": "resolved_price",
+       "type": "int128"
+      },
+      {
+       "name": "is_resolved",
+       "type": "bool"
+      },
+      {
+       "name": "snapshot_id",
+       "type": "uint128"
+      }
+     ]
+    },
+    {
+     "name": "vote_submission",
+     "base": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "uint64"
+      },
+      {
+       "name": "request_id",
+       "type": "uint64"
+      },
+      {
+       "name": "round_id",
+       "type": "uint32"
+      },
+      {
+       "name": "voter",
+       "type": "name"
+      },
+      {
+       "name": "commit_hash",
+       "type": "checksum256"
+      },
+      {
+       "name": "revealed_price",
+       "type": "int128"
+      },
+      {
+       "name": "revealed_salt",
+       "type": "int128"
+      },
+      {
+       "name": "has_revealed",
+       "type": "bool"
+      },
+      {
+       "name": "vote_weight",
+       "type": "uint128"
+      }
+     ]
+    },
+    {
+     "name": "vote_timing",
+     "base": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "uint64"
+      },
+      {
+       "name": "phase_length",
+       "type": "uint32"
+      },
+      {
+       "name": "anchor_time",
+       "type": "time_point_sec"
+      }
+     ]
+    },
+    {
+     "name": "voting_config",
+     "base": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "uint64"
+      },
+      {
+       "name": "gat_percentage",
+       "type": "uint64"
+      },
+      {
+       "name": "spat_bps",
+       "type": "uint64"
+      },
+      {
+       "name": "max_rolls",
+       "type": "uint32"
+      },
+      {
+       "name": "max_requests_per_round",
+       "type": "uint32"
+      },
+      {
+       "name": "finder_contract",
+       "type": "name"
+      },
+      {
+       "name": "stake_contract",
+       "type": "name"
+      },
+      {
+       "name": "token_contract",
+       "type": "name"
+      }
+     ]
+    }
+   ],
+   "actions": [
+    {
+     "name": "batchcommit",
+     "type": "batchcommit",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "batchreveal",
+     "type": "batchreveal",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "commitvote",
+     "type": "commitvote",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "processreqs",
+     "type": "processreqs",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "prunefreqs",
+     "type": "prunefreqs",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "pruneround",
+     "type": "pruneround",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "requestprice",
+     "type": "requestprice",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "revealvote",
+     "type": "revealvote",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "rewardbatch",
+     "type": "rewardbatch",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "setconfig",
+     "type": "setconfig",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "setmaxrolls",
+     "type": "setmaxrolls",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "setphaselen",
+     "type": "setphaselen",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "setthreshold",
+     "type": "setthreshold",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "slashbatch",
+     "type": "slashbatch",
+     "ricardian_contract": ""
+    }
+   ],
+   "tables": [
+    {
+     "name": "pendrewards",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "pending_reward"
+    },
+    {
+     "name": "pricereqs",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "price_request"
+    },
+    {
+     "name": "roundconfigs",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "round_config"
+    },
+    {
+     "name": "roundsnaps",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "round_snapshot"
+    },
+    {
+     "name": "slashjobs",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "slash_job"
+    },
+    {
+     "name": "votefreqs",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "vote_frequency"
+    },
+    {
+     "name": "voteinstance",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "vote_instance"
+    },
+    {
+     "name": "votesubmits",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "vote_submission"
+    },
+    {
+     "name": "votetiming",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "vote_timing"
+    },
+    {
+     "name": "votingconfig",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "voting_config"
+    }
+   ],
+   "ricardian_clauses": [],
+   "error_messages": [],
+   "abi_extensions": [],
+   "variants": [],
+   "action_results": []
+  },
+  "delphioracle": {
+   "version": "eosio::abi/1.1",
+   "types": [
+    {
+     "new_type_name": "asset_type",
+     "type": "uint16"
+    }
+   ],
+   "structs": [
+    {
+     "name": "abusers",
+     "base": "",
+     "fields": [
+      {
+       "name": "name",
+       "type": "name"
+      },
+      {
+       "name": "votes",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "addcustodian",
+     "base": "",
+     "fields": [
+      {
+       "name": "name",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "bars",
+     "base": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "uint64"
+      },
+      {
+       "name": "high",
+       "type": "uint64"
+      },
+      {
+       "name": "low",
+       "type": "uint64"
+      },
+      {
+       "name": "median",
+       "type": "uint64"
+      },
+      {
+       "name": "timestamp",
+       "type": "time_point"
+      }
+     ]
+    },
+    {
+     "name": "cancelbounty",
+     "base": "",
+     "fields": [
+      {
+       "name": "name",
+       "type": "name"
+      },
+      {
+       "name": "reason",
+       "type": "string"
+      }
+     ]
+    },
+    {
+     "name": "claim",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "clear",
+     "base": "",
+     "fields": [
+      {
+       "name": "pair",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "configure",
+     "base": "",
+     "fields": [
+      {
+       "name": "g",
+       "type": "globalinput"
+      }
+     ]
+    },
+    {
+     "name": "custodians",
+     "base": "",
+     "fields": [
+      {
+       "name": "name",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "datapoints",
+     "base": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "uint64"
+      },
+      {
+       "name": "owner",
+       "type": "name"
+      },
+      {
+       "name": "value",
+       "type": "uint64"
+      },
+      {
+       "name": "median",
+       "type": "uint64"
+      },
+      {
+       "name": "timestamp",
+       "type": "time_point"
+      }
+     ]
+    },
+    {
+     "name": "delcustodian",
+     "base": "",
+     "fields": [
+      {
+       "name": "name",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "deletepair",
+     "base": "",
+     "fields": [
+      {
+       "name": "name",
+       "type": "name"
+      },
+      {
+       "name": "reason",
+       "type": "string"
+      }
+     ]
+    },
+    {
+     "name": "donations",
+     "base": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "uint64"
+      },
+      {
+       "name": "donator",
+       "type": "name"
+      },
+      {
+       "name": "pair",
+       "type": "name"
+      },
+      {
+       "name": "timestamp",
+       "type": "time_point"
+      },
+      {
+       "name": "amount",
+       "type": "asset"
+      }
+     ]
+    },
+    {
+     "name": "editbounty",
+     "base": "",
+     "fields": [
+      {
+       "name": "name",
+       "type": "name"
+      },
+      {
+       "name": "pair",
+       "type": "pairinput"
+      }
+     ]
+    },
+    {
+     "name": "editpair",
+     "base": "",
+     "fields": [
+      {
+       "name": "pair",
+       "type": "pairs"
+      }
+     ]
+    },
+    {
+     "name": "forfeithash",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "global",
+     "base": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "uint64"
+      },
+      {
+       "name": "total_datapoints_count",
+       "type": "uint64"
+      },
+      {
+       "name": "total_claimed",
+       "type": "asset"
+      },
+      {
+       "name": "datapoints_per_instrument",
+       "type": "uint64"
+      },
+      {
+       "name": "bars_per_instrument",
+       "type": "uint64"
+      },
+      {
+       "name": "vote_interval",
+       "type": "uint64"
+      },
+      {
+       "name": "write_cooldown",
+       "type": "uint64"
+      },
+      {
+       "name": "approver_threshold",
+       "type": "uint64"
+      },
+      {
+       "name": "approving_oracles_threshold",
+       "type": "uint64"
+      },
+      {
+       "name": "approving_custodians_threshold",
+       "type": "uint64"
+      },
+      {
+       "name": "minimum_rank",
+       "type": "uint64"
+      },
+      {
+       "name": "paid",
+       "type": "uint64"
+      },
+      {
+       "name": "min_bounty_delay",
+       "type": "uint64"
+      },
+      {
+       "name": "new_bounty_delay",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "globalinput",
+     "base": "",
+     "fields": [
+      {
+       "name": "datapoints_per_instrument",
+       "type": "uint64"
+      },
+      {
+       "name": "bars_per_instrument",
+       "type": "uint64"
+      },
+      {
+       "name": "vote_interval",
+       "type": "uint64"
+      },
+      {
+       "name": "write_cooldown",
+       "type": "uint64"
+      },
+      {
+       "name": "approver_threshold",
+       "type": "uint64"
+      },
+      {
+       "name": "approving_oracles_threshold",
+       "type": "uint64"
+      },
+      {
+       "name": "approving_custodians_threshold",
+       "type": "uint64"
+      },
+      {
+       "name": "minimum_rank",
+       "type": "uint64"
+      },
+      {
+       "name": "paid",
+       "type": "uint64"
+      },
+      {
+       "name": "min_bounty_delay",
+       "type": "uint64"
+      },
+      {
+       "name": "new_bounty_delay",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "hashes",
+     "base": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "uint64"
+      },
+      {
+       "name": "owner",
+       "type": "name"
+      },
+      {
+       "name": "multiparty",
+       "type": "checksum256"
+      },
+      {
+       "name": "hash",
+       "type": "checksum256"
+      },
+      {
+       "name": "reveal",
+       "type": "string"
+      },
+      {
+       "name": "timestamp",
+       "type": "time_point"
+      }
+     ]
+    },
+    {
+     "name": "migratedata",
+     "base": "",
+     "fields": []
+    },
+    {
+     "name": "networks",
+     "base": "",
+     "fields": [
+      {
+       "name": "name",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "newbounty",
+     "base": "",
+     "fields": [
+      {
+       "name": "proposer",
+       "type": "name"
+      },
+      {
+       "name": "pair",
+       "type": "pairinput"
+      }
+     ]
+    },
+    {
+     "name": "oglobal",
+     "base": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "uint64"
+      },
+      {
+       "name": "total_datapoints_count",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "pairinput",
+     "base": "",
+     "fields": [
+      {
+       "name": "name",
+       "type": "name"
+      },
+      {
+       "name": "base_symbol",
+       "type": "symbol"
+      },
+      {
+       "name": "base_type",
+       "type": "asset_type"
+      },
+      {
+       "name": "base_contract",
+       "type": "name"
+      },
+      {
+       "name": "quote_symbol",
+       "type": "symbol"
+      },
+      {
+       "name": "quote_type",
+       "type": "asset_type"
+      },
+      {
+       "name": "quote_contract",
+       "type": "name"
+      },
+      {
+       "name": "quoted_precision",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "pairs",
+     "base": "",
+     "fields": [
+      {
+       "name": "active",
+       "type": "bool"
+      },
+      {
+       "name": "bounty_awarded",
+       "type": "bool"
+      },
+      {
+       "name": "bounty_edited_by_custodians",
+       "type": "bool"
+      },
+      {
+       "name": "proposer",
+       "type": "name"
+      },
+      {
+       "name": "name",
+       "type": "name"
+      },
+      {
+       "name": "bounty_amount",
+       "type": "asset"
+      },
+      {
+       "name": "approving_custodians",
+       "type": "name[]"
+      },
+      {
+       "name": "approving_oracles",
+       "type": "name[]"
+      },
+      {
+       "name": "base_symbol",
+       "type": "symbol"
+      },
+      {
+       "name": "base_type",
+       "type": "asset_type"
+      },
+      {
+       "name": "base_contract",
+       "type": "name"
+      },
+      {
+       "name": "quote_symbol",
+       "type": "symbol"
+      },
+      {
+       "name": "quote_type",
+       "type": "asset_type"
+      },
+      {
+       "name": "quote_contract",
+       "type": "name"
+      },
+      {
+       "name": "quoted_precision",
+       "type": "uint64"
+      }
+     ]
+    },
+    {
+     "name": "quote",
+     "base": "",
+     "fields": [
+      {
+       "name": "value",
+       "type": "uint64"
+      },
+      {
+       "name": "pair",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "reguser",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "stats",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      },
+      {
+       "name": "timestamp",
+       "type": "time_point"
+      },
+      {
+       "name": "count",
+       "type": "uint64"
+      },
+      {
+       "name": "last_claim",
+       "type": "time_point"
+      },
+      {
+       "name": "balance",
+       "type": "asset"
+      }
+     ]
+    },
+    {
+     "name": "unvotebounty",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      },
+      {
+       "name": "bounty",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "updateusers",
+     "base": "",
+     "fields": []
+    },
+    {
+     "name": "users",
+     "base": "",
+     "fields": [
+      {
+       "name": "name",
+       "type": "name"
+      },
+      {
+       "name": "contribution",
+       "type": "asset"
+      },
+      {
+       "name": "score",
+       "type": "uint64"
+      },
+      {
+       "name": "creation_timestamp",
+       "type": "time_point"
+      }
+     ]
+    },
+    {
+     "name": "voteabuser",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      },
+      {
+       "name": "abuser",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "votebounty",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      },
+      {
+       "name": "bounty",
+       "type": "name"
+      }
+     ]
+    },
+    {
+     "name": "voter_info",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      },
+      {
+       "name": "proxy",
+       "type": "name"
+      },
+      {
+       "name": "producers",
+       "type": "name[]"
+      },
+      {
+       "name": "staked",
+       "type": "int64"
+      },
+      {
+       "name": "last_vote_weight",
+       "type": "float64"
+      },
+      {
+       "name": "proxied_vote_weight",
+       "type": "float64"
+      },
+      {
+       "name": "is_proxy",
+       "type": "bool"
+      },
+      {
+       "name": "flags1",
+       "type": "uint32"
+      },
+      {
+       "name": "reserved2",
+       "type": "uint32"
+      },
+      {
+       "name": "reserved3",
+       "type": "asset"
+      }
+     ]
+    },
+    {
+     "name": "write",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      },
+      {
+       "name": "quotes",
+       "type": "quote[]"
+      }
+     ]
+    },
+    {
+     "name": "writehash",
+     "base": "",
+     "fields": [
+      {
+       "name": "owner",
+       "type": "name"
+      },
+      {
+       "name": "hash",
+       "type": "checksum256"
+      },
+      {
+       "name": "reveal",
+       "type": "string"
+      }
+     ]
+    }
+   ],
+   "actions": [
+    {
+     "name": "addcustodian",
+     "type": "addcustodian",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "cancelbounty",
+     "type": "cancelbounty",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "claim",
+     "type": "claim",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "clear",
+     "type": "clear",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "configure",
+     "type": "configure",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "delcustodian",
+     "type": "delcustodian",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "deletepair",
+     "type": "deletepair",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "editbounty",
+     "type": "editbounty",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "editpair",
+     "type": "editpair",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "forfeithash",
+     "type": "forfeithash",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "migratedata",
+     "type": "migratedata",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "newbounty",
+     "type": "newbounty",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "reguser",
+     "type": "reguser",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "unvotebounty",
+     "type": "unvotebounty",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "updateusers",
+     "type": "updateusers",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "voteabuser",
+     "type": "voteabuser",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "votebounty",
+     "type": "votebounty",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "write",
+     "type": "write",
+     "ricardian_contract": ""
+    },
+    {
+     "name": "writehash",
+     "type": "writehash",
+     "ricardian_contract": ""
+    }
+   ],
+   "tables": [
+    {
+     "name": "abusers",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "abusers"
+    },
+    {
+     "name": "bars",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "bars"
+    },
+    {
+     "name": "custodians",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "custodians"
+    },
+    {
+     "name": "datapoints",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "datapoints"
+    },
+    {
+     "name": "donations",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "donations"
+    },
+    {
+     "name": "global",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "global"
+    },
+    {
+     "name": "hashes",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "hashes"
+    },
+    {
+     "name": "networks",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "networks"
+    },
+    {
+     "name": "npairs",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "pairs"
+    },
+    {
+     "name": "oglobal",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "oglobal"
+    },
+    {
+     "name": "pairs",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "pairs"
+    },
+    {
+     "name": "stats",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "stats"
+    },
+    {
+     "name": "users",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "users"
+    },
+    {
+     "name": "voters",
+     "index_type": "i64",
+     "key_names": [],
+     "key_types": [],
+     "type": "voter_info"
+    }
+   ],
+   "ricardian_clauses": [],
+   "error_messages": [],
+   "abi_extensions": [],
+   "variants": [],
+   "action_results": []
+  }
+ },
+ "permissions": {
+  "eosusatest11": [
+   {
+    "perm_name": "active",
+    "parent": "owner",
+    "required_auth": {
+     "threshold": 1,
+     "keys": [
+      {
+       "key": "EOS6Zuj3AJAoHzTFRyECWRrqLm3ZF6ABQXCf9hescitRnLSEwJDLz",
+       "weight": 1
+      }
+     ],
+     "accounts": [],
+     "waits": []
+    },
+    "linked_actions": []
+   },
+   {
+    "perm_name": "owner",
+    "parent": "",
+    "required_auth": {
+     "threshold": 1,
+     "keys": [
+      {
+       "key": "EOS6F3DaobtVQtaxso75sWs4N8vQna9PWNELkkNXovXzE33Qf2sEz",
+       "weight": 1
+      }
+     ],
+     "accounts": [],
+     "waits": []
+    },
+    "linked_actions": []
+   }
+  ],
+  "ftellvoter44": [
+   {
+    "perm_name": "active",
+    "parent": "owner",
+    "required_auth": {
+     "threshold": 1,
+     "keys": [
+      {
+       "key": "EOS568WgFzxM3cXgpSRN3AXgbww3LQUA9ydTxEH4BvrEJg2GZHcpA",
+       "weight": 1
+      }
+     ],
+     "accounts": [],
+     "waits": []
+    },
+    "linked_actions": []
+   },
+   {
+    "perm_name": "owner",
+    "parent": "",
+    "required_auth": {
+     "threshold": 1,
+     "keys": [
+      {
+       "key": "EOS568WgFzxM3cXgpSRN3AXgbww3LQUA9ydTxEH4BvrEJg2GZHcpA",
+       "weight": 1
+      }
+     ],
+     "accounts": [],
+     "waits": []
+    },
+    "linked_actions": []
+   }
+  ],
+  "bp.alcor": [
+   {
+    "perm_name": "active",
+    "parent": "owner",
+    "required_auth": {
+     "threshold": 1,
+     "keys": [
+      {
+       "key": "EOS5p5qzAuT2uzKD5ziWSMyskbYfqr9K8vJDjBxd7U6kAYB4sTW7L",
+       "weight": 1
+      }
+     ],
+     "accounts": [],
+     "waits": []
+    },
+    "linked_actions": []
+   },
+   {
+    "perm_name": "bprewards",
+    "parent": "active",
+    "required_auth": {
+     "threshold": 1,
+     "keys": [
+      {
+       "key": "EOS8ShCE8bBysvgz9kVqR2w4as5HgVppCRK53gxxTc3iHTYa8XcNz",
+       "weight": 1
+      }
+     ],
+     "accounts": [],
+     "waits": []
+    },
+    "linked_actions": [
+     {
+      "account": "eosio",
+      "action": "claimrewards"
+     },
+     {
+      "account": "eosio.token",
+      "action": "transfer"
+     }
+    ]
+   },
+   {
+    "perm_name": "delphioracle",
+    "parent": "active",
+    "required_auth": {
+     "threshold": 1,
+     "keys": [
+      {
+       "key": "EOS5A7DduhUaQzsEUZuc3CsKCGid7jxDjv44eteySRg4dycFkWFCM",
+       "weight": 1
+      }
+     ],
+     "accounts": [],
+     "waits": []
+    },
+    "linked_actions": [
+     {
+      "account": "delphioracle",
+      "action": "write"
+     },
+     {
+      "account": "delphitester",
+      "action": "write"
+     }
+    ]
+   },
+   {
+    "perm_name": "owner",
+    "parent": "",
+    "required_auth": {
+     "threshold": 1,
+     "keys": [
+      {
+       "key": "EOS8eJK7LzkfNE4291SRsxbZEybkHBSYBxvaK1uBkeEDSY22oBSfq",
+       "weight": 1
+      }
+     ],
+     "accounts": [],
+     "waits": []
+    },
+    "linked_actions": []
+   }
+  ]
+ }
+}
