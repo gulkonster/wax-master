@@ -74,6 +74,13 @@ describe('document addresses', () => {
     expect(clientToServerUri('project:///src/hello.cpp', map)).toBe(server)
     expect(clientToServerUri('project:///', map)).toBe('file:///mnt/c/Users/me/My%20Proj')
   })
+  it('accepts the editor\'s short form without an authority', () => {
+    expect(clientToServerUri('project:/src/hello.cpp', map)).toBe('file:///mnt/c/Users/me/My%20Proj/src/hello.cpp')
+    expect(clientToServerUri('toolchain:/usr/opt/cdt/4.1.1wax01/include/libcxx/vector', map)).toBe(
+      'file:///usr/opt/cdt/4.1.1wax01/include/libcxx/vector'
+    )
+    expect(() => clientToServerUri('project:src/a.cpp', map)).toThrow()
+  })
   it('matches the project folder without regard to case (Windows drive)', () => {
     expect(serverToClientUri('file:///mnt/c/users/ME/my%20proj/include/a.hpp', map)).toBe('project:///include/a.hpp')
   })
@@ -162,6 +169,7 @@ describe('compile commands', () => {
       '-std=gnu++2a',
       '-fno-exceptions',
       '-fno-rtti',
+      '-Wno-unknown-attributes',
       '-D__eosio_cdt__',
       '-D__eosio_cdt_major__=4',
       '-D__eosio_cdt_minor__=1',

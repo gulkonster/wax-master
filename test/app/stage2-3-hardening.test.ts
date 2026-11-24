@@ -17,7 +17,7 @@ describe('project files are untrusted', () => {
   })
   it('keeps valid values and prefixes paths with ./ in the command', () => {
     const c = normalizeConfig({ main: 'src\\a.cpp', output: 'build/a.wasm', contract: 'abc' }, 'x')
-    expect(defaultBuildCommand(c)).toBe('cdt-cpp -abigen -I ./include -R ./resource -contract abc -o ./build/a.wasm ./src/a.cpp')
+    expect(defaultBuildCommand(c)).toBe('cdt-cpp -abigen -I ./include -R ./resource -contract abc -o ./build/a.wasm src/a.cpp')
   })
   it('refuses option-like segments', () => {
     expect(safeProjectPath('src/-o.cpp')).toBe('')

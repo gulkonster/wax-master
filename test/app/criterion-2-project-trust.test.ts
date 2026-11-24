@@ -99,6 +99,6 @@ describe('project trust', () => {
     openProject(copiedProject(''))
     await runBuild(sender)
     expect(runs[0].shell).toBeUndefined()
-    expect(runs[0].args.slice(-3)).toEqual(['-o', './evil.wasm', './src/evil.cpp'])
+    expect(runs[0].args.slice(-3)).toEqual(['-o', './evil.wasm', 'src/evil.cpp'])
   })
 })

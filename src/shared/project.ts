@@ -83,7 +83,7 @@ export function defaultBuildCommand(c: ProjectConfig): string {
   const inc = effectiveInclude(c)
   const res = effectiveResource(c)
   const out = effectiveOutput(c)
-  return `cdt-cpp -abigen -I ./${inc} -R ./${res} -contract ${c.contract} -o ./${out} ./${c.main}`
+  return `cdt-cpp -abigen -I ./${inc} -R ./${res} -contract ${c.contract} -o ./${out} ${c.main}`
 }
 
 /** Fills missing fields of a parsed config with defaults; ignores unknown fields. */

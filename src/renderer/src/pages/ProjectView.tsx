@@ -79,6 +79,13 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
       fixedOverflowWidgets: true
     })
     editorRef.current = ed
+    // Also offered in the editor's command palette; the keys live on the Edit menu.
+    const paletteCommands: [string, string, MenuCommand][] = [
+      ['wax.findInFiles', 'Find in Files', 'find-in-files'],
+      ['wax.workspaceSymbol', 'Go to Symbol in Workspace', 'workspace-symbol'],
+      ['wax.switchHeaderSource', 'Switch Header/Source', 'switch-header-source']
+    ]
+    for (const [id, label, cmd] of paletteCommands) ed.addAction({ id, label, run: () => emit('editor-command', cmd) })
     const sub1 = ed.onDidChangeCursorPosition((e) => actions.setCursor({ line: e.position.lineNumber, column: e.position.column }))
     const stopEngine = startEditorEngine()
     return () => {
@@ -222,7 +229,8 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
   }
 
   /** Opens a toolchain header (toolchain:///usr/opt/cdt/...) in a read-only tab. */
-  const openHeader = async (uri: string): Promise<string | null> => {
+  const openHeader = async (address: string): Promise<string | null> => {
+    const uri = monaco.Uri.parse(address).toString()
     const id = `tc:${uri}`
     if (tabsRef.current.some((t) => t.id === id)) {
       switchTo(id)
@@ -230,7 +238,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     }
     const model = await ensureModel(monaco.Uri.parse(uri))
     if (!model) {
-      toast('Could not open the header', uri.replace(/^toolchain:\/\//, ''), 'error')
+      toast('Could not open the header', monaco.Uri.parse(uri).path, 'error')
       return null
     }
     adoptModel(model.uri)
@@ -586,7 +594,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
               className={`editor-tab${t.id === active ? ' active' : ''}${dirty.has(t.id) ? ' dirty' : ''}`}
               onClick={() => switchTo(t.id)}
               onMouseDown={(e) => e.button === 1 && (e.preventDefault(), close(t.id))}
-              title={t.kind === 'file' ? t.rel : t.kind === 'external' ? t.displayPath : t.kind === 'header' ? `${t.uri.replace(/^toolchain:\/\//, '')} (read-only)` : t.title}
+              title={t.kind === 'file' ? t.rel : t.kind === 'external' ? t.displayPath : t.kind === 'header' ? `${monaco.Uri.parse(t.uri).path} (read-only)` : t.title}
             >
               {t.title}
               <span

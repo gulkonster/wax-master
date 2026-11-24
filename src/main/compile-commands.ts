@@ -9,6 +9,7 @@
 // headers parse without the `type_unsupported` errors that the older
 // i386-unknown-none-elf setup produces. The x86 and Linux macros the target
 // defines are removed because CDT's libc++ branches on some of them.
+// Warnings for the CDT-only attributes are switched off.
 
 import { FLAG_SETUP, type FlagSetup } from '../shared/lsp-diagnostics'
 
@@ -76,6 +77,8 @@ export function compileFlags(setup: FlagSetup, cdtRoot: string, cdtVersion: stri
     '-fno-threadsafe-statics',
     '-fno-exceptions',
     '-fno-rtti',
+    // [[eosio::action]], [[eosio::table]] and friends are known only to the CDT compiler.
+    '-Wno-unknown-attributes',
     '-D__eosio_cdt__',
     ...versionDefines(cdtVersion),
     '-D_GNU_SOURCE=1',

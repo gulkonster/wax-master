@@ -27,7 +27,9 @@ export function defaultBuildArgs(): string[] {
     c.contract,
     '-o',
     `./${effectiveOutput(c)}`,
-    `./${c.main}`
+    // The main file is passed without "./": cdt-cpp's abigen finds no actions otherwise.
+    // Project paths never start with "-" (checked when the project file is read).
+    c.main
   ]
 }
 

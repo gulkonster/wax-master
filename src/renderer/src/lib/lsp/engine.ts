@@ -167,7 +167,7 @@ function activeClient(): LspClient | null {
 
 function docUri(model: monaco.editor.ITextModel): string | null {
   const k = model.uri.toString()
-  return docs.has(k) && activeClient() ? k : null
+  return docs.get(k)?.opened && activeClient() ? k : null
 }
 
 function fileName(uri: string): string {
@@ -402,7 +402,8 @@ export async function workspaceSymbols(query: string): Promise<WorkspaceSymbol[]
       kind: conv.toSymbolKind(s.kind),
       container: s.containerName ?? '',
       uri: s.location.uri,
-      range: conv.toRange(s.location.range)
+      // The cursor goes to where the symbol starts.
+      range: conv.toRange({ start: s.location.range.start, end: s.location.range.start })
     }))
 }
 
@@ -750,8 +751,8 @@ async function initialize(c: LspClient): Promise<void> {
   caps = r?.capabilities ?? {}
   c.notify('initialized', {})
   ready = true
-  registerProviders()
   for (const d of docs.values()) sendOpen(d)
+  registerProviders()
   updateView()
 }
 

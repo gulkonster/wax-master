@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { monaco } from '../lib/monaco'
+import { monaco } from '../lib/monaco'
 import { engineReady, workspaceSymbols, type WorkspaceSymbol } from '../lib/lsp/engine'
 import { Modal } from './Modal'
 
@@ -51,10 +51,10 @@ export function SymbolSearchDialog({
     return () => clearTimeout(t)
   }, [query, ready])
 
-  const where = (s: WorkspaceSymbol): string =>
-    s.uri.startsWith('project:///')
-      ? decodeURIComponent(s.uri.slice('project:///'.length))
-      : decodeURIComponent(s.uri.replace(/^toolchain:\/\//, ''))
+  const where = (s: WorkspaceSymbol): string => {
+    const u = monaco.Uri.parse(s.uri)
+    return u.scheme === 'project' ? u.path.slice(1) : u.path
+  }
 
   return (
     <Modal title="Go to Symbol in Workspace" onClose={onClose} wide>

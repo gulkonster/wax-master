@@ -77,42 +77,41 @@ export function serverToClientUri(uri: string, map: PathMap): string {
   return `${OUTSIDE_SCHEME}://${encodePath(p)}`
 }
 
+/**
+ * Decoded path of a window address with the given scheme, with a leading "/".
+ * The editor writes addresses without an authority as "project:/a" and the
+ * main process writes "project:///a"; both are accepted.
+ */
+function pathOf(uri: string, scheme: string): string | null {
+  const prefix = `${scheme}:`
+  if (!uri.startsWith(prefix)) return null
+  let rest = uri.slice(prefix.length)
+  if (rest.startsWith('//')) rest = rest.slice(2)
+  if (rest === '') rest = '/'
+  if (!rest.startsWith('/')) throw new Error('Invalid document address')
+  try {
+    return decodePath(rest)
+  } catch {
+    throw new Error('Invalid document address')
+  }
+}
+
 /** Window address -> engine address. Throws for anything outside the project and the toolchain headers. */
 export function clientToServerUri(uri: string, map: PathMap): string {
-  if (uri.startsWith(`${PROJECT_SCHEME}:///`) || uri === `${PROJECT_SCHEME}://`) {
-    let rel: string
-    try {
-      rel = decodePath(uri.slice(`${PROJECT_SCHEME}:///`.length))
-    } catch {
-      throw new Error('Invalid document address')
-    }
-    rel = relPath(rel, 'uri').replace(/\/$/, '')
+  const projectPath = pathOf(uri, PROJECT_SCHEME)
+  if (projectPath !== null) {
+    const rel = relPath(projectPath.slice(1), 'uri').replace(/\/$/, '')
     if (hasDotSegments(rel)) throw new Error('Invalid document address')
     return pathToFileUri(rel ? `${map.rootWsl}/${rel}` : map.rootWsl)
   }
-  if (uri.startsWith(`${TOOLCHAIN_SCHEME}:///`)) {
-    let p: string
-    try {
-      p = decodePath(uri.slice(`${TOOLCHAIN_SCHEME}://`.length))
-    } catch {
-      throw new Error('Invalid document address')
-    }
-    if (!isToolchainPath(p, map.toolchainRoots)) throw new Error('Not a toolchain header')
-    return pathToFileUri(p)
-  }
-  throw new Error('Unsupported document address')
+  if (pathOf(uri, TOOLCHAIN_SCHEME) !== null) return pathToFileUri(toolchainUriToPath(uri, map.toolchainRoots))
+  throw new Error(`Unsupported document address: ${uri.slice(0, 200)}`)
 }
 
 /** Window address of a toolchain header -> its distro path (validated). */
 export function toolchainUriToPath(uri: string, roots: string[]): string {
-  if (!uri.startsWith(`${TOOLCHAIN_SCHEME}:///`)) throw new Error('Not a toolchain header')
-  let p: string
-  try {
-    p = decodePath(uri.slice(`${TOOLCHAIN_SCHEME}://`.length))
-  } catch {
-    throw new Error('Invalid document address')
-  }
-  if (!isToolchainPath(p, roots)) throw new Error('Not a toolchain header')
+  const p = pathOf(uri, TOOLCHAIN_SCHEME)
+  if (p === null || !isToolchainPath(p, roots)) throw new Error('Not a toolchain header')
   return p
 }
 

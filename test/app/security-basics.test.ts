@@ -38,7 +38,7 @@ describe('IPC validators', () => {
 describe('project defaults', () => {
   it('match the EOS Studio default command', () => {
     expect(defaultBuildCommand(defaultConfig('hello'))).toBe(
-      'cdt-cpp -abigen -I ./include -R ./resource -contract hello -o ./hello.wasm ./src/hello.cpp'
+      'cdt-cpp -abigen -I ./include -R ./resource -contract hello -o ./hello.wasm src/hello.cpp'
     )
   })
   it('fill missing fields', () => {

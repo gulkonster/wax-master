@@ -226,7 +226,9 @@ export async function startEditor(sender: WebContents): Promise<EditorStatus> {
       '--background-index',
       '--header-insertion=never',
       '--log=error',
-      '--enable-config=false'
+      '--enable-config=false',
+      // No clang-tidy: a project .clang-tidy file must not steer the editor engine.
+      '--clang-tidy=false'
     ],
     undefined,
     { WSL_UTF8: '1' }
