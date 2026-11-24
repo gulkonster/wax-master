@@ -1,0 +1,342 @@
+{
+  "toolchains": [
+    {
+      "id": "wax-cdt-4.1.1wax01",
+      "label": "WAX CDT 4.1.1wax01",
+      "base": "ubuntu-base-24.04.5",
+      "packages": [
+        "clangd-18",
+        "libcurl4-gnutls-dev",
+        "libz3-4",
+        "libabsl20220623t64",
+        "libclang-cpp18",
+        "libgrpc++1.51t64",
+        "libgrpc29t64",
+        "libllvm18",
+        "libprotobuf32t64",
+        "libclang-common-18-dev",
+        "libcurl3t64-gnutls",
+        "libcares2",
+        "libprotoc32t64",
+        "libre2-10",
+        "libedit2",
+        "libxml2",
+        "libbrotli1",
+        "libgssapi-krb5-2",
+        "libldap2",
+        "libnghttp2-14",
+        "libpsl5t64",
+        "librtmp1",
+        "libssh-4",
+        "libbsd0",
+        "libicu74",
+        "libkrb5-3",
+        "libk5crypto3",
+        "libkrb5support0",
+        "libsasl2-2",
+        "libkeyutils1",
+        "libsasl2-modules-db",
+        "wax-cdt-4.1.1wax01"
+      ]
+    }
+  ],
+  "parts": [
+    {
+      "id": "ubuntu-base-24.04.5",
+      "file": "ubuntu-base-24.04.5-base-amd64.tar.gz",
+      "url": "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.5-base-amd64.tar.gz",
+      "size": 30028293,
+      "sha256": "e77b6f10c2590cef872b33ee9f635a0e3fd1f57fb074c0e52b5c7f56147a0c86",
+      "license": "Various (Ubuntu distribution; see /usr/share/doc/*/copyright inside)",
+      "source": "https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/"
+    },
+    {
+      "id": "clangd-18",
+      "file": "clangd-18_18.1.3-1ubuntu1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/universe/l/llvm-toolchain-18/clangd-18_18.1.3-1ubuntu1_amd64.deb",
+      "size": 5539548,
+      "sha256": "efc747c46c09d6dba2b4913572d2a2f1fa004d8f35e92470ca51809ba42518b2",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "source": "https://launchpad.net/ubuntu/+source/clangd-18"
+    },
+    {
+      "id": "libcurl4-gnutls-dev",
+      "file": "libcurl4-gnutls-dev_8.5.0-2ubuntu10.16_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/c/curl/libcurl4-gnutls-dev_8.5.0-2ubuntu10.16_amd64.deb",
+      "size": 438292,
+      "sha256": "254359a209585d509f675f65c5f85105eb9d82847ca7dfbb70400c3938864494",
+      "license": "curl",
+      "source": "https://launchpad.net/ubuntu/+source/libcurl4-gnutls-dev"
+    },
+    {
+      "id": "libz3-4",
+      "file": "libz3-4_4.8.12-3.1build1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/universe/z/z3/libz3-4_4.8.12-3.1build1_amd64.deb",
+      "size": 5836188,
+      "sha256": "67ceb432593fe62afbaf3bd85c73d46c66fa19433a6b58326a3248162f139b19",
+      "license": "see /usr/share/doc/libz3-4/copyright",
+      "source": "https://launchpad.net/ubuntu/+source/libz3-4"
+    },
+    {
+      "id": "libabsl20220623t64",
+      "file": "libabsl20220623t64_20220623.1-3.1ubuntu3.2_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/a/abseil/libabsl20220623t64_20220623.1-3.1ubuntu3.2_amd64.deb",
+      "size": 422920,
+      "sha256": "dec97687bc3bc4edbd1c26bc9182f7584e3ff1c36a9bb7ce80211951e5a5893d",
+      "license": "Apache-2.0",
+      "source": "https://launchpad.net/ubuntu/+source/libabsl20220623t64"
+    },
+    {
+      "id": "libclang-cpp18",
+      "file": "libclang-cpp18_18.1.3-1ubuntu1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/l/llvm-toolchain-18/libclang-cpp18_18.1.3-1ubuntu1_amd64.deb",
+      "size": 13492572,
+      "sha256": "e91eda104813ee0468d145d010a4a4e142401f3f17f9a65596c66d416298d018",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "source": "https://launchpad.net/ubuntu/+source/libclang-cpp18"
+    },
+    {
+      "id": "libgrpc++1.51t64",
+      "file": "libgrpc++1.51t64_1.51.1-4.1build5_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/universe/g/grpc/libgrpc++1.51t64_1.51.1-4.1build5_amd64.deb",
+      "size": 481482,
+      "sha256": "7f0b9e0498bd74bd4ebb40a1d972d66a3652ecae4cbc9d6da32627613d453c83",
+      "license": "Apache-2.0",
+      "source": "https://launchpad.net/ubuntu/+source/libgrpc++1.51t64"
+    },
+    {
+      "id": "libgrpc29t64",
+      "file": "libgrpc29t64_1.51.1-4.1build5_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/universe/g/grpc/libgrpc29t64_1.51.1-4.1build5_amd64.deb",
+      "size": 2768392,
+      "sha256": "afd30f8d573a88dd74d5b2439cfade615d1c1829fd9fa7aa66ff90a2091be341",
+      "license": "Apache-2.0",
+      "source": "https://launchpad.net/ubuntu/+source/libgrpc29t64"
+    },
+    {
+      "id": "libllvm18",
+      "file": "libllvm18_18.1.3-1ubuntu1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/l/llvm-toolchain-18/libllvm18_18.1.3-1ubuntu1_amd64.deb",
+      "size": 27518500,
+      "sha256": "af6197096ce3b89aab86de59f01c1b5feb008b2ae1514a03906c0664edb8b0b1",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "source": "https://launchpad.net/ubuntu/+source/libllvm18"
+    },
+    {
+      "id": "libprotobuf32t64",
+      "file": "libprotobuf32t64_3.21.12-8.2ubuntu0.4_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/p/protobuf/libprotobuf32t64_3.21.12-8.2ubuntu0.4_amd64.deb",
+      "size": 922780,
+      "sha256": "765aec7fc6c7c14aea8d10677c17617d71acc5103ad580f0e97bff903acccdaf",
+      "license": "BSD-3-Clause",
+      "source": "https://launchpad.net/ubuntu/+source/libprotobuf32t64"
+    },
+    {
+      "id": "libclang-common-18-dev",
+      "file": "libclang-common-18-dev_18.1.3-1ubuntu1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/universe/l/llvm-toolchain-18/libclang-common-18-dev_18.1.3-1ubuntu1_amd64.deb",
+      "size": 735998,
+      "sha256": "d41631bb752815a8196261d1030c096591c59678c8adfbf2e6a740a691b49e80",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "source": "https://launchpad.net/ubuntu/+source/libclang-common-18-dev"
+    },
+    {
+      "id": "libcurl3t64-gnutls",
+      "file": "libcurl3t64-gnutls_8.5.0-2ubuntu10.16_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/c/curl/libcurl3t64-gnutls_8.5.0-2ubuntu10.16_amd64.deb",
+      "size": 336534,
+      "sha256": "f3993897876cd03ea10941c9b364965ff95d0226459f31f6c5f5b93562c80798",
+      "license": "curl",
+      "source": "https://launchpad.net/ubuntu/+source/libcurl3t64-gnutls"
+    },
+    {
+      "id": "libcares2",
+      "file": "libcares2_1.27.0-1.0ubuntu1.1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/c/c-ares/libcares2_1.27.0-1.0ubuntu1.1_amd64.deb",
+      "size": 74202,
+      "sha256": "42d4ba6e4809d424832cc47ab953589d1d43d614fd5f9c803f879b207dbb0848",
+      "license": "MIT",
+      "source": "https://launchpad.net/ubuntu/+source/libcares2"
+    },
+    {
+      "id": "libprotoc32t64",
+      "file": "libprotoc32t64_3.21.12-8.2ubuntu0.4_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/p/protobuf/libprotoc32t64_3.21.12-8.2ubuntu0.4_amd64.deb",
+      "size": 682946,
+      "sha256": "a135645fed6c3c766cc0cf23f49e1fdf766a5611a3c80ac6f2e62f8ed6a17e45",
+      "license": "BSD-3-Clause",
+      "source": "https://launchpad.net/ubuntu/+source/libprotoc32t64"
+    },
+    {
+      "id": "libre2-10",
+      "file": "libre2-10_20230301-3build1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/r/re2/libre2-10_20230301-3build1_amd64.deb",
+      "size": 168028,
+      "sha256": "4ce429c1254f57c96feb80536fe4418ea326603fa797d8311a50f946273fd29b",
+      "license": "BSD-3-Clause",
+      "source": "https://launchpad.net/ubuntu/+source/libre2-10"
+    },
+    {
+      "id": "libedit2",
+      "file": "libedit2_3.1-20230828-1build1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/libe/libedit/libedit2_3.1-20230828-1build1_amd64.deb",
+      "size": 97586,
+      "sha256": "3afbc8ddf835049dd4d88275b9d13680e4c4cdd59e191cbd63424152cc08e00e",
+      "license": "BSD-3-Clause",
+      "source": "https://launchpad.net/ubuntu/+source/libedit2"
+    },
+    {
+      "id": "libxml2",
+      "file": "libxml2_2.9.14+dfsg-1.3ubuntu3.10_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/libx/libxml2/libxml2_2.9.14+dfsg-1.3ubuntu3.10_amd64.deb",
+      "size": 763592,
+      "sha256": "c5a065f85c1e6f605741e365e40cad71c3ceb0e85e2791400bd35b8896e12ad1",
+      "license": "MIT",
+      "source": "https://launchpad.net/ubuntu/+source/libxml2"
+    },
+    {
+      "id": "libbrotli1",
+      "file": "libbrotli1_1.1.0-2ubuntu0.1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/b/brotli/libbrotli1_1.1.0-2ubuntu0.1_amd64.deb",
+      "size": 330968,
+      "sha256": "70b188a86d81f30d7510aab30e25d638ed5037dded6691af1533952b71ac61de",
+      "license": "MIT",
+      "source": "https://launchpad.net/ubuntu/+source/libbrotli1"
+    },
+    {
+      "id": "libgssapi-krb5-2",
+      "file": "libgssapi-krb5-2_1.20.1-6ubuntu2.10_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/k/krb5/libgssapi-krb5-2_1.20.1-6ubuntu2.10_amd64.deb",
+      "size": 142830,
+      "sha256": "0d4a0187bcdbbe3e6a10bfa574100087d12052d0d0ef28614fd6210021c587b2",
+      "license": "MIT",
+      "source": "https://launchpad.net/ubuntu/+source/libgssapi-krb5-2"
+    },
+    {
+      "id": "libldap2",
+      "file": "libldap2_2.6.10+dfsg-0ubuntu0.24.04.1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/o/openldap/libldap2_2.6.10+dfsg-0ubuntu0.24.04.1_amd64.deb",
+      "size": 197620,
+      "sha256": "7f3f8e565401256f21d5aa562c9f92dbb63537b73aaea6283e4db5264f1598f4",
+      "license": "OLDAP-2.8",
+      "source": "https://launchpad.net/ubuntu/+source/libldap2"
+    },
+    {
+      "id": "libnghttp2-14",
+      "file": "libnghttp2-14_1.59.0-1ubuntu0.4_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/n/nghttp2/libnghttp2-14_1.59.0-1ubuntu0.4_amd64.deb",
+      "size": 74590,
+      "sha256": "73adcbb9df32cd7c9d46b1c7598bbbbcf249be705d62d966694cfc9976a15dfe",
+      "license": "MIT",
+      "source": "https://launchpad.net/ubuntu/+source/libnghttp2-14"
+    },
+    {
+      "id": "libpsl5t64",
+      "file": "libpsl5t64_0.21.2-1.1build1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/libp/libpsl/libpsl5t64_0.21.2-1.1build1_amd64.deb",
+      "size": 57072,
+      "sha256": "a6c85d1303ae90b6a3209d73c4f047f82c27cdc963c48adfd95dd7abca64f039",
+      "license": "MIT",
+      "source": "https://launchpad.net/ubuntu/+source/libpsl5t64"
+    },
+    {
+      "id": "librtmp1",
+      "file": "librtmp1_2.4+20151223.gitfa8646d.1-2build7_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/r/rtmpdump/librtmp1_2.4+20151223.gitfa8646d.1-2build7_amd64.deb",
+      "size": 56342,
+      "sha256": "967a39dbc14236d1580ede01d80fd78444668572e716734e1ac66c175052594e",
+      "license": "LGPL-2.1-or-later",
+      "source": "https://launchpad.net/ubuntu/+source/librtmp1"
+    },
+    {
+      "id": "libssh-4",
+      "file": "libssh-4_0.10.6-2ubuntu0.6_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/libs/libssh/libssh-4_0.10.6-2ubuntu0.6_amd64.deb",
+      "size": 191214,
+      "sha256": "f9b019abe7ccae2d618108305f2f14eec8e52377623cbee1bcb11494a93156e2",
+      "license": "LGPL-2.1-or-later",
+      "source": "https://launchpad.net/ubuntu/+source/libssh-4"
+    },
+    {
+      "id": "libbsd0",
+      "file": "libbsd0_0.12.1-1build1.1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/libb/libbsd/libbsd0_0.12.1-1build1.1_amd64.deb",
+      "size": 41238,
+      "sha256": "f3857b0863ac5cfd4263e9bf6cfb1d4be88d5321e4070d5bc2b62b0949e6c86f",
+      "license": "BSD-3-Clause",
+      "source": "https://launchpad.net/ubuntu/+source/libbsd0"
+    },
+    {
+      "id": "libicu74",
+      "file": "libicu74_74.2-1ubuntu3.1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/i/icu/libicu74_74.2-1ubuntu3.1_amd64.deb",
+      "size": 10860078,
+      "sha256": "c9a70989678660eed9a1e904c74fa043da8bec8e2036856fc16e31ced79b04f8",
+      "license": "Unicode-3.0",
+      "source": "https://launchpad.net/ubuntu/+source/libicu74"
+    },
+    {
+      "id": "libkrb5-3",
+      "file": "libkrb5-3_1.20.1-6ubuntu2.10_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/k/krb5/libkrb5-3_1.20.1-6ubuntu2.10_amd64.deb",
+      "size": 347568,
+      "sha256": "60b48c5a3233f1d8caba30d6573edc8e131911ab6d63adcd664f7cbe62708362",
+      "license": "MIT",
+      "source": "https://launchpad.net/ubuntu/+source/libkrb5-3"
+    },
+    {
+      "id": "libk5crypto3",
+      "file": "libk5crypto3_1.20.1-6ubuntu2.10_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/k/krb5/libk5crypto3_1.20.1-6ubuntu2.10_amd64.deb",
+      "size": 81944,
+      "sha256": "273f7cc95a68d927d7f71c3e78b7717a16a8d86e646a206bae7bf797150ae9db",
+      "license": "MIT",
+      "source": "https://launchpad.net/ubuntu/+source/libk5crypto3"
+    },
+    {
+      "id": "libkrb5support0",
+      "file": "libkrb5support0_1.20.1-6ubuntu2.10_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/k/krb5/libkrb5support0_1.20.1-6ubuntu2.10_amd64.deb",
+      "size": 34942,
+      "sha256": "9224ede3246a82a845ea97652ecfae57f88e8d8f520d8a186f9157167574fb34",
+      "license": "MIT",
+      "source": "https://launchpad.net/ubuntu/+source/libkrb5support0"
+    },
+    {
+      "id": "libsasl2-2",
+      "file": "libsasl2-2_2.1.28+dfsg1-5ubuntu3.1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/c/cyrus-sasl2/libsasl2-2_2.1.28+dfsg1-5ubuntu3.1_amd64.deb",
+      "size": 53194,
+      "sha256": "eda097f98dcb3a08b9ce157d6191d140e4885c1cba47b683c94b8ca45e88f458",
+      "license": "BSD-4-Clause-UC",
+      "source": "https://launchpad.net/ubuntu/+source/libsasl2-2"
+    },
+    {
+      "id": "libkeyutils1",
+      "file": "libkeyutils1_1.6.3-3build1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/k/keyutils/libkeyutils1_1.6.3-3build1_amd64.deb",
+      "size": 9490,
+      "sha256": "0679f198b0128179e46cdf956fb2022c23c758664c00bc8efa0382d509683a8a",
+      "license": "LGPL-2.1-or-later",
+      "source": "https://launchpad.net/ubuntu/+source/libkeyutils1"
+    },
+    {
+      "id": "libsasl2-modules-db",
+      "file": "libsasl2-modules-db_2.1.28+dfsg1-5ubuntu3.1_amd64.deb",
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/c/cyrus-sasl2/libsasl2-modules-db_2.1.28+dfsg1-5ubuntu3.1_amd64.deb",
+      "size": 20354,
+      "sha256": "1f13548b1774cd9c70c50b8c3267204a101334a4d2f979338896ba5a4c6f81b8",
+      "license": "BSD-4-Clause-UC",
+      "source": "https://launchpad.net/ubuntu/+source/libsasl2-modules-db"
+    },
+    {
+      "id": "wax-cdt-4.1.1wax01",
+      "file": "cdt_4.1.1wax01-1_amd64.deb",
+      "url": "https://github.com/worldwide-asset-exchange/wax-cdt/releases/download/v4.1.1wax01/cdt_4.1.1wax01-1_amd64.deb",
+      "size": 132145422,
+      "sha256": "b2273213b1267c25974b2820cb78faf024387e36f7eaeb97235e43dd4c27e44a",
+      "license": "MIT (with LLVM and other bundled component licenses)",
+      "source": "https://github.com/worldwide-asset-exchange/wax-cdt"
+    }
+  ]
+}
