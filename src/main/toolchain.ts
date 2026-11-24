@@ -7,6 +7,7 @@ import { createReadStream, existsSync, mkdirSync, promises as fsp, statfsSync } 
 import { release } from 'node:os'
 import { join } from 'node:path'
 import manifest from '../../toolchain/parts.json'
+import setupScript from '../../resources/toolchain/setup-distro.sh?raw'
 import { run, type RunResult } from './helper'
 import { readJson, writeJson } from './jsonfile'
 import { localDataDir, resourcesDir } from './paths'
@@ -161,7 +162,7 @@ export async function status(): Promise<SetupStatus> {
       ? /Default Version: 1|Varsay.lan S.r.m: 1/.test(text)
         ? 'WSL is enabled (default version 1).'
         : 'WSL is enabled.'
-      : 'WSL is not enabled on this computer.'
+      : `WSL is not enabled on this computer.${text.trim() ? ` WSL says: ${text.trim().split('\n').slice(0, 4).join(' ').slice(0, 400)}` : ''}`
   }
   const state = toolchainState()
   let tcOk = false
@@ -258,9 +259,11 @@ export async function install(opts: { wslVersion: 1 | 2; progress: Progress }): 
   if (imp.code !== 0) throw new Error(`WSL could not import the toolchain:\n${clean(imp.output).trim() || imp.error || ''}`)
 
   progress('Installing the compiler and editor engine inside it (offline)...')
-  const script = toWslPath(join(resourcesDir(), 'toolchain', 'setup-distro.sh'))
+  // The script is part of the app bundle and goes in on stdin; it installs only the files verified above.
   const debs = toWslPath(partsDir())
-  const setup = await wsl(['-d', name, '-u', 'root', '--exec', 'bash', script, debs], {
+  const files = partsFor(def).slice(1).map((p) => p.file)
+  const setup = await wsl(['-d', name, '-u', 'root', '--exec', 'bash', '-s', '--', debs, ...files], {
+    input: setupScript.replace(/\r\n/g, '\n'),
     onOutput: (t) => clean(t).split('\n').filter(Boolean).forEach((l) => progress(l)),
     timeoutMs: 20 * 60 * 1000
   })

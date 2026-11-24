@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, lstatSync, mkdirSync, promises as fsp, readFileSync, readdirSync, realpathSync, statSync, writeFileSync, type Dirent } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { ExternalFile, FileContent, OpenProject, TreeNode } from '../shared/api'
-import { PROJECT_FILE, defaultConfig, normalizeConfig, type ProjectConfig, type TemplateId } from '../shared/project'
+import { PROJECT_FILE, defaultConfig, normalizeConfig, safeProjectPath, type ProjectConfig, type TemplateId } from '../shared/project'
 import { findProject, upsertProject } from './store'
 import { readJson, writeJson } from './jsonfile'
 import { templateFiles } from './templates'
@@ -34,10 +34,7 @@ interface EosProj {
 }
 
 function safeRel(v: unknown): string {
-  if (typeof v !== 'string' || !v.trim()) return ''
-  const s = v.trim().replace(/\\/g, '/')
-  if (s.startsWith('/') || /^[a-zA-Z]:/.test(s) || s.split('/').includes('..')) return ''
-  return s
+  return typeof v === 'string' ? safeProjectPath(v) : ''
 }
 
 function readEosproj(root: string): EosProj | undefined {
@@ -287,11 +284,23 @@ export async function readProjectFile(rel: string): Promise<FileContent> {
 }
 
 /** Reads raw bytes of a project file (used by the main process only, e.g. .wasm info). */
-export async function readProjectBytes(rel: string): Promise<Buffer> {
-  return fsp.readFile(resolveInProject(rel))
+export async function readProjectBytes(rel: string, maxBytes = 50 * 1024 * 1024): Promise<Buffer> {
+  const abs = resolveInProject(rel)
+  const st = await fsp.stat(abs)
+  if (!st.isFile()) throw new Error('Not a file')
+  if (st.size > maxBytes) throw new Error(`File is larger than ${Math.round(maxBytes / 1024 / 1024)} MB`)
+  return fsp.readFile(abs)
+}
+
+/** Git's own data is never changed from the editor (hooks there would run as the user). */
+export function refuseGitPath(rel: string): void {
+  if (rel.replace(/\\/g, '/').split('/').some((seg) => seg.toLowerCase() === '.git')) {
+    throw new Error('Files inside .git cannot be changed from the editor')
+  }
 }
 
 export async function writeProjectFile(rel: string, content: string): Promise<void> {
+  refuseGitPath(rel)
   const abs = resolveInProject(rel)
   await fsp.mkdir(dirname(abs), { recursive: true })
   await fsp.writeFile(abs, content, 'utf8')
@@ -303,6 +312,7 @@ export async function writeProjectFile(rel: string, content: string): Promise<vo
 }
 
 export async function createEntry(rel: string, dir: boolean): Promise<void> {
+  refuseGitPath(rel)
   const abs = resolveInProject(rel)
   if (existsSync(abs)) throw new Error('Already exists')
   if (dir) await fsp.mkdir(abs, { recursive: true })
@@ -314,6 +324,8 @@ export async function createEntry(rel: string, dir: boolean): Promise<void> {
 }
 
 export async function renameEntry(from: string, to: string): Promise<void> {
+  refuseGitPath(from)
+  refuseGitPath(to)
   const a = resolveInProject(from)
   const b = resolveInProject(to)
   if (a === current?.root) throw new Error('Cannot rename the project folder')
@@ -323,6 +335,7 @@ export async function renameEntry(from: string, to: string): Promise<void> {
 }
 
 export async function removeEntry(rel: string): Promise<string> {
+  refuseGitPath(rel)
   const abs = resolveInProject(rel)
   if (abs === current?.root) throw new Error('Cannot delete the project folder')
   lstatSync(abs)

@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
 import { join } from 'node:path'
 import { buildMenu } from './menu'
+import { hasBlockedSwitch } from './switches'
 import { registerIpc } from './ipc'
 import { guardWindow, registerCloseGuard } from './close-guard'
 import { registerChainIpc } from './ipc-chain'
@@ -22,10 +23,9 @@ import {
   secureWebPreferences
 } from './security'
 
-// A packaged build never runs with debugging or inspector switches.
-if (app.isPackaged) {
-  const blocked = /^--(remote-debugging-port|remote-debugging-pipe|inspect|inspect-brk|js-flags)(=|$)/
-  if (process.argv.some((a) => blocked.test(a))) app.exit(1)
+// A packaged build never runs with debugging, inspector or security-weakening switches.
+if (app.isPackaged && hasBlockedSwitch(process.argv, (s) => app.commandLine.hasSwitch(s))) {
+  app.exit(1)
 }
 
 process.on('uncaughtException', (err) => log.error('Uncaught error', err))

@@ -1,23 +1,34 @@
 #!/bin/bash
 # Runs as root inside a freshly imported distro. Offline: only dpkg is used, no apt, no network.
-# Usage: setup-distro.sh <folder with the .deb files, e.g. /mnt/c/.../debs>
+# Usage: setup-distro.sh <folder with the .deb files> <file.deb> [<file.deb> ...]
+# Only the named files are installed (the app names exactly the files whose
+# SHA-256 it has just verified).
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 export LC_ALL=C
 
 DEBS_DIR="${1:-}"
+shift || true
 USER_NAME="wax"
 
 fail() { echo "ERROR: $*" >&2; exit 1; }
 
 [ "$(id -u)" -eq 0 ] || fail "must run as root"
-[ -n "$DEBS_DIR" ] || fail "usage: $0 <folder with .deb files>"
+[ -n "$DEBS_DIR" ] || fail "usage: setup-distro.sh <folder> <file.deb>..."
+[ "$#" -gt 0 ] || fail "no package files named"
 [ -d "$DEBS_DIR" ] || fail "folder not found: $DEBS_DIR"
 
 echo "STEP 1/5 Checking packages in $DEBS_DIR"
-shopt -s nullglob
-DEBS=("$DEBS_DIR"/*.deb)
-[ "${#DEBS[@]}" -gt 0 ] || fail "no .deb files in $DEBS_DIR"
+DEBS=()
+for name in "$@"; do
+  case "$name" in
+    */*|*..*|-*) fail "invalid package file name: $name" ;;
+    *.deb) ;;
+    *) fail "not a .deb file: $name" ;;
+  esac
+  [ -f "$DEBS_DIR/$name" ] || fail "missing package: $name"
+  DEBS+=("$DEBS_DIR/$name")
+done
 for f in "${DEBS[@]}"; do
   dpkg-deb --info "$f" >/dev/null || fail "unreadable package: $f"
 done

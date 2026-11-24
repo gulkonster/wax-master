@@ -3,23 +3,33 @@
 
 import type { TemplateId } from '../shared/project'
 
-export function templateFiles(template: TemplateId, name: string): Record<string, string> {
+/** A C++ class name for a contract name ("my.tok" -> "my_tok", "1abc" -> "c_1abc"). */
+export function classNameFor(contract: string): string {
+  const id = contract.replace(/[^a-z0-9_]/g, '_')
+  return /^[0-9]/.test(id) ? `c_${id}` : id
+}
+
+export function templateFiles(template: TemplateId, contract: string): Record<string, string> {
+  return templateFilesFor(template, contract, classNameFor(contract))
+}
+
+function templateFilesFor(template: TemplateId, contract: string, name: string): Record<string, string> {
   switch (template) {
     case 'empty':
       return {
-        [`src/${name}.cpp`]: `#include <${name}.hpp>
+        [`src/${contract}.cpp`]: `#include <${contract}.hpp>
 
 void ${name}::doit(name user) {
   require_auth(user);
 }
 `,
-        [`include/${name}.hpp`]: `#pragma once
+        [`include/${contract}.hpp`]: `#pragma once
 
 #include <eosio/eosio.hpp>
 
 using namespace eosio;
 
-class [[eosio::contract("${name}")]] ${name} : public contract {
+class [[eosio::contract("${contract}")]] ${name} : public contract {
 public:
   using contract::contract;
 
@@ -31,20 +41,20 @@ public:
       }
     case 'hello':
       return {
-        [`src/${name}.cpp`]: `#include <${name}.hpp>
+        [`src/${contract}.cpp`]: `#include <${contract}.hpp>
 
 void ${name}::hi(name user) {
   require_auth(user);
   print("Hello, ", user);
 }
 `,
-        [`include/${name}.hpp`]: `#pragma once
+        [`include/${contract}.hpp`]: `#pragma once
 
 #include <eosio/eosio.hpp>
 
 using namespace eosio;
 
-class [[eosio::contract("${name}")]] ${name} : public contract {
+class [[eosio::contract("${contract}")]] ${name} : public contract {
 public:
   using contract::contract;
 
@@ -58,14 +68,14 @@ public:
       }
     case 'token':
       return {
-        [`src/${name}.cpp`]: tokenCpp(name),
-        [`include/${name}.hpp`]: tokenHpp(name),
+        [`src/${contract}.cpp`]: tokenCpp(name, contract),
+        [`include/${contract}.hpp`]: tokenHpp(name, contract),
         'resource/.gitkeep': ''
       }
   }
 }
 
-function tokenHpp(name: string): string {
+function tokenHpp(name: string, contract: string): string {
   return `#pragma once
 
 #include <eosio/asset.hpp>
@@ -79,7 +89,7 @@ using namespace eosio;
  * A standard token contract: create a token with a maximum supply, issue it,
  * transfer it between accounts, retire it, and open or close balance rows.
  */
-class [[eosio::contract("${name}")]] ${name} : public contract {
+class [[eosio::contract("${contract}")]] ${name} : public contract {
 public:
   using contract::contract;
 
@@ -148,8 +158,8 @@ private:
 `
 }
 
-function tokenCpp(name: string): string {
-  return `#include <${name}.hpp>
+function tokenCpp(name: string, contract: string): string {
+  return `#include <${contract}.hpp>
 
 void ${name}::create(const name& issuer, const asset& maximum_supply) {
   require_auth(get_self());
