@@ -106,10 +106,8 @@ export function changeKeyActions(i: ChangeKeyInput, accountData: R): ActionReque
   if (keys.some((k) => k.key === newKey)) throw new Error(`The new key is already a key of ${i.account}@${i.permission}.`)
   keys[at] = { key: newKey, weight: keys[at].weight }
 
-  const total = [...keys, ...accounts, ...waits].reduce((s, x) => s + x.weight, 0)
-  if (!(threshold >= 1) || total < threshold) {
-    throw new Error(`The new authority could not reach its threshold ${threshold} (total weight ${total}); nothing was prepared.`)
-  }
+  // Whether the new authority can still reach its threshold is decided by the
+  // signer, for every updateauth (the same check as the wallet's).
   const next: AuthorityInput = { threshold, keys, accounts, waits }
   return [
     {

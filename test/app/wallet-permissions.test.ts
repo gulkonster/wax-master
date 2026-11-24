@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   ancestry,
+  linkInfo,
   linksFromAccount,
   linksFromHistory,
   parsePermissionIntent,
@@ -15,7 +16,8 @@ import {
   readPermissions,
   type PlanContext
 } from '../../src/main/wallet-permissions'
-import { encodeAction, EOSIO_ABI, generatePrivateKey, publicFromPrivate, publicKeyToString } from '../../src/chain-core'
+import { convertPublicKey, encodeAction, EOSIO_ABI, generatePrivateKey, publicFromPrivate, publicKeyToString } from '../../src/chain-core'
+import { allowedSigners, defaultSigner } from '../../src/shared/permission-signers'
 import type { PermissionIntent } from '../../src/shared/chain-types'
 
 const newPub = (): string => publicKeyToString(publicFromPrivate(generatePrivateKey()), 'new')
@@ -225,14 +227,171 @@ describe('refused: every way to lock an account out', () => {
     await refused({ kind: 'deletePermission', ...A, permission: 'claim' }, 'active', ctx(account(SINGLE, [parent, child])), /delete those first/)
     const linked = perm('claim', 'active', SINGLE, [{ account: 'eosio.token', action: 'transfer' }])
     await refused({ kind: 'deletePermission', ...A, permission: 'claim' }, 'active', ctx(account(SINGLE, [linked])), /unlink them first/)
-    // Links from the history service count when the node does not report them.
-    const bare = perm('claim', 'active', SINGLE)
-    await refused(
-      { kind: 'deletePermission', ...A, permission: 'claim' },
-      'active',
-      ctx(account(SINGLE, [bare], false), { historyLinks: [{ contract: 'eosio.token', action: 'transfer', permission: 'claim' }] }),
-      /unlink them first/
+  })
+  it('an entry of eosio.null is not counted (nobody can sign for it)', async () => {
+    const withNull: Auth = { threshold: 1, keys: [{ key: K1, weight: 1 }], accounts: [{ permission: { actor: 'eosio.null', permission: 'active' }, weight: 1 }] }
+    await refused({ kind: 'removeKey', ...A, permission: 'active', key: K1 }, 'active', ctx(account(withNull)), /could not reach its threshold 1: .* add up to 0/)
+  })
+  it('owner: an account entry that no longer exists is not counted, and the sentence names it', async () => {
+    const owner: Auth = {
+      threshold: 1,
+      keys: [{ key: K1, weight: 1 }],
+      accounts: [{ permission: { actor: 'gone', permission: 'active' }, weight: 1 }]
+    }
+    const data = { permissions: [perm('owner', '', owner, []), perm('active', 'owner', SINGLE, [])] }
+    await refused({ kind: 'removeKey', ...A, permission: 'owner', key: K1 }, 'owner', ctx(data), /could not reach .* do not exist on this network now: gone@active/)
+    // The same entry on active is not checked again (only owner's entries must exist now).
+    const active = await plan(
+      { kind: 'removeKey', ...A, permission: 'active', key: K1 },
+      'owner',
+      ctx({ permissions: [perm('owner', '', SINGLE, []), perm('active', 'owner', owner, [])] })
     )
+    expect(active.after?.accounts).toEqual([{ actor: 'gone', permission: 'active', weight: 1 }])
+  })
+})
+
+describe('linked actions read from the history service are hints, not facts', () => {
+  const bare = perm('claim', 'active', SINGLE)
+  const hinted = (): PlanContext =>
+    ctx(account(SINGLE, [bare], false), { historyLinks: [{ contract: 'eosio.token', action: 'transfer', permission: 'claim' }] })
+  it('delete permission: a warning instead of a refusal', async () => {
+    const p = await plan({ kind: 'deletePermission', ...A, permission: 'claim' }, 'active', hinted())
+    expect(p.action.name).toBe('deleteauth')
+    expect(p.warnings).toContain(
+      'The history service lists linked actions of claim (eosio.token::transfer); the chain refuses the deletion while they exist.'
+    )
+  })
+  it('unlink: not refused for a row the service does not list', async () => {
+    const p = await plan({ kind: 'unlink', ...A, code: 'game', type: 'play' }, 'active', hinted())
+    expect(p.action).toMatchObject({ name: 'unlinkauth', data: { account: 'alice', code: 'game', type: 'play' } })
+  })
+  it('link: the current link is reported by the service; linking it again is a warning', async () => {
+    const other = perm('game', 'active', SINGLE)
+    const c = ctx(account(SINGLE, [bare, other], false), { historyLinks: [{ contract: 'eosio.token', action: 'transfer', permission: 'claim' }] })
+    const p = await plan({ kind: 'link', ...A, code: 'eosio.token', type: 'transfer', requirement: 'game' }, 'active', c)
+    expect(p.explanation.join(' ')).toMatch(/The history service reports that the action is linked to claim now; the link moves to game\./)
+    const again = await plan({ kind: 'link', ...A, code: 'eosio.token', type: 'transfer', requirement: 'claim' }, 'active', c)
+    expect(again.warnings.join(' ')).toMatch(/history service reports that eosio.token::transfer is already linked to claim/)
+  })
+  it('the same rows from the node are facts: refusals as before', async () => {
+    const linked = perm('claim', 'active', SINGLE, [{ account: 'eosio.token', action: 'transfer' }])
+    await refused({ kind: 'deletePermission', ...A, permission: 'claim' }, 'active', ctx(account(SINGLE, [linked])), /unlink them first/)
+    await refused({ kind: 'unlink', ...A, code: 'game', type: 'play' }, 'active', ctx(account(SINGLE, [linked])), /not linked/)
+    const p = await plan({ kind: 'link', ...A, code: 'eosio.token', type: 'transfer', requirement: 'active' }, 'active', ctx(account(SINGLE, [linked])))
+    expect(p.explanation.join(' ')).toMatch(/^.*The action is linked to claim now; the link moves to active\./)
+  })
+})
+
+describe('who signs a change: only permissions the chain accepts', () => {
+  // owner > active > claim > sub; the vault holds the keys of claim and active.
+  const claim = perm('claim', 'active', SINGLE, [])
+  const sub = perm('sub', 'claim', SINGLE, [])
+  const data = (): Record<string, unknown> => account(SINGLE, [claim, sub])
+  it('delete permission: parents only, never the permission itself', async () => {
+    await refused({ kind: 'deletePermission', ...A, permission: 'sub' }, 'sub', ctx(data()), /Sign this change with claim or active or owner\./)
+    const p = await plan({ kind: 'deletePermission', ...A, permission: 'sub' }, 'claim', ctx(data()))
+    expect(p.action.authorization).toEqual([{ actor: 'alice', permission: 'claim' }])
+  })
+  it("the run's case: delete claim while the vault holds claim and active: active is the default, claim is refused", async () => {
+    const perms = readPermissions(account(SINGLE, [claim]))
+    const intent: PermissionIntent = { kind: 'deletePermission', ...A, permission: 'claim' }
+    const options = allowedSigners(perms, intent, null)
+    expect(options).toEqual(['active', 'owner'])
+    expect(defaultSigner(options, (p) => ['claim', 'active'].includes(p))).toBe('active')
+    await refused(intent, 'claim', ctx(account(SINGLE, [claim])), /Sign this change with active or owner\./)
+  })
+  it('change of a permission: itself or a parent; new permission: the parent or above', async () => {
+    await refused({ kind: 'addKey', ...A, permission: 'claim', key: K3, weight: 1 }, 'sub', ctx(data()), /Sign this change with claim or active or owner/)
+    expect((await plan({ kind: 'addKey', ...A, permission: 'claim', key: K3, weight: 1 }, 'claim', ctx(data()))).action.name).toBe('updateauth')
+    expect((await plan({ kind: 'newPermission', ...A, permission: 'deep', parent: 'sub', key: K3 }, 'sub', ctx(data()))).action.name).toBe('updateauth')
+    await refused({ kind: 'newPermission', ...A, permission: 'deep', parent: 'claim', key: K3 }, 'sub', ctx(data()), /Sign this change with claim or active or owner/)
+  })
+  it('link: the permission the action needs now or above; unlink: the linked permission or above', async () => {
+    const game = perm('game', 'active', SINGLE, [{ account: 'eosio.token', action: 'transfer' }])
+    const c = (): PlanContext => ctx(account(SINGLE, [game, claim]))
+    // eosio.token::transfer needs game now: game, active or owner may sign the move to claim; claim may not.
+    await refused({ kind: 'link', ...A, code: 'eosio.token', type: 'transfer', requirement: 'claim' }, 'claim', c(), /Sign this change with game or active or owner\./)
+    const moved = await plan({ kind: 'link', ...A, code: 'eosio.token', type: 'transfer', requirement: 'claim' }, 'game', c())
+    expect(moved.action.authorization).toEqual([{ actor: 'alice', permission: 'game' }])
+    // Not linked yet: active or owner.
+    await refused({ kind: 'link', ...A, code: 'eosio.token', type: 'transfer', requirement: 'claim' }, 'claim', ctx(account(SINGLE, [claim])), /Sign this change with active or owner\./)
+    // The link for every action of a contract counts when the action has none of its own.
+    const every = perm('game', 'active', SINGLE, [{ account: 'eosio.token', action: '' }])
+    const viaEvery = allowedSigners(readPermissions(account(SINGLE, [every, claim])), { kind: 'link', ...A, code: 'eosio.token', type: 'transfer', requirement: 'claim' }, linkInfo(readPermissions(account(SINGLE, [every, claim])), null))
+    expect(viaEvery).toEqual(['game', 'active', 'owner'])
+    // Unlink: the linked permission or above.
+    const u = await plan({ kind: 'unlink', ...A, code: 'eosio.token', type: 'transfer' }, 'game', c())
+    expect(u.action.authorization).toEqual([{ actor: 'alice', permission: 'game' }])
+    await refused({ kind: 'unlink', ...A, code: 'eosio.token', type: 'transfer' }, 'claim', c(), /Sign this change with game or active or owner\./)
+  })
+  it('history hints add signers but never remove active and its parents', () => {
+    const perms = readPermissions(account(SINGLE, [claim], false))
+    const hint = { rows: [{ contract: 'game', action: 'play', permission: 'claim' }], source: 'history' as const }
+    expect(allowedSigners(perms, { kind: 'unlink', ...A, code: 'game', type: 'play' }, hint)).toEqual(['claim', 'active', 'owner'])
+    expect(allowedSigners(perms, { kind: 'unlink', ...A, code: 'game', type: 'play' }, { rows: [], source: 'none' })).toEqual(['active', 'owner', 'claim'])
+  })
+  it('the default is the nearest permission the vault can sign; owner only when nothing below it can', () => {
+    expect(defaultSigner(['claim', 'active', 'owner'], (p) => p !== 'claim')).toBe('active')
+    expect(defaultSigner(['active', 'owner', 'claim'], (p) => p === 'owner' || p === 'claim')).toBe('claim')
+    expect(defaultSigner(['active', 'owner'], (p) => p === 'owner')).toBe('owner')
+    expect(defaultSigner(['active', 'owner'], () => false)).toBe('active')
+  })
+})
+
+describe('eosio.code switch: the account\'s own code only, never on owner', () => {
+  it('switching it on for owner is refused; an existing entry on owner can be switched off', async () => {
+    await refused(
+      { kind: 'eosioCode', ...A, permission: 'owner', enable: true },
+      'owner',
+      ctx(account(SINGLE)),
+      /The contract is not given owner: a fault in its code could then replace the owner keys\./
+    )
+    const ownerOn: Auth = { threshold: 1, keys: [{ key: K1, weight: 1 }], accounts: [{ permission: { actor: 'alice', permission: 'eosio.code' }, weight: 1 }] }
+    const off = await plan({ kind: 'eosioCode', ...A, permission: 'owner', enable: false }, 'owner', ctx({ permissions: [perm('owner', '', ownerOn, []), perm('active', 'owner', SINGLE, [])] }))
+    expect(off.after?.accounts).toEqual([])
+  })
+  it("another account's eosio.code is not added by Add account", () =>
+    refused(
+      { kind: 'addAccount', ...A, permission: 'active', actor: 'bob', actorPermission: 'eosio.code', weight: 1 },
+      'active',
+      ctx(account(SINGLE)),
+      /Another account's contract is not added here/
+    ))
+})
+
+describe('what an entry or a link gives away', () => {
+  it('a key or an account with a weight at or above the threshold can sign alone', async () => {
+    const k = await plan({ kind: 'addKey', ...A, permission: 'active', key: K3, weight: 2 }, 'active', ctx(account(MULTI)))
+    expect(k.explanation[k.explanation.length - 1]).toBe('It can sign for alice@active alone.')
+    const small = await plan({ kind: 'addKey', ...A, permission: 'active', key: K3, weight: 1 }, 'active', ctx(account(MULTI)))
+    expect(small.explanation.join(' ')).not.toMatch(/alone/)
+    expect(small.warnings.join(' ')).toMatch(/not in the vault/)
+    const a = await plan({ kind: 'addAccount', ...A, permission: 'active', actor: 'carol', actorPermission: 'active', weight: 1 }, 'active', ctx(account(SINGLE)))
+    expect(a.explanation[a.explanation.length - 1]).toBe('It can sign for alice@active alone.')
+  })
+  it('linking a transfer or an eosio action warns', async () => {
+    const claim = perm('claim', 'active', SINGLE, [])
+    const c = (): PlanContext => ctx(account(SINGLE, [claim]), { actionExists: async () => true })
+    const t = await plan({ kind: 'link', ...A, code: 'eosio.token', type: 'transfer', requirement: 'claim' }, 'active', c())
+    expect(t.warnings).toContain('Whoever holds a key of claim can then send eosio.token::transfer for alice without active.')
+    const s = await plan({ kind: 'link', ...A, code: 'eosio', type: 'setcode', requirement: 'claim' }, 'active', c())
+    expect(s.warnings).toContain('Whoever holds a key of claim can then send eosio::setcode for alice without active.')
+    const g = await plan({ kind: 'link', ...A, code: 'game', type: 'play', requirement: 'claim' }, 'active', c())
+    expect(g.warnings.join(' ')).not.toMatch(/Whoever holds/)
+  })
+})
+
+describe('keys are written in the form the chain uses for the account', () => {
+  it('a chain that writes EOS keys gets EOS keys in the review and in the action', async () => {
+    const legacy = (k: string): string => convertPublicKey(k, 'legacy')
+    const data = { permissions: [perm('owner', '', { threshold: 1, keys: [{ key: legacy(K1), weight: 1 }] }, []), perm('active', 'owner', { threshold: 1, keys: [{ key: legacy(K1), weight: 1 }] }, [])] }
+    const p = await plan({ kind: 'addKey', ...A, permission: 'active', key: K3, weight: 1 }, 'active', ctx(data))
+    expect(p.after?.keys.map((k) => k.key).sort()).toEqual([legacy(K1), legacy(K3)].sort())
+    expect(p.after?.keys.map((k) => k.k1).sort()).toEqual([K1, K3].sort())
+    expect(p.before?.keys[0].key).toBe(legacy(K1))
+    const sent = (p.action.data as { auth: { keys: { key: string }[] } }).auth.keys.map((k) => k.key)
+    expect(sent.every((k) => k.startsWith('EOS'))).toBe(true)
+    encodes(p)
   })
 })
 

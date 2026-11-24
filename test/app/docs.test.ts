@@ -347,6 +347,8 @@ const FEATURE_TOPICS: [string, keyof typeof HELP_TOPICS][] = [
   ['Wallet linked actions', 'walletLinks'],
   ['Wallet create account', 'walletCreateAccount'],
   ['Wallet contract', 'walletContract'],
+  ['Wallet voting and rewards', 'walletVoting'],
+  ['Wallet PowerUp', 'walletPowerup'],
   ['CPU / NET / RAM refusal', 'resourceRefusal'],
   ['ABI check', 'abiCheck']
 ]

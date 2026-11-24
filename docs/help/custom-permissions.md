@@ -9,7 +9,7 @@ A custom permission is a new name under an existing permission, for example `cla
 3. Press **New permission**. Give it a name (up to 12 characters, a-z and 1-5, for example `claim`), choose its parent (usually `active`) and add a key with weight 1.
 4. Review the confirmation window: it shows the whole new permission. Approve. The parent permission or one above it signs.
 
-To delete a custom permission, use **Delete permission** on it. The chain refuses to delete a permission that still has linked actions. Remove those links first (**Linked actions** section, or `unlinkauth`).
+To delete a custom permission, use **Delete permission** on it. The deletion is signed with its parent (or a permission above it); the chain refuses a deletion signed by the permission itself, so the app does not offer it. The chain also refuses to delete a permission that still has linked actions. Remove those links first (**Linked actions** section, or `unlinkauth`).
 
 From the Contract page: open `eosio`, run `updateauth` with `account`, `permission` = `claim`, `parent` = `active` and an `auth` value:
 
@@ -22,7 +22,7 @@ From the Contract page: open `eosio`, run `updateauth` with `account`, `permissi
 }
 ```
 
-Delete it with `deleteauth` (`account`, `permission`).
+Delete it with `deleteauth` (`account`, `permission`), with Authorization your account @ the parent (for example `active`).
 
 ## Example
 

@@ -3,10 +3,10 @@
 
 import { HelpButton } from '../../components/HelpButton'
 import { useCreateAccountForm } from '../../components/AccountDialogs'
-import { ViewOnlyLine, type WalletContext } from './common'
+import { type WalletContext } from './common'
 
 export function CreateAccountSection({ ctx }: { ctx: WalletContext }): React.JSX.Element {
-  const { body, ok, busy, create } = useCreateAccountForm(ctx.view.name)
+  const { body, ok, busy, create, signProblem } = useCreateAccountForm(ctx.view.name)
   return (
     <section className="wallet-section">
       <div className="wallet-section-head">
@@ -17,12 +17,12 @@ export function CreateAccountSection({ ctx }: { ctx: WalletContext }): React.JSX
       <div className="wallet-form">
         {body}
         <div>
-          <button className="btn primary" disabled={!ok || busy} onClick={() => void create()}>
+          <button className="btn primary" disabled={!ok || busy || !!signProblem} title={signProblem || undefined} onClick={() => void create()}>
             {busy ? 'Waiting for confirmation...' : 'Create'}
           </button>
         </div>
+        {signProblem && <div className="acct-note">{signProblem}</div>}
       </div>
-      <ViewOnlyLine ctx={ctx} />
     </section>
   )
 }

@@ -9,6 +9,7 @@ import { copyText } from '../../lib/clipboard'
 import { withVault } from '../../lib/vault'
 import { errorText, toast } from '../../lib/toast'
 import { IconCopy } from '../../components/Icons'
+import { refreshPickLists } from '../../components/AccountPicker'
 import { scheduleReadsAfterSend } from './wallet-form'
 
 export const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
@@ -30,7 +31,9 @@ export interface WalletContext {
 
 /**
  * The reads after a sent transaction (`scheduleReadsAfterSend`); a new send
- * replaces the pending ones and leaving the page stops them.
+ * replaces the pending ones and leaving the page stops them. Each read also
+ * drops the kept account lists of the pickers, so a changed permission shows
+ * there with the right "vault" / "view only" mark.
  */
 export function useReadsAfterSend(read: () => void, readLast: () => void): () => void {
   const fns = useRef({ read, readLast })
@@ -48,7 +51,10 @@ export function useReadsAfterSend(read: () => void, readLast: () => void): () =>
     stop.current = scheduleReadsAfterSend(
       (fn, ms) => setTimeout(fn, ms),
       (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
-      () => fns.current.read(),
+      () => {
+        refreshPickLists()
+        fns.current.read()
+      },
       () => fns.current.readLast()
     )
   }, [])

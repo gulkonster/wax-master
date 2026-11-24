@@ -5,7 +5,8 @@
 // shown here and again in the confirmation window.
 
 import { useEffect, useState } from 'react'
-import type { AuthorityView, PermissionIntent, PermissionPlanView, PermissionView } from '../../../../shared/chain-types'
+import type { AuthorityView, LinkedActionsView, PermissionIntent, PermissionPlanView, PermissionView } from '../../../../shared/chain-types'
+import { allowedSigners, ancestryOf, defaultSigner } from '../../../../shared/permission-signers'
 import type { InspectedTransaction } from '../../../../shared/trace-types'
 import { isUnlockCancelled } from '../../../../shared/vault-locked'
 import { Modal } from '../../components/Modal'
@@ -26,28 +27,17 @@ export type ChangeStart =
   | { form: 'addAccount'; permission: string }
   | { form: 'setThreshold'; permission: string }
   | { form: 'newPermission'; parent: string }
-  | { intent: PermissionIntent }
+  /** `links`: the linked actions the section shows (Link and Unlink are signed by the permission the action needs). */
+  | { intent: PermissionIntent; links?: LinkedActionsView | null }
 
 /** The permission and its parents, nearest first. */
 export function ancestry(perms: PermissionView[], name: string): string[] {
-  const out: string[] = []
-  for (let cur = perms.find((p) => p.name === name); cur && out.length < 32; ) {
-    if (out.includes(cur.name)) break
-    out.push(cur.name)
-    const parent = cur.parent
-    if (!parent) break
-    cur = perms.find((p) => p.name === parent)
-  }
-  return out
+  return ancestryOf(perms, name)
 }
 
-/** Permissions that may sign the change; the chain accepts the permission itself or a parent. */
-function signOptions(perms: PermissionView[], intent: PermissionIntent): string[] {
-  if (intent.kind === 'link' || intent.kind === 'unlink') {
-    const rank = (p: string): number => (p === 'active' ? 0 : p === 'owner' ? 1 : 2)
-    return perms.map((p) => p.name).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
-  }
-  return ancestry(perms, intent.kind === 'newPermission' ? intent.parent : intent.permission)
+/** Permissions that may sign the change: the same list the main process accepts. */
+function signOptions(perms: PermissionView[], intent: PermissionIntent, links: LinkedActionsView | null): string[] {
+  return allowedSigners(perms, intent, links)
 }
 
 function helpOf(start: ChangeStart): HelpPlace {
@@ -82,8 +72,38 @@ function titleOf(start: ChangeStart, account: string): string {
   }
 }
 
-/** One authority: threshold, keys, accounts and waits with their weights. */
-export function AuthorityBox({ title, auth, vaultKeys }: { title: string; auth: AuthorityView | null; vaultKeys: string[] }): React.JSX.Element {
+/** Ids of an authority's entries (key, account, wait) with their weights, to find what a change adds or removes. */
+function entryIds(auth: AuthorityView | null): Set<string> {
+  if (!auth) return new Set()
+  return new Set([
+    ...auth.keys.map((k) => `k:${k.k1 || k.key}:${k.weight}`),
+    ...auth.accounts.map((a) => `a:${a.actor}@${a.permission}:${a.weight}`),
+    ...auth.waits.map((w) => `w:${w.waitSec}:${w.weight}`)
+  ])
+}
+
+/**
+ * One authority: threshold, keys, accounts and waits with their weights, one
+ * entry per line. Keys are written as in the permission tree. `other` is the
+ * authority on the other side of the change: an entry missing there is marked
+ * ("new" after the change, "removed" now).
+ */
+export function AuthorityBox({
+  title,
+  auth,
+  other,
+  side,
+  vaultKeys
+}: {
+  title: string
+  auth: AuthorityView | null
+  other: AuthorityView | null
+  side: 'now' | 'after'
+  vaultKeys: string[]
+}): React.JSX.Element {
+  const there = entryIds(other)
+  const mark = (id: string): React.JSX.Element | null =>
+    other && !there.has(id) ? side === 'after' ? <span className="badge info">new</span> : <span className="badge red">removed</span> : null
   return (
     <div className="auth-box">
       <div className="auth-box-title">{title}</div>
@@ -91,21 +111,32 @@ export function AuthorityBox({ title, auth, vaultKeys }: { title: string; auth: 
         <div className="hint">(none)</div>
       ) : (
         <>
-          <div className="auth-line">Threshold {auth.threshold}</div>
+          <div className="auth-line">
+            Threshold {auth.threshold}
+            {other && other.threshold !== auth.threshold && <span className="badge warn">{side === 'after' ? 'changed' : 'changes'}</span>}
+          </div>
           {auth.keys.map((k) => (
             <div key={k.key} className="auth-line mono-small">
-              <span className="badge">{k.weight}</span> {k.key}
-              {vaultKeys.includes(k.key) && <span className="badge green">vault</span>}
+              <span className="badge">{k.weight}</span>
+              <span className="auth-entry">{k.key}</span>
+              {vaultKeys.includes(k.k1) && <span className="badge green">vault</span>}
+              {mark(`k:${k.k1 || k.key}:${k.weight}`)}
             </div>
           ))}
           {auth.accounts.map((a) => (
             <div key={`${a.actor}@${a.permission}`} className="auth-line mono-small">
-              <span className="badge">{a.weight}</span> {a.actor}@{a.permission}
+              <span className="badge">{a.weight}</span>
+              <span className="auth-entry">
+                {a.actor}@{a.permission}
+              </span>
+              {mark(`a:${a.actor}@${a.permission}:${a.weight}`)}
             </div>
           ))}
           {auth.waits.map((w) => (
             <div key={w.waitSec} className="auth-line mono-small">
-              <span className="badge">{w.weight}</span> wait {w.waitSec} s
+              <span className="badge">{w.weight}</span>
+              <span className="auth-entry">wait {w.waitSec} s</span>
+              {mark(`w:${w.waitSec}:${w.weight}`)}
             </div>
           ))}
         </>
@@ -150,13 +181,13 @@ export function PermissionChangeDialog({
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
   const [sent, setSent] = useState(false)
 
-  const options = intent ? signOptions(view.permissions, intent) : []
-  // Default signer: the first permission the vault can sign with (the permission itself before its parents).
+  const links = 'intent' in start ? (start.links ?? null) : null
+  const options = intent ? signOptions(view.permissions, intent, links) : []
+  // Default signer: the nearest listed permission the vault can sign with; owner only when nothing below it can.
   useEffect(() => {
     if (!intent) return
-    const opts = signOptions(view.permissions, intent)
-    const pick = intent.kind === 'link' || intent.kind === 'unlink' ? (opts.find((o) => view.control.includes(o) && o !== 'owner') ?? opts.find((o) => view.control.includes(o))) : opts.find((o) => view.control.includes(o))
-    setSignWith(pick ?? opts[0] ?? 'active')
+    const opts = signOptions(view.permissions, intent, links)
+    setSignWith(defaultSigner(opts, (p) => view.control.includes(p)) || 'active')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intent])
 
@@ -214,7 +245,8 @@ export function PermissionChangeDialog({
         setTrace(r.trace)
         setSent(true)
         toast('Change sent', plan.title, 'success')
-        ctx.reload()
+        // The account and the account lists of the pickers, at once, after 1.5 s and after 4 s.
+        ctx.afterSend()
         onSent?.()
       } else {
         if (r.status === 'failed' && r.trace) setTrace(r.trace)
@@ -344,8 +376,8 @@ export function PermissionChangeDialog({
               ))}
               {(plan.before || plan.after) && (
                 <div className="auth-compare">
-                  <AuthorityBox title="Now" auth={plan.before} vaultKeys={vaultKeys} />
-                  <AuthorityBox title="After the change" auth={plan.after} vaultKeys={vaultKeys} />
+                  <AuthorityBox title="Now" auth={plan.before} other={plan.after} side="now" vaultKeys={vaultKeys} />
+                  <AuthorityBox title="After the change" auth={plan.after} other={plan.before} side="after" vaultKeys={vaultKeys} />
                 </div>
               )}
             </>

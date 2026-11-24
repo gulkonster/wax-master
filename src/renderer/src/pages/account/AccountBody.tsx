@@ -3,7 +3,7 @@
 // account; signing buttons work only when the vault controls the account.
 
 import { useCallback, useEffect, useState } from 'react'
-import type { AccountView, TokenRow, WalletTokens } from '../../../../shared/chain-types'
+import type { AccountView, SystemFeatures, TokenRow, WalletTokens } from '../../../../shared/chain-types'
 import { on, emit } from '../../lib/bus'
 import { networkStore } from '../../lib/networks'
 import { useStore } from '../../lib/stores'
@@ -23,8 +23,10 @@ import { TransactionsSection } from './TransactionsSection'
 import { LinksSection } from './LinksSection'
 import { ContractSection } from './ContractSection'
 import { CreateAccountSection } from './CreateAccountSection'
+import { VotingSection } from './VotingSection'
+import { PowerupSection } from './PowerupSection'
 
-type SectionId = 'tokens' | 'transfer' | 'ram' | 'cpunet' | 'keys' | 'links' | 'contract' | 'create' | 'faucet' | 'transactions'
+type SectionId = 'tokens' | 'transfer' | 'ram' | 'cpunet' | 'keys' | 'links' | 'contract' | 'create' | 'voting' | 'powerup' | 'faucet' | 'transactions'
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'tokens', label: 'Tokens' },
@@ -35,6 +37,8 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'links', label: 'Linked actions' },
   { id: 'contract', label: 'Contract' },
   { id: 'create', label: 'Create account' },
+  { id: 'voting', label: 'Voting and rewards' },
+  { id: 'powerup', label: 'PowerUp' },
   { id: 'faucet', label: 'Testnet faucet' },
   { id: 'transactions', label: 'Transactions' }
 ]
@@ -48,6 +52,18 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
   const [tokensError, setTokensError] = useState('')
   const [section, setSection] = useState<SectionId>('tokens')
   const [transferToken, setTransferToken] = useState<TokenRow | null>(null)
+  // Sections offered by the chain's system contract; hidden until the chain says it has them.
+  const [system, setSystem] = useState<SystemFeatures>({ voting: false, powerup: false })
+  useEffect(() => {
+    let live = true
+    window.wax.wallet.system().then(
+      (f) => live && setSystem(f),
+      () => live && setSystem({ voting: false, powerup: false })
+    )
+    return () => {
+      live = false
+    }
+  }, [net?.id])
 
   const load = useCallback(async () => {
     setError('')
@@ -109,7 +125,7 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
   const viewOnly = view.control.length === 0
   const ctx: WalletContext = { view, viewOnly, reason: viewOnlyReason(view.name), reload, afterSend, readTick }
   const testnet = isWaxTestnet(net)
-  const shown = SECTIONS.filter((s) => s.id !== 'faucet' || testnet)
+  const shown = SECTIONS.filter((s) => (s.id !== 'faucet' || testnet) && (s.id !== 'voting' || system.voting) && (s.id !== 'powerup' || system.powerup))
   const current = shown.some((s) => s.id === section) ? section : 'tokens'
 
   return (
@@ -190,6 +206,8 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
           {current === 'links' && <LinksSection ctx={ctx} />}
           {current === 'contract' && <ContractSection ctx={ctx} />}
           {current === 'create' && <CreateAccountSection ctx={ctx} />}
+          {current === 'voting' && <VotingSection ctx={ctx} />}
+          {current === 'powerup' && <PowerupSection ctx={ctx} />}
           {current === 'faucet' && <FaucetSection ctx={ctx} />}
           {current === 'transactions' && <TransactionsSection name={view.name} refresh={txTick} />}
         </div>

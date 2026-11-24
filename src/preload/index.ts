@@ -166,7 +166,10 @@ const api: WaxApi = {
     permPreview: call('wallet:permPreview'),
     permSend: call('wallet:permSend'),
     links: call('wallet:links'),
-    contractInfo: call('wallet:contractInfo')
+    contractInfo: call('wallet:contractInfo'),
+    system: call('wallet:system'),
+    voting: call('wallet:voting'),
+    powerup: call('wallet:powerup')
   },
   networkInfo: {
     overview: call('networkInfo:overview'),

@@ -15,9 +15,25 @@ A permission lists entries, each with a **weight**, and has a **threshold**. A s
 2. Under the permission, use **Add key** or **Add account** and give the entry a weight; use **Set threshold** to change the threshold.
 3. Check the full new authority in the confirmation window. The app refuses a permission whose entries could never add up to its threshold.
 
+## What counts toward the threshold
+
+For every `updateauth` it sends (from Keys and permissions, Change key or the Contract page), the app checks that signatures can still reach the threshold, before any confirmation window opens. It counts:
+
+- keys, with their weights;
+- other accounts' permissions, with their weights.
+
+It does not count:
+
+- a contract entry (`anycontract@eosio.code`): only contract code can use it, never a signature;
+- the permission itself or a permission below it (a circle);
+- `eosio.null`, which nobody can sign for;
+- waits (they need delayed transactions).
+
+For `owner`, every account entry must also exist on the chain at that moment.
+
 Order matters when you go from 1-of-1 to 2-of-2: add the second key first (threshold still 1), then raise the threshold to 2.
 
-A transaction that needs several signers can be signed on the Contract page with **Add signer** under Authorization, when you hold the keys in the vault. Proposals that several people sign one after the other are not part of the app.
+A 2-of-2 permission whose two keys are both in your vault is signed in one confirmation that lists both keys: the app picks every vault key the threshold needs. **Add signer** under Authorization on the Contract page is for a second account (for example `friend@active`), not for a second key of the same permission. Proposals that several people sign one after the other are not part of the app.
 
 ## Example: 2-of-2
 

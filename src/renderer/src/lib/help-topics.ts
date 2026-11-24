@@ -30,6 +30,8 @@ export const HELP_TOPICS = {
   walletLinks: 'linked-actions',
   walletCreateAccount: 'create-account',
   walletContract: 'contract-section',
+  walletVoting: 'voting-rewards',
+  walletPowerup: 'powerup',
   /** "Read more" under a CPU / NET / RAM refusal. */
   resourceRefusal: 'simulate-inspector',
   /** "Read more" under the ABI check text. */

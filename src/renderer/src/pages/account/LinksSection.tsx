@@ -97,7 +97,7 @@ export function LinksSection({ ctx }: { ctx: WalletContext }): React.JSX.Element
                   className="btn subtle sm"
                   disabled={disabled}
                   title={disabled ? ctx.reason : undefined}
-                  onClick={() => setChange({ intent: { kind: 'unlink', account: view.name, code: l.contract, type: l.action } })}
+                  onClick={() => setChange({ intent: { kind: 'unlink', account: view.name, code: l.contract, type: l.action }, links })}
                 >
                   Unlink
                 </button>
@@ -146,7 +146,7 @@ export function LinksSection({ ctx }: { ctx: WalletContext }): React.JSX.Element
           <button
             className="btn primary"
             disabled={disabled || !ready}
-            onClick={() => setChange({ intent: { kind: 'link', account: view.name, code: contract, type: action, requirement } })}
+            onClick={() => setChange({ intent: { kind: 'link', account: view.name, code: contract, type: action, requirement }, links })}
           >
             Link an action to a permission
           </button>

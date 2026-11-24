@@ -68,7 +68,7 @@ export function App(): React.JSX.Element {
   const [inspect, setInspect] = useState<InspectedTransaction | null>(null)
   const [update, setUpdate] = useState<UpdateResult | null>(null)
   useEffect(() => window.wax.on('update-available', (r: UpdateResult) => setUpdate(r)), [])
-  const [deployOpen, setDeployOpen] = useState<null | { askAccount: boolean }>(null)
+  const [deployOpen, setDeployOpen] = useState<null | { askAccount: boolean; account?: string }>(null)
   const [chainDialog, setChainDialog] = useState<null | 'create-account' | 'testnet-account' | 'clear-code' | 'open-transaction'>(null)
   const [changeKey, setChangeKey] = useState<null | Parameters<typeof ChangeKeyDialog>[0]>(null)
   /** Clear Contract Code opened from the wallet's Contract section, for that account. */
@@ -94,6 +94,11 @@ export function App(): React.JSX.Element {
       on('open-transaction', (id) => void openTransaction(id as string)),
       on('change-key', (p) => setChangeKey(p as Parameters<typeof ChangeKeyDialog>[0])),
       on('clear-code-for', (a) => setClearCodeFor(a as string)),
+      // Deploy from the wallet's Contract section: the current project, to that account.
+      on('deploy-for-account', (a) => {
+        if (!stateRef.current.project) toast('Open a project first', 'Deploy works on the current project.')
+        else setDeployOpen({ askAccount: true, account: a as string })
+      }),
       // Help for a place: over an open dialog in the help window, else on the Documentation page.
       on('open-help', (id) => {
         if (document.querySelector('.modal')) setHelpTopic(id as string)
@@ -468,7 +473,7 @@ export function App(): React.JSX.Element {
       {keysOpen && <KeysDialog filterAccount={keysOpen.filter} onClose={() => setKeysOpen(null)} />}
       {inspect && <InspectorDialog t={inspect} onClose={() => setInspect(null)} />}
       {deployOpen && state.project && (
-        <DeployDialog project={state.project} askAccount={deployOpen.askAccount} showPanel={(t) => actions.showPanel(t)} onClose={() => setDeployOpen(null)} />
+        <DeployDialog project={state.project} askAccount={deployOpen.askAccount} forAccount={deployOpen.account} showPanel={(t) => actions.showPanel(t)} onClose={() => setDeployOpen(null)} />
       )}
       {chainDialog === 'create-account' && <CreateAccountDialog onClose={() => setChainDialog(null)} />}
       {chainDialog === 'testnet-account' && <TestnetAccountDialog onClose={() => setChainDialog(null)} />}

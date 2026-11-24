@@ -70,9 +70,9 @@ export function ContractSection({ ctx }: { ctx: WalletContext }): React.JSX.Elem
           className="btn subtle sm"
           disabled={noProject || ctx.viewOnly}
           title={noProject ? 'Open a project first: Deploy sends the current project.' : ctx.viewOnly ? ctx.reason : undefined}
-          onClick={() => emit('menu-run', 'deploy-to-account')}
+          onClick={() => emit('deploy-for-account', view.name)}
         >
-          Deploy
+          Deploy to this account...
         </button>
         <button
           className="btn subtle sm"

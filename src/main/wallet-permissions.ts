@@ -6,33 +6,38 @@
 // window never sends an authority.
 
 import { createHash } from 'node:crypto'
-import { normalizeAuthority, parsePublicKey, publicKeyToString, type Authority } from '../chain-core'
+import { normalizeAuthority, type Authority } from '../chain-core'
 import type { ActionRequest } from './signer'
 import type {
   AuthorityView,
   LinkedActionRow,
+  LinkedActionsView,
   PermissionIntent,
   PermissionPlanView
 } from '../shared/chain-types'
 import { bool, chainName, int, obj, oneOf, str } from '../shared/validate'
+import { allowedSigners, ancestryOf } from '../shared/permission-signers'
+import {
+  authorityProblem,
+  chainKeyForm,
+  keyText,
+  MAX_WEIGHT,
+  readPermissions,
+  subtree,
+  writeKey,
+  type CurrentPermission
+} from './authority-reach'
+
+export { MAX_WEIGHT, reachProblem, readPermissions, type CurrentPermission } from './authority-reach'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
-export const MAX_WEIGHT = 65535
 /** A threshold above this is refused: no entry could carry the weight of the `eosio.code` switch. */
 export const MAX_THRESHOLD = 65535
 /** System actions the chain does not let anyone link to a permission. */
 const UNLINKABLE = new Set(['updateauth', 'deleteauth', 'linkauth', 'unlinkauth', 'canceldelay'])
 
 type R = Record<string, unknown>
-
-/** One permission of the account as read from get_account. */
-export interface CurrentPermission {
-  name: string
-  parent: string
-  auth: Authority
-  /** Linked actions from get_account; null when the node does not report them. */
-  linked: { code: string; type: string }[] | null
-}
+type KeyForm = 'new' | 'legacy'
 
 export class PermissionRefusal extends Error {}
 
@@ -40,37 +45,10 @@ function refuse(text: string): never {
   throw new PermissionRefusal(`${text} Nothing was prepared.`)
 }
 
-function k1(key: string): string {
-  try {
-    return publicKeyToString(parsePublicKey(key.trim()), 'new')
-  } catch {
-    return ''
-  }
-}
-
 function newKey(key: string): string {
-  const k = k1(key)
+  const k = keyText(key)
   if (!k) refuse(`Not a valid public key: ${key.slice(0, 80)}.`)
   return k
-}
-
-/** The permissions of a get_account answer; values are checked, the authority is kept as the chain has it. */
-export function readPermissions(accountData: R): CurrentPermission[] {
-  const list = Array.isArray(accountData.permissions) ? (accountData.permissions as R[]) : []
-  return list.slice(0, 100).map((p) => {
-    const a = (p.required_auth ?? {}) as R
-    const keys = (Array.isArray(a.keys) ? (a.keys as R[]) : []).map((k) => ({ key: k1(String(k.key ?? '')), weight: Number(k.weight) }))
-    const accounts = (Array.isArray(a.accounts) ? (a.accounts as R[]) : []).map((x) => {
-      const lvl = (x.permission ?? {}) as R
-      return { permission: { actor: String(lvl.actor ?? ''), permission: String(lvl.permission ?? '') }, weight: Number(x.weight) }
-    })
-    const waits = (Array.isArray(a.waits) ? (a.waits as R[]) : []).map((w) => ({ wait_sec: Number(w.wait_sec), weight: Number(w.weight) }))
-    const linkedRaw = p.linked_actions
-    const linked = Array.isArray(linkedRaw)
-      ? (linkedRaw as R[]).slice(0, 500).map((l) => ({ code: String(l.account ?? ''), type: typeof l.action === 'string' ? l.action : '' }))
-      : null
-    return { name: String(p.perm_name ?? ''), parent: String(p.parent ?? ''), auth: { threshold: Number(a.threshold), keys, accounts, waits }, linked }
-  })
 }
 
 /** Text that changes whenever any permission of the account changes (compared between the review and the send). */
@@ -81,75 +59,38 @@ export function permissionsBasis(perms: CurrentPermission[]): string {
 
 /** The permission and its parents, nearest first. */
 export function ancestry(perms: CurrentPermission[], name: string): string[] {
-  const out: string[] = []
-  for (let cur = perms.find((p) => p.name === name); cur && out.length < 32; ) {
-    if (out.includes(cur.name)) break
-    out.push(cur.name)
-    if (!cur.parent) break
-    cur = perms.find((p) => p.name === cur!.parent)
-  }
-  return out
-}
-
-/** The permission and every permission below it. */
-function subtree(perms: CurrentPermission[], name: string): Set<string> {
-  const out = new Set([name])
-  for (let grew = true; grew; ) {
-    grew = false
-    for (const p of perms) {
-      if (!out.has(p.name) && out.has(p.parent)) {
-        out.add(p.name)
-        grew = true
-      }
-    }
-  }
-  return out
-}
-
-/**
- * Why an authority could not be satisfied by a signature, or null when it can.
- * Counted: keys, and accounts other than `<account>@eosio.code` (only contract
- * code can use it) and other than the permission itself or one below it (a
- * circle). Waits are not counted: they need delayed transactions.
- */
-export function reachProblem(account: string, permission: string, auth: Authority, perms: CurrentPermission[]): string | null {
-  const where = `${account}@${permission}`
-  if (!Number.isInteger(auth.threshold) || auth.threshold < 1) return `The threshold of ${where} must be at least 1.`
-  for (const e of [...auth.keys, ...auth.accounts, ...auth.waits]) {
-    if (!Number.isInteger(e.weight) || e.weight < 1 || e.weight > MAX_WEIGHT) return `Every weight of ${where} must be from 1 to ${MAX_WEIGHT}.`
-  }
-  const circle = subtree(perms, permission)
-  let usable = 0
-  for (const k of auth.keys) usable += k.weight
-  for (const a of auth.accounts) {
-    if (a.permission.permission === 'eosio.code') continue
-    if (a.permission.actor === account && circle.has(a.permission.permission)) continue
-    usable += a.weight
-  }
-  if (usable < auth.threshold) {
-    return `${where} could not reach its threshold ${auth.threshold}: the keys and accounts that can sign add up to ${usable}.`
-  }
-  return null
+  return ancestryOf(perms, name)
 }
 
 /** Permissions whose threshold the given keys reach with their own weights. */
 function controlled(perms: CurrentPermission[], vaultKeys: readonly string[]): Set<string> {
-  const mine = new Set(vaultKeys.map(k1).filter((k) => k))
+  const mine = new Set(vaultKeys.map(keyText).filter((k) => k))
   const out = new Set<string>()
   for (const p of perms) {
-    const w = p.auth.keys.filter((k) => mine.has(k.key)).reduce((s, k) => s + k.weight, 0)
+    const seen = new Set<string>()
+    let w = 0
+    for (const k of p.auth.keys) {
+      if (!mine.has(k.key) || seen.has(k.key)) continue
+      seen.add(k.key)
+      w += k.weight > 0 ? k.weight : 0
+    }
     if (p.auth.threshold > 0 && w >= p.auth.threshold) out.add(p.name)
   }
   return out
 }
 
-function view(a: Authority): AuthorityView {
+function view(a: Authority, form: KeyForm): AuthorityView {
   return {
     threshold: a.threshold,
-    keys: a.keys.map((k) => ({ key: k.key, weight: k.weight })),
+    keys: a.keys.map((k) => ({ key: writeKey(k.key, form), k1: keyText(k.key) || k.key, weight: k.weight })),
     accounts: a.accounts.map((x) => ({ actor: x.permission.actor, permission: x.permission.permission, weight: x.weight })),
     waits: a.waits.map((w) => ({ waitSec: w.wait_sec, weight: w.weight }))
   }
+}
+
+/** The authority as it is sent: keys in the form the chain writes them. */
+function written(a: Authority, form: KeyForm): Authority {
+  return { ...a, keys: a.keys.map((k) => ({ key: writeKey(k.key, form), weight: k.weight })) }
 }
 
 function copy(a: Authority): Authority {
@@ -229,11 +170,15 @@ export interface PlanContext {
   accountData: R
   /** Public keys in the vault (for the "the vault can no longer sign" warning). */
   vaultKeys: readonly string[]
-  /** True when actor@permission exists on the chain (checked for an account entry that is added). */
+  /** True when actor@permission exists on the chain (an added account entry; every account entry of owner). */
   levelExists: (actor: string, permission: string) => Promise<boolean>
   /** True when the contract's ABI has the action (checked for Link). */
   actionExists?: (code: string, action: string) => Promise<boolean>
-  /** Linked actions from the history service, used when the node does not report them. */
+  /**
+   * Linked actions from the history service, read when the node does not report
+   * them. They are a hint, never a fact: they add warnings and signers, they do
+   * not refuse a change.
+   */
   historyLinks?: LinkedActionRow[] | null
 }
 
@@ -241,12 +186,16 @@ export interface PermissionPlan extends PermissionPlanView {
   action: ActionRequest
 }
 
-function linkedOf(perms: CurrentPermission[], history: LinkedActionRow[] | null | undefined): LinkedActionRow[] | null {
+/** What is known of the account's linked actions, and where it comes from. */
+export function linkInfo(perms: CurrentPermission[], history: LinkedActionRow[] | null | undefined): LinkedActionsView {
   if (perms.length > 0 && perms.every((p) => p.linked !== null)) {
-    return perms.flatMap((p) => (p.linked ?? []).map((l) => ({ contract: l.code, action: l.type, permission: p.name })))
+    return { rows: perms.flatMap((p) => (p.linked ?? []).map((l) => ({ contract: l.code, action: l.type, permission: p.name }))), source: 'node' }
   }
-  return history ?? null
+  if (history) return { rows: history, source: 'history' }
+  return { rows: [], source: 'none' }
 }
+
+const OWNER_CODE = 'The contract is not given owner: a fault in its code could then replace the owner keys.'
 
 /**
  * Builds the action for an intent from the account's current permissions.
@@ -258,14 +207,19 @@ export async function planPermissionChange(intent: PermissionIntent, signWith: s
   if (!NAME.test(signWith)) refuse('Choose the permission that signs the change.')
   const perms = readPermissions(ctx.accountData)
   if (perms.length === 0) refuse(`The node returned no permissions for ${account}.`)
+  const form = chainKeyForm(ctx.accountData)
   const basis = permissionsBasis(perms)
+  const links = linkInfo(perms, ctx.historyLinks)
+  const facts = links.source === 'node'
   const auth = [{ actor: account, permission: signWith }]
   const warnings: string[] = []
   const explanation: string[] = []
+  const inVault = (key: string): boolean => ctx.vaultKeys.map(keyText).includes(key)
   const find = (name: string): CurrentPermission | undefined => perms.find((p) => p.name === name)
   const need = (name: string): CurrentPermission => find(name) ?? refuse(`${account} has no permission "${name}".`)
-  const signers = (name: string): void => {
-    const allowed = ancestry(perms, name)
+  const checkSigner = (): void => {
+    const allowed = allowedSigners(perms, intent, links)
+    if (allowed.length === 0) refuse(`No permission of ${account} can sign this change.`)
     if (!allowed.includes(signWith)) refuse(`Sign this change with ${allowed.join(' or ')}.`)
   }
   const ownerLine = (name: string): void => {
@@ -277,18 +231,30 @@ export async function planPermissionChange(intent: PermissionIntent, signWith: s
   if (intent.kind === 'link' || intent.kind === 'unlink') {
     const { code, type } = intent
     if (!find(signWith)) refuse(`${account} has no permission "${signWith}".`)
-    const links = linkedOf(perms, ctx.historyLinks)
-    const current = links?.find((l) => l.contract === code && l.action === type) ?? null
+    const current = links.rows.find((l) => l.contract === code && l.action === type) ?? null
     if (intent.kind === 'link') {
       if (code === 'eosio' && UNLINKABLE.has(type)) refuse(`The chain does not let eosio::${type} be linked to a permission.`)
       const req = need(intent.requirement)
-      if (current && current.permission === req.name) refuse(`${code}::${type} is already linked to ${req.name}.`)
+      if (current && current.permission === req.name) {
+        if (facts) refuse(`${code}::${type} is already linked to ${req.name}.`)
+        warnings.push(`The history service reports that ${code}::${type} is already linked to ${req.name}.`)
+      }
       if (ctx.actionExists && !(await ctx.actionExists(code, type))) refuse(`The contract ${code} has no action "${type}" in its ABI.`)
+      checkSigner()
       explanation.push(
         `Afterwards ${account}@${req.name} can sign ${code}::${type} for ${account}; its parents (${ancestry(perms, req.name).slice(1).join(', ') || 'none'}) still can too.`
       )
-      if (current) explanation.push(`The action is linked to ${current.permission} now; the link moves to ${req.name}.`)
+      if (current && current.permission !== req.name) {
+        explanation.push(
+          facts
+            ? `The action is linked to ${current.permission} now; the link moves to ${req.name}.`
+            : `The history service reports that the action is linked to ${current.permission} now; the link moves to ${req.name}.`
+        )
+      }
       if (req.name === 'owner') warnings.push('Linking an action to owner means owner keys are needed for it; usually a smaller permission is used.')
+      if (code === 'eosio' || type === 'transfer') {
+        warnings.push(`Whoever holds a key of ${req.name} can then send ${code}::${type} for ${account} without active.`)
+      }
       return {
         title: `Link ${code}::${type} to ${account}@${req.name}`,
         explanation,
@@ -300,7 +266,8 @@ export async function planPermissionChange(intent: PermissionIntent, signWith: s
         action: { account: 'eosio', name: 'linkauth', authorization: auth, data: { account, code, type, requirement: req.name } }
       }
     }
-    if (links && !current) refuse(`${code}::${type} is not linked to a permission of ${account}.`)
+    if (facts && !current) refuse(`${code}::${type} is not linked to a permission of ${account}.`)
+    checkSigner()
     explanation.push(`Afterwards ${code}::${type} needs ${account}@active again (or the permission linked to all actions of ${code}, if any).`)
     return {
       title: `Unlink ${code}::${type} of ${account}`,
@@ -319,19 +286,20 @@ export async function planPermissionChange(intent: PermissionIntent, signWith: s
     if (p.name === 'owner' || p.name === 'active') refuse(`${p.name} cannot be deleted.`)
     const children = perms.filter((x) => x.parent === p.name).map((x) => x.name)
     if (children.length > 0) refuse(`${p.name} has permissions under it (${children.join(', ')}); delete those first.`)
-    const links = linkedOf(perms, ctx.historyLinks)
-    const linked = (links ?? []).filter((l) => l.permission === p.name)
+    const linked = links.rows.filter((l) => l.permission === p.name)
+    const listed = linked.map((l) => `${l.contract}::${l.action || '*'}`).join(', ')
     if (linked.length > 0) {
-      refuse(`Actions are linked to ${p.name} (${linked.map((l) => `${l.contract}::${l.action || '*'}`).join(', ')}); unlink them first.`)
+      if (facts) refuse(`Actions are linked to ${p.name} (${listed}); unlink them first.`)
+      warnings.push(`The history service lists linked actions of ${p.name} (${listed}); the chain refuses the deletion while they exist.`)
     }
-    signers(p.name)
+    checkSigner()
     explanation.push(`${account}@${p.name} is removed with its keys and accounts. Its parent ${p.parent} is not changed.`)
     return {
       title: `Delete permission ${account}@${p.name}`,
       explanation,
       warnings,
       permission: p.name,
-      before: view(p.auth),
+      before: view(p.auth, form),
       after: null,
       basis,
       action: { account: 'eosio', name: 'deleteauth', authorization: auth, data: { account, permission: p.name } }
@@ -343,32 +311,35 @@ export async function planPermissionChange(intent: PermissionIntent, signWith: s
     if (find(name)) refuse(`${account} already has a permission "${name}".`)
     if (name === 'owner' || name === 'active' || name.startsWith('eosio.')) refuse(`"${name}" is a reserved permission name.`)
     const parent = need(intent.parent)
-    signers(parent.name)
+    checkSigner()
     const next = sorted({ threshold: 1, keys: [{ key: newKey(intent.key), weight: 1 }], accounts: [], waits: [] })
     explanation.push(`A new permission ${name} under ${parent.name}: threshold 1, one key with weight 1.`)
     explanation.push(`It signs nothing on its own until an action is linked to it (Linked actions).`)
-    if (!ctx.vaultKeys.map(k1).includes(next.keys[0].key)) warnings.push('The key of the new permission is not in the vault: the app cannot sign with it.')
+    if (!inVault(next.keys[0].key)) warnings.push('The key of the new permission is not in the vault: the app cannot sign with it.')
     return {
       title: `New permission ${account}@${name}`,
       explanation,
       warnings,
       permission: name,
       before: null,
-      after: view(next),
+      after: view(next, form),
       basis,
-      action: { account: 'eosio', name: 'updateauth', authorization: auth, data: { account, permission: name, parent: parent.name, auth: next } }
+      action: { account: 'eosio', name: 'updateauth', authorization: auth, data: { account, permission: name, parent: parent.name, auth: written(next, form) } }
     }
   }
 
   // Changes of one existing permission's authority.
   const p = need(intent.permission)
-  signers(p.name)
+  checkSigner()
   ownerLine(p.name)
   const where = `${account}@${p.name}`
   const next = copy(p.auth)
   let title = ''
   const codeEntry = (a: Authority): { permission: { actor: string; permission: string }; weight: number } | undefined =>
     a.accounts.find((x) => x.permission.actor === account && x.permission.permission === 'eosio.code')
+  const alone = (weight: number): void => {
+    if (weight >= next.threshold) explanation.push(`It can sign for ${where} alone.`)
+  }
 
   switch (intent.kind) {
     case 'addKey': {
@@ -377,7 +348,8 @@ export async function planPermissionChange(intent: PermissionIntent, signWith: s
       next.keys.push({ key, weight: intent.weight })
       title = `Add a key to ${where}`
       explanation.push(`The key is added with weight ${intent.weight}; the threshold (${next.threshold}) and the other entries stay as they are.`)
-      if (!ctx.vaultKeys.map(k1).includes(key)) warnings.push('The new key is not in the vault: the app cannot sign with it.')
+      alone(intent.weight)
+      if (!inVault(key)) warnings.push('The new key is not in the vault: the app cannot sign with it.')
       break
     }
     case 'removeKey': {
@@ -391,7 +363,13 @@ export async function planPermissionChange(intent: PermissionIntent, signWith: s
     }
     case 'addAccount': {
       const { actor, actorPermission } = intent
-      if (actorPermission === 'eosio.code') refuse('Use the switch "Allow this account\'s contract to send actions (eosio.code)" for eosio.code.')
+      if (actorPermission === 'eosio.code') {
+        if (actor !== account) {
+          refuse("Another account's contract is not added here. A typed eosio::updateauth on the Contract page can add it; the confirmation shows it.")
+        }
+        if (p.name === 'owner') refuse(OWNER_CODE)
+        refuse('Use the switch "Allow this account\'s contract to send actions (eosio.code)" for eosio.code.')
+      }
       if (actor === account && subtree(perms, p.name).has(actorPermission)) refuse(`${where} cannot list itself or a permission below it.`)
       if (next.accounts.some((x) => x.permission.actor === actor && x.permission.permission === actorPermission)) {
         refuse(`${actor}@${actorPermission} is already an entry of ${where}.`)
@@ -402,6 +380,7 @@ export async function planPermissionChange(intent: PermissionIntent, signWith: s
       explanation.push(
         `${actor}@${actorPermission} is added with weight ${intent.weight}: whoever can sign for it then counts ${intent.weight} toward the threshold (${next.threshold}) of ${where}.`
       )
+      alone(intent.weight)
       break
     }
     case 'removeAccount': {
@@ -428,6 +407,7 @@ export async function planPermissionChange(intent: PermissionIntent, signWith: s
     case 'eosioCode': {
       const c = codeEntry(next)
       if (intent.enable) {
+        if (p.name === 'owner') refuse(OWNER_CODE)
         if (c) refuse(`${account}@eosio.code is already an entry of ${where}.`)
         if (next.threshold > MAX_WEIGHT) refuse(`The threshold ${next.threshold} is above the largest weight ${MAX_WEIGHT}.`)
         next.accounts.push({ permission: { actor: account, permission: 'eosio.code' }, weight: next.threshold })
@@ -447,7 +427,7 @@ export async function planPermissionChange(intent: PermissionIntent, signWith: s
     }
   }
 
-  const problem = reachProblem(account, p.name, next, perms)
+  const problem = await authorityProblem(account, p.name, next, perms, ctx.levelExists)
   if (problem) refuse(problem)
   const after = sorted(next)
   const before = controlled(perms, ctx.vaultKeys)
@@ -460,10 +440,10 @@ export async function planPermissionChange(intent: PermissionIntent, signWith: s
     explanation,
     warnings,
     permission: p.name,
-    before: view(p.auth),
-    after: view(after),
+    before: view(p.auth, form),
+    after: view(after, form),
     basis,
-    action: { account: 'eosio', name: 'updateauth', authorization: auth, data: { account, permission: p.name, parent: p.parent, auth: after } }
+    action: { account: 'eosio', name: 'updateauth', authorization: auth, data: { account, permission: p.name, parent: p.parent, auth: written(after, form) } }
   }
 }
 

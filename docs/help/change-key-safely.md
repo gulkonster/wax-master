@@ -6,7 +6,7 @@ A key change replaces a public key in a permission. Done wrong, it locks you out
 
 1. Make the new key first (Accounts > Manage Keypairs > **Create**) and finish its backup. See [Backing up keys](doc:key-backups).
 2. Open the account on the Account page, choose **Keys and permissions**, and press **Change key...** under the permission. Choose the new key. The new key gets the old key's weight; threshold and other entries stay.
-3. Choose the permission that signs: the permission itself, or its parent. When changing `active`, sign with `owner`.
+3. Choose the permission that signs. By default the permission itself signs (its own key is still valid until the change is on the chain). Sign with a parent, `owner` for `active`, only when the permission's own key is lost: keep `owner` out of daily use.
 4. Check the confirmation window. It shows the full new authority.
 5. After it is sent, read the Account page again and sign a harmless action with the new key before you delete the old key anywhere.
 
@@ -19,10 +19,10 @@ A key change replaces a public key in a permission. Done wrong, it locks you out
 
 ## Example
 
-`active` has key A. Create key B, back it up, then **Change key...** on `active`, sign with `owner`. `active` now has B with the same weight and A is gone.
+`active` has key A. Create key B, back it up, then **Change key...** on `active` and keep `active` as the signer (key A signs its own replacement). `active` now has B with the same weight and A is gone. Had key A been lost, you would sign with `owner` instead.
 
 ## What is needed
 
-- The new key in your vault, backed up. A signer for the permission or its parent.
+- The new key in your vault, backed up. A signer for the permission itself, or for its parent when its key is lost.
 
 See also [Thresholds and weights](doc:multisig-threshold) and [Owner, active and permissions](doc:permissions-overview).

@@ -171,6 +171,7 @@ import { setLogSink } from '../../src/main/log'
 import { chain } from '../../src/main/rpc'
 import { FILE_EXISTS } from '../../src/main/key-backup'
 import { WRONG_CODE, WRONG_PASSWORD } from '../../src/main/vault'
+import { APPROVE_UNFOCUSED, approveLabel } from '../../src/renderer/src/confirm/approve-label'
 
 const PW = 'correct horse battery staple'
 const EDITOR_ID = 1
@@ -331,6 +332,29 @@ describe('task 5a: Approve only 1.5 s after the window is shown and focused', ()
     now += APPROVE_DELAY_MS
     expect(await call('confirm:approve', confirmEvent(win), 'appr-1')).toMatchObject({ ok: true })
     expect(approveCalls).toHaveLength(1)
+  })
+})
+
+describe('the Approve button says what it waits for', () => {
+  const base = { sending: false, armed: false, focused: false, waitMs: APPROVE_DELAY_MS, expired: false, blocked: false }
+  it('not focused: "click this window first"; focused: the countdown; armed: plain', () => {
+    expect(approveLabel(base)).toBe('Approve and send (click this window first)')
+    expect(APPROVE_UNFOCUSED).toBe('Approve and send (click this window first)')
+    expect(approveLabel({ ...base, focused: true, waitMs: 900 })).toBe('Approve and send (in 0.9 s)')
+    expect(approveLabel({ ...base, focused: true, armed: true, waitMs: 0 })).toBe('Approve and send')
+    expect(approveLabel({ ...base, sending: true })).toBe('Signing and sending...')
+    expect(approveLabel({ ...base, blocked: true })).toBe('Approve and send')
+  })
+  it('an approve call while the window is not focused is still answered notReady', async () => {
+    approveCalls.length = 0
+    let now = 3_000_000
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    const { win } = openOne()
+    ;(win as unknown as { show(): void }).show()
+    win.focused = false
+    now += 60_000
+    expect(await call('confirm:approve', confirmEvent(win), 'appr-1')).toMatchObject({ ok: false, notReady: true })
+    expect(approveCalls).toHaveLength(0)
   })
 })
 

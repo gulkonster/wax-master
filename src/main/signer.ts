@@ -34,8 +34,11 @@ import {
   transactionId,
   unpackTransaction,
   type AbiDef,
+  type Authority,
   type PermissionLevel
 } from '../chain-core'
+import { authorityProblem, readPermissions } from './authority-reach'
+import { isUnknownAccount } from './account-pick'
 import type { NetworkInfo } from '../shared/chain-types'
 import { MAINNET_SIGNING } from './build-info'
 import { getNetwork, endpointOf, effectiveKind } from './networks'
@@ -288,6 +291,45 @@ export class Signer {
     )
   }
 
+  /** get_account on the signing endpoint; null when the node says the account does not exist. */
+  private async readAccount(endpoint: string, account: string): Promise<Record<string, unknown> | null> {
+    try {
+      return await this.deps.getAccount(endpoint, account)
+    } catch (e) {
+      if (isUnknownAccount(e)) return null
+      throw new SignerError(`Could not read ${account} from ${endpoint}: ${e instanceof Error ? e.message : String(e)}. Nothing was prepared.`)
+    }
+  }
+
+  /**
+   * Refuses an `updateauth` whose authority no signature could satisfy (the
+   * same check and sentence as the wallet's review), against the account read
+   * from the signing endpoint now.
+   */
+  private async checkReach(endpoint: string, data: Record<string, unknown>): Promise<void> {
+    const account = String(data.account ?? '')
+    const permission = String(data.permission ?? '')
+    const raw = (data.auth ?? {}) as Record<string, unknown>
+    const list = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? (v as Record<string, unknown>[]) : [])
+    const auth: Authority = {
+      threshold: Number(raw.threshold),
+      keys: list(raw.keys).map((k) => ({ key: String(k.key ?? ''), weight: Number(k.weight) })),
+      accounts: list(raw.accounts).map((x) => {
+        const lvl = (x.permission ?? {}) as Record<string, unknown>
+        return { permission: { actor: String(lvl.actor ?? ''), permission: String(lvl.permission ?? '') }, weight: Number(x.weight) }
+      }),
+      waits: list(raw.waits).map((w) => ({ wait_sec: Number(w.wait_sec), weight: Number(w.weight) }))
+    }
+    const current = await this.readAccount(endpoint, account)
+    const perms = current ? readPermissions(current) : []
+    const levelExists = async (actor: string, perm: string): Promise<boolean> => {
+      const other = actor === account ? current : await this.readAccount(endpoint, actor)
+      return !!other && readPermissions(other).some((p) => p.name === perm)
+    }
+    const problem = await authorityProblem(account, permission, auth, perms, levelExists)
+    if (problem) throw new SignerError(`${problem} Nothing was prepared.`)
+  }
+
   async prepare(req: PrepareRequest): Promise<{ record: ApprovalRecord; secret: Buffer }> {
     if (!this.deps.vault.isUnlocked()) throw new SignerError(LOCKED_MESSAGE)
     if (this.busy()) throw new SignerError(BUSY_MESSAGE)
@@ -359,6 +401,11 @@ export class Signer {
     }
     const guarded = guardedAccounts[0] ?? null
     const clear = decoded.some((a) => isSystem(a, 'setcode') && String(systemData(a).code ?? '') === '')
+
+    // Every new authority must be reachable by a signature, whatever asked for it.
+    for (const a of decoded) {
+      if (isSystem(a, 'updateauth')) await this.checkReach(endpoint, systemData(a))
+    }
 
     // Keys for every distinct authorization.
     const signers: ApprovalRecord['signers'] = []

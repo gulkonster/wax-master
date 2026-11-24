@@ -32,11 +32,14 @@ function clock(t: number | null): string {
 export function DeployDialog({
   project,
   askAccount,
+  forAccount,
   showPanel,
   onClose
 }: {
   project: OpenProject
   askAccount: boolean
+  /** Opened from the Contract section of an account: that account only (when it is starred), nothing else preselected. */
+  forAccount?: string
   showPanel: (t: 'output' | 'problems') => void
   onClose: () => void
 }): React.JSX.Element {
@@ -45,7 +48,11 @@ export function DeployDialog({
   const net = nets.current
   const topAccount = useStore(lastOpened).account
   const saved = net ? project.config.deploy.networks[net.id] : undefined
-  const initialAccount = (): string => (net ? preselectAccount(saved?.account, topAccount, lastDeployPick(project.path, net.id), nets.stars) : '')
+  const initialAccount = (): string => {
+    if (!net) return ''
+    if (forAccount !== undefined) return nets.stars.includes(forAccount) ? forAccount : ''
+    return preselectAccount(saved?.account, topAccount, lastDeployPick(project.path, net.id), nets.stars)
+  }
   const [account, setAccount] = useState(initialAccount)
   const [permission, setPermission] = useState(() => (saved?.account && saved.account === initialAccount() && saved.permission) || 'active')
   // Stars may arrive after the dialog opened: the preselection is made once they do, until the user picks.
@@ -273,6 +280,11 @@ export function DeployDialog({
           <PermissionPicker account={account} value={permission} onChange={(p) => (setPermission(p), setPlan(null))} />
         </div>
       </div>
+      {forAccount !== undefined && !account && !nets.stars.includes(forAccount) && (
+        <div className="acct-note">
+          {forAccount} is not starred on {net?.name ?? 'this network'}. Deploy offers starred accounts only: star {forAccount} on the Account page first.
+        </div>
+      )}
       {keyMissing && (
         <div className="acct-note">
           The vault has no key for {account}@{permission}. Simulate works; Deploy needs the key.

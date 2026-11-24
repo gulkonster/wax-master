@@ -9,7 +9,8 @@ import { emit } from '../lib/bus'
 import { withVault } from '../lib/vault'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
 import { CANCELLED_NOT_SENT, formLineClass, outcomeLine, type FormLine } from '../lib/tx-outcome'
-import { AccountPicker, PermissionPicker } from './AccountPicker'
+import { AccountPicker, PermissionPicker, refreshPickLists, usePickList } from './AccountPicker'
+import { scheduleReadsAfterSend } from '../pages/account/wallet-form'
 import { NoBackupLine, useNoBackupGate } from './BackupWarning'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
@@ -49,7 +50,14 @@ export function KeyPicker({ value, onChange, keys }: { value: string; onChange: 
  * wallet's Create account section. Returns the fields, the state of the
  * Create button and the action that sends.
  */
-export function useCreateAccountForm(initialCreator = ''): { body: React.JSX.Element; ok: boolean; busy: boolean; create: () => Promise<void> } {
+export function useCreateAccountForm(initialCreator = ''): {
+  body: React.JSX.Element
+  ok: boolean
+  busy: boolean
+  create: () => Promise<void>
+  /** Why the chosen creator cannot be signed for by the vault ('' when it can, or when the vault could not be checked). */
+  signProblem: string
+} {
   const net = useStore(networkStore).current
   const keys = useVaultKeys()
   const sym = net?.symbol ?? 'WAX'
@@ -90,6 +98,13 @@ export function useCreateAccountForm(initialCreator = ''): { body: React.JSX.Ele
   }, [keys, ownerKey])
 
   const ok = NAME.test(creator) && NAME.test(name) && NAME.test(creatorPerm) && !!ownerKey && !!activeKey && free !== 'taken'
+  // The same list the pickers use: the permissions of the creator the vault can sign for.
+  const { list } = usePickList()
+  const creatorEntry = list?.entries.find((e) => e.account === creator)
+  const signProblem =
+    list && list.vaultChecked && NAME.test(creator) && NAME.test(creatorPerm) && !(creatorEntry?.signable ?? []).includes(creatorPerm)
+      ? `The vault has no key that can sign for ${creator}@${creatorPerm}: import its key in Manage Keypairs, or choose another creator.`
+      : ''
   const noBackup = useNoBackupGate()
 
   const create = async (): Promise<void> => {
@@ -187,7 +202,7 @@ export function useCreateAccountForm(initialCreator = ''): { body: React.JSX.Ele
       {noBackup.element}
     </>
   )
-  return { body, ok, busy, create }
+  return { body, ok, busy, create, signProblem }
 }
 
 export function CreateAccountDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
@@ -257,6 +272,16 @@ export function ChangeKeyDialog({
       if (r.status === 'sent') {
         setTrace(r.trace)
         toast('Key changed', `${account}@${permission}`, 'success')
+        // The account page and the account lists of the pickers read again: at once, after 1.5 s and after 4 s.
+        scheduleReadsAfterSend(
+          (fn, ms) => setTimeout(fn, ms),
+          (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
+          () => {
+            refreshPickLists()
+            emit('account-refresh', account)
+          },
+          () => undefined
+        )
       } else {
         // A cancel is a neutral note; a refusal is explained once, by the inspector below when it has the text.
         if (r.status === 'failed' && r.trace) setTrace(r.trace)

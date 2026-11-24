@@ -11,6 +11,9 @@ import { dataDir } from './paths'
 import { chain, history, request } from './rpc'
 import { vault } from './keys-service'
 import { linksFromAccount, linksFromHistory } from './wallet-permissions'
+import { powerupState, powerupStateRow, systemFeatures, votingView } from './wallet-system'
+import { checkActionsFilter } from '../shared/history-filter'
+import type { AbiDef } from '../chain-core'
 import { addedTokens, MAX_HISTORY_TOKENS, NETWORK_ID_FORM, precisionFromStats, TOKEN_SYMBOL, tokenBalance, walletTokens } from './wallet-tokens'
 
 /** Public keys of the vault (empty when there is none or it cannot be read). */
@@ -248,7 +251,33 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
       throw e
     }
   })
-  handle('chain:actions', (_e, name, skip) => accountActions(chainName(name, 'account'), int(skip, 'skip', 0, 1_000_000)))
+  handle('chain:actions', (_e, name, skip, filter) => {
+    const acc = chainName(name, 'account')
+    if (!acc) throw new Error('account: enter an account name')
+    return accountActions(acc, int(skip, 'skip', 0, 1_000_000), checkActionsFilter(filter))
+  })
+  // System contract features of the current network (voting, PowerUp), read from the eosio ABI.
+  handle('wallet:system', async () => {
+    const n = networks.currentNetwork()
+    let def: AbiDef | null
+    try {
+      def = await getContractDef(n, 'eosio', networks.readCall)
+    } catch {
+      def = null
+    }
+    return systemFeatures(def, () => powerupStateRow(n, networks.readCall))
+  })
+  // Voting and rewards of an account: active producers, its current vote, the claims the ABI offers.
+  handle('wallet:voting', async (_e, name) => {
+    const acc = chainName(name, 'account')
+    if (!acc) throw new Error('account: enter an account name')
+    const n = networks.currentNetwork()
+    const def = await getContractDef(n, 'eosio', networks.readCall)
+    if (!def.actions.some((x) => x.name === 'voteproducer')) throw new Error(`The system contract of ${n.name} offers no voting.`)
+    return votingView(n, def, acc, networks.readCall)
+  })
+  // The PowerUp market (powup.state) of the current network; null when the chain has none.
+  handle('wallet:powerup', () => powerupState(networks.currentNetwork(), networks.readCall))
   // RAM price of the current network for `bytes` (0: the market only); buyrambytes takes a uint32.
   handle('chain:ramPrice', (_e, bytes) => {
     const b = int(bytes, 'bytes', 0, RAM_MAX_BUY)

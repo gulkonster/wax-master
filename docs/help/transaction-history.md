@@ -7,9 +7,10 @@ The chain's API nodes answer questions about the present. Questions about the pa
 An account's transactions:
 
 1. Open the account on the Account page.
-2. The **Transactions** section lists the latest actions: time, contract and action, data. The newest come first.
-3. **Load more** reads older ones. The refresh button reads the list again.
-4. Click a row to open the transaction in the inspector.
+2. The **Transactions** section lists the latest actions: time, contract and action, data. The newest come first, 20 to a page.
+3. **Older** and **Newer** move between pages. When the history service reports the number of matching actions, the page line shows "Page 2 of 7". The refresh button reads the page again.
+4. To filter, fill in **Action** (an action name such as `transfer`; actions of that name on any contract are listed), **From day** and **To day** (days in your computer's time zone; either one can stay empty), and press **Filter** or Enter. **Clear** removes the filter.
+5. Click a row to open the transaction in the inspector.
 
 A transaction by its id:
 
@@ -21,7 +22,7 @@ A transaction by its id:
 
 ## Example
 
-After the deploy in [Your first contract from zero](doc:first-contract), the Account page of your account lists `eosio` `setcode` and `eosio` `setabi`, and the `eosio` `buyrambytes` before them.
+After the deploy in [Your first contract from zero](doc:first-contract), the Account page of your account lists `eosio` `setcode` and `eosio` `setabi`, and the `eosio` `buyrambytes` before them. Type `transfer` in **Action** and press **Filter**: only the token transfers of the account remain.
 
 ## What is needed
 

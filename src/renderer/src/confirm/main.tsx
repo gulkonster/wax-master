@@ -4,6 +4,7 @@ import '../styles.css'
 import './confirm.css'
 import { checkPassword } from '../../../shared/password'
 import { confirmPageKind, notSentText, type SendFailure } from './not-sent'
+import { approveLabel } from './approve-label'
 
 interface Blob {
   field: 'code' | 'abi'
@@ -80,7 +81,7 @@ function shownData(act: Approval['actions'][number]): unknown {
  * True once the window has been visible and focused for `delay` ms; any blur
  * starts it over. The main process applies the same rule to Approve.
  */
-function useArmed(delay: number): { armed: boolean; waitMs: number } {
+function useArmed(delay: number): { armed: boolean; waitMs: number; focused: boolean } {
   const [since, setSince] = useState<number | null>(() => (document.hasFocus() && document.visibilityState === 'visible' ? Date.now() : null))
   const [now, setNow] = useState(Date.now())
   useEffect(() => {
@@ -103,7 +104,7 @@ function useArmed(delay: number): { armed: boolean; waitMs: number } {
     }
   }, [])
   const waitMs = since === null ? delay : Math.max(0, since + delay - now)
-  return { armed: since !== null && waitMs === 0, waitMs }
+  return { armed: since !== null && waitMs === 0, waitMs, focused: since !== null }
 }
 
 function Confirm(): React.JSX.Element {
@@ -116,7 +117,7 @@ function Confirm(): React.JSX.Element {
   const [state, setState] = useState<'ready' | 'sending' | 'done' | 'failed'>('ready')
   const [showHex, setShowHex] = useState(false)
   const [note, setNote] = useState('')
-  const { armed, waitMs } = useArmed(a?.approveDelayMs ?? 1500)
+  const { armed, waitMs, focused } = useArmed(a?.approveDelayMs ?? 1500)
 
   useEffect(() => {
     window.confirmation
@@ -248,11 +249,7 @@ function Confirm(): React.JSX.Element {
               Cancel
             </button>
             <button className={`btn ${mainnet ? 'danger' : 'success'}`} disabled={!canApprove} onClick={() => void approve()}>
-              {state === 'sending'
-                ? 'Signing and sending...'
-                : !armed && !expired && !a.blocked
-                  ? `Approve and send (in ${(waitMs / 1000).toFixed(1)} s)`
-                  : 'Approve and send'}
+              {approveLabel({ sending: state === 'sending', armed, focused, waitMs, expired, blocked: !!a.blocked })}
             </button>
           </>
         )}

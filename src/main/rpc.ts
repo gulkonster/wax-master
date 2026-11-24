@@ -250,10 +250,11 @@ export const chain = {
 }
 
 export const history = {
-  getActions: (hist: string, account: string, skip: number, limit: number) =>
-    request<{ actions?: HistoryAction[]; total?: { value: number } }>(
+  /** `query`: further query text, already encoded (filter, after, before); '' for none. */
+  getActions: (hist: string, account: string, skip: number, limit: number, query = '') =>
+    request<{ actions?: HistoryAction[]; total?: { value: number; relation?: string } }>(
       hist,
-      `/v2/history/get_actions?account=${encodeURIComponent(account)}&skip=${skip}&limit=${limit}&sort=desc`
+      `/v2/history/get_actions?account=${encodeURIComponent(account)}&skip=${skip}&limit=${limit}&sort=desc${query}`
     ),
   getTransaction: (hist: string, id: string) =>
     request<Record<string, unknown>>(hist, `/v2/history/get_transaction?id=${encodeURIComponent(id)}`),

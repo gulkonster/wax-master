@@ -7,6 +7,7 @@ const userData = mkdtempSync(join(tmpdir(), 'wm-wallet-'))
 vi.mock('electron', () => ({ app: { getPath: () => userData, isPackaged: false, getAppPath: () => userData } }))
 
 import { chainTimePlus, controlledPermissions, REFUND_DELAY_SEC } from '../../src/main/account-view'
+import { signableFrom } from '../../src/main/account-pick'
 import { AddedTokens, MAX_ADDED_TOKENS, MAX_HISTORY_TOKENS, parseHistoryTokens, precisionFromStats, walletTokens } from '../../src/main/wallet-tokens'
 import { generatePrivateKey, publicFromPrivate, publicKeyToString } from '../../src/chain-core'
 import type { NetworkInfo, PermissionView } from '../../src/shared/chain-types'
@@ -54,6 +55,19 @@ describe('control badge: permissions the vault keys satisfy', () => {
   it('a threshold of zero or a broken key never counts', () => {
     expect(controlledPermissions([perm('active', 0, [{ key: a.k1, weight: 1 }])], [a.k1])).toEqual([])
     expect(controlledPermissions([perm('active', 1, [{ key: 'not a key', weight: 1 }])], ['not a key'])).toEqual([])
+  })
+  it('the pickers\' "vault" mark is decided like the badge: claim with two vault keys and threshold 2', () => {
+    // As the node writes them: legacy keys, one row per key in the authorizers answer.
+    const claim = perm('claim', 2, [
+      { key: a.legacy, weight: 1 },
+      { key: b.legacy, weight: 1 }
+    ])
+    const rows = [a, b].map((k) => ({ account_name: 'alice', permission_name: 'claim', authorizing_key: k.legacy, weight: 1, threshold: 2 }))
+    expect(controlledPermissions([claim], [a.k1, b.k1])).toEqual(['claim'])
+    expect(signableFrom(rows, [a.k1, b.k1]).get('alice')).toEqual(['claim'])
+    // One of the two keys: neither the badge nor the picker says "vault".
+    expect(controlledPermissions([claim], [a.k1])).toEqual([])
+    expect(signableFrom(rows, [a.k1]).get('alice')).toEqual([])
   })
   it('other permissions come after active and owner, by name', () => {
     const perms = [perm('zeta', 1, [{ key: a.k1, weight: 1 }]), perm('claim', 1, [{ key: a.k1, weight: 1 }]), perm('active', 1, [{ key: a.k1, weight: 1 }])]
@@ -228,6 +242,6 @@ describe('wallet amounts', () => {
 describe('wallet calls in the editor preload', () => {
   it('exposes the wallet calls', () => {
     const preload = readFileSync(join(__dirname, '../../src/preload/index.ts'), 'utf8')
-    for (const c of ['wallet:tokens', 'wallet:addedTokens', 'wallet:balance', 'wallet:addToken', 'wallet:removeToken','wallet:permPreview', 'wallet:permSend', 'wallet:links', 'wallet:contractInfo']) expect(preload).toContain(`call('${c}')`)
+    for (const c of ['wallet:tokens', 'wallet:addedTokens', 'wallet:balance', 'wallet:addToken', 'wallet:removeToken','wallet:permPreview', 'wallet:permSend', 'wallet:links', 'wallet:contractInfo', 'wallet:system', 'wallet:voting', 'wallet:powerup']) expect(preload).toContain(`call('${c}')`)
   })
 })

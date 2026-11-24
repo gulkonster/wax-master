@@ -1,7 +1,8 @@
 // Builds the Account page data from get_account and the history API.
 // All chain data is untrusted: values are type-checked and passed on as text.
 
-import type { AccountActionsPage, AccountView, PermissionView } from '../shared/chain-types'
+import type { AccountActionRow, AccountActionsFilter, AccountActionsPage, AccountView, PermissionView } from '../shared/chain-types'
+import { actionsQuery, ACTIONS_PAGE } from '../shared/history-filter'
 import { chain, history } from './rpc'
 import { parsePublicKey, publicKeyToString } from '../chain-core'
 import { currentNetwork, readCall, WAX_TESTNET_CHAIN } from './networks'
@@ -178,28 +179,42 @@ export async function accountView(name: string, vaultKeys: readonly string[] = [
   }
 }
 
-export async function accountActions(name: string, skip: number, limit = 20): Promise<AccountActionsPage> {
+const TRX_ID = /^[0-9a-f]{64}$/
+const ACT_NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
+const ACT_TIME = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d{1,6})?Z?$/
+
+/**
+ * One page of the account's actions from the history service, newest first,
+ * filtered by action name and time range. Rows from the service are untrusted:
+ * a row without a transaction id of 64 hex characters, a valid contract and
+ * action name is left out; times are taken only in the chain's form; the data
+ * text is cut.
+ */
+export async function accountActions(name: string, skip: number, filter: AccountActionsFilter = {}, limit = ACTIONS_PAGE): Promise<AccountActionsPage> {
   const n = currentNetwork()
   if (!n.history) return { rows: [], historyAvailable: false, more: false }
-  const r = await history.getActions(n.history, name, skip, limit)
-  const list = Array.isArray(r.actions) ? r.actions : []
-  const rows = list.map((x) => {
+  const r = await history.getActions(n.history, name, skip, limit, actionsQuery(filter))
+  const list = Array.isArray(r.actions) ? r.actions.slice(0, limit) : []
+  const rows: AccountActionRow[] = []
+  for (const x of list) {
+    if (!x || typeof x !== 'object') continue
+    const trxId = str(x.trx_id)
+    const contract = str(x.act?.account)
+    const action = str(x.act?.name)
+    if (!TRX_ID.test(trxId) || !ACT_NAME.test(contract) || !ACT_NAME.test(action)) continue
     let data = ''
     try {
-      data = JSON.stringify(x.act?.data ?? null)
+      data = JSON.stringify(x.act?.data ?? null) ?? ''
     } catch {
       data = ''
     }
     if (data.length > MAX_DATA_TEXT) data = data.slice(0, MAX_DATA_TEXT) + '…'
-    return {
-      time: str(x['@timestamp'] ?? x.timestamp),
-      block: num(x.block_num),
-      trxId: str(x.trx_id),
-      contract: str(x.act?.account),
-      action: str(x.act?.name),
-      data
-    }
-  })
-  const total = num(r.total?.value)
-  return { rows, historyAvailable: true, more: list.length === limit && (total === 0 || skip + list.length < total) }
+    const time = str(x['@timestamp'] ?? x.timestamp)
+    const block = num(x.block_num)
+    rows.push({ time: ACT_TIME.test(time) ? time : '', block: Number.isSafeInteger(block) && block >= 0 ? block : 0, trxId, contract, action, data })
+  }
+  const totalRaw = num(r.total?.value)
+  const total = Number.isSafeInteger(totalRaw) && totalRaw > 0 ? totalRaw : 0
+  const totalExact = total > 0 && r.total?.relation !== 'gte'
+  return { rows, historyAvailable: true, more: list.length === limit && (total === 0 || !totalExact || skip + list.length < total), total, totalExact }
 }

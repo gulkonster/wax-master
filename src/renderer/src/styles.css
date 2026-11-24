@@ -3963,9 +3963,10 @@ button.sb-item.mainnet:hover {
 .perm-review {
   max-width: none;
 }
+/* "Now" above "After the change", each at the dialog's full width. */
 .auth-compare {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--gap-row);
 }
 .auth-box {
@@ -3989,7 +3990,69 @@ button.sb-item.mainnet:hover {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+/* A key stays on one line; a box narrower than the key scrolls instead of breaking it. */
+.auth-line.mono-small {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+.auth-line .auth-entry {
+  flex: none;
+}
 .kv-row .num.wrap {
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+/* Wallet: producer list of the vote form */
+.producer-list {
+  display: flex;
+  flex-direction: column;
+  max-height: var(--json-max-lg);
+  overflow-y: auto;
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface-2);
+}
+.producer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--ctl-sm);
+  padding: 0 var(--sp-3);
+  cursor: pointer;
+}
+.producer-row:hover {
+  background: var(--hover);
+}
+.producer-row .num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  color: var(--text-2);
+}
+.producer-rank {
+  min-width: var(--sp-8);
+  color: var(--text-2);
+  font-size: var(--fs-caption);
+  text-align: right;
+}
+
+/* Wallet: filters and pages of the Transactions list */
+.tx-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+.tx-filters .field {
+  margin: 0;
+}
+.tx-pages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  margin: var(--sp-3) 0 var(--sp-4);
 }

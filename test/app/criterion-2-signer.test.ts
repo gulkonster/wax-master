@@ -283,3 +283,101 @@ describe('the kind of a failed approval', () => {
     expect(sent).toHaveLength(0)
   })
 })
+
+describe('every updateauth is checked in prepare, whatever asked for it', () => {
+  // alice: owner and active hold the vault key; claim is under active.
+  const accountOf = (): Record<string, unknown> => ({
+    permissions: [
+      { perm_name: 'owner', parent: '', required_auth: { threshold: 1, keys: [{ key: pub, weight: 1 }], accounts: [], waits: [] } },
+      { perm_name: 'active', parent: 'owner', required_auth: { threshold: 1, keys: [{ key: pub, weight: 1 }], accounts: [], waits: [] } },
+      { perm_name: 'claim', parent: 'active', required_auth: { threshold: 1, keys: [{ key: pub, weight: 1 }], accounts: [], waits: [] } }
+    ]
+  })
+  const updateauth = (permission: string, auth: Record<string, unknown>, signWith = 'owner'): typeof transfer => ({
+    account: 'eosio',
+    name: 'updateauth',
+    authorization: [{ actor: 'alice', permission: signWith }],
+    data: { account: 'alice', permission, parent: permission === 'owner' ? '' : 'owner', auth: { keys: [], accounts: [], waits: [], ...auth } } as never
+  })
+  const lvl = (actor: string, permission: string, weight = 1): unknown => ({ permission: { actor, permission }, weight })
+  const signerFor = (accounts: Record<string, Record<string, unknown>> = {}): Signer =>
+    new Signer(
+      deps({
+        getAccount: async (_ep, name) => {
+          if (name === 'alice') return accountOf()
+          if (accounts[name]) return accounts[name]
+          const { RpcError } = await import('../../src/main/rpc')
+          throw new RpcError('unknown key', 500, { error: { name: 'unknown_key' } })
+        }
+      })
+    )
+
+  // Built in the test: the vault key exists only after beforeEach.
+  const cases: [string, () => typeof transfer, RegExp][] = [
+    ["only the account's own eosio.code", () => updateauth('active', { threshold: 1, accounts: [lvl('alice', 'eosio.code')] }), /alice@active could not reach its threshold 1: the keys and accounts that can sign add up to 0\./],
+    ['only a wait', () => updateauth('active', { threshold: 1, waits: [{ wait_sec: 3600, weight: 1 }] }), /add up to 0/],
+    ['only a permission below it', () => updateauth('active', { threshold: 1, accounts: [lvl('alice', 'claim')] }), /add up to 0/],
+    ['only eosio.null@active', () => updateauth('active', { threshold: 1, accounts: [lvl('eosio.null', 'active')] }), /add up to 0/],
+    ['a threshold of 0', () => updateauth('active', { threshold: 0, keys: [{ key: pub, weight: 1 }] }), /The threshold of alice@active must be at least 1\./],
+    ['owner leaning on a deleted account', () => updateauth('owner', { threshold: 1, accounts: [lvl('gone', 'active')] }), /do not exist on this network now: gone@active/]
+  ]
+  for (const [what, action, text] of cases) {
+    it(`refused before any window: ${what}`, async () => {
+      const s = signerFor()
+      const err = (await s.prepare({ networkId: 'n1', actions: [action()] }).catch((e) => e)) as Error
+      expect(err).toBeInstanceOf(Error)
+      expect(err.message).toMatch(text)
+      expect(err.message).toMatch(/Nothing was prepared\.$/)
+      // No approval record: nothing is open, nothing was sent.
+      expect(s.busy()).toBe(false)
+      expect(sent).toHaveLength(0)
+    })
+  }
+
+  it('a reachable authority is prepared (a key, or an existing account entry on owner)', async () => {
+    const s = signerFor({ bob: { permissions: [{ perm_name: 'active', parent: 'owner', required_auth: { threshold: 1, keys: [], accounts: [], waits: [] } }] } })
+    const { record } = await s.prepare({ networkId: 'n1', actions: [updateauth('active', { threshold: 1, keys: [{ key: pub, weight: 1 }], accounts: [lvl('alice', 'eosio.code')] })] })
+    expect(record.actions[0].name).toBe('updateauth')
+    s.cancel(record.id)
+    const owner = await s.prepare({ networkId: 'n1', actions: [updateauth('owner', { threshold: 1, accounts: [lvl('bob', 'active')] })] })
+    expect(owner.record.actions[0].name).toBe('updateauth')
+  })
+
+  it('Change key on a key-plus-account permission still passes', async () => {
+    const { changeKeyActions } = await import('../../src/main/accounts')
+    const next = publicKeyToString(publicFromPrivate(generatePrivateKey()), 'new')
+    const data = {
+      permissions: [
+        { perm_name: 'owner', parent: '', required_auth: { threshold: 1, keys: [{ key: pub, weight: 1 }], accounts: [], waits: [] } },
+        {
+          perm_name: 'active',
+          parent: 'owner',
+          required_auth: { threshold: 2, keys: [{ key: pub, weight: 1 }], accounts: [{ permission: { actor: 'carol', permission: 'active' }, weight: 1 }], waits: [] }
+        }
+      ]
+    }
+    const s = new Signer(deps({ getAccount: async () => data }))
+    const actions = changeKeyActions({ account: 'alice', permission: 'active', oldKey: pub, newKey: next, signWith: 'owner' }, data)
+    const { record } = await s.prepare({ networkId: 'n1', actions, kind: 'changeKey' })
+    expect(record.title).toBe('Change key of alice@active')
+  })
+
+  it('Change key no longer counts waits or eosio.code: the signer refuses such an authority', async () => {
+    const { changeKeyActions } = await import('../../src/main/accounts')
+    const next = publicKeyToString(publicFromPrivate(generatePrivateKey()), 'new')
+    const data = {
+      permissions: [
+        { perm_name: 'owner', parent: '', required_auth: { threshold: 1, keys: [{ key: pub, weight: 1 }], accounts: [], waits: [] } },
+        {
+          perm_name: 'active',
+          parent: 'owner',
+          required_auth: { threshold: 2, keys: [{ key: pub, weight: 1 }], accounts: [{ permission: { actor: 'alice', permission: 'eosio.code' }, weight: 1 }], waits: [] }
+        }
+      ]
+    }
+    const s = new Signer(deps({ getAccount: async () => data }))
+    const actions = changeKeyActions({ account: 'alice', permission: 'active', oldKey: pub, newKey: next, signWith: 'owner' }, data)
+    await expect(s.prepare({ networkId: 'n1', actions, kind: 'changeKey' })).rejects.toThrow(/could not reach its threshold 2: .* add up to 1\. Nothing was prepared\./)
+    expect(s.busy()).toBe(false)
+  })
+})

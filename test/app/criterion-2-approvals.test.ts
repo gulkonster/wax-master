@@ -149,7 +149,7 @@ beforeEach(async () => {
   now = Date.now()
 })
 
-describe('task 1: the network kind cannot switch off the mainnet protections', () => {
+describe('the network kind cannot switch off the mainnet protections', () => {
   it('the kind comes from the chain id first; local only on this computer; testnet only when confirmed', () => {
     for (const id of Object.keys(MAINNET_CHAINS)) {
       expect(effectiveKind({ chainId: id, kind: 'testnet', endpoints: ['https://a.example'], testnetConfirmed: true })).toBe('mainnet')
@@ -274,7 +274,7 @@ describe('a chain id is taken only in its one written form', () => {
   })
 })
 
-describe('task 2: the confirmation title is made by the main process', () => {
+describe('the confirmation title is made by the main process', () => {
   it('from the decoded actions; fixed texts for the started operation', async () => {
     let s = new Signer(deps())
     let r = await s.prepare({ networkId: 'n1', actions: [transfer] })
@@ -303,7 +303,7 @@ describe('task 2: the confirmation title is made by the main process', () => {
   })
 })
 
-describe('task 3: typed name', () => {
+describe('typed name', () => {
   it('is the account field of the decoded guarded action, not the first authorization', async () => {
     network = net('mainnet')
     const s = new Signer(deps({ mainnetSigning: true }))
@@ -372,7 +372,7 @@ describe('task 3: typed name', () => {
   })
 })
 
-describe('task 4: deploy hashes come from the signed bytes', () => {
+describe('deploy hashes come from the signed bytes', () => {
   it('sizes and SHA-256 of code and ABI are those inside the packed transaction; code on the account read in prepare from its endpoint', async () => {
     const wasm = Uint8Array.from([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0, 5, 6, 7])
     const abi = Uint8Array.from([14, 101, 111, 115, 105, 111, 58, 58, 97, 98, 105, 47, 49, 46, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
@@ -401,7 +401,7 @@ describe('task 4: deploy hashes come from the signed bytes', () => {
   })
 })
 
-describe('task 5 and endpoint changes', () => {
+describe('one approval at a time, a locked vault, and endpoint changes', () => {
   it('a second prepare while one approval is open is refused; also when both start together', async () => {
     const s = new Signer(deps())
     const first = await s.prepare({ networkId: 'n1', actions: [transfer] })

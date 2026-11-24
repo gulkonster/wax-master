@@ -42,7 +42,9 @@
       "topics": [
         { "id": "wallet-overview", "title": "The Account page as a wallet", "keywords": ["wallet", "balance", "view only", "you control", "badge", "summary", "sections"] },
         { "id": "resources-ram", "title": "RAM", "keywords": ["ram", "buy ram", "sell ram", "buyrambytes", "buyram", "sellram", "price", "fee"] },
-        { "id": "resources-cpu-net", "title": "CPU and NET", "keywords": ["cpu", "net", "stake", "unstake", "refund", "claim refund", "delegatebw", "undelegatebw"] }
+        { "id": "resources-cpu-net", "title": "CPU and NET", "keywords": ["cpu", "net", "stake", "unstake", "refund", "claim refund", "delegatebw", "undelegatebw"] },
+        { "id": "powerup", "title": "PowerUp", "keywords": ["powerup", "rent", "cpu", "net", "powup.state", "max_payment", "fee"] },
+        { "id": "voting-rewards", "title": "Voting and rewards", "keywords": ["vote", "voting", "producer", "proxy", "voteproducer", "voterclaim", "claimgenesis", "rewards", "claim"] }
       ]
     },
     {

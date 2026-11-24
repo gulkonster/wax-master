@@ -126,6 +126,76 @@ export interface AccountActionsPage {
   /** False when the network has no history service configured. */
   historyAvailable: boolean
   more: boolean
+  /** Number of matching actions the history service reports (0 when it reports none); `totalExact` false when it is a lower bound. */
+  total?: number
+  totalExact?: boolean
+}
+
+/** Filters of the Transactions list: an action name and a time range (ISO times in UTC); empty means no filter. */
+export interface AccountActionsFilter {
+  action?: string
+  after?: string
+  before?: string
+}
+
+// ---- Wallet: system contract features, voting, PowerUp ----
+
+/** What the chain's system contract (eosio) offers, read from its ABI and tables. */
+export interface SystemFeatures {
+  /** The ABI has voteproducer and the producers and voters tables. */
+  voting: boolean
+  /** The ABI has powerup and the powup.state table has its row. */
+  powerup: boolean
+}
+
+export interface ProducerRow {
+  name: string
+  /** Share of all producer votes, in percent. */
+  votePercent: number
+}
+
+export interface VoterClaimView {
+  action: 'voterclaim' | 'claimgbmvote' | 'claimgenesis'
+  field: 'owner' | 'claimer'
+  label: string
+  /** What is due, in words: an estimate with its amount, or that it cannot be estimated. */
+  dueText: string
+  /** A note about the time of the claim ('' when none). */
+  timeNote: string
+}
+
+export interface VotingView {
+  maxProducers: number
+  /** Active producers, most votes first. */
+  producers: ProducerRow[]
+  /** True when the list was cut at its size limit. */
+  producersCut: boolean
+  /** The account's row of the voters table; null when the account has never voted or staked. */
+  current: { proxy: string; producers: string[]; staked: string; isProxy: boolean } | null
+  claims: VoterClaimView[]
+}
+
+export interface PowerupResourceView {
+  weight: string
+  utilization: string
+  adjustedUtilization: string
+  utilizationTimestamp: number
+  decaySecs: number
+  exponent: number
+  minPrice: string
+  maxPrice: string
+}
+
+/** The powup.state row, checked; prices and fees in whole units of the core token. */
+export interface PowerupStateView {
+  net: PowerupResourceView
+  cpu: PowerupResourceView
+  days: number
+  minFee: string
+  symbol: string
+  precision: number
+  /** The chain's head time (seconds since 1970, UTC) at the read: the cost is computed against chain time. */
+  headTime: number
 }
 
 // ---- Contract page ----
@@ -272,7 +342,8 @@ export interface NetworkStatus {
 /** An authority as shown in the wallet: threshold and entries in the chain's order. */
 export interface AuthorityView {
   threshold: number
-  keys: { key: string; weight: number }[]
+  /** `key` in the form the chain writes the account's keys (as in the permission tree); `k1` in the PUB_K1_ form. */
+  keys: { key: string; k1: string; weight: number }[]
   accounts: { actor: string; permission: string; weight: number }[]
   waits: { waitSec: number; weight: number }[]
 }

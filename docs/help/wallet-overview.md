@@ -17,7 +17,24 @@ Below the header a summary band shows the totals: the total, the available (liqu
 
 The Tokens section lists the core token read from the chain; tokens other than the core token are listed as the history service reports them, with the contract under each name.
 
-A list of sections sits on the left of the page. Each section is one job, for example tokens and transfers, RAM, CPU and NET, the testnet faucet on WAX Testnet, and the transactions of the account. Sections that are not ready in your version of the app are not shown.
+A list of sections sits on the left of the page. Each section is one job:
+
+| Section | What it does |
+|---|---|
+| Tokens, Transfer | Balances of the core token and other tokens; send tokens. See [Transfers and memos](doc:transfers). |
+| RAM | Buy and sell RAM. See [RAM](doc:resources-ram). |
+| CPU / NET | Stake, unstake, claim a refund. See [CPU and NET](doc:resources-cpu-net). |
+| Keys and permissions, Linked actions | Keys, thresholds, custom permissions, `eosio.code`, `linkauth`. See [Owner, active and permissions](doc:permissions-overview). |
+| Contract | Code and ABI hashes, deploy, clear code. See [The Contract section](doc:contract-section). |
+| Create account | A new account paid by this one. See [Create an account](doc:create-account). |
+| Voting and rewards | Vote for producers or a proxy, claim rewards. Shown when the chain offers voting. See [Voting and rewards](doc:voting-rewards). |
+| PowerUp | Rent CPU and NET for a day. Shown when the chain has the PowerUp market. See [PowerUp](doc:powerup). |
+| Testnet faucet | Free test tokens, on WAX Testnet only. |
+| Transactions | The account's actions, with filters and pages. See [Transaction history](doc:transaction-history). |
+
+A section is left out when the chain does not offer what it needs.
+
+Sections with more than one form show one form at a time, chosen by a switch (for example **Buy | Sell** in RAM).
 
 Every form has the same shape: one sentence on what it does, its fields, the action it will send shown below the fields (as JSON and as a `cleos` line), a **?** button that opens its help page, and a button that opens the confirmation window. A signer picker lets you choose which permission signs, from those the vault can satisfy.
 

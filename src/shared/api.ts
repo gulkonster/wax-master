@@ -6,6 +6,7 @@ import type { InspectedTransaction } from './trace-types'
 import type { DeployPlan } from './chain-types'
 import type { RamPrice } from './ram-market'
 import type { NetworkHead, NetworkOverview } from './network-info'
+import type { AccountActionsFilter, PowerupStateView, SystemFeatures, VotingView } from './chain-types'
 import type { AccountActionsPage, AccountView, AddedToken, ContractInfoView, LinkedActionsView, NetworkInfo, NetworkKind, NetworkStatus, PermissionIntent, PermissionPlanView, TokenBalance, WalletTokens } from './chain-types'
 import type { AuthLevel, ContractAbiView, ContractHistoryEntry, ContractHistoryKind, ContractHistoryList, PackResult, RowsQuery, RowsResult, ScopesResult } from './chain-types'
 import type { WindowErrorReport } from './window-error'
@@ -460,7 +461,8 @@ export interface WaxApi {
     account(name: string): Promise<AccountView>
     /** False when the node says the account does not exist; a failed request rejects. */
     accountExists(name: string): Promise<boolean>
-    actions(name: string, skip: number): Promise<AccountActionsPage>
+    /** One page of the account's actions from the history service, newest first, with the optional filter. */
+    actions(name: string, skip: number, filter?: AccountActionsFilter): Promise<AccountActionsPage>
     /** RAM price of the current network for `bytes` (0: the market only), from the system RAM market. */
     ramPrice(bytes: number): Promise<RamPrice>
   }
@@ -482,6 +484,12 @@ export interface WaxApi {
     links(account: string): Promise<LinkedActionsView>
     /** Code hash, ABI hash and last code update of the account. */
     contractInfo(account: string): Promise<ContractInfoView>
+    /** What the system contract of the current network offers (voting, PowerUp), from its ABI. */
+    system(): Promise<SystemFeatures>
+    /** Active producers, the account's current vote, and the reward claims the system ABI offers. */
+    voting(account: string): Promise<VotingView>
+    /** The PowerUp market of the current network, checked; null when the chain has none. */
+    powerup(): Promise<PowerupStateView | null>
   }
   networkInfo: {
     /** Chain state of a saved network for the Network page: get_info, RAM, RAM price, core token. */

@@ -26,13 +26,42 @@ const FILTER_FROM = 8
 
 const cache = new Map<string, { key: string; list: Promise<AccountPickList> }>()
 
-/** The picker list for a network (default: the current one); refreshed when stars or vault keys change. */
+/** Grows each time the kept lists are dropped; every open picker reads its list again. */
+let generation = 0
+const listeners = new Set<() => void>()
+
+/**
+ * Drops the kept lists (every network) and makes every open picker read its
+ * list again: called after a sent transaction, since a permission change on the
+ * chain changes what the vault can sign.
+ */
+export function refreshPickLists(): void {
+  generation++
+  cache.clear()
+  for (const l of [...listeners]) l()
+}
+
+/** A number that changes each time the kept lists are dropped (`refreshPickLists`). */
+function usePickGeneration(): number {
+  const [gen, setGen] = useState(generation)
+  useEffect(() => {
+    const l = (): void => setGen(generation)
+    listeners.add(l)
+    return () => {
+      listeners.delete(l)
+    }
+  }, [])
+  return gen
+}
+
+/** The picker list for a network (default: the current one); refreshed when stars or vault keys change, or after a sent transaction. */
 export function usePickList(networkId?: string): { list: AccountPickList | null; reload: () => void } {
   const nets = useStore(networkStore)
   const vault = useStore(vaultStore)
   const id = networkId ?? nets.current?.id ?? ''
+  const gen = usePickGeneration()
   // Stars are known for the current network only; another network's list is read once per vault change.
-  const key = `${id === nets.current?.id ? nets.stars.join(',') : ''}|${vault.keys}|${vault.exists}`
+  const key = `${id === nets.current?.id ? nets.stars.join(',') : ''}|${vault.keys}|${vault.exists}|${gen}`
   const [list, setList] = useState<AccountPickList | null>(null)
   const [tick, setTick] = useState(0)
   const seen = useRef(0)
@@ -373,10 +402,18 @@ export function PermissionPicker({
   const entry = list?.entries.find((e) => e.account === account)
   const [names, setNames] = useState<string[] | null>(null)
   const valid = ACCOUNT_NAME.test(account)
+  // A sent transaction may have added or removed a permission: read them again.
+  const gen = usePickGeneration()
+  const namesOf = useRef('')
 
   useEffect(() => {
-    setNames(null)
-    if (!valid || !isCurrent) return
+    // A new account starts empty; a read again after a send keeps the names until the answer comes.
+    if (namesOf.current !== account) setNames(null)
+    namesOf.current = account
+    if (!valid || !isCurrent) {
+      setNames(null)
+      return
+    }
     let live = true
     const t = setTimeout(() => {
       window.wax.chain.account(account).then(
@@ -388,7 +425,7 @@ export function PermissionPicker({
       live = false
       clearTimeout(t)
     }
-  }, [account, valid, isCurrent])
+  }, [account, valid, isCurrent, gen])
 
   const signable = entry?.signable ?? []
   const base = names && names.length > 0 ? names : [...new Set(['active', 'owner', ...signable])]
