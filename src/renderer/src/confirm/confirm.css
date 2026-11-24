@@ -15,38 +15,42 @@
 }
 /* Test and local networks: chrome grey with a 3 px orange line. Mainnet: filled red. */
 .c-header {
-  padding: 16px 20px;
+  padding: var(--sp-5) var(--dialog-pad);
   background: var(--bg-chrome);
   color: var(--text-2);
-  font-size: 12px;
-  line-height: 16px;
-  border-bottom: 3px solid var(--accent);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  border-bottom: var(--bw-3) solid var(--accent);
 }
 .c-header.mainnet {
   background: var(--red-fill);
-  color: var(--text-strong);
+  color: var(--on-fill);
   border-bottom: none;
 }
+/* The mainnet header stays filled red with white text in both themes. */
+.c-header.mainnet .c-title {
+  color: var(--on-fill);
+}
 .c-title {
-  margin-bottom: 2px;
-  font-size: 18px;
-  line-height: 24px;
+  margin-bottom: var(--sp-half);
+  font-size: var(--fs-dialog);
+  line-height: var(--lh-dialog);
   font-weight: 600;
   color: var(--text-strong);
 }
 .c-body {
   flex: 1;
   overflow: auto;
-  padding: 12px 20px;
+  padding: var(--sp-4) var(--dialog-pad);
 }
 .c-row {
   display: flex;
-  gap: 12px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border);
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-bottom: var(--bw) solid var(--border);
 }
 .c-label {
-  width: 160px;
+  width: var(--label-col);
   flex-shrink: 0;
   color: var(--text-2);
 }
@@ -57,36 +61,36 @@
   word-break: break-all;
 }
 .c-section {
-  margin: 16px 0 8px;
-  font-size: 16px;
-  line-height: 22px;
+  margin: var(--sp-4) 0 var(--sp-2);
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
   font-weight: 600;
   color: var(--text-strong);
 }
 .c-action {
-  margin-bottom: 8px;
-  padding: 12px;
+  margin-bottom: var(--sp-2);
+  padding: var(--sp-3);
   background: var(--bg-surface);
-  border: 1px solid var(--border);
+  border: var(--bw) solid var(--border);
   border-radius: var(--radius-lg);
 }
 .c-artifacts {
-  margin: 12px 0;
-  padding: 4px 12px;
+  margin: var(--sp-3) 0;
+  padding: var(--sp-1) var(--sp-3);
   background: var(--warn-tint);
-  border-left: 3px solid var(--warn-text);
+  border-left: var(--bw-3) solid var(--warn-text);
   border-radius: var(--radius);
 }
 .c-foot {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 20px;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--dialog-pad);
   background: var(--bg-chrome);
-  border-top: 1px solid var(--border);
+  border-top: var(--bw) solid var(--border);
 }
 .c-foot-notes {
-  max-height: 140px;
+  max-height: var(--foot-notes-max);
   overflow: auto;
 }
 .c-foot .c-blocked {
@@ -95,8 +99,22 @@
 .c-foot-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--gap-row);
 }
 .c-foot .btn {
   height: var(--ctl-lg);
+}
+/* Show private key: the key is one line of the full width and never wraps (B28). */
+.c-row.c-stack {
+  flex-direction: column;
+  border-bottom: none;
+  gap: var(--sp-1);
+}
+.c-key {
+  font-family: var(--font-mono);
+  font-size: var(--fs-key);
+  line-height: var(--lh-mono);
+  white-space: nowrap;
+  word-break: normal;
+  overflow-x: auto;
 }

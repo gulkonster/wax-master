@@ -6,11 +6,16 @@
 // focused (a window that appears under a click cannot be approved by that
 // click), and only one confirmation is open at a time.
 
-import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, ipcMain, screen, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
 import type { ApprovalRecord, SendResult, Signer } from './signer'
 import { APP_ORIGIN, isAllowedOrigin, secureWebPreferences } from './security'
 import { log } from './log'
+import { followTheme, themeArgs, windowBackground } from './theme'
+
+/** Default size: a plain transfer shows without scrolling at the size scale of styles.css. */
+const CONFIRM_WIDTH = 880
+const CONFIRM_HEIGHT = 860
 
 export const APPROVE_DELAY_MS = 1500
 
@@ -123,20 +128,22 @@ export function openConfirmation(parent: BrowserWindow | null, record: ApprovalR
         resolve(r)
       }
     }
+    const area = (parent ? screen.getDisplayMatching(parent.getBounds()) : screen.getPrimaryDisplay()).workAreaSize
     const win = new BrowserWindow({
       parent: parent ?? undefined,
       modal: false,
-      width: 760,
-      height: 820,
+      width: Math.min(CONFIRM_WIDTH, area.width),
+      height: Math.min(CONFIRM_HEIGHT, area.height),
       minWidth: 600,
       minHeight: 500,
       show: false,
       title: record.network.kind === 'mainnet' ? `Confirm on ${record.network.name}` : 'Confirm transaction',
-      backgroundColor: '#1F1F1F',
+      backgroundColor: windowBackground('content'),
       autoHideMenuBar: true,
-      webPreferences: secureWebPreferences(join(__dirname, '../preload/confirm.js'))
+      webPreferences: secureWebPreferences(join(__dirname, '../preload/confirm.js'), themeArgs())
     })
     win.setMenu(null)
+    followTheme(win, 'content')
     const pending: Pending = { record, secret, win, settle, busy: false, armedAt: null }
     pendingByWindow.set(win.webContents.id, pending)
     const arm = (): void => {

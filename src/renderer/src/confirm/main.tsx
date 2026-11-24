@@ -309,14 +309,15 @@ function Reveal(): React.JSX.Element {
             <Row label="Public key" mono>{info.publicKey}</Row>
           </>
         )}
-        <div className="field" style={{ marginTop: 12 }}>
+        <div className="field" style={{ marginTop: 'var(--sp-2)' }}>
           <label>Vault password</label>
           <input className="input" type="password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void show()} />
         </div>
         {shown && (
-          <Row label={`Private key (${left} s)`} mono>
-            {shown}
-          </Row>
+          <div className="c-row c-stack">
+            <div className="c-label">Private key ({left} s)</div>
+            <div className="c-value c-key">{shown}</div>
+          </div>
         )}
         {note && <div className="hint">{note}</div>}
         {error && <div className="error-text">{error}</div>}

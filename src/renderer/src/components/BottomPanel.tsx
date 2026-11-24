@@ -107,13 +107,13 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
             <div className="panel-note">No problems have been detected.</div>
           ) : (
             <>
-              <div className="panel-note" style={{ marginBottom: 4 }}>
+              <div className="panel-note" style={{ marginBottom: 'var(--sp-1)' }}>
                 {errors} error(s), {warnings} warning(s)
               </div>
               {problems.map((p, i) => (
                 <div key={i} className="problem-row" onClick={() => reveal(p)}>
                   <span className={`sev-${p.severity}`}>
-                    {p.severity === 'error' ? <IconError size={14} /> : p.severity === 'warning' ? <IconWarning size={14} /> : <IconInfo size={14} />}
+                    {p.severity === 'error' ? <IconError size="sm" /> : p.severity === 'warning' ? <IconWarning size="sm" /> : <IconInfo size="sm" />}
                   </span>
                   <span style={{ userSelect: 'text' }}>{p.message}</span>
                   <span className="loc">

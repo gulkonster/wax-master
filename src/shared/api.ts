@@ -32,7 +32,22 @@ export interface Settings {
   updateCheck: boolean
   terminalProfile: 'powershell' | 'cmd' | 'toolchain'
   setupDismissed: boolean
+  /** Look of the program: follow Windows, or always dark or light. */
+  theme: ThemeSetting
+  /** Sizes the user gave to dialogs, by dialog name. */
+  dialogSizes: Record<string, DialogSize>
 }
+
+export type ThemeSetting = 'system' | 'dark' | 'light'
+export type ResolvedTheme = 'dark' | 'light'
+
+export interface DialogSize {
+  width: number
+  height: number
+}
+
+/** A change of settings. In `dialogSizes` only the named dialogs change; null forgets a size. */
+export type SettingsPatch = Partial<Omit<Settings, 'dialogSizes'>> & { dialogSizes?: Record<string, DialogSize | null> }
 
 export interface ProjectEntry {
   path: string
@@ -251,7 +266,7 @@ export interface WaxApi {
   }
   settings: {
     get(): Promise<Settings>
-    set(patch: Partial<Settings>): Promise<Settings>
+    set(patch: SettingsPatch): Promise<Settings>
   }
   projects: {
     list(): Promise<ProjectEntry[]>

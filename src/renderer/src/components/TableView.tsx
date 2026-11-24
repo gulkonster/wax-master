@@ -257,7 +257,7 @@ export function TableView({ account, view }: { account: string; view: ContractAb
         {ran && <span className="count">{rows.length} row{rows.length === 1 ? '' : 's'}</span>}
       </div>
       <div className="data-scroll">
-        {error && <div className="error-text" style={{ margin: 12 }}>{error}</div>}
+        {error && <div className="error-text" style={{ margin: 'var(--sp-3)' }}>{error}</div>}
         {!table && !error && <div className="contract-note">Pick a table to see its rows.</div>}
         {table && loading && rows.length === 0 && <div className="contract-note">Loading...</div>}
         {ran && rows.length === 0 && !error && <div className="contract-note">No rows.</div>}

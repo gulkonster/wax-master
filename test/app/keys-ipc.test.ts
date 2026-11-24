@@ -54,13 +54,19 @@ vi.mock('electron', () => ({
   protocol: {},
   session: {},
   net: {},
+  // Windows follow the theme (src/main/theme.ts) and open on the screen's work area.
+  nativeTheme: { shouldUseDarkColors: true, themeSource: 'system', on: () => undefined },
+  screen: {
+    getPrimaryDisplay: () => ({ workAreaSize: { width: 1920, height: 1080 } }),
+    getDisplayMatching: () => ({ workAreaSize: { width: 1920, height: 1080 } })
+  },
   utilityProcess: {},
   BrowserWindow: class {
-    webContents: { id: number }
+    webContents: { id: number; on: () => void }
     private rec: { id: number; closed: boolean }
     constructor() {
       this.rec = { id: 900 + h.windows.length, closed: false }
-      this.webContents = { id: this.rec.id }
+      this.webContents = { id: this.rec.id, on: () => undefined }
       h.windows.push(this.rec)
     }
     setMenu(): void {}

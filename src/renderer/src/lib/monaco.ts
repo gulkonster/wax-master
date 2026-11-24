@@ -7,7 +7,8 @@ import 'monaco-editor/features/register.all.js'
 import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker'
 import JsonWorker from 'monaco-editor/language/json/json.worker.js?worker'
 import { MONACO_DEFAULTS_REMOVED, normalizeKey } from '../../../shared/keys'
-import { THEME } from './theme-colors'
+import { DARK, LIGHT, type ThemeColors } from './theme-colors'
+import { currentTheme, onThemeChange } from './theme'
 
 declare global {
   interface Window {
@@ -22,40 +23,53 @@ self.MonacoEnvironment = {
   }
 }
 
-monaco.editor.defineTheme('wax-dark', {
-  base: 'vs-dark',
-  inherit: true,
-  rules: [{ token: 'comment', foreground: THEME.comment.slice(1) }],
-  colors: {
-    'editor.background': THEME.content,
-    'editorGutter.background': THEME.content,
-    'minimap.background': THEME.content,
-    'editor.lineHighlightBackground': THEME.lineHighlight,
-    'editor.selectionBackground': THEME.selection,
-    'editorCursor.foreground': THEME.accent,
-    'editor.findMatchBackground': THEME.findMatch,
-    'editor.findMatchBorder': THEME.accent,
-    'editorWidget.background': THEME.flyout,
-    'editorWidget.border': THEME.borderControl,
-    'editorSuggestWidget.background': THEME.flyout,
-    'editorSuggestWidget.border': THEME.borderControl,
-    'editorHoverWidget.background': THEME.flyout,
-    'editorHoverWidget.border': THEME.borderControl,
-    'menu.background': THEME.flyout,
-    'menu.border': THEME.borderControl,
-    'quickInput.background': THEME.flyout,
-    'list.hoverBackground': THEME.listHover,
-    'list.activeSelectionBackground': THEME.accentTint,
-    'list.activeSelectionForeground': THEME.textStrong,
-    'quickInputList.focusBackground': THEME.accentTint,
-    focusBorder: THEME.accent,
-    'scrollbarSlider.background': THEME.scrollThumb,
-    'scrollbarSlider.hoverBackground': THEME.scrollThumbHover,
-    'scrollbarSlider.activeBackground': THEME.scrollThumbHover,
-    'editorLineNumber.foreground': THEME.lineNumber,
-    'editorLineNumber.activeForeground': THEME.text2
-  }
-})
+function defineWaxTheme(name: string, base: 'vs-dark' | 'vs', c: ThemeColors): void {
+  monaco.editor.defineTheme(name, {
+    base,
+    inherit: true,
+    rules: [{ token: 'comment', foreground: c.comment.slice(1) }],
+    colors: {
+      'editor.background': c.content,
+      'editorGutter.background': c.content,
+      'minimap.background': c.content,
+      'editor.lineHighlightBackground': c.lineHighlight,
+      'editor.selectionBackground': c.selection,
+      'editorCursor.foreground': c.accent,
+      'editor.findMatchBackground': c.findMatch,
+      'editor.findMatchBorder': c.accent,
+      'editorWidget.background': c.flyout,
+      'editorWidget.border': c.borderControl,
+      'editorSuggestWidget.background': c.flyout,
+      'editorSuggestWidget.border': c.borderControl,
+      'editorHoverWidget.background': c.flyout,
+      'editorHoverWidget.border': c.borderControl,
+      'menu.background': c.flyout,
+      'menu.border': c.borderControl,
+      'quickInput.background': c.flyout,
+      'list.hoverBackground': c.listHover,
+      'list.activeSelectionBackground': c.accentTint,
+      'list.activeSelectionForeground': c.textStrong,
+      'quickInputList.focusBackground': c.accentTint,
+      focusBorder: c.accent,
+      'scrollbarSlider.background': c.scrollThumb,
+      'scrollbarSlider.hoverBackground': c.scrollThumbHover,
+      'scrollbarSlider.activeBackground': c.scrollThumbHover,
+      'editorLineNumber.foreground': c.lineNumber,
+      'editorLineNumber.activeForeground': c.text2
+    }
+  })
+}
+
+defineWaxTheme('wax-dark', 'vs-dark', DARK)
+defineWaxTheme('wax-light', 'vs', LIGHT)
+
+/** The Monaco theme for the page's current theme. */
+export function editorThemeName(): string {
+  return currentTheme() === 'light' ? 'wax-light' : 'wax-dark'
+}
+
+// Every editor follows the theme of the page (Monaco themes are global).
+onThemeChange(() => monaco.editor.setTheme(editorThemeName()))
 
 /** Monaco key code of the last part of an accelerator, e.g. 'O', 'F12', ','. */
 function keyCodeOf(key: string): number | undefined {

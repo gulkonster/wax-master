@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { TemplateId } from '../../shared/project'
-import type { MenuCommand, OpenProject, Settings } from '../../shared/api'
+import type { MenuCommand, OpenProject, SettingsPatch } from '../../shared/api'
 import { AppContext, type AppActions, type AppState, type PanelTab, type View } from './state'
 import { emit, on } from './lib/bus'
 import { startBuild } from './lib/build'
@@ -190,7 +190,7 @@ export function App(): React.JSX.Element {
       newProject: () => {
         void confirmLeave().then((ok) => ok && (setNewTemplate(undefined), setNewOpen(true)))
       },
-      updateSettings: async (p: Partial<Settings>) => {
+      updateSettings: async (p: SettingsPatch) => {
         const settings = await window.wax.settings.set(p)
         patch({ settings })
       },
@@ -388,6 +388,8 @@ export function App(): React.JSX.Element {
       {coming && <ComingLater what={coming} dialog onClose={() => setComing(null)} />}
       {unsaved && (
         <Modal
+          size="s"
+          name="unsaved-changes"
           title="Unsaved changes"
           onClose={() => unsaved('cancel')}
           footer={
@@ -433,6 +435,8 @@ export function App(): React.JSX.Element {
       {changeKey && <ChangeKeyDialog {...changeKey} onClose={() => setChangeKey(null)} />}
       {update && (
         <Modal
+          size="s"
+          name="update-available"
           title="A new version is available"
           onClose={() => setUpdate(null)}
           footer={

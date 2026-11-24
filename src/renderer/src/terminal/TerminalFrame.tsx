@@ -10,7 +10,9 @@ import '@xterm/xterm/css/xterm.css'
 import type { TerminalProfile, TerminalProfileInfo } from '../../../shared/api'
 import { parseTerminalCommand, type TerminalCommand, type TerminalFrameEvent } from '../../../shared/terminal-frame'
 import { IconChevronDown, IconClose, IconPlus } from '../components/Icons'
-import { THEME } from '../lib/theme-colors'
+import { THEMES, TERMINAL_ANSI_LIGHT } from '../lib/theme-colors'
+import { currentTheme, onThemeChange } from '../lib/theme'
+import type { ResolvedTheme } from '../../../shared/api'
 
 interface Tab {
   id: string
@@ -64,6 +66,13 @@ export function pasteText(term: Terminal, text: string): void {
   term.paste(text)
 }
 
+/** xterm colours for a theme (dark keeps xterm's own terminal colours 0-15). */
+function terminalTheme(theme: ResolvedTheme): NonNullable<ConstructorParameters<typeof Terminal>[0]>['theme'] {
+  const c = THEMES[theme]
+  const base = { background: c.content, foreground: c.text, cursor: c.accent, cursorAccent: c.content, selectionBackground: c.selection }
+  return theme === 'light' ? { ...base, ...TERMINAL_ANSI_LIGHT } : base
+}
+
 export function TerminalFrame(): React.JSX.Element {
   const [tabs, setTabs] = useState<Tab[]>([])
   const [active, setActive] = useState<string | null>(null)
@@ -81,6 +90,15 @@ export function TerminalFrame(): React.JSX.Element {
   const pending = useRef(0)
   // The default profile from the settings, as last sent with "show".
   const defaultProfile = useRef<TerminalProfile>('powershell')
+
+  // The terminals follow the theme of the page.
+  useEffect(
+    () =>
+      onThemeChange((theme) => {
+        for (const t of tabsRef.current) t.term.options.theme = terminalTheme(theme)
+      }),
+    []
+  )
 
   const activeTab = (): Tab | undefined => tabsRef.current.find((t) => t.id === activeRef.current)
 
@@ -112,7 +130,7 @@ export function TerminalFrame(): React.JSX.Element {
     const term = new Terminal({
       fontFamily: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Courier New', monospace",
       fontSize: fontSize.current,
-      theme: { background: THEME.content, foreground: THEME.text, cursor: THEME.accent, cursorAccent: THEME.content, selectionBackground: THEME.selection },
+      theme: terminalTheme(currentTheme()),
       scrollback: 5000,
       allowProposedApi: false,
       cursorBlink: true
@@ -318,7 +336,7 @@ export function TerminalFrame(): React.JSX.Element {
             {menuOpen && (
               <div
                 className="dropdown"
-                style={{ position: 'fixed', top: 32, right: 4, maxHeight: 'calc(100vh - 36px)' }}
+                style={{ position: 'fixed', top: 'var(--ctl)', right: 'var(--sp-1)', maxHeight: 'calc(100vh - var(--ctl) - var(--sp-1))' }}
                 onMouseLeave={() => setMenuOpen(false)}
               >
                 {profiles.map((p) => (
@@ -350,7 +368,7 @@ export function TerminalFrame(): React.JSX.Element {
                 close(t.id)
               }}
             >
-              <IconClose size={11} />
+              <IconClose size="xs" />
             </span>
           </div>
         ))}

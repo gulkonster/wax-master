@@ -57,7 +57,7 @@ export function SymbolSearchDialog({
   }
 
   return (
-    <Modal title="Go to Symbol in Workspace" onClose={onClose} wide>
+    <Modal size="l" name="symbol-search" title="Go to Symbol in Workspace" onClose={onClose}>
       <div className="find-files">
         <input
           className="input"

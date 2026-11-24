@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ExternalFile, MenuCommand, OpenProject, TreeNode } from '../../../shared/api'
-import { monaco, languageFor } from '../lib/monaco'
+import { editorThemeName, monaco, languageFor } from '../lib/monaco'
 import { emit, on } from '../lib/bus'
 import { errorText, toast } from '../lib/toast'
 import { useApp } from '../state'
@@ -111,7 +111,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     if (!mountRef.current) return
     const ed = monaco.editor.create(mountRef.current, {
       model: null,
-      theme: 'wax-dark',
+      theme: editorThemeName(),
       automaticLayout: true,
       fontSize: state.settings?.fontSize ?? 14,
       fontFamily: "'Cascadia Mono', 'Cascadia Code', Consolas, 'Courier New', monospace",
@@ -782,7 +782,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
                   close(t.id)
                 }}
               >
-                {dirty.has(t.id) ? <span className="dot" /> : <IconClose size={12} />}
+                {dirty.has(t.id) ? <span className="dot" /> : <IconClose size="xs" />}
               </span>
             </div>
           ))}
@@ -815,6 +815,8 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
       )}
       {conflict && (
         <Modal
+          size="s"
+          name="file-changed"
           title="File changed on disk"
           onClose={() => {
             conflict.resolve('cancel')

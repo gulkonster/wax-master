@@ -27,6 +27,8 @@ export function ComingLater({ what, dialog, onClose }: { what: string; dialog?: 
   if (dialog) {
     return (
       <Modal
+        size="s"
+        name="coming-later"
         title={label}
         onClose={onClose}
         footer={

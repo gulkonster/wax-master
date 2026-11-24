@@ -102,7 +102,7 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
   return (
     <>
       <ChainButton
-        icon={<IconContract size={18} />}
+        icon={<IconContract size="lg" />}
         label="Contracts"
         value={last.contract ?? '(none)'}
         mono
@@ -113,7 +113,7 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
         {(close) => starredList(openContract, close)}
       </ChainButton>
       <ChainButton
-        icon={<IconUser size={18} />}
+        icon={<IconUser size="lg" />}
         label="Account"
         value={last.account ?? '(none)'}
         mono
@@ -137,7 +137,7 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
         )}
       </ChainButton>
       <ChainButton
-        icon={n && !n.preset ? <IconPencil size={18} /> : <IconGlobe size={18} />}
+        icon={n && !n.preset ? <IconPencil size="lg" /> : <IconGlobe size="lg" />}
         label="Network"
         value={n?.name ?? '(No Network)'}
         none={!n}

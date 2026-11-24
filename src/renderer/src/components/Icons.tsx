@@ -4,17 +4,19 @@
 
 import type { CSSProperties } from 'react'
 
+/** Icon sizes of the scale (styles.css): xs 14, sm 16, default 18 (rows and buttons), lg 20 (top bar). */
+export type IconSize = 'xs' | 'sm' | 'lg'
+
 interface P {
-  size?: number
+  size?: IconSize
   style?: CSSProperties
   className?: string
 }
 
-function Svg({ size = 16, style, className, children }: P & { children: React.ReactNode }): React.JSX.Element {
+function Svg({ size, style, className, children }: P & { children: React.ReactNode }): React.JSX.Element {
+  const classes = ['icon', size ? `icon-${size}` : '', className ?? ''].filter(Boolean).join(' ')
   return (
     <svg
-      width={size}
-      height={size}
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
@@ -22,7 +24,7 @@ function Svg({ size = 16, style, className, children }: P & { children: React.Re
       strokeLinecap="round"
       strokeLinejoin="round"
       style={style}
-      className={className ? `icon ${className}` : 'icon'}
+      className={classes}
       aria-hidden="true"
     >
       {children}
@@ -219,10 +221,10 @@ export const IconArrowDown = (p: P): React.JSX.Element => (
   </Svg>
 )
 
-/** The application symbol (same artwork as build/icon.svg), 16 px in the title bar. */
-export function AppIcon({ size = 16 }: { size?: number }): React.JSX.Element {
+/** The application symbol (same artwork as build/icon.svg) in the title bar; its size is --app-icon. */
+export function AppIcon(): React.JSX.Element {
   return (
-    <svg width={size} height={size} viewBox="0 0 256 256" className="app-icon" aria-hidden="true">
+    <svg viewBox="0 0 256 256" className="app-icon" aria-hidden="true">
       <rect className="app-icon-bg" x="8" y="8" width="240" height="240" rx="48" />
       <path className="app-icon-mark" d="M50 78 L88 194 L128 110 L168 194 L194 106" fill="none" strokeWidth="28" strokeLinejoin="round" strokeLinecap="round" />
       <rect className="app-icon-tag" x="160" y="62" width="76" height="34" rx="6" transform="rotate(17 198 79)" />

@@ -4,8 +4,8 @@ export function WasmInfoView({ rel, info }: { rel: string; info: WasmInfo }): Re
   const funcs = info.imports.filter((i) => i.kind === 'function')
   return (
     <div className="page-scroll">
-      <div className="form-page" style={{ paddingTop: 32 }}>
-        <h1 className="mono" style={{ fontSize: 20 }}>{rel}</h1>
+      <div className="form-page" style={{ paddingTop: 'var(--sp-8)' }}>
+        <h1 className="mono" style={{ fontSize: 'var(--fs-section)' }}>{rel}</h1>
         {!info.valid && <div className="error-text">This file could not be read as a WebAssembly module: {info.error}</div>}
         <div className="field">
           <label>Size</label>

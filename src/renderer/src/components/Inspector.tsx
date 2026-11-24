@@ -13,7 +13,7 @@ function Node({ node, depth }: { node: TraceNode; depth: number }): React.JSX.El
   const [open, setOpen] = useState(depth < 2)
   const [hex, setHex] = useState(false)
   return (
-    <div className={`tr-node${node.error ? ' failed' : ''}`} style={{ marginLeft: depth ? 18 : 0 }}>
+    <div className={`tr-node${node.error ? ' failed' : ''}`} style={{ marginLeft: depth ? 'var(--icon)' : 0 }}>
       <div className="tr-head" onClick={() => setOpen((o) => !o)}>
         <span className="tr-twisty">{open ? <IconChevronDown /> : <IconChevronRight />}</span>
         <span className="badge-pair">
@@ -83,7 +83,7 @@ function ResourceState({ r, endpoint }: { r: ResourceProblem; endpoint: string }
   const st = r.state
   const mark = (k: ResourceKind): React.CSSProperties => (k === r.kind ? { color: 'var(--red-text)', fontWeight: 600 } : {})
   return (
-    <div style={{ margin: '8px 0' }}>
+    <div style={{ margin: 'var(--sp-2) 0' }}>
       <div className="tr-label">
         Resources of {r.account || '(unknown account)'} now, from {endpoint}
       </div>
@@ -135,7 +135,7 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
           {stack && <pre className="c-json">{t.errorStack}</pre>}
         </>
       )}
-      <div className="tr-label" style={{ marginTop: 12 }}>
+      <div className="tr-label" style={{ marginTop: 'var(--sp-3)' }}>
         Actions
       </div>
       {t.actions.length === 0 && <div className="hint">No action traces.</div>}
@@ -154,8 +154,9 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
 export function InspectorDialog({ t, onClose }: { t: InspectedTransaction; onClose: () => void }): React.JSX.Element {
   return (
     <Modal
+      size="l"
+      name="transaction"
       title={t.source === 'simulation' ? 'Simulation result' : 'Transaction'}
-      wide
       onClose={onClose}
       footer={
         <button className="btn" onClick={onClose}>

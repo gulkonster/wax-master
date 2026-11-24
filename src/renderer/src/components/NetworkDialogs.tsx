@@ -100,6 +100,8 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
 
   return (
     <Modal
+      size="m"
+      name="add-network"
       title="Connect to Custom Network"
       onClose={onClose}
       footer={
@@ -135,12 +137,12 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <KindField kind={kind} setKind={setKind} note={probe.kindNote} localAllowed={probe.localAllowed} />
-          <div className="field" style={{ display: 'flex', gap: 8 }}>
+          <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
             <div style={{ flex: 1 }}>
               <label>Token symbol</label>
               <input className="input" value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} />
             </div>
-            <div style={{ width: 120 }}>
+            <div style={{ width: 'var(--field-num)' }}>
               <label>Precision</label>
               <input className="input" type="number" min={0} max={18} value={precision} onChange={(e) => setPrecision(Math.max(0, Math.min(18, Number(e.target.value) || 0)))} />
             </div>
@@ -161,8 +163,9 @@ export function ManageNetworksDialog({ onClose }: { onClose: () => void }): Reac
   const [editing, setEditing] = useState<NetworkInfo | null>(null)
   return (
     <Modal
+      size="l"
+      name="manage-networks"
       title="Manage Networks"
-      wide
       onClose={onClose}
       footer={
         <button className="btn" onClick={onClose}>
@@ -196,7 +199,7 @@ export function ManageNetworksDialog({ onClose }: { onClose: () => void }): Reac
               <div style={{ flexBasis: '100%' }}>{n.history ? `History: ${n.history}` : 'No history service'}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 'var(--gap-row)' }}>
             {net.current?.id !== n.id && (
               <button className="btn" onClick={() => void selectNetwork(n.id)}>
                 Use
@@ -253,6 +256,8 @@ function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; onClose
   }
   return (
     <Modal
+      size="m"
+      name="edit-network"
       title={`Edit ${network.name}`}
       onClose={onClose}
       footer={
@@ -301,6 +306,8 @@ export function StarredManager({ onClose }: { onClose: () => void }): React.JSX.
   }
   return (
     <Modal
+      size="l"
+      name="starred-accounts"
       title={`Starred accounts on ${net.current?.name ?? ''}`}
       onClose={onClose}
       footer={
@@ -309,7 +316,7 @@ export function StarredManager({ onClose }: { onClose: () => void }): React.JSX.
         </button>
       }
     >
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 'var(--gap-row)', marginBottom: 'var(--sp-3)' }}>
         <input className="input mono" placeholder="account name" value={add} onChange={(e) => setAdd(e.target.value.trim().toLowerCase())} />
         <button
           className="btn"

@@ -186,7 +186,7 @@ export function Setup(): React.JSX.Element {
         <div className="setup-rows card">
           {rows.map((r) => (
             <div key={r.name} className="setup-row">
-              <div className={`setup-icon ${r.state}`}>{r.state === 'ok' ? <IconCheck size={14} /> : r.state === 'busy' ? '…' : r.state === 'bad' ? '!' : ''}</div>
+              <div className={`setup-icon ${r.state}`}>{r.state === 'ok' ? <IconCheck size="sm" /> : r.state === 'busy' ? '…' : r.state === 'bad' ? '!' : ''}</div>
               <div className="setup-text">
                 <div className="setup-name">{r.name}</div>
                 <div className="setup-desc">{r.desc}</div>

@@ -6,6 +6,8 @@ export function AboutDialog({ onClose }: { onClose: () => void }): React.JSX.Ele
   const i = state.info
   return (
     <Modal
+      size="s"
+      name="about"
       title="About WAX Master"
       onClose={onClose}
       footer={
@@ -14,17 +16,17 @@ export function AboutDialog({ onClose }: { onClose: () => void }): React.JSX.Ele
         </button>
       }
     >
-      <div style={{ userSelect: 'text', lineHeight: 1.7 }}>
-        <div style={{ fontSize: 16, fontWeight: 600 }}>WAX Master</div>
+      <div style={{ userSelect: 'text', lineHeight: 'var(--lh-card)' }}>
+        <div style={{ fontSize: 'var(--fs-card)', fontWeight: 600 }}>WAX Master</div>
         <div>Version {i?.version}</div>
         <div>
           Commit <span className="code-tag">{i?.commit}</span>
         </div>
         <div>Mainnet signing: {i?.mainnetSigning ? 'on' : 'off in this build'}</div>
-        <div style={{ marginTop: 12, color: 'var(--text-2)' }}>
+        <div style={{ marginTop: 'var(--sp-3)', color: 'var(--text-2)' }}>
           Open-source studio for Antelope smart contracts, made for WAX. MIT license.
         </div>
-        <div style={{ marginTop: 8 }}>
+        <div style={{ marginTop: 'var(--sp-2)' }}>
           <a
             href="#"
             onClick={(e) => {

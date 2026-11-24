@@ -25,7 +25,7 @@ function useVaultKeys(): VaultKey[] {
 
 function KeyPicker({ value, onChange, keys }: { value: string; onChange: (v: string) => void; keys: VaultKey[] }): React.JSX.Element {
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
+    <div style={{ display: 'flex', gap: 'var(--gap-row)' }}>
       <select className="select" style={{ flex: 1 }} value={keys.some((k) => k.publicKey === value) ? value : ''} onChange={(e) => onChange(e.target.value)}>
         <option value="">(paste a public key)</option>
         {keys.map((k) => (
@@ -99,8 +99,9 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
 
   return (
     <Modal
+      size="m"
+      name="create-account"
       title={`Create Account on ${net?.name ?? ''}`}
-      wide
       onClose={busy ? undefined : onClose}
       footer={
         <>
@@ -113,7 +114,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
         </>
       }
     >
-      <div className="field" style={{ display: 'flex', gap: 8 }}>
+      <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 2 }}>
           <label>Creator (pays; its key must be in the vault)</label>
           <input className="input mono" value={creator} onChange={(e) => setCreator(e.target.value.trim().toLowerCase())} />
@@ -135,7 +136,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
         <label>Active key</label>
         <KeyPicker value={activeKey} onChange={setActiveKey} keys={keys} />
       </div>
-      <div className="field" style={{ display: 'flex', gap: 8 }}>
+      <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 1 }}>
           <label>RAM (bytes)</label>
           <input className="input" type="number" min={0} value={ram} onChange={(e) => setRam(Math.max(0, Math.floor(Number(e.target.value) || 0)))} />
@@ -149,7 +150,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
           <input className="input mono" value={netStake} onChange={(e) => setNetStake(e.target.value)} />
         </div>
       </div>
-      <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+      <label style={{ display: 'flex', gap: 'var(--sp-2)', alignItems: 'center' }}>
         <input type="checkbox" checked={transfer} onChange={(e) => setTransfer(e.target.checked)} /> Transfer the staked tokens to the new account
       </label>
       {error && <div className="error-text">{error}</div>}
@@ -209,8 +210,9 @@ export function ChangeKeyDialog({
   }
   return (
     <Modal
+      size="m"
+      name="change-key"
       title={`Change key of ${account}@${permission}`}
-      wide
       onClose={busy ? undefined : onClose}
       footer={
         <>

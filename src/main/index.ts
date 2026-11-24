@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, nativeTheme } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 import { join } from 'node:path'
 import { buildMenu, watchMenuKey } from './menu'
 import { hasBlockedSwitch } from './switches'
@@ -15,6 +15,8 @@ import { currentNetwork, endpointOf, listNetworks, onNetworksChanged, selectNetw
 import { killAllTerminals } from './terminal'
 import { stopHelper } from './helper'
 import { fileSink, log, setLogSink } from './log'
+import { applyThemeSetting, followTheme, themeArgs, titleBarOverlay, windowBackground } from './theme'
+import { getSettings } from './store'
 import { mkdirSync } from 'node:fs'
 import {
   APP_ORIGIN,
@@ -66,17 +68,18 @@ function createMainWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 900,
-    minHeight: 600,
+    minWidth: 1024,
+    minHeight: 680,
     show: false,
     title: 'WAX Master',
-    backgroundColor: '#181818',
-    // Windows draws the caption buttons; the page draws icon, menus and title in the same 36 px row.
+    backgroundColor: windowBackground('chrome'),
+    // Windows draws the caption buttons; the page draws icon, menus and title in the same row.
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: '#181818', symbolColor: '#E4E4E4', height: 36 },
+    titleBarOverlay: titleBarOverlay(),
     icon: iconPath(),
-    webPreferences: secureWebPreferences(join(__dirname, '../preload/index.js'))
+    webPreferences: secureWebPreferences(join(__dirname, '../preload/index.js'), themeArgs())
   })
+  followTheme(mainWindow, 'chrome', true)
   mainWindow.once('ready-to-show', () => mainWindow?.show())
   guardWindow(mainWindow)
   watchMenuKey(mainWindow)
@@ -107,7 +110,7 @@ app.on('second-instance', () => {
 })
 
 app.whenReady().then(() => {
-  nativeTheme.themeSource = 'dark'
+  applyThemeSetting(getSettings().theme)
   hardenSessions()
   registerAppProtocol()
   registerIpc(() => mainWindow)

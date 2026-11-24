@@ -72,7 +72,7 @@ export function SavedMenus(props: {
             props.onRemove(which, e.id)
           }}
         >
-          <IconClose size={12} />
+          <IconClose size="xs" />
         </span>
       </div>
     ))
@@ -571,7 +571,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                   </div>
                   <textarea
                     className="field-input"
-                    style={{ minHeight: 140 }}
+                    style={{ minHeight: 'var(--json-max)' }}
                     spellCheck={false}
                     value={rawText}
                     onChange={(e) => {
@@ -596,7 +596,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                   />
                 ))
               )}
-              {error && touched ? <div className="error-text" style={{ marginTop: 10, userSelect: 'text' }}>{error}</div> : pack && !error && <div className="hint">Valid: {pack.hex.length / 2} bytes packed.</div>}
+              {error && touched ? <div className="error-text" style={{ marginTop: 'var(--sp-2h)', userSelect: 'text' }}>{error}</div> : pack && !error && <div className="hint">Valid: {pack.hex.length / 2} bytes packed.</div>}
             </Section>
             <Section title="Authorization" badge={<span className="badge mono">{authBadge || 'none'}</span>}>
               <div className="field-label">account@permission</div>
@@ -628,7 +628,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                   {result.cpuUs !== null ? ` · CPU ${result.cpuUs} µs` : ''}
                   {result.errorMessage && <div className="error-text">{result.errorMessage}</div>}
                   <div>
-                    <button className="btn" style={{ marginTop: 8 }} onClick={() => emit('show-inspector', result)}>
+                    <button className="btn" style={{ marginTop: 'var(--sp-2)' }} onClick={() => emit('show-inspector', result)}>
                       Open in inspector
                     </button>
                   </div>

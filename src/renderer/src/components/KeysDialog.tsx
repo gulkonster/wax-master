@@ -54,8 +54,9 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
 
   return (
     <Modal
+      size="l"
+      name="manage-keypairs"
       title="Manage Keypairs"
-      wide
       onClose={onClose}
       footer={
         <>
@@ -91,7 +92,7 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
           <UnlockInline />
         )}
       </div>
-      <div className="hint" style={{ margin: '8px 0 12px' }}>
+      <div className="hint" style={{ margin: 'var(--sp-2) 0 var(--sp-3)' }}>
         Keep the owner keys of valuable accounts out of this app; use a dedicated permission for deploying and daily actions.
       </div>
       {filterAccount && (
@@ -180,6 +181,8 @@ function CreateVault({ onClose }: { onClose: () => void }): React.JSX.Element {
   }
   return (
     <Modal
+      size="s"
+      name="create-vault"
       title="Create the key vault"
       onClose={onClose}
       footer={
@@ -240,7 +243,7 @@ export function UnlockInline({ onDone }: { onDone?: () => void }): React.JSX.Ele
     }
   }
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%' }}>
+    <div style={{ display: 'flex', gap: 'var(--gap-row)', alignItems: 'center', width: '100%' }}>
       <span className="badge">Locked</span>
       <input
         className="input"
@@ -280,6 +283,8 @@ function CreateKey({ onClose }: { onClose: () => void }): React.JSX.Element {
   }
   return (
     <Modal
+      size="m"
+      name="create-keypair"
       title="Create Keypair"
       onClose={close}
       footer={
@@ -333,6 +338,8 @@ function ImportKey({ onClose }: { onClose: () => void }): React.JSX.Element {
   const [error, setError] = useState('')
   return (
     <Modal
+      size="m"
+      name="import-keypair"
       title="Import Keypair"
       onClose={onClose}
       footer={
@@ -377,6 +384,8 @@ function ImportVault({ onClose }: { onClose: () => void }): React.JSX.Element {
   const [error, setError] = useState('')
   return (
     <Modal
+      size="s"
+      name="import-vault"
       title="Import vault"
       onClose={onClose}
       footer={
@@ -417,6 +426,8 @@ function DeleteKey({ entry, onClose }: { entry: KeyEntry; onClose: () => void })
   const word = 'delete'
   return (
     <Modal
+      size="s"
+      name="delete-key"
       title="Delete key"
       onClose={onClose}
       footer={

@@ -41,8 +41,9 @@ export function ClearCodeDialog({ onClose }: { onClose: () => void }): React.JSX
   }
   return (
     <Modal
+      size="m"
+      name="clear-code"
       title={`Clear Contract Code on ${net?.name ?? ''}`}
-      wide
       onClose={busy ? undefined : onClose}
       footer={
         <>
@@ -59,7 +60,7 @@ export function ClearCodeDialog({ onClose }: { onClose: () => void }): React.JSX
         Removes the contract (code and ABI) from the account. Its tables stay on the chain. The confirmation window asks you to type the
         account name.
       </p>
-      <div className="field" style={{ display: 'flex', gap: 8 }}>
+      <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 2 }}>
           <label>Account</label>
           <input className="input mono" value={account} onChange={(e) => setAccount(e.target.value.trim().toLowerCase())} />

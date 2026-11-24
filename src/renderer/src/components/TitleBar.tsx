@@ -1,4 +1,4 @@
-// The 36 px title bar of the main window: app icon, the menu bar drawn from the
+// The title bar row of the main window: app icon, the menu bar drawn from the
 // shared menu model, and the window title. Windows draws the caption buttons to
 // the right of it. A click on a menu item calls the same function the `menu`
 // event from the main process calls; nothing new reaches the main process.
@@ -397,7 +397,7 @@ export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit:
           {it.shortcut && <span className="dd-key">{it.shortcut}</span>}
           {it.items && (
             <span className="dd-sub">
-              <IconChevronRight size={12} />
+              <IconChevronRight size="xs" />
             </span>
           )}
           {it.items && level === 0 && sub?.index === i && (

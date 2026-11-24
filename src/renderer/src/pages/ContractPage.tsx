@@ -54,7 +54,7 @@ export function ContractPage(): React.JSX.Element {
                 close(t)
               }}
             >
-              <IconClose size={12} />
+              <IconClose size="xs" />
             </span>
           </div>
         ))}
@@ -67,7 +67,7 @@ export function ContractPage(): React.JSX.Element {
           <IconRefresh />
         </button>
         <div className="address-input">
-          <IconContract size={14} />
+          <IconContract size="sm" />
           <input
             value={input}
             placeholder="Contract account"
@@ -115,7 +115,7 @@ function ContractBody({ name }: { name: string }): React.JSX.Element {
   useEffect(() => void load(false), [load])
   useEffect(() => on('contract-refresh', (n) => n === name && void load(true)), [name, load])
 
-  if (error) return <div className="page-scroll"><div className="error-text" style={{ margin: 16 }}>{error}</div></div>
+  if (error) return <div className="page-scroll"><div className="error-text" style={{ margin: 'var(--sp-4)' }}>{error}</div></div>
   if (!view || !net.current) return <div className="coming">Loading {name}...</div>
   if (!view.hasAbi) {
     return <div className="contract-note">This account has no contract (no ABI) on {net.current.name}</div>

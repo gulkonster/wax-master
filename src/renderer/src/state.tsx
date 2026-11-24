@@ -1,7 +1,7 @@
 // Application state shared by the main window's components.
 
 import { createContext, useContext } from 'react'
-import type { AppInfo, OpenProject, ProjectEntry, Settings } from '../../shared/api'
+import type { AppInfo, OpenProject, ProjectEntry, Settings, SettingsPatch } from '../../shared/api'
 
 export type View = 'home' | 'project' | 'contract' | 'account' | 'keys' | 'settings' | 'setup'
 export type PanelTab = 'terminal' | 'output' | 'problems'
@@ -30,7 +30,7 @@ export interface AppActions {
   projectOpened(p: OpenProject): void
   closeProject(): Promise<void>
   newProject(): void
-  updateSettings(patch: Partial<Settings>): Promise<void>
+  updateSettings(patch: SettingsPatch): Promise<void>
   showPanel(tab: PanelTab | null): void
   togglePanel(): void
   setCursor(c: Cursor | null): void

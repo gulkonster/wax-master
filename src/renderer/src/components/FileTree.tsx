@@ -47,7 +47,7 @@ export function FileTree({
       <div key={node.path || '/'}>
         <div
           className={`tree-row${selected === node.path ? ' selected' : ''}`}
-          style={{ paddingLeft: 4 + depth * 12 }}
+          style={{ paddingLeft: `calc(var(--sp-1) + ${depth} * var(--sp-3))` }}
           onClick={() => (node.dir ? toggle(node.path) : onOpen(node))}
           onContextMenu={(e) => {
             e.preventDefault()

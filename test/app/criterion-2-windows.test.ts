@@ -19,7 +19,7 @@ const h = vi.hoisted(() => ({
 }))
 
 interface FakeWin {
-  webContents: { id: number; send: (ch: string, ...a: unknown[]) => void }
+  webContents: { id: number; send: (ch: string, ...a: unknown[]) => void; on: () => void }
   url: string
   visible: boolean
   focused: boolean
@@ -36,7 +36,7 @@ vi.mock('electron', () => {
     destroyed = false
     private listeners = new Map<string, (() => void)[]>()
     constructor() {
-      this.webContents = { id: h.nextId++, send: (channel: string, ...args: unknown[]) => h.sent.push({ channel, args }) }
+      this.webContents = { id: h.nextId++, send: (channel: string, ...args: unknown[]) => h.sent.push({ channel, args }), on: () => undefined }
       h.windows.push(this as unknown as FakeWin)
     }
     setMenu(): void {}
@@ -104,6 +104,12 @@ vi.mock('electron', () => {
     protocol: {},
     session: {},
     net: {},
+    // Windows follow the theme (src/main/theme.ts) and open on the screen's work area.
+    nativeTheme: { shouldUseDarkColors: true, themeSource: 'system', on: () => undefined },
+    screen: {
+      getPrimaryDisplay: () => ({ workAreaSize: { width: 1920, height: 1080 } }),
+      getDisplayMatching: () => ({ workAreaSize: { width: 1920, height: 1080 } })
+    },
     utilityProcess: {},
     BrowserWindow
   }

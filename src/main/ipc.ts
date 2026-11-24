@@ -4,6 +4,8 @@
 import { app, clipboard, dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { existsSync, mkdirSync } from 'node:fs'
 import type { AppInfo, OpenProject, Settings } from '../shared/api'
+import { THEME_SETTINGS, mergeDialogSizes, parseDialogSizesPatch } from '../shared/theme'
+import { applyThemeSetting } from './theme'
 import { bool, int, localAbsPath, obj, oneOf, relPath, str } from '../shared/validate'
 import { normalizeConfig, type TemplateId } from '../shared/project'
 import { BUILD_COMMIT, BUILD_STAGE, MAINNET_SIGNING } from './build-info'
@@ -103,7 +105,11 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     if ('updateCheck' in p) patch.updateCheck = bool(p.updateCheck, 'updateCheck')
     if ('terminalProfile' in p) patch.terminalProfile = oneOf(p.terminalProfile, 'terminalProfile', ['powershell', 'cmd', 'toolchain'] as const)
     if ('setupDismissed' in p) patch.setupDismissed = bool(p.setupDismissed, 'setupDismissed')
-    return store.updateSettings(patch)
+    if ('theme' in p) patch.theme = oneOf(p.theme, 'theme', THEME_SETTINGS)
+    if ('dialogSizes' in p) patch.dialogSizes = mergeDialogSizes(store.getSettings().dialogSizes, parseDialogSizesPatch(p.dialogSizes))
+    const next = store.updateSettings(patch)
+    if (patch.theme) applyThemeSetting(patch.theme)
+    return next
   })
 
   handle('projects:list', () => store.listProjects())

@@ -21,12 +21,12 @@ export function StatusBar(): React.JSX.Element {
   return (
     <div className="statusbar">
       <button className={`sb-item${vault.unlocked ? ' ok' : ''}`} title="Key vault: click to open Manage Keypairs" onClick={() => emit('open-keys', null)}>
-        <IconKey size={14} />
+        <IconKey size="sm" />
         {!vault.exists ? 'Vault not set up' : vault.unlocked ? `Vault unlocked (${vault.keys} ${vault.keys === 1 ? 'key' : 'keys'})` : 'Vault locked'}
       </button>
       {vault.unlocked && (
         <button className="sb-item" title="Vault unlocked: click to lock" onClick={() => void window.wax.keys.lock()}>
-          <IconLock size={14} />
+          <IconLock size="sm" />
           Lock
         </button>
       )}
@@ -56,14 +56,14 @@ export function StatusBar(): React.JSX.Element {
       )}
       <button className="sb-item" onClick={() => actions.showPanel('problems')} title="Problems">
         <span className={errors > 0 ? 'err' : undefined}>
-          <IconError size={14} /> {errors}
+          <IconError size="sm" /> {errors}
         </span>
         <span className={warnings > 0 ? 'warn' : undefined}>
-          <IconWarning size={14} /> {warnings}
+          <IconWarning size="sm" /> {warnings}
         </span>
       </button>
       <button className="sb-item" onClick={() => actions.togglePanel()} title="Toggle panel">
-        <IconTerminal size={14} />
+        <IconTerminal size="sm" />
       </button>
     </div>
   )
@@ -95,14 +95,14 @@ function ToolchainPicker({ ready, label }: { ready: boolean; label: string }): R
   if (!ready) {
     return (
       <button className="sb-item" title="Open Setup" onClick={() => actions.setView('setup')}>
-        <IconHammer size={14} /> {label}
+        <IconHammer size="sm" /> {label}
       </button>
     )
   }
   return (
     <div className="sb-picker">
       <button className="sb-item" title="Toolchain of the current project" onClick={() => setOpen((o) => !o)}>
-        <IconHammer size={14} /> {project ? (current?.label ?? label) : label}
+        <IconHammer size="sm" /> {project ? (current?.label ?? label) : label}
       </button>
       {open && (
         <div className="dropdown right" onMouseLeave={() => setOpen(false)}>

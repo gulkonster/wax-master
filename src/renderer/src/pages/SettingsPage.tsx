@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { ThemeSetting } from '../../../shared/api'
 import { useApp } from '../state'
 import { Modal } from '../components/Modal'
 import { errorText, toast } from '../lib/toast'
@@ -17,6 +18,18 @@ export function SettingsPage(): React.JSX.Element {
     <div className="page-scroll">
       <div className="form-page">
         <h1>Settings</h1>
+        <h2>Appearance</h2>
+        <div className="card">
+        <div className="field">
+          <label>Theme</label>
+          <select className="select w-select" value={s.theme} onChange={(e) => set({ theme: e.target.value as ThemeSetting })}>
+            <option value="system">System</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+          <div className="hint">System follows the Windows setting for apps and changes with it.</div>
+        </div>
+        </div>
         <h2>Editor</h2>
         <div className="card">
         <div className="field">
@@ -89,6 +102,8 @@ function ClearData({ onClose }: { onClose: () => void }): React.JSX.Element {
   const [error, setError] = useState('')
   return (
     <Modal
+      size="s"
+      name="clear-data"
       title="Clear All App Data"
       onClose={onClose}
       footer={
@@ -118,7 +133,7 @@ function ClearData({ onClose }: { onClose: () => void }): React.JSX.Element {
         <input type="checkbox" checked={vault} onChange={(e) => setVault(e.target.checked)} /> Also delete the key vault
       </label>
       {vault && (
-        <div className="field" style={{ marginTop: 10 }}>
+        <div className="field" style={{ marginTop: 'var(--sp-2h)' }}>
           <label>
             The private keys in the vault are lost unless you have an exported copy. Type <b>{VAULT_WORDS}</b>:
           </label>

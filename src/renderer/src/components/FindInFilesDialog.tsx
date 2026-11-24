@@ -43,7 +43,7 @@ export function FindInFilesDialog({ onClose }: { onClose: () => void }): React.J
   for (const m of result?.matches ?? []) files.set(m.file, [...(files.get(m.file) ?? []), m])
 
   return (
-    <Modal title="Find in Files" onClose={onClose} wide>
+    <Modal size="l" name="find-in-files" title="Find in Files" onClose={onClose}>
       <div className="find-files">
         <div className="find-files-bar">
           <input

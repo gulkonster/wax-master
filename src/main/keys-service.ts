@@ -13,6 +13,7 @@ import { getSettings } from './store'
 import { chain } from './rpc'
 import { currentNetwork, readCall } from './networks'
 import { APP_ORIGIN, isAllowedOrigin, secureWebPreferences } from './security'
+import { followTheme, themeArgs, windowBackground } from './theme'
 import { log } from './log'
 import { parsePublicKey, publicKeyToString } from '../chain-core'
 
@@ -112,16 +113,21 @@ export async function confirmNative(win: BrowserWindow | null, message: string, 
 function openRevealWindow(parent: BrowserWindow | null, keyId: string): void {
   const win = new BrowserWindow({
     parent: parent ?? undefined,
-    width: 620,
-    height: 380,
-    resizable: false,
+    // The size of the page inside the frame: the key fits on one line without scrolling.
+    useContentSize: true,
+    width: 780,
+    height: 420,
+    minWidth: 640,
+    minHeight: 360,
+    resizable: true,
     show: false,
     title: 'Show private key',
-    backgroundColor: '#1F1F1F',
+    backgroundColor: windowBackground('content'),
     autoHideMenuBar: true,
-    webPreferences: secureWebPreferences(join(__dirname, '../preload/confirm.js'))
+    webPreferences: secureWebPreferences(join(__dirname, '../preload/confirm.js'), themeArgs())
   })
   win.setMenu(null)
+  followTheme(win, 'content')
   const wcId = win.webContents.id
   revealWindows.set(wcId, { keyId, win })
   win.on('closed', () => revealWindows.delete(wcId))

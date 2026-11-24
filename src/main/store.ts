@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import type { ProjectEntry, Settings } from '../shared/api'
 import { dataDir, defaultProjectsDir } from './paths'
 import { readJson, writeJson } from './jsonfile'
+import { cleanDialogSizes, isThemeSetting } from '../shared/theme'
 
 interface StoreData {
   version: 1
@@ -21,7 +22,9 @@ function defaults(): StoreData {
       lockAfterSignature: false,
       updateCheck: true,
       terminalProfile: 'powershell',
-      setupDismissed: false
+      setupDismissed: false,
+      theme: 'system',
+      dialogSizes: {}
     },
     projects: [],
     trustedCommands: []
@@ -29,6 +32,11 @@ function defaults(): StoreData {
 }
 
 let cache: StoreData | null = null
+
+/** Values added in later versions are checked when read; a malformed one falls back to its default. */
+function cleanSettings(s: Settings, d: Settings): Settings {
+  return { ...s, theme: isThemeSetting(s.theme) ? s.theme : d.theme, dialogSizes: cleanDialogSizes(s.dialogSizes) }
+}
 
 function file(): string {
   return join(dataDir(), 'settings.json')
@@ -40,7 +48,7 @@ export function load(): StoreData {
   const raw = readJson<Partial<StoreData>>(file(), {})
   cache = {
     version: 1,
-    settings: { ...d.settings, ...(raw.settings ?? {}) },
+    settings: cleanSettings({ ...d.settings, ...(raw.settings ?? {}) }, d.settings),
     projects: Array.isArray(raw.projects) ? raw.projects : [],
     trustedCommands: Array.isArray(raw.trustedCommands) ? raw.trustedCommands : []
   }

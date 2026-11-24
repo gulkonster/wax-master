@@ -21,6 +21,8 @@ export function MainFileDialog({ project }: { project: OpenProject }): React.JSX
 
   return (
     <Modal
+      size="m"
+      name="main-file"
       title="Choose the main file"
       footer={
         <>
@@ -43,12 +45,12 @@ export function MainFileDialog({ project }: { project: OpenProject }): React.JSX
         other settings start with their defaults and can be changed in Project Settings.
       </p>
       {project.eosproj && (
-        <div className="hint" style={{ fontSize: 13, lineHeight: '20px', marginBottom: 8 }}>
+        <div className="hint" style={{ fontSize: 'var(--fs-body)', lineHeight: 'var(--lh-body)', marginBottom: 'var(--sp-2)' }}>
           Settings taken from .eosproj.
           {project.eosproj.buildScript.trim() && (
             <>
               {' '}Its build script was not imported:
-              <div className="approval-command" style={{ margin: '6px 0' }}>{project.eosproj.buildScript}</div>
+              <div className="approval-command" style={{ margin: 'var(--sp-1h) 0' }}>{project.eosproj.buildScript}</div>
               Set a custom build command in Project Settings if you still need one.
             </>
           )}

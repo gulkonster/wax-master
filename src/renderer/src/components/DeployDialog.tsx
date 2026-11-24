@@ -104,8 +104,9 @@ export function DeployDialog({
 
   return (
     <Modal
+      size="l"
+      name="deploy"
       title={askAccount ? 'Deploy to Account' : 'Deploy'}
-      wide
       onClose={busy ? undefined : onClose}
       footer={
         <>
@@ -124,13 +125,13 @@ export function DeployDialog({
         </>
       }
     >
-      <div className="field" style={{ display: 'flex', gap: 8 }}>
+      <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 1 }}>
           <label>Network</label>
           <div className={`chip ui${net?.kind === 'mainnet' ? ' mainnet-text' : ''}`}>{net ? `${net.name} · ${net.endpoints[net.currentEndpoint]}` : '(none)'}</div>
         </div>
       </div>
-      <div className="field" style={{ display: 'flex', gap: 8 }}>
+      <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 2 }}>
           <label>Account</label>
           <input className="input mono" value={account} onChange={(e) => (setAccount(e.target.value.trim().toLowerCase()), setPlan(null))} placeholder="contract account" />
@@ -192,7 +193,7 @@ export function DeployDialog({
       )}
       {error && <div className="error-text">{error}</div>}
       {trace && (
-        <div style={{ marginTop: 12 }}>
+        <div style={{ marginTop: 'var(--sp-3)' }}>
           <InspectorBody t={trace} />
         </div>
       )}

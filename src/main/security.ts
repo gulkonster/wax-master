@@ -84,7 +84,8 @@ export function registerAppProtocol(): void {
   })
 }
 
-export function secureWebPreferences(preload: string): Electron.WebPreferences {
+/** `pageArgs`: start arguments for the window's pages (the resolved theme). */
+export function secureWebPreferences(preload: string, pageArgs: string[] = []): Electron.WebPreferences {
   return {
     preload,
     contextIsolation: true,
@@ -100,9 +101,11 @@ export function secureWebPreferences(preload: string): Electron.WebPreferences {
     webviewTag: false,
     spellcheck: false,
     devTools: !app.isPackaged,
-    // Development only: the preload then also accepts the dev server's exact origin.
-    additionalArguments:
-      !app.isPackaged && process.env.ELECTRON_RENDERER_URL ? [`${DEV_URL_ARG}${process.env.ELECTRON_RENDERER_URL}`] : []
+    // The page arguments; in development also the dev server's exact origin, which the preload then accepts.
+    additionalArguments: [
+      ...pageArgs,
+      ...(!app.isPackaged && process.env.ELECTRON_RENDERER_URL ? [`${DEV_URL_ARG}${process.env.ELECTRON_RENDERER_URL}`] : [])
+    ]
   }
 }
 

@@ -31,7 +31,7 @@ export function TopBar(): React.JSX.Element {
           onClick={() => (state.project ? actions.setView('project') : setProjOpen((o) => !o))}
           title="Current project"
         >
-          <IconFileCode size={18} />
+          <IconFileCode size="lg" />
           <div>
             <div className="tb-label">Current Project</div>
             <div className={`tb-value${state.project ? '' : ' none'}`}>{state.project?.name ?? '(none)'}</div>
@@ -41,7 +41,7 @@ export function TopBar(): React.JSX.Element {
           <IconChevronDown />
         </button>
         {projOpen && (
-          <div className="dropdown left" style={{ width: 268 }}>
+          <div className="dropdown left" style={{ width: 'calc(var(--sidebar) - var(--sp-1))' }}>
             <div
               className="dd-item"
               onClick={() => {

@@ -74,7 +74,7 @@ export function AccountPage(): React.JSX.Element {
                 close(t)
               }}
             >
-              <IconClose size={12} />
+              <IconClose size="xs" />
             </span>
           </div>
         ))}
@@ -87,7 +87,7 @@ export function AccountPage(): React.JSX.Element {
           <IconRefresh />
         </button>
         <div className="address-input">
-          <IconUser size={14} />
+          <IconUser size="sm" />
           <input
             value={input}
             placeholder="Account name"
@@ -178,7 +178,7 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
     [name, load, loadRows]
   )
 
-  if (error) return <div className="page-scroll"><div className="error-text" style={{ margin: 16 }}>{error}</div></div>
+  if (error) return <div className="page-scroll"><div className="error-text" style={{ margin: 'var(--sp-4)' }}>{error}</div></div>
   if (!view) return <div className="coming">Loading {name}...</div>
 
   return (
@@ -209,7 +209,7 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
               <div className="perm-head">
                 <span className={`badge perm-${p.name === 'owner' ? 'owner' : p.name === 'active' ? 'active' : 'other'}`}>{p.name}</span>
                 <span className="badge" title="Threshold">
-                  <IconLock size={12} /> {p.threshold}
+                  <IconLock size="xs" /> {p.threshold}
                 </span>
                 {p.parent && <span className="parent">parent: {p.parent}</span>}
               </div>
@@ -218,7 +218,7 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
                   <div key={k.key} className="mono-small">
                     {vaultKeys.includes(k.k1) && (
                       <span className="badge green" title="This key is in your vault">
-                        <IconKey size={12} /> vault
+                        <IconKey size="xs" /> vault
                       </span>
                     )}{' '}
                     <span className="badge" title="Weight">{k.weight}</span> {k.key}

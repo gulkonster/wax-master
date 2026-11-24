@@ -106,6 +106,8 @@ export function ToolchainManager({ busy, onBusy }: { busy: boolean; onBusy: (b: 
       </div>
       {candidate && (
         <Modal
+          size="m"
+          name="add-toolchain"
           title="Add toolchain"
           onClose={() => setCandidate(null)}
           footer={

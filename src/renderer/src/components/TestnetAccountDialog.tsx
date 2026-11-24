@@ -56,8 +56,9 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
 
   return (
     <Modal
+      size="m"
+      name="testnet-account"
       title="Create Testnet Account"
-      wide
       onClose={busy ? undefined : onClose}
       footer={
         <>
@@ -105,13 +106,13 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
           <b>{created}</b> was created on WAX Testnet; its owner and active keys are in your vault.
         </p>
       )}
-      <p className="hint" style={{ fontSize: 13, lineHeight: '20px' }}>
+      <p className="hint" style={{ fontSize: 'var(--fs-body)', lineHeight: 'var(--lh-body)' }}>
         These keys were created by the faucet service, which has seen them. Use this account for testing only. You can replace both keys
         with new vault keys on the Account page (Change key).
       </p>
-      {message && <div className={failed ? 'error-text' : 'hint'} style={{ fontSize: 13 }}>{message}</div>}
+      {message && <div className={failed ? 'error-text' : 'hint'} style={{ fontSize: 'var(--fs-body)' }}>{message}</div>}
       {failed && (
-        <div className="hint" style={{ fontSize: 13, lineHeight: '20px' }}>
+        <div className="hint" style={{ fontSize: 'var(--fs-body)', lineHeight: 'var(--lh-body)' }}>
           The faucet ({FAUCET}/create_account and {FAUCET}/get_token) did not create the account. An existing testnet account can create one
           with Accounts &gt; Create Account.
         </div>
