@@ -6,6 +6,9 @@ import { networkStore, toggleStar } from '../lib/networks'
 import { useStore } from '../lib/stores'
 import { errorText } from '../lib/toast'
 import { lastOpened } from '../components/ChainButtons'
+import { BuyRamPanel, useRamMarket } from '../components/BuyRamPanel'
+import { FaucetButton, isWaxTestnet } from '../components/FaucetButton'
+import { accountRamDefault } from '../../../shared/ram-market'
 import { IconClose, IconContract, IconKey, IconLock, IconPlus, IconRefresh, IconStar, IconUser } from '../components/Icons'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
@@ -160,6 +163,9 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
   const [more, setMore] = useState(false)
   const [loadingRows, setLoadingRows] = useState(false)
   const [vaultKeys, setVaultKeys] = useState<string[]>([])
+  const [buyOpen, setBuyOpen] = useState(false)
+  const { price: ramPrice } = useRamMarket()
+  const netNow = useStore(networkStore).current
 
   useEffect(() => {
     window.wax.keys.list().then((l) => setVaultKeys(l.map((k) => k.publicKey))).catch(() => setVaultKeys([]))
@@ -232,6 +238,25 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
           <h3>Resources</h3>
           <div className="card-list">
             <Resource label="RAM" text={`${fmtBytes(view.ram.usage)} / ${fmtBytes(view.ram.quota)}`} value={pct(view.ram.usage, view.ram.quota)} />
+            {!buyOpen && ((ramPrice?.available && view.ram.quota >= 0) || isWaxTestnet(netNow)) && (
+              <div className="res-actions">
+                {ramPrice?.available && view.ram.quota >= 0 && (
+                  <button className="btn" onClick={() => setBuyOpen(true)}>
+                    Buy RAM
+                  </button>
+                )}
+                <FaucetButton account={view.name} onDone={() => void load()} />
+              </div>
+            )}
+            {buyOpen && ramPrice?.available && (
+              <BuyRamPanel
+                receiver={view.name}
+                initialBytes={accountRamDefault(view.ram.usage, view.ram.quota)}
+                onBought={() => void load()}
+                onFaucet={() => void load()}
+                onClose={() => setBuyOpen(false)}
+              />
+            )}
             <Resource label={`CPU (${view.cpuWeight})`} text={`${fmtUs(view.cpu.used)} / ${fmtUs(view.cpu.max)}`} value={pct(view.cpu.used, view.cpu.max)} />
             <Resource label={`NET (${view.netWeight})`} text={`${fmtBytes(view.net.used)} / ${fmtBytes(view.net.max)}`} value={pct(view.net.used, view.net.max)} />
           </div>

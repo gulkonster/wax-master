@@ -1,4 +1,4 @@
-// Change key replaces one key and keeps the rest of the authority (B15).
+// Change key replaces one key and keeps the rest of the authority.
 import { describe, expect, it } from 'vitest'
 import { changeKeyActions } from '../../src/main/accounts'
 import { generatePrivateKey, publicFromPrivate, publicKeyToString } from '../../src/chain-core'
@@ -31,7 +31,7 @@ function account(threshold = 2): Record<string, unknown> {
 
 type Auth = { threshold: number; keys: { key: string; weight: number }[]; accounts: unknown[]; waits: unknown[] }
 
-describe('Change key (B15)', () => {
+describe('Change key', () => {
   it('replaces one key with the same weight; threshold, other keys, accounts, waits and parent stay', () => {
     const [act] = changeKeyActions({ account: 'alice', permission: 'active', oldKey: B, newKey: NEW, signWith: 'active' }, account())
     const d = act.data as { parent: string; auth: Auth }

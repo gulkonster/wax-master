@@ -215,7 +215,7 @@ export function ChangeKeyDialog({
   const keys = useVaultKeys()
   const [oldKey, setOldKey] = useState(vaultKeys[0] ?? currentKeys[0] ?? '')
   const [newKey, setNewKey] = useState('')
-  // B15: the permission itself signs by default when the vault has its key; a parent is a choice.
+  // The permission itself signs by default when the vault has its key; a parent is a choice.
   const [signWith, setSignWith] = useState(vaultKeys.length > 0 ? permission : (signOptions[1] ?? permission))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')

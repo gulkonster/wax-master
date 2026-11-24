@@ -94,8 +94,9 @@ export function mergeDialogSizes(stored: Record<string, DialogSize>, patch: Reco
   return out
 }
 
-/** Reads the resolved theme from the start arguments of a page; dark unless exactly "light". */
-export function themeFromArgv(argv: readonly string[]): ResolvedTheme {
+/** Reads the resolved theme from the start arguments of a page: exactly "dark" or "light", anything else is ignored (null). */
+export function themeFromArgv(argv: readonly string[]): ResolvedTheme | null {
   const a = argv.find((x) => x.startsWith(THEME_ARG))
-  return a === `${THEME_ARG}light` ? 'light' : 'dark'
+  const value = a === undefined ? undefined : a.slice(THEME_ARG.length)
+  return value === 'dark' || value === 'light' ? value : null
 }

@@ -104,7 +104,7 @@
 .c-foot .btn {
   height: var(--ctl-lg);
 }
-/* Show private key: the key is one line of the full width and never wraps (B28). */
+/* Show private key: the key is one line of the full width and never wraps. */
 .c-row.c-stack {
   flex-direction: column;
   border-bottom: none;

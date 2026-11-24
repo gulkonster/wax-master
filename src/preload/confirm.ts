@@ -2,6 +2,7 @@
 // calls (approve, cancel); in reveal mode the key reveal calls.
 
 import { contextBridge, ipcRenderer } from 'electron'
+import { themeFromArgv } from '../shared/theme'
 
 // The resolved theme (dark or light) on <html data-theme>: from the start
 // arguments before the first paint, then from the main process on each change.
@@ -27,7 +28,7 @@ function applyTheme(theme: unknown): void {
   })
   watch.observe(doc, { childList: true })
 }
-applyTheme(process.argv.find((a) => a.startsWith('--wax-theme='))?.slice('--wax-theme='.length))
+applyTheme(themeFromArgv(process.argv))
 ipcRenderer.on('theme', (_e, theme: unknown) => applyTheme(theme))
 
 contextBridge.exposeInMainWorld('confirmation', {

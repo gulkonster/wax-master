@@ -1,4 +1,4 @@
-// Account picker list (B36): starred accounts first, then accounts of the vault's
+// Account picker list: starred accounts first, then accounts of the vault's
 // keys, with the permissions whose threshold the vault's keys reach; and the
 // account existence check used for recipients and new names.
 

@@ -1,4 +1,4 @@
-// CPU / NET / RAM refusals are said plainly with the account's resources (E16);
+// CPU / NET / RAM refusals are said plainly with the account's resources;
 // a timeout or network error is never described as a resource shortage.
 import { describe, expect, it } from 'vitest'
 import { fromNodeAnswer, fromNodeError, resourceKindOf, withResourceState } from '../../src/main/trace'

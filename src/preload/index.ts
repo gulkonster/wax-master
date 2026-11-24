@@ -5,6 +5,7 @@
 
 import { contextBridge, ipcRenderer } from 'electron'
 import type { WaxApi, WaxTerminalApi } from '../shared/api'
+import { themeFromArgv } from '../shared/theme'
 import { devUrlFromArgv, interfaceFor } from '../shared/preload-exposure'
 
 // The resolved theme (dark or light) on <html data-theme>: from the start
@@ -31,7 +32,7 @@ function applyTheme(theme: unknown): void {
   })
   watch.observe(doc, { childList: true })
 }
-applyTheme(process.argv.find((a) => a.startsWith('--wax-theme='))?.slice('--wax-theme='.length))
+applyTheme(themeFromArgv(process.argv))
 ipcRenderer.on('theme', (_e, theme: unknown) => applyTheme(theme))
 
 const call =
@@ -144,7 +145,8 @@ const api: WaxApi = {
   chain: {
     account: call('chain:account'),
     accountExists: call('chain:accountExists'),
-    actions: call('chain:actions')
+    actions: call('chain:actions'),
+    ramPrice: call('chain:ramPrice')
   },
   contract: {
     abi: call('contract:abi'),

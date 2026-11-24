@@ -132,7 +132,7 @@ describe('colour tokens', () => {
     for (const [k, v] of Object.entries(expected)) expect(t.get(k), k).toBe(v)
   })
 
-  it('the light tokens have the values of B27', () => {
+  it('the light tokens have the values of the light palette', () => {
     const t = lightTokens()
     const expected: Record<string, string> = {
       '--bg-chrome': '#F3F3F3',
@@ -191,12 +191,12 @@ describe('colour tokens', () => {
     }
   })
 
-  it('the light theme passes the contrast pairs of B27', () => {
+  it('the light theme passes the contrast pairs of the light palette', () => {
     const t = lightTokens()
     const c = (name: string): string => t.get(name)!
     const sel = (bg: string): string => over(c('--accent-tint'), c(bg))
     const pairs: [string, string, string, number, number][] = [
-      // [what, foreground, background, minimum, value stated in B27]
+      // [what, foreground, background, minimum, value stated in the specification]
       ['text on chrome', c('--text'), c('--bg-chrome'), 4.5, 14.85],
       ['text on content', c('--text'), c('--bg-content'), 4.5, 16.48],
       ['text on surface-3', c('--text'), c('--bg-surface-3'), 4.5, 12.72],
@@ -231,7 +231,7 @@ describe('colour tokens', () => {
     expect(ratio(c('--sel-line'), c('--bg-content'))).toBeGreaterThanOrEqual(3)
     expect(ratio(c('--sel-line'), c('--bg-chrome'))).toBeGreaterThanOrEqual(3)
     for (const fill of ['--red-fill', '--green-fill', '--info-fill']) expect(ratio(c('--on-fill'), c(fill)), fill).toBeGreaterThanOrEqual(4.5)
-    // B27: the selected item over surface-3 is not allowed for orange text (below 4.5).
+    // The selected item over surface-3 is not allowed for orange text (below 4.5).
     expect(ratio(c('--accent-text'), c('--bg-surface-3'))).toBeLessThan(4.5)
   })
 
@@ -321,8 +321,8 @@ describe('colour tokens', () => {
   })
 })
 
-describe('size tokens (B26)', () => {
-  it('the scale has the values of B26', () => {
+describe('size tokens', () => {
+  it('the scale has the values of the size scale', () => {
     const t = darkTokens()
     const expected: Record<string, string> = {
       '--fs-body': '15px',
@@ -333,6 +333,8 @@ describe('size tokens (B26)', () => {
       '--lh-small': '16px',
       '--fs-page': '28px',
       '--lh-page': '36px',
+      '--fs-project': '20px',
+      '--lh-project': '26px',
       '--fs-section': '20px',
       '--lh-section': '28px',
       '--fs-card': '16px',
@@ -401,11 +403,12 @@ describe('size tokens (B26)', () => {
 })
 
 describe('theme and dialog size settings', () => {
-  it('reads the theme from the start arguments; anything but exactly light is dark', () => {
+  it('reads the theme from the start arguments; only exactly dark or light is taken, anything else is ignored', () => {
     expect(themeFromArgv(['x', '--wax-theme=light'])).toBe('light')
     expect(themeFromArgv(['--wax-theme=dark'])).toBe('dark')
-    expect(themeFromArgv(['--wax-theme=light2'])).toBe('dark')
-    expect(themeFromArgv([])).toBe('dark')
+    expect(themeFromArgv(['--wax-theme=light2'])).toBeNull()
+    expect(themeFromArgv(['--wax-theme='])).toBeNull()
+    expect(themeFromArgv([])).toBeNull()
   })
 
   it('accepts a dialog size change only in whole pixels within the limits', () => {

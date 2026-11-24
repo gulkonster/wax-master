@@ -133,7 +133,7 @@ export async function runBuild(sender: WebContents): Promise<BuildResult> {
   if (building) throw new Error('A build is already running')
   const custom = p.config.buildCommand.trim()
   if (custom) {
-    // Every custom command needs approval per folder and exact text; no exemption (B6).
+    // Every custom command needs approval per folder and exact text; no exemption.
     const trusted = isCommandTrusted(p.root, custom)
     if (!trusted) {
       if (!(await askApproval(sender, p.root, custom))) {

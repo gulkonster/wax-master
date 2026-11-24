@@ -83,7 +83,7 @@ function monacoDefaults(): Set<string> {
   return found
 }
 
-describe('key owners (B11)', () => {
+describe('key owners', () => {
   const normalizedEditor = EDITOR_KEYS.map(normalizeKey)
   const normalizedApp = APP_KEYS.map(normalizeKey)
 

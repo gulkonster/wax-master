@@ -15,11 +15,14 @@ const h = vi.hoisted(() => ({
   handlers: new Map<string, (e: unknown, ...a: unknown[]) => Promise<unknown>>(),
   windows: [] as FakeWin[],
   sent: [] as { channel: string; args: unknown[] }[],
+  frameSent: [] as { channel: string; args: unknown[] }[],
+  dark: true,
   nextId: 100
 }))
 
 interface FakeWin {
   webContents: { id: number; send: (ch: string, ...a: unknown[]) => void; on: () => void }
+  options: { minWidth?: number; minHeight?: number; backgroundColor?: string; webPreferences: { preload: string; additionalArguments: string[] } }
   url: string
   visible: boolean
   focused: boolean
@@ -34,12 +37,20 @@ vi.mock('electron', () => {
     visible = false
     focused = false
     destroyed = false
+    options: FakeWin['options']
     private listeners = new Map<string, (() => void)[]>()
-    constructor() {
-      this.webContents = { id: h.nextId++, send: (channel: string, ...args: unknown[]) => h.sent.push({ channel, args }), on: () => undefined }
+    constructor(options: FakeWin['options']) {
+      this.options = options
+      this.webContents = {
+        id: h.nextId++,
+        send: (channel: string, ...args: unknown[]) => h.sent.push({ channel, args }),
+        on: () => undefined,
+        mainFrame: { framesInSubtree: [{ send: (channel: string, ...args: unknown[]) => h.frameSent.push({ channel, args }) }] }
+      } as unknown as FakeWin['webContents']
       h.windows.push(this as unknown as FakeWin)
     }
     setMenu(): void {}
+    setBackgroundColor(): void {}
     on(ev: string, fn: () => void): this {
       this.listeners.set(ev, [...(this.listeners.get(ev) ?? []), fn])
       return this
@@ -105,7 +116,13 @@ vi.mock('electron', () => {
     session: {},
     net: {},
     // Windows follow the theme (src/main/theme.ts) and open on the screen's work area.
-    nativeTheme: { shouldUseDarkColors: true, themeSource: 'system', on: () => undefined },
+    nativeTheme: {
+      get shouldUseDarkColors() {
+        return h.dark
+      },
+      themeSource: 'system',
+      on: () => undefined
+    },
     screen: {
       getPrimaryDisplay: () => ({ workAreaSize: { width: 1920, height: 1080 } }),
       getDisplayMatching: () => ({ workAreaSize: { width: 1920, height: 1080 } })
@@ -119,6 +136,8 @@ import { generatePrivateKey, privateKeyToString } from '../../src/chain-core'
 import { APPROVE_DELAY_MS, hasOpenConfirmation, openConfirmation, registerConfirmWindow } from '../../src/main/confirm-window'
 import { registerKeys, vault } from '../../src/main/keys-service'
 import { preflight } from '../../src/main/ipc-tx'
+import { applyThemeSetting } from '../../src/main/theme'
+import { WINDOW_COLORS } from '../../src/shared/theme'
 import { BUSY_MESSAGE, LOCKED_MESSAGE, type ApprovalRecord, type Signer } from '../../src/main/signer'
 import { UnlockCancelled, isVaultLocked, retryAfterUnlock } from '../../src/shared/vault-locked'
 
@@ -387,5 +406,54 @@ describe('locking the vault closes an open confirmation window', () => {
     expect(win.destroyed).toBe(true)
     await expect(done).resolves.toMatchObject({ approved: false, reason: 'closed' })
     await call('keys:unlock', editor(), PW)
+  })
+})
+
+describe('the confirmation and reveal windows follow the theme', () => {
+  const saved = process.env.ELECTRON_RENDERER_URL
+  afterEach(() => {
+    h.dark = true
+    if (saved === undefined) delete process.env.ELECTRON_RENDERER_URL
+    else process.env.ELECTRON_RENDERER_URL = saved
+  })
+
+  it('each is created with exactly one page argument, the resolved theme', async () => {
+    delete process.env.ELECTRON_RENDERER_URL
+    for (const dark of [true, false]) {
+      h.dark = dark
+      const { win } = openOne(`appr-theme-${dark}`)
+      expect(win.options.webPreferences.additionalArguments).toEqual([`--wax-theme=${dark ? 'dark' : 'light'}`])
+      expect(win.options.backgroundColor).toBe(WINDOW_COLORS[dark ? 'dark' : 'light'].content)
+      await call('keys:reveal', editor(), keyId)
+      const reveal = h.windows[h.windows.length - 1]
+      expect(reveal.options.webPreferences.additionalArguments).toEqual([`--wax-theme=${dark ? 'dark' : 'light'}`])
+      expect(reveal.options.backgroundColor).toBe(WINDOW_COLORS[dark ? 'dark' : 'light'].content)
+      ;(reveal as unknown as { close(): void }).close()
+      ;(win as unknown as { close(): void }).close()
+    }
+  })
+
+  it('the reveal window has the minimum size 640 x 360 and the same preload as the confirmation window', async () => {
+    const { win } = openOne('appr-size')
+    await call('keys:reveal', editor(), keyId)
+    const reveal = h.windows[h.windows.length - 1]
+    expect(reveal.options.minWidth).toBe(640)
+    expect(reveal.options.minHeight).toBe(360)
+    expect(reveal.options.webPreferences.preload).toBe(win.options.webPreferences.preload)
+    ;(reveal as unknown as { close(): void }).close()
+  })
+
+  it('the only message sent to the pages of a window is theme with dark or light', () => {
+    const { win } = openOne('appr-msg')
+    h.frameSent.length = 0
+    for (const dark of [false, true]) {
+      h.dark = dark
+      applyThemeSetting(dark ? 'dark' : 'light')
+    }
+    expect(h.frameSent).toEqual([
+      { channel: 'theme', args: ['light'] },
+      { channel: 'theme', args: ['dark'] }
+    ])
+    void win
   })
 })

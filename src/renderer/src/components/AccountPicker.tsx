@@ -1,4 +1,4 @@
-// One account field for every form (B36), in three modes:
+// One account field for every form, in three modes:
 //   starred  the contract account of Deploy, Clear Contract Code and the Project
 //            Settings: only starred accounts, nothing can be typed;
 //   signer   who signs: the list plus a typed name, looked up when the field is left;

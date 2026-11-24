@@ -54,6 +54,8 @@ export default defineConfig({
   },
   preload: {
     build: {
+      // Each sandboxed preload must be one file: shared code is inlined, not split into a chunk.
+      isolatedEntries: true,
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/preload/index.ts'),

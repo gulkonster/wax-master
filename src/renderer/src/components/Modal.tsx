@@ -4,7 +4,7 @@ import { AppContext } from '../state'
 import { errorText } from '../lib/toast'
 import { IconClose } from './Icons'
 
-/** Dialog widths of B28: S (text input, delete, unlock), M (forms), L (lists and tables). */
+/** Dialog widths: S (text input, delete, unlock), M (forms), L (lists and tables). */
 export type ModalSize = 's' | 'm' | 'l'
 
 /** A size token of styles.css in pixels (the scale lives only there). */

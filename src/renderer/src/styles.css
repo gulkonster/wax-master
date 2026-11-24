@@ -79,7 +79,7 @@
   --font-display: 'Segoe UI Variable Display', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'Cascadia Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
 
-  /* Sizes (B26). Every size in the program comes from here; the light theme
+  /* Sizes. Every size in the program comes from here; the light theme
      changes colours only. */
 
   /* Type: size and line height */
@@ -104,8 +104,8 @@
   --fs-menubar: 13px;
   --fs-tree: 14px;
   --fs-home-tab: 16px;
-  --fs-project: 18px;
-  --lh-project: 24px;
+  --fs-project: 20px;
+  --lh-project: 26px;
   --fs-key: 15px;
   /* Excepted from the scale: Output and Problems text (the editor and terminal set their own). */
   --fs-output: 13px;
@@ -196,8 +196,7 @@
   --label-input: 160px;
   --label-col: 180px;
   --tr-label-col: 150px;
-  --key-label-min: 220px;
-  --key-col-min: 260px;
+  --key-label-min: 72px;
   --terminal-list: 190px;
   --action-pane-min: 380px;
   --query-col: 220px;
@@ -209,7 +208,7 @@
   --log-max: 300px;
   --foot-notes-max: 160px;
 
-  /* Dialogs (B28) */
+  /* Dialogs */
   --dialog-s: 560px;
   --dialog-m: 760px;
   --dialog-l: 980px;
@@ -233,7 +232,7 @@
   color-scheme: dark;
 }
 
-/* Light theme (B27): colours only; sizes are shared. */
+/* Light theme: colours only; sizes are shared. */
 :root[data-theme='light'] {
   --bg-chrome: #F3F3F3;
   --bg-content: #FFFFFF;
@@ -1876,7 +1875,7 @@ button.sb-item.mainnet:hover {
     opacity: 1;
   }
 }
-/* Dialogs (B28): three widths, resizable from the lower right corner, only the body scrolls. */
+/* Dialogs: three widths, resizable from the lower right corner, only the body scrolls. */
 .modal {
   position: relative;
   display: flex;
@@ -2057,8 +2056,16 @@ button.sb-item.mainnet:hover {
 .keys-table .key-label {
   min-width: var(--key-label-min);
 }
+.keys-table th {
+  white-space: nowrap;
+}
+.keys-table td.actions .btn {
+  min-width: 0;
+}
 .keys-table td.mono-small {
-  min-width: var(--key-col-min);
+  word-break: normal;
+  overflow-wrap: normal;
+  white-space: nowrap;
 }
 .keys-table .label-input {
   width: 100%;
@@ -2921,7 +2928,7 @@ button.sb-item.mainnet:hover {
 .dd-item.disabled.hot .dd-key {
   color: var(--text-disabled);
 }
-/* Key rows are list rows of the scale (B26), not data table rows. */
+/* Key rows are list rows of the size scale, not data table rows. */
 .tx-table.keys-table td {
   height: var(--row);
   vertical-align: middle;
@@ -2933,7 +2940,7 @@ button.sb-item.mainnet:hover {
   background: var(--bg-inset);
 }
 
-/* ------------------------------------------------------------------ account picker (B36) */
+/* ------------------------------------------------------------------ account picker */
 
 .acct-pick {
   position: relative;
@@ -3049,4 +3056,87 @@ button.sb-item.mainnet:hover {
 }
 .back-banner .grow {
   flex: 1;
+}
+
+/* RAM warning of Deploy, Buy RAM form and the faucet button */
+.ram-warn {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--gap-row);
+  margin-top: var(--sp-2);
+  white-space: normal;
+}
+.ram-warn .grow {
+  flex: 1;
+  min-width: 0;
+}
+.ram-warn-actions,
+.res-actions,
+.buy-ram-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--gap-row);
+}
+.res-actions {
+  margin-top: var(--sp-2);
+}
+.faucet-btn {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.faucet-msg {
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--text-2);
+  user-select: text;
+}
+.buy-ram {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  padding: var(--sp-4);
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.buy-ram-title {
+  font-size: var(--fs-card);
+  line-height: var(--lh-card);
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.buy-ram-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-field);
+}
+.buy-ram-fields .field {
+  margin: 0;
+}
+.buy-ram-bytes {
+  flex: 1 1 var(--field-perm);
+  min-width: 0;
+}
+.buy-ram-payer {
+  flex: 3 1 var(--field-account);
+  min-width: 0;
+}
+.buy-ram-payer .signer-row {
+  margin-bottom: 0;
+}
+.buy-ram-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--gap-group);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--text-2);
+}
+.buy-ram .error-text {
+  margin-top: 0;
 }

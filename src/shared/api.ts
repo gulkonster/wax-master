@@ -4,6 +4,7 @@
 import type { ProjectConfig, TemplateId } from './project'
 import type { InspectedTransaction } from './trace-types'
 import type { DeployPlan } from './chain-types'
+import type { RamPrice } from './ram-market'
 import type { AccountActionsPage, AccountView, NetworkInfo, NetworkKind } from './chain-types'
 import type { AuthLevel, ContractAbiView, ContractHistoryEntry, ContractHistoryKind, ContractHistoryList, PackResult, RowsQuery, RowsResult, ScopesResult } from './chain-types'
 
@@ -397,6 +398,8 @@ export interface WaxApi {
     /** False when the node says the account does not exist; a failed request rejects. */
     accountExists(name: string): Promise<boolean>
     actions(name: string, skip: number): Promise<AccountActionsPage>
+    /** RAM price of the current network for `bytes` (0: the market only), from the system RAM market. */
+    ramPrice(bytes: number): Promise<RamPrice>
   }
   contract: {
     abi(account: string, refresh?: boolean): Promise<ContractAbiView>
