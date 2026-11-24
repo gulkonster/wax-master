@@ -9,6 +9,7 @@ import { copyFileSync, existsSync } from 'node:fs'
 import { readJson, writeJson } from './jsonfile'
 import { chain, normalizeEndpoint, RpcError } from './rpc'
 import { log } from './log'
+import { oneLineText, plainTextOrEmpty } from '../shared/network-info'
 
 export const WAX_MAINNET_ID = 'wax-mainnet'
 export const WAX_TESTNET_ID = 'wax-testnet'
@@ -27,6 +28,19 @@ export const WAX_TESTNET_CHAIN = 'f16b1833c747c43682f4386fca9cbb327929334a762755
 
 const KINDS: readonly NetworkKind[] = ['mainnet', 'testnet', 'local']
 
+/** The one written form of a chain id: 64 lower-case hex characters. */
+export const CHAIN_ID_FORM = /^[0-9a-f]{64}$/
+
+/** Name of a main network from the fixed list, compared in lower case; null when it is not one. */
+function mainnetName(chainId: unknown): string | null {
+  const id = typeof chainId === 'string' ? chainId.toLowerCase() : ''
+  return Object.hasOwn(MAINNET_CHAINS, id) ? MAINNET_CHAINS[id] : null
+}
+
+function isWaxTestnetChain(chainId: unknown): boolean {
+  return typeof chainId === 'string' && chainId.toLowerCase() === WAX_TESTNET_CHAIN
+}
+
 export function isLocalEndpoint(url: string): boolean {
   try {
     const h = new URL(url).hostname
@@ -42,22 +56,22 @@ export function isLocalEndpoint(url: string): boolean {
  * computer; anything not marked `testnet` or `local` counts as mainnet.
  */
 export function effectiveKind(n: { chainId: string; kind: unknown; endpoints: readonly string[]; testnetConfirmed?: unknown }): NetworkKind {
-  if (MAINNET_CHAINS[n.chainId]) return 'mainnet'
+  if (mainnetName(n.chainId) !== null) return 'mainnet'
   if (n.kind === 'local') return n.endpoints.length > 0 && n.endpoints.every(isLocalEndpoint) ? 'local' : 'mainnet'
   // A test network is the WAX Testnet chain or one confirmed in the main-process dialog.
-  if (n.kind === 'testnet' && (n.chainId === WAX_TESTNET_CHAIN || n.testnetConfirmed === true)) return 'testnet'
+  if (n.kind === 'testnet' && (isWaxTestnetChain(n.chainId) || n.testnetConfirmed === true)) return 'testnet'
   return 'mainnet'
 }
 
 /** Why the kind of a chain cannot be chosen (shown next to the kind), or null. */
 export function fixedKindNote(chainId: string): string | null {
-  const known = MAINNET_CHAINS[chainId]
+  const known = mainnetName(chainId)
   return known ? `This is the ${known} chain, so the kind is always mainnet (red confirmation, typed account names).` : null
 }
 
 /** Name of a chain the app knows (suggested in Add Network), or null. */
 export function knownChainName(chainId: string): string | null {
-  return MAINNET_CHAINS[chainId] ?? (chainId === WAX_TESTNET_CHAIN ? 'WAX Testnet' : null)
+  return mainnetName(chainId) ?? (isWaxTestnetChain(chainId) ? 'WAX Testnet' : null)
 }
 
 /** Asked before a chain outside the known lists is marked as a test network. */
@@ -69,13 +83,13 @@ async function decideKind(
   previous: NetworkKind | null,
   confirmTestnet: ConfirmTestnet
 ): Promise<{ kind: NetworkKind; testnetConfirmed: boolean }> {
-  if (MAINNET_CHAINS[n.chainId]) return { kind: 'mainnet', testnetConfirmed: false }
+  if (mainnetName(n.chainId) !== null) return { kind: 'mainnet', testnetConfirmed: false }
   if (requested === 'local') {
     if (!n.endpoints.every(isLocalEndpoint)) throw new Error('"Local" is only for networks whose endpoints are all on this computer.')
     return { kind: 'local', testnetConfirmed: false }
   }
   if (requested === 'testnet') {
-    if (n.chainId === WAX_TESTNET_CHAIN) return { kind: 'testnet', testnetConfirmed: false }
+    if (isWaxTestnetChain(n.chainId)) return { kind: 'testnet', testnetConfirmed: false }
     if (previous === 'testnet') return { kind: 'testnet', testnetConfirmed: true }
     const ok = await confirmTestnet({ name: n.name, chainId: n.chainId, endpoint: n.endpoints[0] ?? '' })
     if (!ok) throw new Error('Not saved: the network was not marked as a test network.')
@@ -161,17 +175,41 @@ function cleanStars(v: unknown): Record<string, string[]> {
   return out
 }
 
+/** An endpoint address from the file in the form every request uses; null when it is not allowed. */
+function storedEndpoint(v: string): string | null {
+  try {
+    return normalizeEndpoint(v)
+  } catch {
+    return null
+  }
+}
+
+function entryName(id: string): string {
+  return oneLineText(id, 64)
+}
+
 /** A stored network as read from the file; null when it is unusable. */
 function cleanNetwork(raw: unknown): NetworkInfo | null {
   if (!isObj(raw)) return null
   if (typeof raw.id !== 'string' || typeof raw.chainId !== 'string') return null
-  const endpoints = strList(raw.endpoints)
+  // A chain id is taken only in its one written form, so the mainnet list always recognises it.
+  if (!CHAIN_ID_FORM.test(raw.chainId)) {
+    log.warn(`Network list: entry ${entryName(raw.id)} dropped (its chain id is not 64 lower-case hex characters)`)
+    return null
+  }
+  const stored = strList(raw.endpoints)
+  const endpoints = [...new Set(stored.map(storedEndpoint).filter((e): e is string => e !== null))]
+  if (endpoints.length < stored.length) log.warn(`Network list: entry ${entryName(raw.id)} lost an endpoint address that is not allowed or repeated`)
   if (endpoints.length === 0) return null
   const def = DEFAULTS.find((d) => d.id === raw.id)
-  const index = typeof raw.currentEndpoint === 'number' && Number.isInteger(raw.currentEndpoint) ? raw.currentEndpoint : 0
+  const storedIndex = typeof raw.currentEndpoint === 'number' && Number.isInteger(raw.currentEndpoint) ? raw.currentEndpoint : 0
+  // The chosen endpoint keeps pointing at the same address after unusable ones were dropped.
+  const chosen = typeof stored[storedIndex] === 'string' ? storedEndpoint(stored[storedIndex]) : null
+  const index = chosen !== null ? endpoints.indexOf(chosen) : 0
+  const history = typeof raw.history === 'string' && raw.history ? storedEndpoint(raw.history) : null
   const base = {
     endpoints,
-    history: typeof raw.history === 'string' && raw.history ? raw.history : undefined,
+    history: history ?? undefined,
     currentEndpoint: Math.max(0, Math.min(index, endpoints.length - 1))
   }
   // A default keeps its fixed name, chain id and kind whatever the file says.
@@ -369,7 +407,7 @@ export async function readCall<T>(fn: (endpoint: string) => Promise<T>, network 
       // No answer, a rate limit or a server failure: the next endpoint may answer.
       const retryable = e instanceof RpcError && (e.status === 0 || e.status === 429 || e.status >= 500)
       if (!retryable) throw e
-      log.warn(`Endpoint ${ep} failed: ${e instanceof Error ? e.message : String(e)}`)
+      log.warn(`Endpoint ${ep} failed: ${oneLineText(e instanceof Error ? e.message : String(e), 200)}`)
     }
   }
   if (n.endpoints.length > 1 && firstErr instanceof RpcError) {
@@ -410,11 +448,24 @@ export async function probeEndpoint(url: string): Promise<{
     chainId: info.chain_id,
     symbol,
     precision,
-    version: info.server_version_string ?? '',
+    // Text from the endpoint: kept only when short and plain.
+    version: plainTextOrEmpty(info.server_version_string, 80),
     kindNote: fixedKindNote(info.chain_id),
     localAllowed: isLocalEndpoint(endpoint),
     knownName: knownChainName(info.chain_id)
   }
+}
+
+/**
+ * A user's network name must be free: not used by another network of the list,
+ * and not the name of a default network, even while that default is removed
+ * (so restoring the defaults never gives two rows with one name).
+ */
+function checkNameFree(name: string, exceptId: string | null): void {
+  const lower = name.toLowerCase()
+  const def = DEFAULTS.find((d) => d.name.toLowerCase() === lower)
+  if (def && def.id !== exceptId) throw new Error(`"${def.name}" is the name of a default network; choose another name`)
+  if (listNetworks().some((n) => n.id !== exceptId && n.name.toLowerCase() === lower)) throw new Error('A network with this name exists')
 }
 
 export async function addNetwork(
@@ -431,13 +482,13 @@ export async function addNetwork(
 ): Promise<NetworkInfo> {
   const name = input.name.trim()
   if (!name) throw new Error('Name is required')
-  if (listNetworks().some((n) => n.name.toLowerCase() === name.toLowerCase())) throw new Error('A network with this name exists')
+  checkNameFree(name, null)
   if (!/^[0-9a-f]{64}$/.test(input.chainId)) throw new Error('Chain id must be 64 hex characters')
   if (!/^[A-Z]{1,7}$/.test(input.symbol)) throw new Error('Symbol must be 1-7 capital letters')
   const endpoints = [normalizeEndpoint(input.endpoint)]
   const { kind, testnetConfirmed } = await decideKind(input.kind, { name, chainId: input.chainId, endpoints }, null, confirmTestnet)
   const f = load()
-  if (listNetworks().some((n) => n.name.toLowerCase() === name.toLowerCase())) throw new Error('A network with this name exists')
+  checkNameFree(name, null)
   const n: NetworkInfo = {
     id: `custom-${Date.now().toString(36)}`,
     name,
@@ -469,7 +520,7 @@ export async function updateNetwork(
     if (isDefault) throw new Error(`The name of ${found.name} is fixed; its endpoints and history service can be changed`)
     name = patch.name.trim()
     if (!name) throw new Error('Name is required')
-    if (listNetworks().some((n) => n.id !== id && n.name.toLowerCase() === name.toLowerCase())) throw new Error('A network with this name exists')
+    checkNameFree(name, id)
   }
   let endpoints = found.endpoints
   if (patch.endpoints) {

@@ -4,6 +4,7 @@ import type { MenuCommand, OpenProject, SettingsPatch } from '../../shared/api'
 import { AppContext, type AppActions, type AppState, type PanelTab, type View } from './state'
 import { emit, on } from './lib/bus'
 import { startBuild } from './lib/build'
+import { createRicardianFiles } from './lib/ricardian'
 import { Setup, refreshToolchainLabel } from './pages/Setup'
 import { Modal } from './components/Modal'
 import { AccountPage } from './pages/AccountPage'
@@ -294,6 +295,10 @@ export function App(): React.JSX.Element {
         case 'deploy-to-account':
           if (!s.project) toast('Open a project first', 'Deploy works on the current project.')
           else setDeployOpen({ askAccount: cmd === 'deploy-to-account' })
+          break
+        case 'create-ricardian':
+          if (!s.project) toast('Open a project first', 'Create Ricardian Files works on the current project.')
+          else void createRicardianFiles((t) => actions.showPanel(t), () => actions.setView('project'))
           break
         case 'create-account':
           setChainDialog('create-account')

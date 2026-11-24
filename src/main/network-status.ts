@@ -6,6 +6,7 @@
 
 import type { BrowserWindow } from 'electron'
 import type { NetworkStatus, NetworkStatusLevel } from '../shared/chain-types'
+import { oneLineText } from '../shared/network-info'
 
 export const STATUS_TIMING = {
   /** Between checks while the window is visible. */
@@ -57,6 +58,11 @@ function num(n: number): string {
 
 function shortId(id: string): string {
   return id.length > 12 ? `${id.slice(0, 8)}...` : id
+}
+
+/** The error of a failed check: it may carry the node's own text, so one line of at most 200 characters. */
+export function endpointError(e: unknown): string {
+  return oneLineText(e instanceof Error ? e.message : String(e), 200)
 }
 
 /** Reads the fields of a get_info answer; throws when it is not one. */
@@ -217,7 +223,7 @@ export class NetworkStatusPoller {
       sample = { at, ok: true, latencyMs: Math.max(0, at - started), ...info }
     } catch (e) {
       const at = this.deps.now()
-      sample = { at, ok: false, latencyMs: Math.max(0, at - started), error: e instanceof Error ? e.message : String(e) }
+      sample = { at, ok: false, latencyMs: Math.max(0, at - started), error: endpointError(e) }
     } finally {
       this.inFlight = false
     }

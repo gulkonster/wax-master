@@ -42,6 +42,7 @@ import { getNetwork, endpointOf, effectiveKind } from './networks'
 import { chain, request, RpcError, nodeErrorMessage } from './rpc'
 import type { Vault } from './vault'
 import { log } from './log'
+import { oneLineText } from '../shared/network-info'
 import { LOCKED_MESSAGE } from '../shared/vault-locked'
 
 export const APPROVAL_SECONDS = 120
@@ -290,9 +291,10 @@ export class Signer {
     const endpoint = endpointOf(network)
     if (req.actions.length === 0) throw new SignerError('Nothing to sign')
     const info = await this.deps.getInfo(endpoint)
-    if (info.chain_id !== network.chainId) {
+    // Only the one written form counts: 64 lower-case hex characters on both sides, equal as written.
+    if (typeof info.chain_id !== 'string' || !/^[0-9a-f]{64}$/.test(info.chain_id) || info.chain_id !== network.chainId) {
       throw new SignerError(
-        `The endpoint ${endpoint} reports chain id ${info.chain_id}, but ${network.name} is ${network.chainId}. Nothing was prepared.`
+        `The endpoint ${endpoint} reports chain id ${oneLineText(String(info.chain_id), 80)}, but ${network.name} is ${network.chainId}. Nothing was prepared.`
       )
     }
     // Encode every action with its contract's ABI.

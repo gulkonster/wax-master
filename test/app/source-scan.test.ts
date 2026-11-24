@@ -25,4 +25,16 @@ describe('source scan', () => {
       expect(hits).toEqual([])
     })
   }
+  it('has no raw control characters or line or paragraph separators (written as escapes instead)', () => {
+    // Tab, line feed and carriage return are ordinary text; anything else breaks the bundler or hides text.
+    // eslint-disable-next-line no-control-regex
+    const raw = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/
+    // Line and paragraph separators (code points 2028 and 2029 hex) end a line for the bundler.
+    const separators = [0x2028, 0x2029].map((c) => String.fromCharCode(c))
+    const hits = [...files(root), ...files(join(__dirname, '..'))].filter((f) => {
+      const text = readFileSync(f, 'utf8')
+      return raw.test(text) || separators.some((c) => text.includes(c))
+    })
+    expect(hits).toEqual([])
+  })
 })

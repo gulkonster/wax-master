@@ -251,7 +251,9 @@ describe('kind rules stay as they were', () => {
   it('names stay unique when a network is renamed', async () => {
     const n = await fresh()
     const x = await n.addNetwork({ name: 'X', kind: 'mainnet', endpoint: 'https://x.example', chainId: OTHER, symbol: 'X', precision: 4 }, never)
-    await expect(n.updateNetwork(x.id, { name: 'wax testnet' }, never)).rejects.toThrow(/exists/)
+    await expect(n.updateNetwork(x.id, { name: 'wax testnet' }, never)).rejects.toThrow(/name of a default network/)
+    const y = await n.addNetwork({ name: 'Y', kind: 'mainnet', endpoint: 'https://y.example', chainId: OTHER, symbol: 'X', precision: 4 }, never)
+    await expect(n.updateNetwork(y.id, { name: 'x' }, never)).rejects.toThrow(/exists/)
   })
 
   it('knows the names of the known chains', async () => {
@@ -259,5 +261,160 @@ describe('kind rules stay as they were', () => {
     expect(n.knownChainName(WAX_MAIN)).toBe('WAX Mainnet')
     expect(n.knownChainName(WAX_TEST)).toBe('WAX Testnet')
     expect(n.knownChainName(OTHER)).toBeNull()
+  })
+})
+
+describe('chain ids and endpoints from the file', () => {
+  const UPPER_MAIN = WAX_MAIN.toUpperCase()
+  const disguised = {
+    id: 'custom-cheap',
+    name: 'Cheap',
+    kind: 'testnet',
+    testnetConfirmed: true,
+    chainId: UPPER_MAIN,
+    symbol: 'WAX',
+    precision: 8,
+    endpoints: ['https://evil.example'],
+    preset: false,
+    currentEndpoint: 0
+  }
+
+  it('a version 2 entry with the WAX Mainnet id in capital letters is dropped, and its current falls back', async () => {
+    const n = await fresh({ version: 2, current: 'custom-cheap', networks: [disguised], removedDefaults: ['wax-mainnet', 'wax-testnet'], stars: {} })
+    expect(n.listNetworks().some((x) => x.id === 'custom-cheap')).toBe(false)
+    expect(n.listNetworks().some((x) => x.kind === 'testnet' && x.chainId.toLowerCase() === WAX_MAIN)).toBe(false)
+    expect(() => n.getNetwork('custom-cheap')).toThrow(/Unknown network/)
+    expect(n.currentNetwork().id).toBe('wax-testnet')
+  })
+
+  it('a version 1 entry with the WAX Mainnet id in capital letters is dropped too', async () => {
+    const n = await fresh({ version: 1, current: 'custom-cheap', custom: [disguised] })
+    expect(n.listNetworks().map((x) => x.id)).toEqual(['wax-mainnet', 'wax-testnet'])
+    expect(n.currentNetwork().id).toBe('wax-testnet')
+  })
+
+  it('other forms of a chain id are dropped; a lower-case one stays', async () => {
+    const base = { kind: 'mainnet', symbol: 'X', precision: 4, endpoints: ['https://x.example'], currentEndpoint: 0 }
+    const n = await fresh({
+      version: 2,
+      current: 'ok',
+      networks: [
+        { ...base, id: 'short', chainId: 'c'.repeat(63) },
+        { ...base, id: 'spaced', chainId: ` ${'c'.repeat(64)}` },
+        { ...base, id: 'mixed', chainId: `C${'c'.repeat(63)}` },
+        { ...base, id: 'ok', chainId: OTHER }
+      ],
+      removedDefaults: [],
+      stars: {}
+    })
+    expect(n.listNetworks().map((x) => x.id)).toEqual(['ok'])
+  })
+
+  it('the kind rules compare the chain id in lower case and only against the list itself', () => {
+    return fresh().then((n) => {
+      expect(n.effectiveKind({ chainId: UPPER_MAIN, kind: 'testnet', testnetConfirmed: true, endpoints: ['https://evil.example'] })).toBe('mainnet')
+      expect(n.effectiveKind({ chainId: UPPER_MAIN, kind: 'local', endpoints: ['http://127.0.0.1:8888'] })).toBe('mainnet')
+      expect(n.fixedKindNote(UPPER_MAIN)).toMatch(/WAX Mainnet/)
+      expect(n.knownChainName(UPPER_MAIN)).toBe('WAX Mainnet')
+      expect(n.knownChainName(WAX_TEST.toUpperCase())).toBe('WAX Testnet')
+      // Names every object has are not chains of the list.
+      for (const id of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+        expect(n.knownChainName(id)).toBeNull()
+        expect(n.fixedKindNote(id)).toBeNull()
+      }
+    })
+  })
+
+  it('an endpoint over http to another computer or with credentials is dropped at reading; the rest is normalized', async () => {
+    const n = await fresh({
+      version: 2,
+      current: 'mine',
+      networks: [
+        {
+          id: 'mine',
+          name: 'Mine',
+          kind: 'mainnet',
+          chainId: OTHER,
+          symbol: 'X',
+          precision: 4,
+          endpoints: ['http://node.example:8888', 'https://user:pw@node.example', 'https://good.example/v1/chain/', 'HTTPS://Good.Example'],
+          history: 'http://history.example',
+          currentEndpoint: 2
+        },
+        { id: 'gone', name: 'Gone', kind: 'mainnet', chainId: OTHER, symbol: 'X', precision: 4, endpoints: ['http://remote.example'], currentEndpoint: 0 }
+      ],
+      removedDefaults: [],
+      stars: {}
+    })
+    const mine = n.getNetwork('mine')
+    expect(mine.endpoints).toEqual(['https://good.example'])
+    expect(mine.currentEndpoint).toBe(0)
+    expect(mine.history).toBeUndefined()
+    // An entry left without an allowed endpoint is dropped.
+    expect(n.listNetworks().some((x) => x.id === 'gone')).toBe(false)
+  })
+
+  it('the chosen endpoint stays the same address after a bad one before it was dropped', async () => {
+    const n = await fresh({
+      version: 2,
+      current: 'mine',
+      networks: [
+        {
+          id: 'mine',
+          name: 'Mine',
+          kind: 'local',
+          chainId: OTHER,
+          symbol: 'X',
+          precision: 4,
+          endpoints: ['http://remote.example', 'http://127.0.0.1:8888', 'http://localhost:8889'],
+          currentEndpoint: 2
+        }
+      ],
+      removedDefaults: [],
+      stars: {}
+    })
+    const mine = n.getNetwork('mine')
+    expect(mine.endpoints).toEqual(['http://127.0.0.1:8888', 'http://localhost:8889'])
+    expect(n.endpointOf(mine)).toBe('http://localhost:8889')
+    expect(mine.kind).toBe('local')
+  })
+})
+
+describe('names of the defaults stay theirs', () => {
+  it('a removed default name cannot be taken by a user network; restore gives unique names', async () => {
+    const n = await fresh()
+    n.removeNetwork('wax-mainnet')
+    const ask = vi.fn(async () => true)
+    const add = (name: string): Promise<unknown> =>
+      n.addNetwork({ name, kind: 'mainnet', endpoint: 'https://wax.eosphere.io', chainId: WAX_MAIN, symbol: 'WAX', precision: 8 }, ask)
+    await expect(add('WAX Mainnet')).rejects.toThrow(/name of a default network/)
+    await expect(add('wax mainnet')).rejects.toThrow(/name of a default network/)
+    const own = (await add('WAX Mainnet (wax.eosphere.io)')) as { id: string }
+    await expect(n.updateNetwork(own.id, { name: 'WAX Mainnet' }, ask)).rejects.toThrow(/name of a default network/)
+    n.restoreDefaults()
+    const names = n.listNetworks().map((x) => x.name.toLowerCase())
+    expect(new Set(names).size).toBe(names.length)
+    expect(n.listNetworks().map((x) => x.name)).toEqual(['WAX Mainnet', 'WAX Testnet', 'WAX Mainnet (wax.eosphere.io)'])
+  })
+})
+
+describe('text from a probed endpoint', () => {
+  async function probeWith(version: unknown): Promise<string> {
+    const n = await fresh()
+    const rpc = await import('../../src/main/rpc')
+    vi.spyOn(rpc.chain, 'getInfo').mockResolvedValue({ chain_id: OTHER, server_version_string: version } as never)
+    vi.spyOn(rpc.chain, 'getTableRows').mockRejectedValue(new Error('no table'))
+    return (await n.probeEndpoint('https://probe.example')).version
+  }
+
+  it('keeps a short plain server version', async () => {
+    expect(await probeWith('v5.0.3wax01')).toBe('v5.0.3wax01')
+  })
+
+  it('an object, a 10,000-character text or a text with control characters gives an empty version', async () => {
+    expect(await probeWith({ evil: true })).toBe('')
+    expect(await probeWith('v'.repeat(10_000))).toBe('')
+    expect(await probeWith('v1\nInjected line')).toBe('')
+    expect(await probeWith(undefined)).toBe('')
   })
 })

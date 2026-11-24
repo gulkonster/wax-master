@@ -217,6 +217,25 @@ describe('poll timer', () => {
     expect(r.logs.filter((l) => /Not reachable/.test(l))).toHaveLength(1)
   })
 
+  it('a huge error text with line breaks from the node becomes one short line in the summary and the log', async () => {
+    const huge = `Node says:\n${'x'.repeat(1_000_000)}\r\nend`
+    const r = rig(() => ({ latency: 5, error: huge }))
+    r.poller.start(true)
+    await r.advance(0)
+    await r.advance(10_000)
+    const s = r.poller.current()
+    expect(s.level).toBe('red')
+    expect(s.summary.length).toBeLessThanOrEqual(300)
+    // eslint-disable-next-line no-control-regex
+    expect(s.summary).not.toMatch(/[\u0000-\u001f]/)
+    expect(s.summary).toMatch(/Node says: x/)
+    expect(r.logs.length).toBeGreaterThan(0)
+    for (const l of r.logs) {
+      expect(l.length).toBeLessThan(500)
+      expect(l).not.toMatch(/[\r\n]/)
+    }
+  })
+
   it('a wrong chain id is red at the first answer', async () => {
     const r = rig(() => ({ latency: 50, body: { chain_id: OTHER, head_block_num: 9, last_irreversible_block_num: 8, head_block_time: '2026-11-24T12:00:00' } }))
     r.poller.start(true)

@@ -3,7 +3,7 @@
 // title, typed name, deploy hashes, one approval at a time, locked vault.
 
 import { createHash } from 'node:crypto'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -204,6 +204,73 @@ describe('task 1: the network kind cannot switch off the mainnet protections', (
     const m = (await add(e, { name: 'Other2', kind: 'mainnet', endpoint: 'https://other2.example', chainId: OTHER_CHAIN, symbol: 'ABC', precision: 4 })) as NetworkInfo
     expect(m.kind).toBe('mainnet')
     await expect(add(e, { name: 'Other3', kind: 'local', endpoint: 'https://other3.example', chainId: OTHER_CHAIN, symbol: 'ABC', precision: 4 })).rejects.toThrow(/this computer/)
+  })
+})
+
+describe('a chain id is taken only in its one written form', () => {
+  const UPPER_MAIN = WAX_MAIN.toUpperCase()
+
+  it('a networks.json entry with the WAX Mainnet id in capital letters, kind testnet, confirmed: the signer prepares nothing for it', async () => {
+    const saved = h.dataDir
+    h.dataDir = mkdtempSync(join(tmpdir(), 'wm-c2a-file-'))
+    try {
+      writeFileSync(
+        join(h.dataDir, 'networks.json'),
+        JSON.stringify({
+          version: 2,
+          current: 'custom-cheap',
+          networks: [
+            {
+              id: 'custom-cheap',
+              name: 'Cheap',
+              kind: 'testnet',
+              testnetConfirmed: true,
+              chainId: UPPER_MAIN,
+              symbol: 'WAX',
+              precision: 8,
+              endpoints: ['https://evil.example'],
+              currentEndpoint: 0
+            }
+          ],
+          removedDefaults: [],
+          stars: {}
+        })
+      )
+      vi.resetModules()
+      const nets = await import('../../src/main/networks')
+      const signerModule = await import('../../src/main/signer')
+      expect(nets.listNetworks().some((x) => x.id === 'custom-cheap')).toBe(false)
+      expect(nets.listNetworks().some((x) => x.kind === 'testnet' && x.chainId.toLowerCase() === WAX_MAIN)).toBe(false)
+      const answers: string[] = []
+      const s = new signerModule.Signer(
+        deps({
+          network: (id: string) => nets.getNetwork(id),
+          getInfo: async (ep: string) => {
+            answers.push(ep)
+            return { chain_id: UPPER_MAIN, head_block_id: '1a2b3c4d' + '00'.repeat(28), head_block_time: new Date(now).toISOString().slice(0, 19), last_irreversible_block_id: '1a2b3c40' + '11'.repeat(28) }
+          }
+        })
+      )
+      await expect(s.prepare({ networkId: 'custom-cheap', actions: [transfer] })).rejects.toThrow(/Unknown network/)
+      expect(answers).toHaveLength(0)
+      expect(sent).toHaveLength(0)
+    } finally {
+      h.dataDir = saved
+    }
+  })
+
+  it('an endpoint answering with the chain id in another letter case is refused; so is a network object carrying such an id', async () => {
+    const upperInfo = (id: string): SignerDeps['getInfo'] => async () => ({
+      chain_id: id,
+      head_block_id: '1a2b3c4d' + '00'.repeat(28),
+      head_block_time: new Date(now).toISOString().slice(0, 19),
+      last_irreversible_block_id: '1a2b3c40' + '11'.repeat(28)
+    })
+    network = net('testnet', WAX_TESTNET_CHAIN)
+    await expect(new Signer(deps({ getInfo: upperInfo(WAX_TESTNET_CHAIN.toUpperCase()) })).prepare({ networkId: 'n1', actions: [transfer] })).rejects.toThrow(/Nothing was prepared/)
+    network = { ...net('testnet', UPPER_MAIN), testnetConfirmed: true }
+    await expect(new Signer(deps({ getInfo: upperInfo(UPPER_MAIN) })).prepare({ networkId: 'n1', actions: [transfer] })).rejects.toThrow(/Nothing was prepared/)
+    expect(sent).toHaveLength(0)
   })
 })
 

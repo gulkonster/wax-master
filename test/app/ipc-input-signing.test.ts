@@ -101,7 +101,7 @@ const CHANNELS = [
   'accounts:create', 'accounts:changeKey', 'accounts:clearCode', 'accounts:pickList',
   'faucet:create', 'faucet:tokens', 'faucet:suggestName',
   'toolchains:chooseFile', 'keys:exportVault', 'keys:newPending', 'keys:discardPending', 'keys:remove',
-  'build:run', 'build:ensure', 'build:rebuild', 'files:wasmInfo', 'app:setDirty'
+  'build:run', 'build:ensure', 'build:rebuild', 'ricardian:create', 'files:wasmInfo', 'app:setDirty'
 ]
 
 describe('sender checks', () => {
@@ -176,6 +176,10 @@ describe('malformed input', () => {
     // No project is open here: the build calls refuse.
     ['build:ensure', []],
     ['build:rebuild', []],
+    ['ricardian:create', []],
+    // It takes no arguments: a path passed by the page is refused.
+    ['ricardian:create', ['../outside']],
+    ['ricardian:create', [{ resource: 'C:/x' }]],
     ['files:wasmInfo', [7]],
     ['files:wasmInfo', ['notes.txt']],
     ['files:wasmInfo', ['../x.wasm']],

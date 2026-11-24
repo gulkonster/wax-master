@@ -223,6 +223,21 @@ export interface BuildCheck {
   build: BuildResult | null
 }
 
+/** Answer of Contract > Create Ricardian Files. Paths are project-relative. */
+export interface RicardianResult {
+  contractsFile: string
+  clausesFile: string
+  /** Actions that got a new section. */
+  added: string[]
+  /** Actions that already had one (left as they were). */
+  kept: string[]
+  clausesCreated: boolean
+  /** Line of the contracts file to show: the first added section, or 1. */
+  line: number
+  /** One line for the user, e.g. "resource/x.contracts.md: added 3, kept 5." */
+  message: string
+}
+
 export interface ToolchainInfo {
   id: string
   label: string
@@ -319,6 +334,8 @@ export type MenuCommand =
   | 'deploy'
   | 'deploy-to-account'
   | 'simulate-deploy'
+  /** Writes or extends the Ricardian files from the built ABI. */
+  | 'create-ricardian'
   | 'create-account'
   | 'create-testnet-account'
   | 'manage-keypairs'
@@ -532,6 +549,10 @@ export interface WaxApi {
     /** Always compiles; answers in the same form as ensure(). */
     rebuild(): Promise<BuildCheck>
     defaultCommand(): Promise<string>
+  }
+  ricardian: {
+    /** Writes or extends the open project's Ricardian files from its built ABI. */
+    create(): Promise<RicardianResult>
   }
   on(event: 'menu', cb: (cmd: MenuCommand) => void): () => void
   on(event: 'output', cb: (e: OutputEvent) => void): () => void

@@ -125,7 +125,9 @@ export const MENU_MODEL: readonly MenuModelMenu[] = [
       cmd('Build', 'build', 'CmdOrCtrl+B'),
       cmd('Deploy', 'deploy'),
       cmd('Deploy to Account...', 'deploy-to-account'),
-      cmd('Simulate Deploy', 'simulate-deploy')
+      cmd('Simulate Deploy', 'simulate-deploy'),
+      sep,
+      cmd('Create Ricardian Files', 'create-ricardian')
     ]
   },
   {

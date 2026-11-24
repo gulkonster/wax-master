@@ -20,6 +20,7 @@ import { wasmInfo } from './wasm-info'
 import { openNotices } from './project-notices'
 import { runBuild, defaultBuildArgs, ensureBuilt, rebuild } from './build'
 import { optStr } from '../shared/validate'
+import { createRicardianFiles } from './ricardian'
 import { run as runHelper } from './helper'
 import { join, resolve } from 'node:path'
 
@@ -311,6 +312,15 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   // No arguments: both act on the open project only.
   handle('build:ensure', (e) => ensureBuilt(e.sender))
   handle('build:rebuild', (e) => rebuild(e.sender))
+  // No arguments: reads the open project's built ABI and writes only inside its resource folder.
+  handle('ricardian:create', async (e, ...rest) => {
+    if (rest.length > 0) throw new Error('No arguments expected')
+    const p = projects.currentProject()
+    if (!p) throw new Error('No project is open')
+    const r = await createRicardianFiles(p.root, p.config)
+    e.sender.send('files-changed')
+    return r
+  })
 
   // Terminal and clipboard: only the terminal frame (app://terminal) may call these.
   handleTerminal('clipboard:writeText', (_e, text) => clipboard.writeText(str(text, 'text', 1024 * 1024)))

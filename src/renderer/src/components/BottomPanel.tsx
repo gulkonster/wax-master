@@ -4,7 +4,7 @@ import { useApp, type PanelTab } from '../state'
 import { emit } from '../lib/bus'
 import { appendOutput, clearOutput, outputStore, problemsStore, useStore } from '../lib/stores'
 import { IconClose, IconError, IconInfo, IconWarning } from './Icons'
-import { classifyLine, cleanLine, countProblems, type ClassifiedLine } from '../../../shared/output-lines'
+import { RICARDIAN_HINT, classifyLine, cleanLine, countProblems, isRicardianWarning, type ClassifiedLine } from '../../../shared/output-lines'
 
 const TABS: { id: PanelTab; label: string }[] = [
   { id: 'terminal', label: 'Terminal' },
@@ -122,6 +122,21 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
                     {p.severity === 'error' ? <IconError size="sm" /> : p.severity === 'warning' ? <IconWarning size="sm" /> : <IconInfo size="sm" />}
                   </span>
                   <span className="problem-message">{p.message}</span>
+                  {p.severity === 'warning' && isRicardianWarning(p.message) && (
+                    <span className="problem-hint">
+                      <span
+                        className="out-link"
+                        role="button"
+                        title="Run Contract > Create Ricardian Files"
+                        onClick={(ev) => {
+                          ev.stopPropagation()
+                          emit('menu-run', 'create-ricardian')
+                        }}
+                      >
+                        {RICARDIAN_HINT}
+                      </span>
+                    </span>
+                  )}
                   {p.file && (
                     <span className="loc">
                       {p.file}:{p.line}:{p.column}

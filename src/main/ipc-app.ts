@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { bool, str } from '../shared/validate'
 import { handle } from './ipc'
 import { dataDir } from './paths'
+import { NETWORKS_V1_BACKUP } from './networks'
 import { checkForUpdates, dailyCheck } from './updates'
 import { installedToolchains, remove as removeToolchain } from './toolchain'
 import { confirmNative, vault } from './keys-service'
@@ -66,7 +67,7 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
       }
     }
     vault().lock()
-    for (const f of ['settings.json', 'networks.json', 'contract-history.json']) rmSync(join(dataDir(), f), { force: true })
+    for (const f of ['settings.json', 'networks.json', NETWORKS_V1_BACKUP, 'contract-history.json']) rmSync(join(dataDir(), f), { force: true })
     if (withVault) for (const f of vaultFiles(dataDir())) rmSync(join(dataDir(), f), { force: true })
     log.info(`App data cleared${withVault ? ' including the vault' : ''}`)
     rmSync(join(dataDir(), 'logs'), { recursive: true, force: true })

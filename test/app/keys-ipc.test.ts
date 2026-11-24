@@ -246,12 +246,13 @@ describe('app:clearData asks in the main process', () => {
     const dir = h.dataDir
     writeFileSync(join(dir, 'settings.json'), '{}')
     writeFileSync(join(dir, 'networks.json'), '{}')
+    writeFileSync(join(dir, 'networks.v1.bak.json'), '{}')
     mkdirSync(join(dir, 'logs'), { recursive: true })
     writeFileSync(join(dir, 'logs', 'a.log'), 'x')
     return dir
   }
   const intact = (dir: string): boolean =>
-    existsSync(join(dir, 'settings.json')) && existsSync(join(dir, 'networks.json')) && existsSync(join(dir, 'logs', 'a.log')) && existsSync(join(dir, 'vault.json'))
+    existsSync(join(dir, 'settings.json')) && existsSync(join(dir, 'networks.json')) && existsSync(join(dir, 'networks.v1.bak.json')) && existsSync(join(dir, 'logs', 'a.log')) && existsSync(join(dir, 'vault.json'))
 
   it('Cancel in the first dialog removes nothing (no toolchain, no file, no restart)', async () => {
     const dir = seed()
@@ -286,6 +287,9 @@ describe('app:clearData asks in the main process', () => {
     expect(h.dialogCalls).toHaveLength(1)
     expect(h.removed).toEqual(['default-tc', 'extra-tc'])
     expect(existsSync(join(dir, 'settings.json'))).toBe(false)
+    expect(existsSync(join(dir, 'networks.json'))).toBe(false)
+    // The copy of the version 1 network list does not outlive a clear.
+    expect(existsSync(join(dir, 'networks.v1.bak.json'))).toBe(false)
     expect(existsSync(join(dir, 'logs'))).toBe(false)
     expect(existsSync(join(dir, 'vault.json'))).toBe(true)
     for (const n of kept) expect(existsSync(join(dir, n))).toBe(true)

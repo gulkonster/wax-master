@@ -172,3 +172,15 @@ export function addBlockSample(list: readonly BlockSample[], b: BlockSample, max
   if (list.some((x) => x.num === b.num)) return list as BlockSample[]
   return [b, ...list].sort((a, c) => c.num - a.num).slice(0, max)
 }
+
+/** Text from an endpoint as one line: control characters and line breaks become spaces, at most `max` characters. */
+export function oneLineText(v: string, max: number): string {
+  // eslint-disable-next-line no-control-regex
+  const flat = v.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return flat.length > max ? `${flat.slice(0, Math.max(0, max - 3))}...` : flat
+}
+
+/** Short text from an endpoint taken only as it is: at most `max` characters, no control characters; else empty. */
+export function plainTextOrEmpty(v: unknown, max: number): string {
+  return shortText(v, max) ?? ''
+}

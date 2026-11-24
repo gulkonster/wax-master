@@ -129,6 +129,8 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
       ['wax.switchHeaderSource', 'Switch Header/Source', 'switch-header-source']
     ]
     for (const [id, label, cmd] of paletteCommands) ed.addAction({ id, label, run: () => emit('editor-command', cmd) })
+    // Contract commands run through the same path as the menu.
+    ed.addAction({ id: 'wax.createRicardian', label: 'Contract: Create Ricardian Files', run: () => emit('menu-run', 'create-ricardian') })
     const sub1 = ed.onDidChangeCursorPosition((e) => actions.setCursor({ line: e.position.lineNumber, column: e.position.column }))
     const stopEngine = startEditorEngine()
     return () => {

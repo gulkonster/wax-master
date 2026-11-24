@@ -1675,6 +1675,12 @@ input[type='radio'] {
 .problem-row > span:first-child {
   display: inline-flex;
 }
+.problem-hint {
+  color: var(--text-3);
+}
+.problem-hint .out-link {
+  color: var(--info-text);
+}
 .approval-command {
   padding: var(--sp-2) var(--sp-3);
   background: var(--bg-inset);

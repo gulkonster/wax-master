@@ -3,15 +3,18 @@
 // and the window is visible it reads get_info and the head block every 2
 // seconds; nothing is read while it is hidden or minimized.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { NetworkInfo, NetworkStatus } from '../../../shared/chain-types'
 import { addBlockSample, type BlockSample, type ChainBasics, type NetworkOverview, type Part } from '../../../shared/network-info'
-import { emit } from '../lib/bus'
 import { copyText } from '../lib/clipboard'
 import { networkStore, refreshNetworks } from '../lib/networks'
+import { groupAmount } from '../lib/network-names'
+import { networkStatusStore, statusFor } from '../lib/network-status'
 import { useStore } from '../lib/stores'
 import { errorText, toast } from '../lib/toast'
 import { IconCopy, IconPencil, IconClose } from '../components/Icons'
+import { StatusDot } from '../components/StatusDot'
+import { EditNetworkDialog, RemoveNetworkDialog } from '../components/NetworkDialogs'
 
 /** How often the page reads get_info and the head block while it is visible. */
 export const HEAD_INTERVAL_MS = 2000
@@ -95,20 +98,16 @@ function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint:
   const [headError, setHeadError] = useState('')
   const [blocks, setBlocks] = useState<BlockSample[]>([])
   const [blockNote, setBlockNote] = useState('')
-  const [status, setStatus] = useState<NetworkStatus | null>(null)
+  const [dialog, setDialog] = useState<'edit' | 'remove' | null>(null)
+  // The checked status the top bar and the status bar show, for this network only.
+  const status = statusFor(useStore(networkStatusStore), n.id)
+  // Set when the overview read failed: it is read again after the next good head answer.
+  const overviewFailed = useRef(false)
 
   // The status mark checks every 2 seconds while this page is open.
   useEffect(() => {
-    let live = true
-    const take = (s: NetworkStatus): void => {
-      if (live && s.networkId === n.id) setStatus(s)
-    }
     void window.wax.network.watchFast(true).catch(() => undefined)
-    window.wax.network.status().then(take, () => undefined)
-    const off = window.wax.on('network-status', take)
     return () => {
-      live = false
-      off()
       void window.wax.network.watchFast(false).catch(() => undefined)
     }
   }, [n.id])
@@ -117,9 +116,11 @@ function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint:
     setOverviewError('')
     try {
       const o = await window.wax.networkInfo.overview(n.id)
+      overviewFailed.current = false
       setOverview(o)
       setBasics((b) => b ?? o.basics)
     } catch (e) {
+      overviewFailed.current = true
       setOverviewError(errorText(e))
     }
   }, [n.id])
@@ -144,6 +145,10 @@ function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint:
         if (h) {
           setBasics(h.basics)
           setHeadError('')
+          if (overviewFailed.current) {
+            overviewFailed.current = false
+            void loadOverview()
+          }
           if (h.block) {
             const b = h.block
             setBlocks((list) => addBlockSample(list, b, BLOCK_ROWS))
@@ -166,7 +171,7 @@ function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint:
       clearTimeout(timer)
       document.removeEventListener('visibilitychange', onVisibility)
     }
-  }, [n.id])
+  }, [n.id, loadOverview])
 
   const chooseEndpoint = async (index: number): Promise<void> => {
     try {
@@ -174,16 +179,6 @@ function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint:
       await refreshNetworks()
     } catch (e) {
       toast('Could not change the endpoint', errorText(e), 'error')
-    }
-  }
-
-  const remove = async (): Promise<void> => {
-    if (!window.confirm(`Remove the network "${n.name}"?`)) return
-    try {
-      await window.wax.networks.remove(n.id)
-      await refreshNetworks()
-    } catch (e) {
-      toast('Could not remove', errorText(e), 'error')
     }
   }
 
@@ -200,14 +195,15 @@ function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint:
           <span className={`badge${n.kind === 'mainnet' ? ' red' : ''}`}>{n.kind}</span>
           {status && (
             <span className={`badge${STATUS_CLASS[status.level]}`} title={status.summary}>
+              <StatusDot status={status} />
               {status.label}
             </span>
           )}
           <span className="spacer" />
-          <button className="btn" onClick={() => emit('dialog', 'manage-networks')}>
+          <button className="btn" onClick={() => setDialog('edit')}>
             <IconPencil size="sm" /> Edit
           </button>
-          <button className="btn" onClick={() => void remove()}>
+          <button className="btn" onClick={() => setDialog('remove')}>
             <IconClose size="sm" /> Remove
           </button>
         </div>
@@ -250,8 +246,8 @@ function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint:
           <h3>System token</h3>
           <div className="card-list">
             <Row label="Core symbol" value={partValue(overview?.token, (t) => `${t.symbol} (${t.precision} decimals)`)} />
-            <Row label="Max supply" value={partValue(overview?.token, (t) => t.maxSupply)} />
-            <Row label="Supply" value={partValue(overview?.token, (t) => t.supply)} />
+            <Row label="Max supply" value={partValue(overview?.token, (t) => groupAmount(t.maxSupply))} />
+            <Row label="Supply" value={partValue(overview?.token, (t) => groupAmount(t.supply))} />
           </div>
         </section>
         <section>
@@ -319,6 +315,8 @@ function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint:
           </table>
         )}
       </div>
+      {dialog === 'edit' && <EditNetworkDialog network={n} onClose={() => setDialog(null)} />}
+      {dialog === 'remove' && <RemoveNetworkDialog network={n} onClose={() => setDialog(null)} />}
     </div>
   )
 }

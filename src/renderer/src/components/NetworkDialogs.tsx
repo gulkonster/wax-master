@@ -4,6 +4,8 @@ import { Modal } from './Modal'
 import { IconArrowDown, IconArrowUp } from './Icons'
 import { errorText, toast } from '../lib/toast'
 import { networkStore, refreshNetworks, selectNetwork } from '../lib/networks'
+import { nextNetworkAfterRemoval, suggestNetworkName } from '../lib/network-names'
+import { WAX_TESTNET_CHAIN_ID } from '../../../shared/ram-market'
 import { useStore } from '../lib/stores'
 
 function isLocalUrl(u: string): boolean {
@@ -12,14 +14,6 @@ function isLocalUrl(u: string): boolean {
     return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h.endsWith('.localhost')
   } catch {
     return false
-  }
-}
-
-function hostOf(u: string): string {
-  try {
-    return new URL(u).host
-  } catch {
-    return u
   }
 }
 
@@ -55,16 +49,6 @@ function KindField({
 
 type Probe = Awaited<ReturnType<typeof window.wax.networks.probe>>
 
-/** A name for a new network: the known chain's name, or the host, made unique in the list. */
-function suggestName(probe: Probe, list: NetworkInfo[]): string {
-  const host = hostOf(probe.endpoint)
-  const taken = (name: string): boolean => list.some((n) => n.name.toLowerCase() === name.toLowerCase())
-  const base = probe.knownName ?? list.find((n) => n.chainId === probe.chainId)?.name ?? host
-  if (!taken(base)) return base
-  if (!taken(`${base} (${host})`)) return `${base} (${host})`
-  return host
-}
-
 /**
  * "Connect to Custom Network" in two steps: one endpoint field and Connect;
  * then what the endpoint said (chain id, core token, server version) with a
@@ -96,7 +80,7 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
       setPrecision(r.symbol ? r.precision : 4)
       const list = networkStore.get().list
       const known = list.find((n) => n.chainId === r.chainId)
-      setName(suggestName(r, list))
+      setName(suggestNetworkName(r, list))
       setKind(!r.kindNote && (known?.kind === 'testnet' || r.knownName === 'WAX Testnet') ? 'testnet' : 'mainnet')
     } catch (e) {
       setError(errorText(e))
@@ -265,8 +249,7 @@ export function RemoveNetworkDialog({ network, onClose, onRemoved }: { network: 
   }, [network.id])
   const last = net.list.length <= 1
   const isCurrent = net.current?.id === network.id
-  const rest = net.list.filter((n) => n.id !== network.id)
-  const next = rest.find((n) => n.id === 'wax-testnet') ?? rest[0]
+  const next = nextNetworkAfterRemoval(net.list, network.id, WAX_TESTNET_CHAIN_ID)
   const remove = async (): Promise<void> => {
     setBusy(true)
     setError('')

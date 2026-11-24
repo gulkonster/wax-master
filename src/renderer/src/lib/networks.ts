@@ -54,3 +54,4 @@ export function watchNetworkEvents(): () => void {
 export function waxTestnetEntry(list: NetworkInfo[], chainId: string): NetworkInfo | null {
   return list.find((n) => n.id === 'wax-testnet' && n.chainId === chainId) ?? list.find((n) => n.chainId === chainId) ?? null
 }
+

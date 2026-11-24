@@ -223,6 +223,9 @@ const api: WaxApi = {
     rebuild: call('build:rebuild'),
     defaultCommand: call('build:defaultCommand')
   },
+  ricardian: {
+    create: call('ricardian:create')
+  },
   on(event: string, cb: (...args: never[]) => void): () => void {
     return subscribe(EVENTS, event, cb)
   }

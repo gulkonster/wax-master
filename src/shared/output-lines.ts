@@ -72,6 +72,14 @@ export function classifyLine(raw: string): ClassifiedLine {
   return { severity: 'plain', kind: 'text' }
 }
 
+/** The hint the Problems entry of a Ricardian warning of the ABI generator carries. */
+export const RICARDIAN_HINT = 'Contract > Create Ricardian Files writes the missing sections'
+
+/** True for the ABI generator's Ricardian warnings (a missing action text, an empty file). */
+export function isRicardianWarning(message: string): boolean {
+  return /does not have a ricardian contract|empty ricardian clause file/i.test(message)
+}
+
 export type ProblemSeverity = 'error' | 'warning' | 'info'
 
 /** Severity of a line as a Problems entry (null: the line is not a problem of its own). */

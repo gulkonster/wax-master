@@ -130,6 +130,8 @@ const BEFORE = [
   'Contract > Deploy',
   'Contract > Deploy to Account...',
   'Contract > Simulate Deploy',
+  'Contract > ---',
+  'Contract > Create Ricardian Files',
   'Accounts',
   'Accounts > Create Account...',
   'Accounts > Create Testnet Account...',

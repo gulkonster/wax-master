@@ -95,6 +95,12 @@ function createMainWindow(): void {
     if (!isMain) log.info(`Frame loaded: ${url.split(/[?#]/)[0]} (${code})`)
   })
   mainWindow.webContents.on('render-process-gone', (_e, d) => log.error(`Window process ended: ${d.reason}`))
+  // Windows' own caption buttons sit right above the top bar's right-hand buttons: a click a few
+  // pixels too high minimizes or restores the window. One line each, so the log shows it.
+  mainWindow.on('minimize', () => log.info('Window minimized'))
+  mainWindow.on('restore', () => log.info('Window restored'))
+  mainWindow.on('maximize', () => log.info('Window maximized'))
+  mainWindow.on('unmaximize', () => log.info('Window no longer maximized'))
   mainWindow.on('closed', () => {
     mainWindow = null
   })
