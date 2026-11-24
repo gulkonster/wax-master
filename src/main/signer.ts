@@ -466,6 +466,12 @@ export class Signer {
           e.details
         )
       }
+      // No answer at all (also a time limit): the transaction may have arrived before the connection broke.
+      if (e instanceof RpcError && e.status === 0) {
+        throw new SignerError(
+          `${e.message} The transaction ${s.record.transactionId} may still have reached the node. Open it in the history (or look at the account) before sending again.`
+        )
+      }
       if (e instanceof RpcError) throw new SignerError(nodeErrorMessage(e.details, e.message), e.details)
       throw e
     }

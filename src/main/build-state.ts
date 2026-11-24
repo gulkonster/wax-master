@@ -2,6 +2,8 @@
 // The fingerprint is SHA-256 over the sorted list of (relative path, size,
 // modified time) of every file under the project folder except the output
 // WASM / ABI and `.git`, plus the build command text and the toolchain id.
+// The project file `waxmaster.json` counts by its content without the
+// `deploy` key, so saving a deploy account or target does not cause a build.
 // The state is kept in memory and in build-state.json in the app data folder
 // (never in the project).
 
@@ -15,6 +17,36 @@ import { readJson, writeJson } from './jsonfile'
 export const MAX_FINGERPRINT_FILES = 20_000
 /** At most this many projects are remembered (oldest builds are dropped). */
 const MAX_PROJECTS = 100
+/** The project file whose deploy block does not count in the fingerprint (project root only). */
+const PROJECT_FILE = 'waxmaster.json'
+const MAX_PROJECT_FILE = 1024 * 1024
+/** Stored limits: findings kept, and the length of one stored explanation. */
+const MAX_STORED_FINDINGS = 50
+const MAX_STORED_TEXT = 4000
+
+/** JSON text with object keys sorted at every level. */
+function sortedJson(v: unknown): string {
+  if (Array.isArray(v)) return '[' + v.map(sortedJson).join(',') + ']'
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    return '{' + Object.keys(o).sort().map((k) => JSON.stringify(k) + ':' + sortedJson(o[k])).join(',') + '}'
+  }
+  return JSON.stringify(v) ?? 'null'
+}
+
+/** The project file's content without its `deploy` key; null when it cannot be read or parsed. */
+async function projectFileContent(path: string, size: number): Promise<string | null> {
+  if (size > MAX_PROJECT_FILE) return null
+  try {
+    const parsed: unknown = JSON.parse(await fsp.readFile(path, 'utf8'))
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+    const rest = { ...(parsed as Record<string, unknown>) }
+    delete rest.deploy
+    return sortedJson(rest)
+  } catch {
+    return null
+  }
+}
 
 export interface StoredBuild {
   /** null: the project has too many files for a fingerprint. */
@@ -57,7 +89,8 @@ export async function projectFingerprint(root: string, opts: { exclude: string[]
       // Files and links: a link counts with its own size and time (it is not followed).
       try {
         const st = await fsp.lstat(join(dir, e.name))
-        items.push(`${r}\u0000${st.size}\u0000${Math.round(st.mtimeMs)}`)
+        const content = r === PROJECT_FILE && st.isFile() ? await projectFileContent(join(dir, e.name), st.size) : null
+        items.push(content !== null ? `${r}\u0000content\u0000${content}` : `${r}\u0000${st.size}\u0000${Math.round(st.mtimeMs)}`)
       } catch {
         continue
       }
@@ -82,6 +115,24 @@ function isFinding(v: unknown): v is AbiFinding {
   return !!f && typeof f.kind === 'string' && typeof f.text === 'string' && typeof f.subject === 'string' && typeof f.type === 'string'
 }
 
+/** A relative project path: no `..`, no drive, no leading slash. */
+function isRelativePath(p: unknown): p is string {
+  if (typeof p !== 'string' || p === '' || p.length > 1024) return false
+  if (/^[\\/]/.test(p) || /^[A-Za-z]:/.test(p) || p.includes('\u0000')) return false
+  return !p.split(/[\\/]/).some((s) => s === '..')
+}
+
+function isLineNumber(n: unknown): n is number {
+  return typeof n === 'number' && Number.isInteger(n) && n >= 1
+}
+
+/** A stored finding as read back: the place only when it is a safe project place, the text cut. */
+function storedFinding(f: AbiFinding): AbiFinding {
+  const p = f.place as { file?: unknown; line?: unknown; column?: unknown } | null
+  const place = p && isRelativePath(p.file) && isLineNumber(p.line) && isLineNumber(p.column) ? { file: p.file, line: p.line, column: p.column } : null
+  return { kind: f.kind, subject: f.subject, type: f.type, text: f.text.slice(0, MAX_STORED_TEXT), place }
+}
+
 function sanitize(v: unknown): StoredBuild | null {
   const s = v as StoredBuild
   if (!s || typeof s !== 'object') return null
@@ -93,7 +144,7 @@ function sanitize(v: unknown): StoredBuild | null {
     builtAt: s.builtAt,
     toolchain: typeof s.toolchain === 'string' ? s.toolchain : '',
     command: typeof s.command === 'string' ? s.command : '',
-    abiFindings: Array.isArray(s.abiFindings) ? s.abiFindings.filter(isFinding) : [],
+    abiFindings: Array.isArray(s.abiFindings) ? s.abiFindings.filter(isFinding).slice(0, MAX_STORED_FINDINGS).map(storedFinding) : [],
     abiSha256: typeof s.abiSha256 === 'string' ? s.abiSha256 : ''
   }
 }

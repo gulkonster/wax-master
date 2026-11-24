@@ -4,6 +4,7 @@
 
 import { parsePrivateKey } from '../chain-core'
 import { redact } from './log'
+import { noAnswerMessage } from './rpc'
 import type { Vault } from './vault'
 
 export const FAUCET_HOST = 'https://faucet.waxsweden.org'
@@ -61,8 +62,9 @@ export const defaultFetcher: Fetcher = async (url) => {
     const text = await readCapped(res, MAX_BYTES, () => controller.abort())
     return { status: res.status, text }
   } catch (e) {
-    if (controller.signal.aborted) throw new Error('The faucet did not answer within 20 seconds')
-    throw e
+    // The faucet's own text never reaches the user through this path (error codes only).
+    if (e instanceof Error && e.message === 'The faucet answer is too large') throw e
+    throw new Error(noAnswerMessage(FAUCET_HOST, e, { timedOut: controller.signal.aborted, timeoutMs: TIMEOUT_MS }))
   } finally {
     clearTimeout(timer)
   }
@@ -111,7 +113,7 @@ export async function createTestnetAccount(name: string, vault: Vault, fetcher: 
   try {
     res = await fetcher(`${FAUCET_HOST}/create_account?${name}`)
   } catch (e) {
-    return { ok: false, message: `The faucet could not be reached: ${e instanceof Error ? e.message : String(e)}` }
+    return { ok: false, message: `${e instanceof Error ? e.message : String(e)} Nothing was imported.` }
   }
   let json: unknown = null
   try {
@@ -173,7 +175,7 @@ export async function requestTokens(name: string, fetcher: Fetcher = defaultFetc
     }
     return { ok: res.status === 200, message: message(json, res.status === 200 ? 'Requested.' : `HTTP ${res.status}`) }
   } catch (e) {
-    return { ok: false, message: `The faucet could not be reached: ${e instanceof Error ? e.message : String(e)}` }
+    return { ok: false, message: e instanceof Error ? e.message : String(e) }
   }
 }
 

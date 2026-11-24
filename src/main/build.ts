@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import type { AbiFinding, BuildCheck, BuildOutcome, BuildResult, Problem } from '../shared/api'
 import { classifyLine, cleanLine, problemSeverity } from '../shared/output-lines'
 import { effectiveInclude, effectiveOutput, effectiveResource, type ProjectConfig } from '../shared/project'
-import { abiProblems, checkAbi, describeAbi, readSources } from './abi-check'
+import { MAX_ABI_JSON, abiProblems, checkAbi, describeAbi, moreFindingsLine, readSources } from './abi-check'
 import { BuildStateStore, projectFingerprint, type StoredBuild } from './build-state'
 import { log } from './log'
 import { dataDir } from './paths'
@@ -99,13 +99,13 @@ export function storedBuild(root: string): StoredBuild | null {
  * file, otherwise a fresh check of the file. null: the ABI is deployable.
  */
 export async function abiRefusal(root: string, abiRel: string, abiText: string): Promise<string | null> {
+  const raw = checkAbi(abiText)
+  if (raw.length === 0) return null
   const s = buildState.get(root)
-  if (s && s.result === 'abi-not-deployable' && s.abiFindings.length > 0 && s.abiSha256 === sha256Text(abiText)) {
-    return s.abiFindings.map((f) => f.text).join('\n\n')
-  }
-  if (checkAbi(abiText).length === 0) return null
-  const findings = describeAbi(abiText, abiRel, await readSources(root))
-  return findings.map((f) => f.text).join('\n\n')
+  const stored = s && s.result === 'abi-not-deployable' && s.abiFindings.length > 0 && s.abiSha256 === sha256Text(abiText)
+  const findings = stored ? s.abiFindings : describeAbi(abiText, abiRel, await readSources(root), raw)
+  const more = moreFindingsLine(raw.length)
+  return [...findings.map((f) => f.text), ...(more ? [more] : [])].join('\n\n')
 }
 
 /** Shows the custom command in a dialog owned by the main process; the editor window cannot answer it. */
@@ -166,16 +166,25 @@ export async function runBuild(sender: WebContents): Promise<BuildResult> {
     let abiFindings: AbiFinding[] = []
     let abiSha = ''
     if (ok && existsSync(join(p.root, abi))) {
+      let more: string | null = null
       try {
-        const text = await fsp.readFile(join(p.root, abi), 'utf8')
-        if (checkAbi(text).length > 0) {
-          abiFindings = describeAbi(text, abi, await readSources(p.root))
-          abiSha = sha256Text(text)
+        const st = await fsp.stat(join(p.root, abi))
+        if (st.size > MAX_ABI_JSON) {
+          emit(`ABI check skipped: ${abi} is larger than ${MAX_ABI_JSON / 1024 / 1024} MB.\n`)
+        } else {
+          const text = await fsp.readFile(join(p.root, abi), 'utf8')
+          const raw = checkAbi(text)
+          if (raw.length > 0) {
+            abiFindings = describeAbi(text, abi, await readSources(p.root), raw)
+            more = moreFindingsLine(raw.length)
+            abiSha = sha256Text(text)
+          }
         }
       } catch (e) {
         log.warn(`ABI check could not run: ${e instanceof Error ? e.message : String(e)}`)
       }
       for (const f of abiFindings) emit(`${f.text}\n`)
+      if (more) emit(`${more}\n`)
     }
     const outcome: BuildOutcome = !ok ? 'failed' : abiFindings.length > 0 ? 'abi-not-deployable' : 'ok'
     const builtAt = Date.now()

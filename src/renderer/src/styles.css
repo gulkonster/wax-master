@@ -193,10 +193,8 @@
   --field-select: 360px;
   --field-account: 360px;
   --field-perm: 180px;
-  --label-input: 160px;
   --label-col: 180px;
   --tr-label-col: 150px;
-  --key-label-min: 72px;
   --terminal-list: 190px;
   --action-pane-min: 380px;
   --query-col: 220px;
@@ -2049,48 +2047,6 @@ button.sb-item.mainnet:hover {
   font-family: var(--font-mono);
   cursor: pointer;
 }
-.vault-line {
-  display: flex;
-  align-items: center;
-  gap: var(--gap-row);
-}
-.label-input {
-  width: var(--label-input);
-  padding: var(--sp-half) var(--sp-1h);
-  background: transparent;
-  border: var(--bw) solid transparent;
-  border-radius: var(--radius);
-}
-.keys-table .key-label {
-  min-width: var(--key-label-min);
-}
-.keys-table th {
-  white-space: nowrap;
-}
-.keys-table td.actions .btn {
-  min-width: 0;
-}
-.keys-table td.mono-small {
-  word-break: normal;
-  overflow-wrap: normal;
-  white-space: nowrap;
-}
-.keys-table .label-input {
-  width: 100%;
-}
-.keys-table .key-accounts .mono-small {
-  word-break: normal;
-  overflow-wrap: normal;
-  white-space: nowrap;
-}
-.label-input:hover {
-  border-color: var(--border-control);
-}
-.label-input:focus {
-  border-color: var(--accent);
-  outline: none;
-}
-
 /* Context menu */
 .context-menu .cm-item {
   padding-left: var(--sp-3);
@@ -2936,11 +2892,6 @@ button.sb-item.mainnet:hover {
 .dd-item.disabled.hot .dd-key {
   color: var(--text-disabled);
 }
-/* Key rows are list rows of the size scale, not data table rows. */
-.tx-table.keys-table td {
-  height: var(--row);
-  vertical-align: middle;
-}
 /* Home: the project path sits in a chip under the name. */
 .project-row .path-line span {
   padding: 0 var(--sp-2);
@@ -3196,4 +3147,162 @@ button.sb-item.mainnet:hover {
 .net-row .mono,
 .net-row .endpoints label {
   white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ Manage Keypairs */
+
+/* Header: title on the left; vault state and the Vault menu on the right. */
+.keys-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-row);
+  min-width: 0;
+}
+.keys-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.keys-state {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-weight: 400;
+  color: var(--text);
+}
+.btn.open {
+  background: var(--bg-surface-3);
+}
+.icon-btn.open {
+  background: var(--hover);
+  color: var(--text);
+}
+/* Menus of the dialog open on the page, so the dialog body does not clip them. */
+.dropdown.keys-menu {
+  position: fixed;
+  z-index: 300;
+  margin: var(--sp-1) 0;
+}
+.dd-item.danger,
+.dd-item.danger:hover {
+  color: var(--red-text);
+}
+.modal-body .keys-note {
+  margin: 0 0 var(--gap-field);
+  color: var(--text-2);
+}
+.keys-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-row);
+  margin-bottom: var(--gap-field);
+  white-space: normal;
+}
+.keys-banner span {
+  flex: 1;
+  min-width: 0;
+}
+.keys-caption {
+  margin-bottom: var(--sp-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--text-3);
+}
+.keys-caption .mono {
+  font-family: var(--font-mono);
+  color: var(--text-2);
+}
+/* The key list: one row per key, never a table grid. */
+.keys-list {
+  background: var(--bg-surface);
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.key-row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-row);
+  min-height: var(--row);
+  padding: var(--sp-3) var(--sp-4);
+}
+.key-row + .key-row {
+  border-top: var(--bw) solid var(--border);
+}
+.key-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  flex: 1;
+  min-width: 0;
+}
+.key-label-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.key-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.key-label.none {
+  font-weight: 400;
+  color: var(--text-3);
+}
+/* One key is one line: it never wraps; a dialog made narrower cuts it with an ellipsis. */
+.key-pub {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.key-pub-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-mono);
+  color: var(--text);
+  user-select: text;
+}
+.key-accts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-2);
+}
+.key-accts-title {
+  white-space: nowrap;
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--text-3);
+}
+.key-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+.modal .icon-btn.key-more {
+  width: var(--ctl-lg);
+  height: var(--ctl-lg);
+}
+.keys-empty {
+  padding: var(--sp-4);
+  color: var(--text-2);
 }

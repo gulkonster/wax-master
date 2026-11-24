@@ -204,6 +204,14 @@ export const IconCopy = (p: P): React.JSX.Element => (
     <path d="M10.5 5.5v-3a1 1 0 0 0-1-1h-7a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h3" />
   </Svg>
 )
+/** Three dots: more actions of a row. */
+export const IconMore = (p: P): React.JSX.Element => (
+  <Svg {...p}>
+    <circle cx="3.5" cy="8" r="0.9" fill="currentColor" />
+    <circle cx="8" cy="8" r="0.9" fill="currentColor" />
+    <circle cx="12.5" cy="8" r="0.9" fill="currentColor" />
+  </Svg>
+)
 /** The f of f(x): an action. */
 export const IconFunction = (p: P): React.JSX.Element => (
   <Svg {...p}>

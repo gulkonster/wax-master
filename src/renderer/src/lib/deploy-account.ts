@@ -18,7 +18,7 @@ export function rememberDeployPick(projectPath: string, networkId: string, accou
 /**
  * The project's saved deploy account for this network, else the account open
  * in the top bar, else the last account picked in the dialog; each only when it
- * is starred on this network (E37). None of them: no account.
+ * is starred on this network. None of them: no account.
  */
 export function preselectAccount(saved: string | undefined, current: string | null | undefined, last: string | undefined, stars: string[]): string {
   for (const a of [saved, current, last]) if (a && stars.includes(a)) return a

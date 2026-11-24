@@ -11,13 +11,13 @@ import { effectiveOutput, type DeployTarget } from '../shared/project'
 import { DEPLOY_PLAN_EXPIRED, type DeployPlan } from '../shared/chain-types'
 import { currentProject, resolveInProject } from './projects'
 import { abiRefusal } from './build'
+import { MAX_ABI_JSON } from './abi-check'
 import { currentNetwork, endpointOf, getNetwork, readCall } from './networks'
 import { chain } from './rpc'
 import { wasmInfo } from './wasm-info'
 import type { ActionRequest } from './signer'
 
 const MAX_WASM = 8 * 1024 * 1024
-const MAX_ABI_JSON = 2 * 1024 * 1024
 
 /** Host functions that need a protocol feature (by its builtin codename). */
 export const FEATURE_OF_IMPORT: Record<string, string> = {

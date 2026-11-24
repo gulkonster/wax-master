@@ -26,6 +26,17 @@ export interface RawAbiFinding {
 
 const REFUSED = 'The chain refuses such an ABI, so Deploy is stopped.'
 
+/** Above this size (the limit Deploy has too) the ABI is not checked. */
+export const MAX_ABI_JSON = 2 * 1024 * 1024
+/** At most this many findings are explained (and stored); the rest are counted in one line. */
+export const MAX_EXPLAINED_FINDINGS = 50
+
+/** The one line for the findings beyond MAX_EXPLAINED_FINDINGS, or null when there are none. */
+export function moreFindingsLine(total: number): string | null {
+  const more = total - MAX_EXPLAINED_FINDINGS
+  return more > 0 ? `${ABI_CHECK_PREFIX} and ${more} more of the same kind` : null
+}
+
 /** Strips `[]`, `?` and the binary-extension `$` from a type reference. */
 function baseType(t: string): string {
   let cur = t.endsWith('$') ? t.slice(0, -1) : t
@@ -103,10 +114,18 @@ export interface SourceFile {
 const SOURCE_EXT = /\.(hpp|cpp|h|hh|hxx|cc|cxx)$/i
 const MAX_SOURCE_FILES = 5000
 const MAX_SOURCE_BYTES = 4 * 1024 * 1024
+/** All sources together; files beyond this total are not read. */
+export const MAX_SOURCE_TOTAL = 32 * 1024 * 1024
+/** Longer lines (generated or minified code) are left out of the search; line numbers stay. */
+export const MAX_SEARCH_LINE = 2000
 
-/** Reads the project's C++ sources (skips dot folders and node_modules). */
+/**
+ * Reads the project's C++ sources (skips dot folders and node_modules), at most
+ * MAX_SOURCE_FILES files of MAX_SOURCE_BYTES each and MAX_SOURCE_TOTAL together.
+ */
 export async function readSources(root: string): Promise<SourceFile[]> {
   const out: SourceFile[] = []
+  let total = 0
   const walk = async (dir: string, rel: string): Promise<void> => {
     if (out.length >= MAX_SOURCE_FILES) return
     let entries: import('node:fs').Dirent[]
@@ -125,9 +144,10 @@ export async function readSources(root: string): Promise<SourceFile[]> {
       } else if (e.isFile() && SOURCE_EXT.test(e.name)) {
         try {
           const st = await fsp.stat(join(dir, e.name))
-          if (st.size > MAX_SOURCE_BYTES) continue
+          if (st.size > MAX_SOURCE_BYTES || total + st.size > MAX_SOURCE_TOTAL) continue
           const text = await fsp.readFile(join(dir, e.name), 'utf8')
-          out.push({ rel: r, lines: text.split(/\r?\n/) })
+          total += st.size
+          out.push({ rel: r, lines: text.split(/\r?\n/).map((l) => (l.length > MAX_SEARCH_LINE ? '' : l)) })
         } catch {
           // unreadable file: skipped
         }
@@ -321,9 +341,12 @@ function abiLineOf(abiText: string, f: RawAbiFinding): number {
   return i >= 0 ? i + 1 : 1
 }
 
-/** Checks an ABI text and explains every finding with its source place. */
-export function describeAbi(abiText: string, abiRel: string, sources: SourceFile[]): AbiFinding[] {
-  return checkAbi(abiText).map((f) => {
+/**
+ * Checks an ABI text and explains the first MAX_EXPLAINED_FINDINGS findings with
+ * their source place (`raw`: the findings of checkAbi when already made).
+ */
+export function describeAbi(abiText: string, abiRel: string, sources: SourceFile[], raw: RawAbiFinding[] = checkAbi(abiText)): AbiFinding[] {
+  return raw.slice(0, MAX_EXPLAINED_FINDINGS).map((f) => {
     const place = findPlace(f, sources)
     const other = f.kind === 'table-type' ? otherContractOf(f, sources) : null
     return {

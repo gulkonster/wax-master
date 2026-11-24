@@ -141,7 +141,8 @@ import { preflight } from '../../src/main/ipc-tx'
 import { applyThemeSetting } from '../../src/main/theme'
 import { WINDOW_COLORS } from '../../src/shared/theme'
 import { BUSY_MESSAGE, LOCKED_MESSAGE, type ApprovalRecord, type Signer } from '../../src/main/signer'
-import { UnlockCancelled, isVaultLocked, retryAfterUnlock } from '../../src/shared/vault-locked'
+import { UnlockCancelled, isVaultLocked, retryAfterUnlock, withoutLockedCode } from '../../src/shared/vault-locked'
+import { handle } from '../../src/main/ipc'
 import { setLogSink } from '../../src/main/log'
 import { chain } from '../../src/main/rpc'
 import { FILE_EXISTS } from '../../src/main/key-backup'
@@ -339,6 +340,62 @@ describe('task 5b and 5c: one confirmation at a time; a locked vault stops befor
     expect(h.sent).toEqual([])
     expect(h.windows.length).toBe(before)
     await call('keys:unlock', editor(), PW)
+  })
+
+  it('the locked-vault code inside foreign text reaches the editor without the code and does not ask for the password', async () => {
+    const nodeText = `assertion failure with message: vault-locked: The vault is locked. Unlock it to go on.`
+    handle('test:foreign', () => {
+      throw new Error(nodeText)
+    })
+    handle('test:locked', () => {
+      throw new Error(LOCKED_MESSAGE)
+    })
+    let foreign: unknown
+    await call('test:foreign', editor()).catch((e) => (foreign = e))
+    const fm = (foreign as Error).message
+    expect(fm).not.toContain('vault-locked:')
+    expect(fm).toContain('vault locked:')
+    expect(isVaultLocked(foreign)).toBe(false)
+    expect(isVaultLocked(new Error(`Error invoking remote method 'test:foreign': Error: ${fm}`))).toBe(false)
+    // Even unmodified foreign text that merely contains the code is not the typed error.
+    expect(isVaultLocked(new Error(nodeText.replace('assertion failure with message: ', 'node said vault-locked: x ')))).toBe(false)
+    let asked = 0
+    let runs = 0
+    await expect(
+      retryAfterUnlock(
+        async () => {
+          runs++
+          return call('test:foreign', editor())
+        },
+        async () => {
+          asked++
+          return true
+        }
+      )
+    ).rejects.toThrow('vault locked:')
+    expect(asked).toBe(0)
+    expect(runs).toBe(1)
+    // The real error still asks, also with Electron's prefix.
+    let real: unknown
+    await call('test:locked', editor()).catch((e) => (real = e))
+    expect((real as Error).message).toBe(LOCKED_MESSAGE)
+    expect(isVaultLocked(real)).toBe(true)
+    expect(isVaultLocked(new Error(`Error invoking remote method 'test:locked': Error: ${LOCKED_MESSAGE}`))).toBe(true)
+    expect(withoutLockedCode(LOCKED_MESSAGE)).toBe('The vault is locked. Unlock it to go on.')
+  })
+
+  it('a send refused because the vault locked while the window was open shows the text without the code', async () => {
+    let now = 3_000_000
+    vi.spyOn(Date, 'now').mockImplementation(() => now)
+    const { win, done } = openOne('appr-locked')
+    win.emit('ready-to-show')
+    now += APPROVE_DELAY_MS + 1
+    const spy = vi.spyOn(fakeSigner, 'approve').mockRejectedValueOnce(new Error(LOCKED_MESSAGE))
+    const r = (await call('confirm:approve', confirmEvent(win), 'appr-locked')) as { ok: boolean; error?: string }
+    expect(spy).toHaveBeenCalled()
+    expect(r.ok).toBe(false)
+    expect(r.error).toBe('The vault is locked. Unlock it to go on.')
+    await expect(done).resolves.toMatchObject({ approved: false, reason: 'error', error: 'The vault is locked. Unlock it to go on.' })
   })
 
   it('unlock then continue: the request stops before any window, the password is asked in place, the request runs once more and opens one window', async () => {

@@ -21,7 +21,10 @@ const MAX_CANDIDATES = 10
 
 const markets = new Map<string, Promise<RamPrice>>()
 
-/** The RAM market of the current network (read once per network and endpoint); null while loading. */
+/**
+ * The RAM market of the current network (a market is read once per network and
+ * endpoint; "not available" and errors are not kept); null while loading.
+ */
 export function useRamMarket(): { price: RamPrice | null; error: string } {
   const net = useStore(networkStore).current
   const key = net ? `${net.id}|${net.endpoints[net.currentEndpoint] ?? ''}` : ''
@@ -39,7 +42,12 @@ export function useRamMarket(): { price: RamPrice | null; error: string } {
     }
     const mine = p
     mine.then(
-      (r) => live && setPrice(r),
+      (r) => {
+        // Only a market is kept: "not available" is read again on the next network,
+        // endpoint or opening of the dialog.
+        if (!r.available && markets.get(key) === mine) markets.delete(key)
+        if (live) setPrice(r)
+      },
       (e) => {
         if (markets.get(key) === mine) markets.delete(key)
         if (live) setError(errorText(e))

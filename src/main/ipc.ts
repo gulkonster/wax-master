@@ -10,6 +10,7 @@ import { bool, int, localAbsPath, obj, oneOf, relPath, str } from '../shared/val
 import { normalizeConfig, type TemplateId } from '../shared/project'
 import { BUILD_COMMIT, BUILD_STAGE, MAINNET_SIGNING } from './build-info'
 import { log } from './log'
+import { neutralizeLockedCode } from '../shared/vault-locked'
 import * as projects from './projects'
 import { isAllowedOrigin, isTerminalFrameUrl, openExternalConfirmed } from './security'
 import * as store from './store'
@@ -56,7 +57,8 @@ function guarded(channel: string, allowed: (e: IpcMainInvokeEvent) => boolean, f
     try {
       return await fn(e, ...args)
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
+      // Only the typed locked-vault error itself carries its code to the editor.
+      const msg = neutralizeLockedCode(err instanceof Error ? err.message : String(err))
       log.warn(`${channel} failed: ${msg}`)
       throw new Error(msg)
     }

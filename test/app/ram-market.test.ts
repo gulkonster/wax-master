@@ -1,4 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { describe, expect, it, vi } from 'vitest'
+
+const userData = mkdtempSync(join(tmpdir(), 'wm-ram-'))
+vi.mock('electron', () => ({ app: { getPath: () => userData, isPackaged: false, getAppPath: () => userData } }))
 import {
   accountRamDefault,
   formatCost,
@@ -119,5 +125,56 @@ describe('main-process read of the RAM price', () => {
         throw new RpcError('offline', 0)
       })
     ).rejects.toThrow('offline')
+  })
+  it('the node saying the table, contract or account is unknown: not available', async () => {
+    const answers = [
+      new RpcError('Internal Service Error', 500, { code: 500, error: { name: 'contract_table_query_exception', details: [{ message: 'Table rammarket is not specified in the ABI' }] } }),
+      new RpcError('Internal Service Error', 500, { code: 500, error: { name: 'abi_not_found_exception', details: [{ message: 'No ABI found for eosio' }] } }),
+      new RpcError('Internal Service Error', 500, { code: 500, error: { name: 'account_query_exception', details: [{ message: 'unknown key (eosio::chain::name): eosio' }] } }),
+      new RpcError('Bad Request', 400, { code: 400, error: { name: 'exception', details: [{ message: 'Unknown table' }] } })
+    ]
+    for (const a of answers) {
+      const r = await readRamPrice(1, async () => {
+        throw a
+      })
+      expect(r).toEqual({ available: false, reason: 'This network has no system RAM market.' })
+    }
+  })
+  it('429 and 5xx without such an answer are errors, never "not available"', async () => {
+    for (const status of [429, 500, 502, 503, 504]) {
+      const e = new RpcError(`HTTP ${status}`, status, status === 500 ? { error: { what: 'database is busy' } } : null)
+      await expect(readRamPrice(1, async () => Promise.reject(e))).rejects.toBe(e)
+    }
+    await expect(readRamPrice(1, async () => Promise.reject(new RpcError('HTTP 403', 403)))).rejects.toThrow('HTTP 403')
+  })
+  it('a failing first endpoint: readCall tries the next one and answers the market', async () => {
+    const { readCall } = await import('../../src/main/networks')
+    const net = { id: 'wax-testnet', name: 'X', kind: 'testnet', chainId: 'f1'.repeat(32), endpoints: ['https://a.example', 'https://b.example'], currentEndpoint: 0 }
+    for (const status of [429, 502, 503, 504]) {
+      const tried: string[] = []
+      const errors: RpcError[] = [new RpcError(`HTTP ${status}`, status)]
+      // Only the second endpoint answers.
+      const r = await readCall(
+        (ep) =>
+          readRamPrice(1, async () => {
+            tried.push(ep)
+            const e = errors.shift()
+            if (e) throw e
+            return { rows: [WAX_ROW] }
+          }),
+        net as never
+      )
+      expect(tried).toEqual(['https://a.example', 'https://b.example'])
+      expect(r).toMatchObject({ available: true, symbol: 'WAX' })
+    }
+    const all = await readCall((ep) => readRamPrice(1, async () => Promise.reject(new RpcError(`${ep} HTTP 503`, 503))), net as never).catch((e) => e)
+    expect(all).toBeInstanceOf(RpcError)
+    expect((all as Error).message).toBe('https://a.example HTTP 503 (2 endpoints tried)')
+  })
+  it('the shown text: "The RAM price could not be read"', async () => {
+    const { ramPriceError } = await import('../../src/main/ram-price')
+    expect(ramPriceError(new RpcError('Could not reach https://a.example: the connection was refused.', 0)).message).toBe(
+      'The RAM price could not be read. Could not reach https://a.example: the connection was refused.'
+    )
   })
 })

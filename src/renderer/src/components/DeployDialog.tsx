@@ -127,7 +127,7 @@ export function DeployDialog({
         if (r.build?.problems.length) showPanel('problems')
         return
       }
-      // B37: "Built" only when this check compiled; otherwise the stored build is up to date.
+      // "Built" only when this check compiled; otherwise the stored build is up to date.
       setBuildLine(r.build ? `Built ${clock(r.builtAt)}` : `Build is up to date (built ${clock(r.builtAt)})`)
       // The stored ABI explanation is shown at once; a WASM-only deployment is still allowed.
       if (r.result === 'abi-not-deployable' && target !== 'wasm') {

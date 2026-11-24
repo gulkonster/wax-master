@@ -11,14 +11,29 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
-/** True for the typed locked-vault error, also after Electron prefixed it on the way through IPC. */
+/**
+ * True only for the typed locked-vault error itself: the message is exactly
+ * `LOCKED_MESSAGE`, or ends with ": " + `LOCKED_MESSAGE` (Electron's prefix on the
+ * way through IPC). The code inside any other text does not count.
+ */
 export function isVaultLocked(err: unknown): boolean {
-  return new RegExp(`(^|[\\s:])${VAULT_LOCKED}:`).test(messageOf(err))
+  const m = messageOf(err)
+  return m === LOCKED_MESSAGE || m.endsWith(`: ${LOCKED_MESSAGE}`)
 }
 
 /** Text of the locked-vault error without its code (for a message that reaches the user anyway). */
 export function withoutLockedCode(text: string): string {
-  return text.replace(`${VAULT_LOCKED}: `, '')
+  return text.split(`${VAULT_LOCKED}: `).join('')
+}
+
+/**
+ * The message an IPC handler passes on: the typed locked-vault error unchanged,
+ * any other message with the code made inert, so text written by a node, a
+ * service or a file can never ask for the password and repeat a request.
+ */
+export function neutralizeLockedCode(message: string): string {
+  if (message === LOCKED_MESSAGE) return message
+  return message.split(`${VAULT_LOCKED}:`).join('vault locked:')
 }
 
 /** The user closed the unlock prompt; the operation did not run and nothing needs to be shown. */

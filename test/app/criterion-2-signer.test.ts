@@ -208,4 +208,50 @@ describe('a send repeated after a broken connection', () => {
     expect(sent).toHaveLength(1)
     expect(sent[0].ep).toBe('https://node-a.example')
   })
+
+  it('a send without any answer names the endpoint, the reason and the transaction id, and says it may have arrived', async () => {
+    const { request } = await import('../../src/main/rpc')
+    const failure = (): Error => Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('other side closed'), { code: 'UND_ERR_SOCKET' }) })
+    const realFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = (async () => {
+      calls++
+      throw failure()
+    }) as typeof fetch
+    try {
+      const s = new Signer(
+        deps({
+          // The real client: one repeat on the broken connection, then the text of a request without an answer.
+          send: (ep, body) => {
+            sent.push({ ep, body: body as never })
+            return request(ep, '/v1/chain/send_transaction', { body, timeoutMs: 30_000 })
+          }
+        })
+      )
+      const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer] })
+      const err = (await s.approve(record.id, secret).catch((e) => e)) as Error
+      expect(err.message).toBe(
+        `Could not reach https://node-a.example: the connection was closed before an answer came. The transaction ${record.transactionId} may still have reached the node. Open it in the history (or look at the account) before sending again.`
+      )
+      expect(err.message).not.toMatch(/fetch failed|send_transaction|packed_trx|SIG_/)
+      expect(calls).toBe(2)
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+
+  it('a time limit reached while sending gets the same sentence', async () => {
+    const { RpcError, noAnswerMessage } = await import('../../src/main/rpc')
+    const s = new Signer(
+      deps({
+        send: async (ep) => {
+          throw new RpcError(noAnswerMessage(ep, new Error('aborted'), { timedOut: true, timeoutMs: 30_000 }), 0)
+        }
+      })
+    )
+    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer] })
+    await expect(s.approve(record.id, secret)).rejects.toThrow(
+      `Could not reach https://node-a.example: no answer within 30 s. The transaction ${record.transactionId} may still have reached the node.`
+    )
+  })
 })

@@ -213,13 +213,15 @@ export function onEndpointSwitch(fn: SwitchNotice): void {
 }
 
 /**
- * Runs a read call against the current endpoint; on a network failure or a
- * server error it moves to the next endpoint of the network (reads only, with
- * a notice). Node errors about the request itself are not retried.
+ * Runs a read call against the current endpoint; on a network failure, a rate
+ * limit (429) or a server error it moves to the next endpoint of the network (reads only, with
+ * a notice). Node errors about the request itself are not retried. When every
+ * endpoint failed, the error is the one of the selected endpoint, with
+ * "(<n> endpoints tried)" when the network has more than one.
  */
 export async function readCall<T>(fn: (endpoint: string) => Promise<T>, network = currentNetwork()): Promise<T> {
   const n = network
-  let lastErr: unknown
+  let firstErr: unknown
   for (let i = 0; i < n.endpoints.length; i++) {
     const idx = (n.currentEndpoint + i) % n.endpoints.length
     const ep = n.endpoints[idx]
@@ -231,13 +233,17 @@ export async function readCall<T>(fn: (endpoint: string) => Promise<T>, network 
       }
       return r
     } catch (e) {
-      lastErr = e
-      const retryable = e instanceof RpcError && (e.status === 0 || e.status >= 500)
+      if (i === 0) firstErr = e
+      // No answer, a rate limit or a server failure: the next endpoint may answer.
+      const retryable = e instanceof RpcError && (e.status === 0 || e.status === 429 || e.status >= 500)
       if (!retryable) throw e
       log.warn(`Endpoint ${ep} failed: ${e instanceof Error ? e.message : String(e)}`)
     }
   }
-  throw lastErr
+  if (n.endpoints.length > 1 && firstErr instanceof RpcError) {
+    throw new RpcError(`${firstErr.message} (${n.endpoints.length} endpoints tried)`, firstErr.status, firstErr.details)
+  }
+  throw firstErr
 }
 
 /** Reads chain id and core symbol of an endpoint (Add Network). */

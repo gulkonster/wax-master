@@ -10,7 +10,7 @@ import { ContractHistory, getContractAbi, getContractDef, KEY_TYPES, packAction,
 import { dataDir } from './paths'
 import { chain } from './rpc'
 import { isUnknownAccount } from './account-pick'
-import { readRamPrice } from './ram-price'
+import { ramPriceError, readRamPrice } from './ram-price'
 import { RAM_MAX_BUY } from '../shared/ram-market'
 import type { AuthLevel, ContractHistoryKind, ContractHistoryList } from '../shared/chain-types'
 
@@ -126,7 +126,9 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
   // RAM price of the current network for `bytes` (0: the market only); buyrambytes takes a uint32.
   handle('chain:ramPrice', (_e, bytes) => {
     const b = int(bytes, 'bytes', 0, RAM_MAX_BUY)
-    return networks.readCall((ep) => readRamPrice(b, (body) => chain.getTableRows(ep, body)))
+    return networks.readCall((ep) => readRamPrice(b, (body) => chain.getTableRows(ep, body))).catch((e) => {
+      throw ramPriceError(e)
+    })
   })
 
   handle('contract:abi', (_e, account, refresh) =>

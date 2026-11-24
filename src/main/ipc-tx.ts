@@ -18,6 +18,7 @@ import { BUSY_MESSAGE, LOCKED_MESSAGE, type ActionRequest, type PrepareKind } fr
 import { changeKeyActions, createAccountActions } from './accounts'
 import { createTestnetAccount, randomTestnetName, requestTokens } from './faucet'
 import { bool, int } from '../shared/validate'
+import { withoutLockedCode } from '../shared/vault-locked'
 
 const ACTION_NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 /** Same limit as contract:pack. */
@@ -85,7 +86,8 @@ async function signAndSend(win: BrowserWindow | null, networkId: string, actions
     return {
       status: 'failed',
       // A CPU / NET / RAM refusal is said plainly; anything else keeps the node's message.
-      error: trace?.resource ? (trace.errorMessage ?? outcome.error ?? 'Failed') : (outcome.error ?? 'Failed'),
+      // Without the locked-vault code: a failed send is never repeated after an unlock.
+      error: withoutLockedCode(trace?.resource ? (trace.errorMessage ?? outcome.error ?? 'Failed') : (outcome.error ?? 'Failed')),
       trace
     }
   }

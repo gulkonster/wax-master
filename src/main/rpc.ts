@@ -91,6 +91,65 @@ export function isStaleConnection(e: unknown): boolean {
   return false
 }
 
+/** Error codes of a failed request, from the error and its causes (codes only, never their text). */
+function errorCodes(e: unknown): string[] {
+  const out: string[] = []
+  let c: unknown = e
+  for (let depth = 0; depth < 5 && c && typeof c === 'object'; depth++) {
+    const code = (c as { code?: unknown }).code
+    if (typeof code === 'string' && /^[A-Z0-9_]{1,64}$/.test(code)) out.push(code)
+    c = (c as { cause?: unknown }).cause
+  }
+  return out
+}
+
+/** True when the failure is the refused redirect (requests are made with redirect: "error"). */
+function isRefusedRedirect(e: unknown): boolean {
+  let c: unknown = e
+  for (let depth = 0; depth < 5 && c && typeof c === 'object'; depth++) {
+    const m = (c as { message?: unknown }).message
+    if (typeof m === 'string' && /redirect/i.test(m)) return true
+    c = (c as { cause?: unknown }).cause
+  }
+  return false
+}
+
+/** The reason part of a request that got no answer, from the error codes. */
+function noAnswerReason(e: unknown, timeout: { timedOut: boolean; timeoutMs: number }): string {
+  if (timeout.timedOut) {
+    const secs = timeout.timeoutMs / 1000
+    return `no answer within ${Number.isInteger(secs) ? secs : secs.toFixed(1)} s`
+  }
+  const codes = errorCodes(e)
+  const has = (...list: string[]): boolean => codes.some((c) => list.includes(c))
+  if (has('ENOTFOUND', 'EAI_AGAIN')) return 'the host name could not be found (check the internet connection)'
+  if (has('ECONNREFUSED')) return 'the connection was refused'
+  if (has('ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT')) return 'the connection timed out'
+  if (has(...STALE_CONNECTION_CODES)) return 'the connection was closed before an answer came'
+  const cert = codes.find((c) => /^(CERT_|ERR_TLS_|UNABLE_TO_VERIFY|DEPTH_ZERO_SELF_SIGNED|SELF_SIGNED)/.test(c))
+  if (cert) return `the endpoint's certificate was not accepted (${cert})`
+  if (isRefusedRedirect(e)) return 'the endpoint answered with a redirect, which is not followed'
+  return codes.length > 0 ? `network error (${codes[0]})` : 'network error'
+}
+
+/** Scheme and host of an address (never a path, query or body); the text itself when it is not a URL. */
+function hostOf(endpoint: string): string {
+  try {
+    const u = new URL(endpoint)
+    return `${u.protocol}//${u.host}`
+  } catch {
+    return 'the endpoint'
+  }
+}
+
+/**
+ * The one text of a request that got no answer: "Could not reach <endpoint>: <reason>."
+ * Used by the chain and history client and by the faucet call.
+ */
+export function noAnswerMessage(endpoint: string, e: unknown, timeout: { timedOut: boolean; timeoutMs: number } = { timedOut: false, timeoutMs: 0 }): string {
+  return `Could not reach ${hostOf(endpoint)}: ${noAnswerReason(e, timeout)}.`
+}
+
 export async function request<T>(
   endpoint: string,
   path: string,
@@ -141,8 +200,7 @@ export async function request<T>(
     return json as T
   } catch (e) {
     if (e instanceof RpcError) throw e
-    if (controller.signal.aborted) throw new RpcError(`Request timed out after ${(opts.timeoutMs ?? REQUEST_TIMEOUT_MS) / 1000} s`, 0)
-    throw new RpcError(e instanceof Error ? `Network error: ${e.message}` : 'Network error', 0)
+    throw new RpcError(noAnswerMessage(url, e, { timedOut: controller.signal.aborted, timeoutMs: opts.timeoutMs ?? REQUEST_TIMEOUT_MS }), 0)
   } finally {
     clearTimeout(timer)
   }

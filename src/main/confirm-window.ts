@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import type { ApprovalRecord, SendResult, Signer } from './signer'
 import { APP_ORIGIN, isAllowedOrigin, secureWebPreferences } from './security'
 import { log } from './log'
+import { withoutLockedCode } from '../shared/vault-locked'
 import { followTheme, themeArgs, windowBackground } from './theme'
 
 /** Default size: a plain transfer shows without scrolling at the size scale of styles.css. */
@@ -98,7 +99,8 @@ export function registerConfirmWindow(signer: Signer): void {
       setTimeout(() => !p.win.isDestroyed() && p.win.close(), 50)
       return { ok: true, transactionId: result.transactionId }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
+      // The vault may have locked itself while this window was open: shown without the code.
+      const message = withoutLockedCode(err instanceof Error ? err.message : String(err))
       // A failed approval is used up (single use); the window shows the error and closes on Close.
       p.secret.fill(0)
       p.settle({ approved: false, reason: 'error', error: message, details: (err as { details?: unknown }).details })

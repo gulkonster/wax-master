@@ -71,3 +71,79 @@ describe('stored build state', () => {
     expect(new BuildStateStore(() => file).get('C:\\x')).toBeNull()
   })
 })
+
+describe('project file in the fingerprint', () => {
+  const config = (deploy: unknown, extra: Record<string, unknown> = {}): string =>
+    JSON.stringify({ main: 'src/hello.cpp', contract: 'hello', buildCommand: '', ...extra, ...(deploy === undefined ? {} : { deploy }) }, null, 2)
+
+  it('saving another deploy account, permission or target leaves the fingerprint equal', async () => {
+    const root = project()
+    writeFileSync(join(root, 'waxmaster.json'), config({ account: 'alice', permission: 'active', target: 'both' }))
+    const base = await projectFingerprint(root, opts)
+    writeFileSync(join(root, 'waxmaster.json'), config({ account: 'bobbyaccount', permission: 'owner', target: 'wasm' }))
+    utimesSync(join(root, 'waxmaster.json'), new Date(2021, 1, 1), new Date(2021, 1, 1))
+    expect(await projectFingerprint(root, opts)).toBe(base)
+    // Key order and formatting do not count either.
+    writeFileSync(join(root, 'waxmaster.json'), JSON.stringify({ deploy: { account: 'x' }, buildCommand: '', contract: 'hello', main: 'src/hello.cpp' }))
+    expect(await projectFingerprint(root, opts)).toBe(base)
+    writeFileSync(join(root, 'waxmaster.json'), config(undefined))
+    expect(await projectFingerprint(root, opts)).toBe(base)
+  })
+
+  it('changing contract, main or buildCommand changes it', async () => {
+    const root = project()
+    writeFileSync(join(root, 'waxmaster.json'), config({ account: 'alice' }))
+    const base = await projectFingerprint(root, opts)
+    for (const extra of [{ contract: 'other' }, { main: 'src/other.cpp' }, { buildCommand: 'make' }]) {
+      writeFileSync(join(root, 'waxmaster.json'), config({ account: 'alice' }, extra))
+      expect(await projectFingerprint(root, opts)).not.toBe(base)
+    }
+  })
+
+  it('an unparsable file counts by size and time; a waxmaster.json below the root counts like any file', async () => {
+    const root = project()
+    writeFileSync(join(root, 'waxmaster.json'), '{ not json')
+    const a = await projectFingerprint(root, opts)
+    utimesSync(join(root, 'waxmaster.json'), new Date(2020, 1, 1), new Date(2020, 1, 1))
+    expect(await projectFingerprint(root, opts)).not.toBe(a)
+    writeFileSync(join(root, 'src', 'waxmaster.json'), config({ account: 'alice' }))
+    const b = await projectFingerprint(root, opts)
+    writeFileSync(join(root, 'src', 'waxmaster.json'), config({ account: 'bobbyaccount' }))
+    expect(await projectFingerprint(root, opts)).not.toBe(b)
+  })
+})
+
+describe('stored findings read back', () => {
+  const base = { kind: 'table-type', subject: 's', type: 't', text: 'ABI check: x' }
+  function readBack(findings: unknown[]): { place: unknown; text: string }[] {
+    const dir = mkdtempSync(join(tmpdir(), 'wm-bs-'))
+    const file = join(dir, 'build-state.json')
+    writeFileSync(file, JSON.stringify({ version: 1, projects: { 'c:\\p': { result: 'abi-not-deployable', builtAt: 1, fingerprint: 'a', abiFindings: findings } } }))
+    return new BuildStateStore(() => file).get('C:\\p')!.abiFindings as unknown as { place: unknown; text: string }[]
+  }
+
+  it('keeps a place only with a relative path and whole line and column numbers of 1 or more', () => {
+    const places = [
+      { file: 'include/a.hpp', line: 3, column: 1 },
+      { file: '../outside.hpp', line: 3, column: 1 },
+      { file: 'include/../../x.hpp', line: 3, column: 1 },
+      { file: 'C:\\Windows\\x.hpp', line: 3, column: 1 },
+      { file: 'c:x.hpp', line: 3, column: 1 },
+      { file: '/etc/passwd', line: 3, column: 1 },
+      { file: '\\\\server\\share\\x.hpp', line: 3, column: 1 },
+      { file: 'a.hpp', line: 0, column: 1 },
+      { file: 'a.hpp', line: 1.5, column: 1 },
+      { file: 'a.hpp', line: 2, column: -1 },
+      { file: 'a.hpp', line: '2', column: 1 },
+      { file: 7, line: 2, column: 1 }
+    ]
+    const got = readBack(places.map((place) => ({ ...base, place })))
+    expect(got.map((f) => f.place)).toEqual([{ file: 'include/a.hpp', line: 3, column: 1 }, ...Array(places.length - 1).fill(null)])
+  })
+
+  it('cuts a stored text at 4,000 characters and keeps at most 50 findings', () => {
+    const got = readBack(Array.from({ length: 80 }, () => ({ ...base, text: 'y'.repeat(10_000), place: null })))
+    expect(got).toHaveLength(50)
+    expect(got[0].text.length).toBe(4000)
+  })
+})

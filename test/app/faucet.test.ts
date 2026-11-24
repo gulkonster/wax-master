@@ -140,3 +140,20 @@ describe('testnet faucet hardening', () => {
     expect(c.message).not.toContain(k.priv)
   })
 })
+
+describe('faucet call without an answer', () => {
+  it('says which host and why, never "fetch failed" or the remote text', async () => {
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async () => {
+      throw Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('remote words'), { code: 'ENOTFOUND' }) })
+    }) as typeof fetch
+    try {
+      const r = await requestTokens('abcdefghijk1')
+      expect(r.ok).toBe(false)
+      expect(r.message).toBe('Could not reach https://faucet.waxsweden.org: the host name could not be found (check the internet connection).')
+      expect(r.message).not.toMatch(/fetch failed|remote words|get_token|abcdefghijk1/)
+    } finally {
+      globalThis.fetch = realFetch
+    }
+  })
+})

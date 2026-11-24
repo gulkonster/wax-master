@@ -66,7 +66,7 @@ describe('request limits', () => {
     await expect(request(base, '/big')).rejects.toThrow(/too large/)
   })
   it('times out', async () => {
-    await expect(request(base, '/slow', { timeoutMs: 300 })).rejects.toThrow(/timed out/)
+    await expect(request(base, '/slow', { timeoutMs: 300 })).rejects.toThrow(`Could not reach ${base}: no answer within 0.3 s.`)
   })
   it('reports node errors with the status', async () => {
     const e = await request(base, '/err').catch((x) => x)
