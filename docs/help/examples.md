@@ -29,7 +29,7 @@ On WAX Testnet the random number service did not answer requests when this examp
 
 - The toolchain (Help > Setup) and WAX Testnet selected with the Network button.
 - A contract account made with Accounts > Create Testnet Account and funded with **Request test tokens** before anything is deployed. The faucet limits how often it creates accounts and sends tokens, and shows its own message when it refuses. A second account is one you already have, or one made from the first on its Account page, section **Create account**. When **Request test tokens** is refused, send WAX to the contract account from an account you have (its Account page, section **Transfer**) before deploying.
-- `eosio.code` on the contract account's `active` for every example that sends an inline action: the switch in **Keys and permissions** on the Account page. See [The eosio.code permission](doc:eosio-code).
+- `eosio.code` on the contract account's `active` for every example that sends an inline action: the checkbox in **Keys and permissions** on the Account page. See [The eosio.code permission](doc:eosio-code).
 - RAM for the code (the Deploy dialog offers **Buy RAM**) and for the rows the contract pays for; each page says how much.
 
 Each page ends with "Before you build on it": what a real contract adds, and what the example does not protect.
