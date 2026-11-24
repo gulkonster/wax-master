@@ -780,3 +780,109 @@ button.sb-item:hover {
   font-weight: 400;
   color: var(--text);
 }
+
+/* Setup */
+.setup-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 24px 0 16px;
+}
+.setup-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--bg-2);
+  padding: 14px 16px;
+}
+.setup-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: var(--bg-4);
+  color: var(--text-dim);
+}
+.setup-icon.ok {
+  background: var(--green);
+  color: #fff;
+}
+.setup-icon.bad {
+  background: var(--amber);
+  color: #1e1f21;
+}
+.setup-icon.busy {
+  background: var(--blue);
+  color: #fff;
+}
+.setup-text {
+  flex: 1;
+  min-width: 0;
+}
+.setup-name {
+  font-size: 16px;
+}
+.setup-desc {
+  color: var(--text-dim);
+  margin-top: 2px;
+  user-select: text;
+}
+.setup-log {
+  background: #111;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 10px 12px;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  user-select: text;
+  margin-top: 12px;
+}
+
+/* Output and Problems */
+.output-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.output-text .diag {
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+.problem-row {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+  cursor: pointer;
+  font-family: var(--ui);
+}
+.problem-row:hover {
+  background: var(--bg-3);
+}
+.problem-row .loc {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.sev-error {
+  color: var(--red);
+}
+.sev-warning {
+  color: var(--amber);
+}
+.sev-info {
+  color: var(--blue);
+}
+.approval-command {
+  font-family: var(--mono);
+  background: #111;
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+}

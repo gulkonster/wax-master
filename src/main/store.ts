@@ -7,6 +7,8 @@ interface StoreData {
   version: 1
   settings: Settings
   projects: ProjectEntry[]
+  /** Custom build commands the user approved, per project folder and exact command text. */
+  trustedCommands: { path: string; command: string }[]
 }
 
 function defaults(): StoreData {
@@ -21,7 +23,8 @@ function defaults(): StoreData {
       terminalProfile: 'powershell',
       setupDismissed: false
     },
-    projects: []
+    projects: [],
+    trustedCommands: []
   }
 }
 
@@ -38,7 +41,8 @@ export function load(): StoreData {
   cache = {
     version: 1,
     settings: { ...d.settings, ...(raw.settings ?? {}) },
-    projects: Array.isArray(raw.projects) ? raw.projects : []
+    projects: Array.isArray(raw.projects) ? raw.projects : [],
+    trustedCommands: Array.isArray(raw.trustedCommands) ? raw.trustedCommands : []
   }
   return cache
 }
@@ -106,4 +110,16 @@ export function removeProject(path: string): ProjectEntry[] {
   s.projects = s.projects.filter((p) => !samePath(p.path, path))
   save()
   return listProjects()
+}
+
+export function isCommandTrusted(path: string, command: string): boolean {
+  return load().trustedCommands.some((t) => samePath(t.path, path) && t.command === command)
+}
+
+export function trustCommand(path: string, command: string): void {
+  const s = load()
+  if (!isCommandTrusted(path, command)) {
+    s.trustedCommands.push({ path, command })
+    save()
+  }
 }

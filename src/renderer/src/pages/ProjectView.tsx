@@ -8,6 +8,9 @@ import { FileTree, type TreeMenuAction } from '../components/FileTree'
 import { InputDialog } from '../components/Modal'
 import { IconClose, IconGear, IconHammer, IconPlus, IconShip } from '../components/Icons'
 import { ProjectSettings } from './ProjectSettings'
+import { startBuild } from '../lib/build'
+import { problemsStore } from '../lib/stores'
+import type { Problem } from '../../../shared/api'
 
 type Tab =
   | { id: 'settings'; kind: 'settings'; title: string }
@@ -163,6 +166,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
       docs.current.set(id, { model, savedVersion: model?.getAlternativeVersionId() ?? 0, viewState: null })
       setTabs((t) => [...t, { id, kind: 'file', title, rel, info }])
       switchTo(id)
+      applyMarkers()
     } catch (e) {
       toast('Could not open the file', errorText(e), 'error')
     }
@@ -371,6 +375,64 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     [dirty, selected, tree]
   )
 
+  // Build problems as editor markers.
+  const applyMarkers = useCallback(() => {
+    const problems = problemsStore.get()
+    for (const [id, d] of docs.current) {
+      if (!d.model || !id.startsWith('file:')) continue
+      const rel = id.slice(5)
+      const ms = problems
+        .filter((p: Problem) => p.file === rel)
+        .map((p: Problem) => ({
+          startLineNumber: p.line,
+          startColumn: p.column,
+          endLineNumber: p.line,
+          endColumn: d.model!.getLineMaxColumn(Math.min(p.line, d.model!.getLineCount())),
+          message: p.message,
+          severity:
+            p.severity === 'error'
+              ? monaco.MarkerSeverity.Error
+              : p.severity === 'warning'
+                ? monaco.MarkerSeverity.Warning
+                : monaco.MarkerSeverity.Info,
+          source: 'build'
+        }))
+      monaco.editor.setModelMarkers(d.model, 'build', ms)
+    }
+  }, [])
+
+  useEffect(() => on('problems-updated', applyMarkers), [applyMarkers])
+
+  useEffect(
+    () =>
+      on('reveal', (payload) => {
+        const p = payload as { file: string; line: number; column: number }
+        if (/^[A-Za-z]:|^\//.test(p.file)) {
+          toast('Outside the project', p.file)
+          return
+        }
+        void openFile(p.file).then(() => {
+          const ed = editorRef.current
+          if (!ed) return
+          ed.setPosition({ lineNumber: p.line, column: p.column })
+          ed.revealLineInCenter(p.line)
+          ed.focus()
+        })
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
+
+  useEffect(
+    () =>
+      on('save-all-then', (done) => {
+        const ids = tabsRef.current.map((t) => t.id).filter((id) => dirty.has(id))
+        void Promise.all(ids.map((id) => save(id))).then(() => (done as () => void)())
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dirty]
+  )
+
   const activeTab = tabs.find((t) => t.id === active)
   const showEditor = activeTab && activeTab.kind !== 'settings' && !(activeTab.kind === 'file' && activeTab.info)
 
@@ -381,7 +443,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
           <button className="icon-btn" title="New File (Ctrl+N)" onClick={() => newFile(selected ? dirname(selected) : 'src')}>
             <IconPlus />
           </button>
-          <button className="icon-btn" title="Build (arrives with the toolchain)" disabled>
+          <button className="icon-btn" title="Build (Ctrl+B)" onClick={() => void startBuild((t) => actions.showPanel(t))}>
             <IconHammer />
           </button>
           <button className="icon-btn" title="Deploy (arrives in a later build)" disabled>

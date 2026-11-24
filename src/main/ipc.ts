@@ -11,6 +11,11 @@ import { log } from './log'
 import * as projects from './projects'
 import { isAllowedOrigin, openExternalConfirmed } from './security'
 import * as store from './store'
+import * as toolchain from './toolchain'
+import { runBuild, defaultBuildArgs } from './build'
+import { optStr } from '../shared/validate'
+import { run as runHelper } from './helper'
+import { join } from 'node:path'
 
 type Handler = (e: IpcMainInvokeEvent, ...args: unknown[]) => unknown
 
@@ -184,4 +189,62 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   handle('files:writeExternal', (_e, token, content) =>
     projects.writeExternal(str(token, 'token', 64), str(content, 'content', 20 * 1024 * 1024))
   )
+
+  let setupBusy = false
+  const guardSetup = async <T>(fn: () => Promise<T>): Promise<T> => {
+    if (setupBusy) throw new Error('Setup is already running')
+    setupBusy = true
+    try {
+      return await fn()
+    } finally {
+      setupBusy = false
+    }
+  }
+  handle('toolchain:status', () => toolchain.status())
+  handle('toolchain:enableWsl', (_e, compat) =>
+    guardSetup(async () => {
+      const r = await toolchain.enableWsl(bool(compat, 'compat'))
+      return r.code === 0
+        ? { ok: true, message: 'WSL was enabled. Windows needs a restart before the toolchain can be installed.' }
+        : { ok: false, message: `Enabling WSL did not finish (exit ${r.code}). If you declined the administrator prompt, try again.` }
+    })
+  )
+  handle('toolchain:install', (e, v) =>
+    guardSetup(async () => {
+      const version = int(v, 'wslVersion', 1, 2) as 1 | 2
+      const progress = (line: string): void => {
+        if (!e.sender.isDestroyed()) e.sender.send('setup-progress', line)
+      }
+      await toolchain.install({ wslVersion: version, progress })
+      try {
+        await toolchain.testBuild(progress)
+      } catch (err) {
+        progress(err instanceof Error ? err.message : String(err))
+      }
+      return toolchain.status()
+    })
+  )
+  handle('toolchain:testBuild', (e) =>
+    guardSetup(async () => {
+      await toolchain.testBuild((line) => !e.sender.isDestroyed() && e.sender.send('setup-progress', line))
+      return toolchain.status()
+    })
+  )
+  handle('toolchain:restartComputer', async () => {
+    const win = getWindow()
+    const opts = {
+      type: 'question' as const,
+      buttons: ['Restart now', 'Later'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Restart',
+      message: 'Restart Windows now? Save your work in other programs first.'
+    }
+    const r = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)
+    if (r.response !== 0) return
+    await runHelper(join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'shutdown.exe'), ['/r', '/t', '5'])
+  })
+
+  handle('build:run', (e, approve) => runBuild(e.sender, { approveCommand: optStr(approve, 'command', 4000) }))
+  handle('build:defaultCommand', () => defaultBuildArgs().join(' '))
 }

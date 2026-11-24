@@ -1,6 +1,9 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { Problem } from '../../../shared/api'
 import { useApp, type PanelTab } from '../state'
-import { IconClose } from './Icons'
+import { emit } from '../lib/bus'
+import { appendOutput, clearOutput, outputStore, problemsStore, useStore } from '../lib/stores'
+import { IconClose, IconError, IconWarning } from './Icons'
 
 const TABS: { id: PanelTab; label: string }[] = [
   { id: 'terminal', label: 'Terminal' },
@@ -8,12 +11,21 @@ const TABS: { id: PanelTab; label: string }[] = [
   { id: 'problems', label: 'Problems' }
 ]
 
-export function BottomPanel(): React.JSX.Element | null {
+const DIAG = /^(.*?):(\d+):(\d+):\s+(fatal error|error|warning|note):/
+
+export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React.JSX.Element | null {
   const { state, actions } = useApp()
   const [height, setHeight] = useState(240)
   const drag = useRef<{ y: number; h: number } | null>(null)
+  const output = useStore(outputStore)
+  const problems = useStore(problemsStore)
+  const bodyRef = useRef<HTMLDivElement | null>(null)
 
-  if (!state.panelOpen) return null
+  useEffect(() => window.wax.on('output', (e) => appendOutput(e.text)), [])
+
+  useEffect(() => {
+    if (state.panelTab === 'output') bodyRef.current?.scrollTo(0, bodyRef.current.scrollHeight)
+  }, [output, state.panelTab])
 
   const onMouseDown = (e: React.MouseEvent): void => {
     drag.current = { y: e.clientY, h: height }
@@ -26,13 +38,23 @@ export function BottomPanel(): React.JSX.Element | null {
       drag.current = null
       window.removeEventListener('mousemove', move)
       window.removeEventListener('mouseup', up)
+      emit('layout')
     }
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
   }
 
+  const reveal = (p: Pick<Problem, 'file' | 'line' | 'column'>): void => {
+    if (!state.project) return
+    actions.setView('project')
+    emit('reveal', p)
+  }
+
+  const errors = problems.filter((p) => p.severity === 'error').length
+  const warnings = problems.filter((p) => p.severity === 'warning').length
+
   return (
-    <div className="panel" style={{ height }}>
+    <div className="panel" style={{ height, display: state.panelOpen ? 'flex' : 'none' }}>
       <div className="panel-resize" onMouseDown={onMouseDown} />
       <div className="panel-tabs">
         {TABS.map((t) => (
@@ -42,18 +64,72 @@ export function BottomPanel(): React.JSX.Element | null {
             onClick={() => actions.showPanel(t.id)}
           >
             {t.label}
+            {t.id === 'problems' && problems.length > 0 && ` (${problems.length})`}
           </div>
         ))}
         <div className="spacer" />
+        {state.panelTab === 'output' && (
+          <button className="btn ghost" onClick={() => clearOutput()}>
+            Clear
+          </button>
+        )}
         <button className="icon-btn" onClick={() => actions.showPanel(null)} title="Close panel">
           <IconClose />
         </button>
       </div>
-      <div className="panel-body">
-        {state.panelTab === 'terminal' && <div style={{ color: 'var(--text-dim)' }}>The terminal arrives in a later build.</div>}
-        {state.panelTab === 'output' && <div style={{ color: 'var(--text-dim)' }}>No output yet.</div>}
-        {state.panelTab === 'problems' && <div style={{ color: 'var(--text-dim)' }}>No problems have been detected.</div>}
+      <div className="panel-body" ref={bodyRef} style={{ display: state.panelTab === 'terminal' ? 'none' : 'block' }}>
+        {state.panelTab === 'output' &&
+          (output ? (
+            <pre className="output-text">
+              {output.split('\n').map((line, i) => {
+                const m = DIAG.exec(line)
+                return (
+                  <div
+                    key={i}
+                    className={m ? `diag ${m[4] === 'warning' ? 'sev-warning' : m[4] === 'note' ? 'sev-info' : 'sev-error'}` : undefined}
+                    onClick={m ? () => reveal(toProblemLocation(m, problems)) : undefined}
+                  >
+                    {line || ' '}
+                  </div>
+                )
+              })}
+            </pre>
+          ) : (
+            <div style={{ color: 'var(--text-dim)' }}>No output yet.</div>
+          ))}
+        {state.panelTab === 'problems' &&
+          (problems.length === 0 ? (
+            <div style={{ color: 'var(--text-dim)', fontFamily: 'var(--ui)' }}>No problems have been detected.</div>
+          ) : (
+            <>
+              <div style={{ color: 'var(--text-dim)', fontFamily: 'var(--ui)', marginBottom: 4 }}>
+                {errors} error(s), {warnings} warning(s)
+              </div>
+              {problems.map((p, i) => (
+                <div key={i} className="problem-row" onClick={() => reveal(p)}>
+                  <span className={`sev-${p.severity}`}>
+                    {p.severity === 'error' ? <IconError size={13} /> : p.severity === 'warning' ? <IconWarning size={13} /> : 'i'}
+                  </span>
+                  <span style={{ userSelect: 'text' }}>{p.message}</span>
+                  <span className="loc">
+                    {p.file}:{p.line}:{p.column}
+                  </span>
+                </div>
+              ))}
+            </>
+          ))}
+      </div>
+      <div style={{ flex: 1, minHeight: 0, display: state.panelTab === 'terminal' ? 'flex' : 'none' }}>
+        {terminal ?? <div className="panel-body" style={{ color: 'var(--text-dim)' }}>The terminal arrives in a later build.</div>}
       </div>
     </div>
   )
+}
+
+/** Maps a raw output line to the parsed problem with the same position (paths are normalized there). */
+function toProblemLocation(m: RegExpExecArray, problems: Problem[]): Pick<Problem, 'file' | 'line' | 'column'> {
+  const line = Number(m[2])
+  const column = Number(m[3])
+  const found = problems.find((p) => p.line === line && p.column === column && m[1].replace(/\\/g, '/').endsWith(p.file))
+  return found ?? { file: m[1].replace(/^\.\//, ''), line, column }
 }

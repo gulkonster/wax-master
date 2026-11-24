@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MenuCommand, OpenProject, Settings } from '../../shared/api'
 import { AppContext, type AppActions, type AppState, type PanelTab, type View } from './state'
-import { emit } from './lib/bus'
+import { emit, on } from './lib/bus'
+import { startBuild } from './lib/build'
+import { Setup, refreshToolchainLabel } from './pages/Setup'
+import { Modal } from './components/Modal'
 import { errorText, toast } from './lib/toast'
 import { TopBar } from './components/TopBar'
 import { StatusBar } from './components/StatusBar'
@@ -28,6 +31,7 @@ export function App(): React.JSX.Element {
   const [newOpen, setNewOpen] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [coming, setComing] = useState<string | null>(null)
+  const [approval, setApproval] = useState<string | null>(null)
 
   // Latest state for the menu handler.
   const stateRef = useRef(state)
@@ -89,8 +93,14 @@ export function App(): React.JSX.Element {
         window.wax.projects.list()
       ])
       patch({ info, settings, projects })
+      const st = await window.wax.toolchain.status()
+      refreshToolchainLabel(st)
+      const ready = st.toolchain.ok && st.testBuild.ok
+      if (!ready && !settings.setupDismissed) patch({ view: 'setup' })
     })()
   }, [patch])
+
+  useEffect(() => on('build-approval', (cmd) => setApproval(cmd as string)), [])
 
   // Menu commands from the main process.
   useEffect(() => {
@@ -105,6 +115,13 @@ export function App(): React.JSX.Element {
           break
         case 'home':
           actions.setView('home')
+          break
+        case 'build':
+          if (s.project) void startBuild((t) => actions.showPanel(t))
+          else toast('Open a project first', 'Build works on the current project.')
+          break
+        case 'setup':
+          actions.setView('setup')
           break
         case 'about':
           setAboutOpen(true)
@@ -167,7 +184,8 @@ export function App(): React.JSX.Element {
                 <ProjectView key={state.project.path} project={state.project} />
               </div>
             )}
-            {state.view !== 'home' && state.view !== 'project' && <ComingLater what={state.view} />}
+            {state.view === 'setup' && <Setup />}
+            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && <ComingLater what={state.view} />}
             <BottomPanel />
           </div>
         </div>
@@ -177,6 +195,37 @@ export function App(): React.JSX.Element {
       {state.project?.needsMainFile && <MainFileDialog project={state.project} />}
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       {coming && <ComingLater what={coming} dialog onClose={() => setComing(null)} />}
+      {approval && (
+        <Modal
+          title="Run this build command?"
+          onClose={() => setApproval(null)}
+          wide
+          footer={
+            <>
+              <button className="btn" onClick={() => setApproval(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn red"
+                onClick={() => {
+                  const cmd = approval
+                  setApproval(null)
+                  void startBuild((t) => actions.showPanel(t), cmd)
+                }}
+              >
+                Run it
+              </button>
+            </>
+          }
+        >
+          <p style={{ marginTop: 0 }}>
+            This project was not created on this computer and sets its own build command. It runs with your rights inside the
+            toolchain environment, which can read your Windows files. Run it only if you trust the project.
+          </p>
+          <div className="approval-command">{approval}</div>
+          <p className="hint">Your answer is remembered for this folder and this exact command; a changed command asks again.</p>
+        </Modal>
+      )}
       <Toasts />
     </AppContext.Provider>
   )

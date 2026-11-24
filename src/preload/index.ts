@@ -9,7 +9,7 @@ const call =
   (...args: unknown[]): Promise<never> =>
     ipcRenderer.invoke(channel, ...args) as Promise<never>
 
-const EVENTS = new Set(['menu', 'files-changed'])
+const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress'])
 
 const api: WaxApi = {
   app: {
@@ -43,6 +43,17 @@ const api: WaxApi = {
     saveAs: call('files:saveAs'),
     openDialog: call('files:openDialog'),
     writeExternal: call('files:writeExternal')
+  },
+  toolchain: {
+    status: call('toolchain:status'),
+    enableWsl: call('toolchain:enableWsl'),
+    install: call('toolchain:install'),
+    testBuild: call('toolchain:testBuild'),
+    restartComputer: call('toolchain:restartComputer')
+  },
+  build: {
+    run: call('build:run'),
+    defaultCommand: call('build:defaultCommand')
   },
   on(event: string, cb: (...args: never[]) => void): () => void {
     if (!EVENTS.has(event)) throw new Error('Unknown event')

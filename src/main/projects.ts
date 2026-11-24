@@ -20,6 +20,45 @@ interface Current {
   name: string
   config: ProjectConfig
   hasConfigFile: boolean
+  eosproj?: EosProj
+}
+
+/** Values offered from an EOS Studio .eosproj file. Its build script is never imported. */
+interface EosProj {
+  main?: string
+  contract?: string
+  include: string
+  resource: string
+  output: string
+  buildScript: string
+}
+
+function safeRel(v: unknown): string {
+  if (typeof v !== 'string' || !v.trim()) return ''
+  const s = v.trim().replace(/\\/g, '/')
+  if (s.startsWith('/') || /^[a-zA-Z]:/.test(s) || s.split('/').includes('..')) return ''
+  return s
+}
+
+function readEosproj(root: string): EosProj | undefined {
+  const file = join(root, '.eosproj')
+  try {
+    if (!existsSync(file) || statSync(file).size > 64 * 1024) return undefined
+    const raw = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>
+    const main = safeRel(raw.main)
+    const contract = typeof raw.contract === 'string' && isValidContractName(raw.contract) ? raw.contract : undefined
+    const scripts = (typeof raw.scripts === 'object' && raw.scripts !== null ? raw.scripts : {}) as Record<string, unknown>
+    return {
+      main: main && main.endsWith('.cpp') && existsSync(join(root, main)) ? main : undefined,
+      contract,
+      include: safeRel(raw.include),
+      resource: safeRel(raw.resource),
+      output: safeRel(raw.output),
+      buildScript: typeof scripts.build === 'string' ? scripts.build : ''
+    }
+  } catch {
+    return undefined
+  }
 }
 
 let current: Current | null = null
@@ -84,6 +123,11 @@ function folderContractName(root: string): string {
   return base || 'contract'
 }
 
+function orderCandidates(list: string[], first?: string): string[] {
+  if (!first) return list
+  return [first, ...list.filter((x) => x !== first)]
+}
+
 function describe(): OpenProject {
   if (!current) throw new Error('No project is open')
   const entry = findProject(current.root)
@@ -93,7 +137,8 @@ function describe(): OpenProject {
     config: current.config,
     createdHere: entry?.createdHere ?? false,
     needsMainFile: !current.hasConfigFile,
-    candidates: current.hasConfigFile ? [] : findCppFiles(current.root)
+    candidates: current.hasConfigFile ? [] : orderCandidates(findCppFiles(current.root), current.eosproj?.main),
+    eosproj: !current.hasConfigFile && current.eosproj ? { buildScript: current.eosproj.buildScript } : undefined
   }
 }
 
@@ -111,7 +156,7 @@ export function openProject(path: string): OpenProject {
     const contract = folderContractName(root)
     config = defaultConfig(contract)
   }
-  current = { root, name, config, hasConfigFile }
+  current = { root, name, config, hasConfigFile, eosproj: hasConfigFile ? undefined : readEosproj(root) }
   upsertProject({ path: root, name, lastOpened: Date.now() })
   return describe()
 }
@@ -123,8 +168,14 @@ export function setMainFile(main: string): OpenProject {
   if (!existsSync(abs) || !abs.endsWith('.cpp')) throw new Error('Main file must be an existing .cpp file')
   const rel = toRel(abs)
   const stem = basename(rel, '.cpp').toLowerCase()
-  const contract = isValidContractName(stem) ? stem : current.config.contract
+  const e = current.eosproj
+  const contract = e?.contract ?? (isValidContractName(stem) ? stem : current.config.contract)
   current.config = { ...defaultConfig(contract, rel) }
+  if (e) {
+    current.config.include = e.include
+    current.config.resource = e.resource
+    current.config.output = e.output
+  }
   writeJson(join(current.root, PROJECT_FILE), current.config)
   current.hasConfigFile = true
   return describe()

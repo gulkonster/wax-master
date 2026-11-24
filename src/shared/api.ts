@@ -47,6 +47,8 @@ export interface OpenProject {
   needsMainFile: boolean
   /** Candidate main files (.cpp) when needsMainFile is true. */
   candidates: string[]
+  /** Present when settings were taken from an EOS Studio .eosproj file. */
+  eosproj?: { buildScript: string }
 }
 
 export interface FileContent {
@@ -64,6 +66,49 @@ export interface ExternalFile {
   name: string
   displayPath: string
   content: string
+}
+
+export interface Problem {
+  file: string
+  line: number
+  column: number
+  severity: 'error' | 'warning' | 'info'
+  message: string
+  source: 'build' | 'editor'
+}
+
+export interface BuildResult {
+  ok: boolean
+  problems: Problem[]
+  durationMs: number
+  /** Output files that exist after the build (project-relative). */
+  outputs: string[]
+  /** Set when a custom build command must be approved first. */
+  needsApproval?: boolean
+  command?: string
+}
+
+export interface ToolchainInfo {
+  id: string
+  label: string
+  distro: string
+  wslVersion: 1 | 2
+  cdtVersion: string
+  clangdVersion: string
+  testBuildOk: boolean
+}
+
+export interface SetupStatus {
+  windows: { ok: boolean; detail: string }
+  wsl: { ok: boolean; detail: string }
+  toolchain: { ok: boolean; detail: string; state: ToolchainInfo | null }
+  testBuild: { ok: boolean; detail: string }
+  partsAvailable: boolean
+}
+
+export interface OutputEvent {
+  source: 'build' | 'setup' | 'deploy' | 'transaction'
+  text: string
 }
 
 export type MenuCommand =
@@ -141,7 +186,20 @@ export interface WaxApi {
     openDialog(): Promise<{ rel?: string; external?: ExternalFile } | null>
     writeExternal(token: string, content: string): Promise<void>
   }
+  toolchain: {
+    status(): Promise<SetupStatus>
+    enableWsl(compat: boolean): Promise<{ ok: boolean; message: string }>
+    install(wslVersion: 1 | 2): Promise<SetupStatus>
+    testBuild(): Promise<SetupStatus>
+    restartComputer(): Promise<void>
+  }
+  build: {
+    run(approveCommand?: string): Promise<BuildResult>
+    defaultCommand(): Promise<string>
+  }
   on(event: 'menu', cb: (cmd: MenuCommand) => void): () => void
+  on(event: 'output', cb: (e: OutputEvent) => void): () => void
+  on(event: 'setup-progress', cb: (line: string) => void): () => void
   on(event: 'files-changed', cb: () => void): () => void
 }
 

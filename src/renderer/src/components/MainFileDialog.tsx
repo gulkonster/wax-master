@@ -42,6 +42,18 @@ export function MainFileDialog({ project }: { project: OpenProject }): React.JSX
         This folder has no <span className="code-tag">waxmaster.json</span> yet. Choose the contract&apos;s main source file; the
         other settings start with their defaults and can be changed in Project Settings.
       </p>
+      {project.eosproj && (
+        <div className="hint" style={{ fontSize: 13, marginBottom: 10 }}>
+          Settings taken from .eosproj.
+          {project.eosproj.buildScript.trim() && (
+            <>
+              {' '}Its build script was not imported:
+              <div className="approval-command" style={{ margin: '6px 0' }}>{project.eosproj.buildScript}</div>
+              Set a custom build command in Project Settings if you still need one.
+            </>
+          )}
+        </div>
+      )}
       {project.candidates.length === 0 ? (
         <div className="error-text">No .cpp file was found in this folder.</div>
       ) : (

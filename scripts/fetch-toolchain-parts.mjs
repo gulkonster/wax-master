@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 // Downloads every part listed in toolchain/parts.json into toolchain-parts/.
 // Files that are already present with the right size and SHA-256 are skipped.
-// Any mismatch is fatal. No dependencies; needs Node 18+.
+// Each part lists several sources; a download failure moves on to the next
+// source, but a size or SHA-256 mismatch is fatal at once.
+// Options: --list prints file names, sizes and SHA-256 (for the mirror release).
+// No dependencies; needs Node 18+.
 import { createHash } from 'node:crypto'
 import { createReadStream, createWriteStream, existsSync, mkdirSync, renameSync, rmSync, statSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -55,6 +58,10 @@ async function verify(path, part) {
 
 async function main() {
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  if (process.argv.includes('--list')) {
+    for (const p of manifest.parts) console.log(`${p.file}  ${p.size}  ${p.sha256}`)
+    return
+  }
   mkdirSync(outDir, { recursive: true })
   let failed = 0
   for (const part of manifest.parts) {
@@ -64,17 +71,30 @@ async function main() {
       continue
     }
     const tmp = dest + '.part'
-    try {
-      console.log(`fetch    ${part.id} <- ${part.url}`)
-      await download(part.url, tmp)
+    let done = false
+    for (const url of part.urls) {
+      try {
+        console.log(`fetch    ${part.id} <- ${url}`)
+        await download(url, tmp)
+      } catch (e) {
+        rmSync(tmp, { force: true })
+        console.warn(`warning  source failed for ${part.file}: ${e.message}`)
+        continue
+      }
       const err = await verify(tmp, part)
-      if (err) throw new Error(err)
+      if (err) {
+        rmSync(tmp, { force: true })
+        console.error(`MISMATCH ${part.file} from ${url}: ${err}`)
+        process.exit(1)
+      }
       renameSync(tmp, dest)
-      console.log(`ok       ${part.id}`)
-    } catch (e) {
-      rmSync(tmp, { force: true })
+      console.log(`ok       ${part.id} (from ${url})`)
+      done = true
+      break
+    }
+    if (!done) {
       failed++
-      console.error(`FAILED   ${part.id}: ${e.message}`)
+      console.error(`FAILED   ${part.id}: every source failed`)
     }
   }
   if (failed) {
