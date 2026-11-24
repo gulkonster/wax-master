@@ -41,9 +41,10 @@ jobs:
           if ($pkg.version -ne $tag) { throw "Tag $tag does not match package.json version $($pkg.version)" }
 
       - name: Install pinned dependencies (no package install scripts)
-        run: |
-          npm ci --ignore-scripts
-          node node_modules/electron/install.js
+        run: npm ci --ignore-scripts
+
+      - name: Download the Electron binary
+        run: node node_modules/electron/install.js
 
       - name: Fetch and verify the toolchain parts
         run: node scripts/fetch-toolchain-parts.mjs

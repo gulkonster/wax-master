@@ -34,6 +34,8 @@ export interface ProjectConfig {
 export const PROJECT_FILE = 'waxmaster.json'
 
 const CONTRACT_NAME = /^[a-z1-5.]{1,12}$/
+/** A toolchain id stored in a project file (never starts with "-"). */
+export const TOOLCHAIN_ID = /^([a-z0-9][a-z0-9.-]{0,63})?$/
 const ACCOUNT = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
 export function isValidContract(name: string): boolean {
@@ -113,7 +115,7 @@ export function normalizeConfig(raw: unknown, fallbackContract: string): Project
   }
   return {
     ...base,
-    cdt: /^([a-z0-9][a-z0-9.-]{0,63})?$/.test(s('cdt')) ? s('cdt') : '',
+    cdt: TOOLCHAIN_ID.test(s('cdt')) ? s('cdt') : '',
     include: safeProjectPath(s('include')),
     resource: safeProjectPath(s('resource')),
     output: ((o) => (o.endsWith('.wasm') ? o : ''))(safeProjectPath(s('output'))),
@@ -147,7 +149,7 @@ export function replacedConfigValues(raw: unknown): string[] {
   }
   bad('contract', isValidContract(str('contract')))
   bad('main', ((p) => p !== '' && p.endsWith('.cpp'))(safeProjectPath(str('main'))))
-  bad('cdt', /^[a-z0-9.-]{0,64}$/.test(str('cdt')))
+  bad('cdt', TOOLCHAIN_ID.test(str('cdt')))
   bad('include', safeProjectPath(str('include')) !== '')
   bad('resource', safeProjectPath(str('resource')) !== '')
   bad('output', ((p) => p !== '' && p.endsWith('.wasm'))(safeProjectPath(str('output'))))

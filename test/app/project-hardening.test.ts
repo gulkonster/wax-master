@@ -131,6 +131,8 @@ describe('untrusted values in waxmaster.json', () => {
       'deploy.target'
     ])
     expect(replacedConfigValues({})).toEqual([])
+    expect(replacedConfigValues({ cdt: '-evil' })).toEqual(['cdt'])
+    expect(normalizeConfig({ cdt: '-evil' }, 'x').cdt).toBe('')
     expect(replacedConfigValues({ main: '', include: '', output: '' })).toEqual([])
     expect(replacedConfigValues({ main: 'src/a.cpp', output: 'a.wasm', contract: 'abc', cdt: 'wax-cdt-4.1.1wax01', deploy: { target: 'wasm' } })).toEqual([])
     expect(replacedConfigValues({ main: 7 })).toEqual(['main'])

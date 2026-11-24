@@ -96,6 +96,8 @@ export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit:
   const labelRefs = useRef<(HTMLButtonElement | null)[]>([])
   /** True once the current Alt press has seen a mouse click or another key: its release is not a menu key. */
   const altUsed = useRef(false)
+  /** Set when an Alt that was used for a click or shortcut is released: its menu focus is skipped. */
+  const skipAltRelease = useRef(0)
 
   const editable = (): boolean => !!target.current.editor || !!editableField(target.current.element)
 
@@ -187,6 +189,12 @@ export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit:
   useEffect(
     () =>
       on('focus-menu', () => {
+        // Skip only the one focus request caused by releasing an Alt that was used for something else.
+        if (skipAltRelease.current && Date.now() - skipAltRelease.current < 1000) {
+          skipAltRelease.current = 0
+          return
+        }
+        skipAltRelease.current = 0
         if (altUsed.current) return
         if (active) {
           leave(true)
@@ -211,11 +219,19 @@ export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit:
         if (!e.repeat) altUsed.current = false
       } else if (e.altKey) altUsed.current = true
     }
+    const up = (e: KeyboardEvent): void => {
+      if (e.key === 'Alt' && altUsed.current) {
+        altUsed.current = false
+        skipAltRelease.current = Date.now()
+      }
+    }
     window.addEventListener('mousedown', down, true)
     window.addEventListener('keydown', key, true)
+    window.addEventListener('keyup', up, true)
     return () => {
       window.removeEventListener('mousedown', down, true)
       window.removeEventListener('keydown', key, true)
+      window.removeEventListener('keyup', up, true)
     }
   }, [])
 

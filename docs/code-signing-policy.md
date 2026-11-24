@@ -25,4 +25,4 @@ The project intends to apply to the SignPath Foundation for free code signing of
 
 ## Privacy
 
-The app sends no telemetry. It contacts only the chain endpoints the user selects, the GitHub Releases API for the update notice (can be turned off), the WAX Testnet faucet when the user presses Create Testnet Account, and pages the user opens.
+The app sends no telemetry. It contacts only the chain endpoints the user selects, the GitHub Releases API for the update notice (can be turned off), the WAX Testnet faucet when the user presses Create Testnet Account or Request test tokens, and pages the user opens.

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const GATES = [
   { name: 'Criterion 1: transaction correctness', match: /criterion-1/ },
+  { name: 'Criterion 1: real-chain fixtures', match: /chain-fixtures/ },
   { name: 'Criterion 2: approval integrity', match: /criterion-2/ }
 ]
 
