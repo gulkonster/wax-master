@@ -12,11 +12,16 @@ import { startBuild } from '../lib/build'
 import { problemsStore } from '../lib/stores'
 import type { Problem, WasmInfo } from '../../../shared/api'
 import { WasmInfoView } from './WasmInfoView'
+import { documentSaved, openDocument, startEditorEngine, switchHeaderSource } from '../lib/lsp/engine'
+import { adoptModel, ensureModel, projectUri, relOf } from '../lib/lsp/models'
+import { FindInFilesDialog } from '../components/FindInFilesDialog'
+import { SymbolSearchDialog } from '../components/SymbolSearchDialog'
 
 type Tab =
   | { id: 'settings'; kind: 'settings'; title: string }
   | { id: string; kind: 'file'; title: string; rel: string; info?: string; wasm?: WasmInfo }
   | { id: string; kind: 'external'; title: string; token: string; displayPath: string }
+  | { id: string; kind: 'header'; title: string; uri: string }
 
 interface Doc {
   model: monaco.editor.ITextModel | null
@@ -37,6 +42,10 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
   const [dirty, setDirty] = useState<Set<string>>(new Set())
   const [selected, setSelected] = useState<string | null>(null)
   const [input, setInput] = useState<null | { title: string; label: string; initial: string; ok: (v: string) => Promise<void> }>(null)
+  const [findOpen, setFindOpen] = useState(false)
+  const [symbolsOpen, setSymbolsOpen] = useState(false)
+  /** Where to put the cursor once a tab's model is shown. */
+  const pendingReveal = useRef<{ id: string; range: monaco.IRange } | null>(null)
 
   const mountRef = useRef<HTMLDivElement | null>(null)
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null)
@@ -71,26 +80,13 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     })
     editorRef.current = ed
     const sub1 = ed.onDidChangeCursorPosition((e) => actions.setCursor({ line: e.position.lineNumber, column: e.position.column }))
-    const sub2 = ed.onDidChangeModelContent(() => {
-      const id = activeRef.current
-      if (!id) return
-      const d = docs.current.get(id)
-      if (!d?.model) return
-      const isDirty = d.model.getAlternativeVersionId() !== d.savedVersion
-      setDirty((s) => {
-        if (s.has(id) === isDirty) return s
-        const n = new Set(s)
-        if (isDirty) n.add(id)
-        else n.delete(id)
-        return n
-      })
-    })
+    const stopEngine = startEditorEngine()
     return () => {
       sub1.dispose()
-      sub2.dispose()
       ed.dispose()
       docs.current.forEach((d) => d.model?.dispose())
       docs.current.clear()
+      stopEngine()
       actions.setCursor(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,16 +113,47 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     const ed = editorRef.current
     if (!ed) return
     const doc = active ? docs.current.get(active) : undefined
+    const tab = tabsRef.current.find((t) => t.id === active)
+    ed.updateOptions({ readOnly: tab?.kind === 'header' })
     if (doc?.model) {
       if (ed.getModel() !== doc.model) {
         ed.setModel(doc.model)
         if (doc.viewState) ed.restoreViewState(doc.viewState)
+      }
+      const pending = pendingReveal.current
+      if (pending && pending.id === active) {
+        pendingReveal.current = null
+        applyReveal(ed, pending.range)
       }
       ed.focus()
     } else {
       ed.setModel(null)
     }
   }, [active])
+
+  /** Tracks unsaved changes of a tab's model (also when it is not the one shown). */
+  const track = (id: string, model: monaco.editor.ITextModel): void => {
+    model.onDidChangeContent(() => {
+      const d = docs.current.get(id)
+      if (!d?.model || d.model !== model) return
+      const isDirty = model.getAlternativeVersionId() !== d.savedVersion
+      setDirty((s) => {
+        if (s.has(id) === isDirty) return s
+        const n = new Set(s)
+        if (isDirty) n.add(id)
+        else n.delete(id)
+        return n
+      })
+    })
+  }
+
+  /** Moves the cursor in a tab now if its model is shown, or as soon as it is. */
+  const revealIn = (id: string, range: monaco.IRange): void => {
+    const ed = editorRef.current
+    const d = docs.current.get(id)
+    if (ed && d?.model && ed.getModel() === d.model) applyReveal(ed, range)
+    else pendingReveal.current = { id, range }
+  }
 
   const switchTo = (id: string): void => {
     const ed = editorRef.current
@@ -161,18 +188,32 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
         switchTo(id)
         return
       }
-      const f = await window.wax.files.read(rel)
+      const uri = projectUri(rel)
+      // A model loaded earlier for a preview (references, peek) is taken over as is.
+      const adopted = adoptModel(uri)
       let info: string | undefined
       let model: monaco.editor.ITextModel | null = null
-      if (f.binary) info = `Binary file, ${f.size.toLocaleString()} bytes.`
-      else if (f.tooLarge) info = `This file is too large to edit here (${f.size.toLocaleString()} bytes).`
-      else {
-        const uri = monaco.Uri.parse(`project:///${rel.split('/').map(encodeURIComponent).join('/')}`)
-        monaco.editor.getModel(uri)?.dispose()
-        model = monaco.editor.createModel(f.content, languageFor(rel), uri)
+      let savedVersion = 0
+      if (adopted) {
+        model = adopted.model
+        savedVersion = adopted.savedVersion
+      } else {
+        const f = await window.wax.files.read(rel)
+        if (f.binary) info = `Binary file, ${f.size.toLocaleString()} bytes.`
+        else if (f.tooLarge) info = `This file is too large to edit here (${f.size.toLocaleString()} bytes).`
+        else {
+          monaco.editor.getModel(uri)?.dispose()
+          model = monaco.editor.createModel(f.content, languageFor(rel), uri)
+          savedVersion = model.getAlternativeVersionId()
+        }
       }
-      docs.current.set(id, { model, savedVersion: model?.getAlternativeVersionId() ?? 0, viewState: null })
+      docs.current.set(id, { model, savedVersion, viewState: null })
+      if (model) {
+        track(id, model)
+        openDocument(model)
+      }
       setTabs((t) => [...t, { id, kind: 'file', title, rel, info }])
+      if (model && model.getAlternativeVersionId() !== savedVersion) setDirty((s) => new Set(s).add(id))
       switchTo(id)
       applyMarkers()
     } catch (e) {
@@ -180,9 +221,54 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     }
   }
 
+  /** Opens a toolchain header (toolchain:///usr/opt/cdt/...) in a read-only tab. */
+  const openHeader = async (uri: string): Promise<string | null> => {
+    const id = `tc:${uri}`
+    if (tabsRef.current.some((t) => t.id === id)) {
+      switchTo(id)
+      return id
+    }
+    const model = await ensureModel(monaco.Uri.parse(uri))
+    if (!model) {
+      toast('Could not open the header', uri.replace(/^toolchain:\/\//, ''), 'error')
+      return null
+    }
+    adoptModel(model.uri)
+    docs.current.set(id, { model, savedVersion: model.getAlternativeVersionId(), viewState: null })
+    openDocument(model)
+    const title = model.uri.path.slice(model.uri.path.lastIndexOf('/') + 1)
+    setTabs((t) => (t.some((x) => x.id === id) ? t : [...t, { id, kind: 'header', title, uri }]))
+    switchTo(id)
+    return id
+  }
+
+  /** Opens a project file or toolchain header named by an editor address and selects a range in it. */
+  const openLocation = async (uri: string, selection?: monaco.IRange | monaco.IPosition): Promise<void> => {
+    const u = monaco.Uri.parse(uri)
+    let id: string | null = null
+    if (u.scheme === 'project') {
+      const rel = relOf(u)
+      await openFile(rel)
+      id = `file:${rel}`
+      if (!docs.current.get(id)?.model) return
+    } else if (u.scheme === 'toolchain') {
+      id = await openHeader(uri)
+    } else {
+      toast('Outside the project', u.path)
+      return
+    }
+    if (!id || !selection) return
+    const range =
+      'startLineNumber' in selection
+        ? selection
+        : { startLineNumber: selection.lineNumber, startColumn: selection.column, endLineNumber: selection.lineNumber, endColumn: selection.column }
+    revealIn(id, range)
+  }
+
   const openExternal = (f: ExternalFile): void => {
     const id = `ext:${f.token}`
     const model = monaco.editor.createModel(f.content, languageFor(f.name))
+    track(id, model)
     docs.current.set(id, { model, savedVersion: model.getAlternativeVersionId(), viewState: null })
     setTabs((t) => [...t, { id, kind: 'external', title: f.name, token: f.token, displayPath: f.displayPath }])
     switchTo(id)
@@ -206,7 +292,9 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     try {
       if (tab.kind === 'file') await window.wax.files.write(tab.rel, d.model.getValue())
       else if (tab.kind === 'external') await window.wax.files.writeExternal(tab.token, d.model.getValue())
+      else return
       markSaved(id)
+      if (tab.kind === 'file') documentSaved(d.model)
     } catch (e) {
       toast('Could not save', errorText(e), 'error')
     }
@@ -378,8 +466,20 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
             run('editor.action.quickOutline')
             break
           case 'find-in-files':
-            toast('Find in Files', 'Arrives with code intelligence in a later build.')
+            setFindOpen(true)
             break
+          case 'workspace-symbol':
+            setSymbolsOpen(true)
+            break
+          case 'switch-header-source': {
+            const model = ed?.getModel()
+            if (!model) break
+            void switchHeaderSource(model).then((other) => {
+              if (other) void openLocation(other)
+              else toast('No matching file', 'No header or source file with this name was found.')
+            })
+            break
+          }
         }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -422,13 +522,19 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
           toast('Outside the project', p.file)
           return
         }
-        void openFile(p.file).then(() => {
-          const ed = editorRef.current
-          if (!ed) return
-          ed.setPosition({ lineNumber: p.line, column: p.column })
-          ed.revealLineInCenter(p.line)
-          ed.focus()
-        })
+        void openFile(p.file).then(() =>
+          revealIn(`file:${p.file}`, { startLineNumber: p.line, startColumn: p.column, endLineNumber: p.line, endColumn: p.column })
+        )
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
+
+  useEffect(
+    () =>
+      on('open-location', (payload) => {
+        const p = payload as { uri: string; selection?: monaco.IRange | monaco.IPosition }
+        void openLocation(p.uri, p.selection)
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
@@ -480,7 +586,7 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
               className={`editor-tab${t.id === active ? ' active' : ''}${dirty.has(t.id) ? ' dirty' : ''}`}
               onClick={() => switchTo(t.id)}
               onMouseDown={(e) => e.button === 1 && (e.preventDefault(), close(t.id))}
-              title={t.kind === 'file' ? t.rel : t.kind === 'external' ? t.displayPath : t.title}
+              title={t.kind === 'file' ? t.rel : t.kind === 'external' ? t.displayPath : t.kind === 'header' ? `${t.uri.replace(/^toolchain:\/\//, '')} (read-only)` : t.title}
             >
               {t.title}
               <span
@@ -511,6 +617,16 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
           {!activeTab && <div className="editor-placeholder">Open a file from the tree on the left.</div>}
         </div>
       </div>
+      {findOpen && <FindInFilesDialog onClose={() => setFindOpen(false)} />}
+      {symbolsOpen && (
+        <SymbolSearchDialog
+          onClose={() => setSymbolsOpen(false)}
+          onPick={(uri, range) => {
+            setSymbolsOpen(false)
+            void openLocation(uri, range)
+          }}
+        />
+      )}
       {input && (
         <InputDialog
           title={input.title}
@@ -522,6 +638,12 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
       )}
     </div>
   )
+}
+
+function applyReveal(ed: monaco.editor.IStandaloneCodeEditor, range: monaco.IRange): void {
+  ed.setSelection(range)
+  ed.revealRangeInCenterIfOutsideViewport(range)
+  ed.focus()
 }
 
 function findNode(root: TreeNode, path: string): TreeNode | null {

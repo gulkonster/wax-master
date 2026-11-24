@@ -3,9 +3,18 @@
 
 import type { AccountActionsPage, AccountView, PermissionView } from '../shared/chain-types'
 import { chain, history } from './rpc'
+import { parsePublicKey, publicKeyToString } from '../chain-core'
 import { currentNetwork, readCall } from './networks'
 
 const MAX_DATA_TEXT = 4000
+
+function toK1(key: string): string {
+  try {
+    return publicKeyToString(parsePublicKey(key), 'new')
+  } catch {
+    return ''
+  }
+}
 
 function num(v: unknown): number {
   const n = typeof v === 'string' ? Number(v) : typeof v === 'number' ? v : 0
@@ -34,7 +43,7 @@ function permissions(raw: unknown): PermissionView[] {
       name: str(p.perm_name),
       parent: str(p.parent),
       threshold: num(auth.threshold),
-      keys: Array.isArray(auth.keys) ? auth.keys.map((k: Record<string, unknown>) => ({ key: str(k.key), weight: num(k.weight) })) : [],
+      keys: Array.isArray(auth.keys) ? auth.keys.map((k: Record<string, unknown>) => ({ key: str(k.key), k1: toK1(str(k.key)), weight: num(k.weight) })) : [],
       accounts: Array.isArray(auth.accounts)
         ? auth.accounts.map((a: Record<string, unknown>) => {
             const perm = (a.permission ?? {}) as Record<string, unknown>

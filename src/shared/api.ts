@@ -2,7 +2,10 @@
 // Types only; the implementation lives in src/preload and src/main.
 
 import type { ProjectConfig, TemplateId } from './project'
+import type { InspectedTransaction } from './trace-types'
+import type { DeployPlan } from './chain-types'
 import type { AccountActionsPage, AccountView, NetworkInfo, NetworkKind } from './chain-types'
+import type { AuthLevel, ContractAbiView, ContractHistoryEntry, ContractHistoryKind, ContractHistoryList, PackResult, RowsQuery, RowsResult, ScopesResult } from './chain-types'
 
 export interface AppInfo {
   name: string
@@ -78,6 +81,33 @@ export interface ExternalFile {
   content: string
 }
 
+/** State of the editor engine (code intelligence) for the open project. */
+export interface EditorStatus {
+  state: 'off' | 'starting' | 'running' | 'error'
+  detail: string
+  /** Changes every time the engine is (re)started; messages carry it. */
+  session: number
+  /** Target setup of the generated compile flags. */
+  setup: 'x32' | 'i386'
+}
+
+export interface SearchMatch {
+  file: string
+  line: number
+  column: number
+  /** Length of the match in characters. */
+  length: number
+  /** The line's text (trimmed to a few hundred characters). */
+  text: string
+}
+
+export interface SearchResult {
+  matches: SearchMatch[]
+  filesSearched: number
+  /** True when the result list was cut at its limit. */
+  truncated: boolean
+}
+
 export interface Problem {
   file: string
   line: number
@@ -121,6 +151,18 @@ export interface OutputEvent {
   text: string
 }
 
+export interface TxAction {
+  account: string
+  name: string
+  authorization: { actor: string; permission: string }[]
+  data: unknown
+}
+
+export type TxOutcome =
+  | { status: 'sent'; trace: InspectedTransaction }
+  | { status: 'failed'; trace: InspectedTransaction | null; error: string }
+  | { status: 'cancelled' }
+
 export type TerminalProfile = 'powershell' | 'cmd' | 'toolchain'
 
 export interface TerminalProfileInfo {
@@ -150,6 +192,8 @@ export type MenuCommand =
   | 'rename-symbol'
   | 'go-to-definition'
   | 'find-references'
+  | 'switch-header-source'
+  | 'workspace-symbol'
   | 'command-palette'
   | 'font-increase'
   | 'font-decrease'
@@ -211,6 +255,16 @@ export interface WaxApi {
     openDialog(): Promise<{ rel?: string; external?: ExternalFile } | null>
     writeExternal(token: string, content: string): Promise<void>
     wasmInfo(rel: string): Promise<WasmInfo>
+    search(query: string, matchCase: boolean, wholeWord: boolean): Promise<SearchResult>
+  }
+  editor: {
+    /** Starts the editor engine for the open project (or reports why it is off). */
+    start(): Promise<EditorStatus>
+    status(): Promise<EditorStatus>
+    /** Sends one JSON-RPC message to the engine of the given session. */
+    send(session: number, message: Record<string, unknown>): Promise<void>
+    /** Reads a toolchain header (`toolchain:///usr/opt/cdt/...`) for a read-only tab. */
+    readToolchainFile(uri: string): Promise<string>
   }
   toolchain: {
     status(): Promise<SetupStatus>
@@ -235,6 +289,66 @@ export interface WaxApi {
     account(name: string): Promise<AccountView>
     actions(name: string, skip: number): Promise<AccountActionsPage>
   }
+  contract: {
+    abi(account: string, refresh?: boolean): Promise<ContractAbiView>
+    pack(account: string, action: string, data: Record<string, unknown>, authorization: AuthLevel[]): Promise<PackResult>
+    rows(query: RowsQuery): Promise<RowsResult>
+    scopes(account: string, table: string, lower: string, limit: number): Promise<ScopesResult>
+    historyList(account: string, kind: ContractHistoryKind, list: ContractHistoryList): Promise<ContractHistoryEntry[]>
+    historyAdd(account: string, kind: ContractHistoryKind, list: ContractHistoryList, name: string, payload: Record<string, unknown>): Promise<ContractHistoryEntry[]>
+    historyRemove(account: string, kind: ContractHistoryKind, list: ContractHistoryList, id: string): Promise<ContractHistoryEntry[]>
+  }
+  keys: {
+    status(): Promise<{ exists: boolean; unlocked: boolean; keys: number }>
+    create(password: string, again: string): Promise<{ exists: boolean; unlocked: boolean; keys: number }>
+    unlock(password: string): Promise<{ exists: boolean; unlocked: boolean; keys: number }>
+    lock(): Promise<{ exists: boolean; unlocked: boolean; keys: number }>
+    list(): Promise<{ id: string; label: string; publicKey: string; created: number }[]>
+    newPending(): Promise<string>
+    savePending(label: string): Promise<{ id: string; label: string; publicKey: string; created: number }>
+    discardPending(): Promise<void>
+    import(privateKey: string, label: string): Promise<{ id: string; label: string; publicKey: string; created: number }>
+    setLabel(id: string, label: string): Promise<void>
+    remove(id: string): Promise<void>
+    reveal(id: string): Promise<void>
+    accounts(keys: string[]): Promise<{ account: string; permission: string; key: string }[]>
+    exportVault(): Promise<boolean>
+    importVault(password: string): Promise<number | null>
+  }
+  tx: {
+    run(actions: TxAction[], purpose: string): Promise<TxOutcome>
+    simulate(actions: TxAction[]): Promise<InspectedTransaction>
+    simulationSupport(): Promise<'available' | 'unsupported' | 'unknown'>
+    open(id: string): Promise<InspectedTransaction>
+  }
+  deploy: {
+    plan(input: { networkId: string; account: string; permission: string; target: 'both' | 'wasm' | 'abi' }): Promise<DeployPlan>
+    simulate(planId: string): Promise<InspectedTransaction>
+    run(planId: string): Promise<TxOutcome>
+  }
+  accounts: {
+    create(input: {
+      creator: string
+      creatorPermission: string
+      name: string
+      ownerKey: string
+      activeKey: string
+      ramBytes: number
+      stakeCpu: string
+      stakeNet: string
+      transfer: boolean
+    }): Promise<TxOutcome>
+    changeKey(input: {
+      account: string
+      permission: string
+      parent: string
+      signWith: string
+      newKey: string
+      keepAccounts: { permission: { actor: string; permission: string }; weight: number }[]
+      keepWaits: { wait_sec: number; weight: number }[]
+    }): Promise<TxOutcome>
+    clearCode(account: string, permission: string): Promise<TxOutcome>
+  }
   clipboard: {
     writeText(text: string): Promise<void>
     readText(): Promise<string>
@@ -252,9 +366,12 @@ export interface WaxApi {
   }
   on(event: 'menu', cb: (cmd: MenuCommand) => void): () => void
   on(event: 'output', cb: (e: OutputEvent) => void): () => void
+  on(event: 'vault-changed', cb: (s: { exists: boolean; unlocked: boolean; keys: number }) => void): () => void
   on(event: 'network-changed', cb: (n: NetworkInfo, note: string) => void): () => void
   on(event: 'setup-progress', cb: (line: string) => void): () => void
   on(event: 'files-changed', cb: () => void): () => void
+  on(event: 'editor-status', cb: (s: EditorStatus) => void): () => void
+  on(event: 'editor-message', cb: (session: number, message: Record<string, unknown>) => void): () => void
   on(event: 'terminal-data', cb: (id: string, data: string) => void): () => void
   on(event: 'terminal-exit', cb: (id: string, code: number, error: string) => void): () => void
 }

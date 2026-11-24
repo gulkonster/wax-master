@@ -4,6 +4,7 @@
 
 import { spawn, type ChildProcess } from 'node:child_process'
 import type { IPty } from 'node-pty'
+import { MessageReader, frameMessage } from '../shared/lsp-framing'
 
 type Msg =
   | { type: 'run'; id: string; file: string; args: string[]; cwd?: string; env: Record<string, string>; input?: string }
@@ -12,9 +13,15 @@ type Msg =
   | { type: 'pty-input'; id: string; data: string }
   | { type: 'pty-resize'; id: string; cols: number; rows: number }
   | { type: 'pty-kill'; id: string }
+  | { type: 'lsp-start'; id: string; file: string; args: string[]; cwd?: string; env: Record<string, string> }
+  | { type: 'lsp-write'; id: string; text: string }
+  | { type: 'lsp-kill'; id: string; now?: boolean }
 
 const running = new Map<string, ChildProcess>()
 const ptys = new Map<string, IPty>()
+// Long-lived processes that speak framed JSON messages on stdin/stdout (the editor engine).
+const servers = new Map<string, ChildProcess>()
+const MAX_STDERR_LINES = 200
 
 // Loaded on first use so a broken native module never stops builds.
 let ptyModule: typeof import('node-pty') | null = null
@@ -100,5 +107,60 @@ process.parentPort.on('message', (e: { data: Msg }) => {
   } else if (m.type === 'pty-kill') {
     const pty = ptys.get(m.id)
     if (pty) killTree(pty.pid)
+  } else if (m.type === 'lsp-start') {
+    startServer(m.id, m.file, m.args, m.cwd, m.env)
+  } else if (m.type === 'lsp-write') {
+    const c = servers.get(m.id)
+    if (c?.stdin && !c.stdin.destroyed) c.stdin.write(frameMessage(m.text))
+  } else if (m.type === 'lsp-kill') {
+    const c = servers.get(m.id)
+    if (!c) return
+    try {
+      c.stdin?.end()
+    } catch {
+      // already closed
+    }
+    const pid = c.pid
+    if (m.now && pid) killTree(pid)
+    else
+      setTimeout(() => {
+        if (servers.get(m.id) === c && pid) killTree(pid)
+      }, 1500)
   }
 })
+
+function startServer(id: string, file: string, args: string[], cwd: string | undefined, env: Record<string, string>): void {
+  let child: ChildProcess
+  try {
+    child = spawn(file, args, { cwd, env, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
+  } catch (err) {
+    post({ type: 'lsp-exit', id, code: -1, error: err instanceof Error ? err.message : String(err) })
+    return
+  }
+  servers.set(id, child)
+  const reader = new MessageReader(
+    (text) => post({ type: 'lsp-msg', id, text }),
+    (reason) => post({ type: 'lsp-err', id, data: `framing: ${reason}` })
+  )
+  child.stdout?.on('data', (d: Buffer) => reader.push(d))
+  let errLines = 0
+  let errTail = ''
+  child.stderr?.on('data', (d: Buffer) => {
+    errTail += d.toString('utf8')
+    const lines = errTail.split('\n')
+    errTail = lines.pop() ?? ''
+    for (const line of lines) {
+      if (++errLines > MAX_STDERR_LINES) return
+      if (line.trim()) post({ type: 'lsp-err', id, data: line.replace(/\0/g, '').slice(0, 500) })
+    }
+  })
+  child.stdin?.on('error', () => undefined)
+  child.on('error', (err) => {
+    servers.delete(id)
+    post({ type: 'lsp-exit', id, code: -1, error: err.message })
+  })
+  child.on('close', (code) => {
+    if (servers.get(id) === child) servers.delete(id)
+    post({ type: 'lsp-exit', id, code: code ?? -1 })
+  })
+}

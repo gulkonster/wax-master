@@ -14,6 +14,15 @@ import { chain } from './rpc'
 import { currentNetwork, readCall } from './networks'
 import { APP_ORIGIN, isAllowedOrigin, secureWebPreferences } from './security'
 import { log } from './log'
+import { parsePublicKey, publicKeyToString } from '../chain-core'
+
+function toK1(key: string): string {
+  try {
+    return publicKeyToString(parsePublicKey(key), 'new')
+  } catch {
+    return key
+  }
+}
 
 let vaultInstance: Vault | null = null
 let signerInstance: Signer | null = null
@@ -126,7 +135,9 @@ export function registerKeys(getWindow: () => BrowserWindow | null): void {
     return status()
   })
   handle('keys:list', () => vault().list())
-  handle('keys:generate', (_e, label) => vault().generateKey(str(label, 'label', 64)))
+  handle('keys:newPending', () => vault().newPendingKey())
+  handle('keys:savePending', (_e, label) => vault().savePendingKey(str(label, 'label', 64)))
+  handle('keys:discardPending', () => vault().discardPendingKey())
   handle('keys:import', (_e, key, label) => vault().addKey(str(key, 'privateKey', 200), str(label, 'label', 64)))
   handle('keys:setLabel', (_e, id, label) => vault().setLabel(str(id, 'id', 64), str(label, 'label', 64)))
   handle('keys:remove', (_e, id) => vault().removeKey(str(id, 'id', 64)))
@@ -142,7 +153,7 @@ export function registerKeys(getWindow: () => BrowserWindow | null): void {
     return (r.accounts ?? []).map((a) => ({
       account: String(a.account_name),
       permission: String(a.permission_name),
-      key: String(a.authorizing_key ?? ''),
+      key: toK1(String(a.authorizing_key ?? '')),
       network: currentNetwork().id
     }))
   })

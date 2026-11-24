@@ -27,6 +27,10 @@ function ensure(): UtilityProcess {
       ptyListener?.(m)
       return
     }
+    if (m.type.startsWith('lsp-')) {
+      lspListener?.(m as LspProcessMessage)
+      return
+    }
     const w = waiters.get(m.id)
     if (!w) return
     if (m.type === 'out' && m.data !== undefined) {
@@ -40,6 +44,7 @@ function ensure(): UtilityProcess {
   proc.on('exit', (code) => {
     log.warn(`Helper process ended (${code})`)
     proc = null
+    lspListener?.({ type: 'lsp-exit', id: '*', code: -1, error: 'Helper process ended' })
     for (const [id, w] of waiters) {
       waiters.delete(id)
       w.done({ code: -1, output: w.out.join(''), error: 'Helper process ended' })
@@ -111,4 +116,35 @@ export function ptyResize(id: string, cols: number, rows: number): void {
 
 export function ptyKill(id: string): void {
   proc?.postMessage({ type: 'pty-kill', id })
+}
+
+// Long-lived processes with framed JSON messages on stdin/stdout (the editor engine).
+
+export interface LspProcessMessage {
+  type: 'lsp-msg' | 'lsp-err' | 'lsp-exit'
+  /** Process id; "*" when the helper itself ended. */
+  id: string
+  text?: string
+  data?: string
+  code?: number
+  error?: string
+}
+
+let lspListener: ((m: LspProcessMessage) => void) | null = null
+
+export function onLspMessage(fn: (m: LspProcessMessage) => void): void {
+  lspListener = fn
+}
+
+export function lspStart(id: string, file: string, args: string[], cwd: string | undefined, env: Record<string, string>): void {
+  ensure().postMessage({ type: 'lsp-start', id, file, args, cwd, env: childEnvironment(env) })
+}
+
+export function lspWrite(id: string, text: string): void {
+  proc?.postMessage({ type: 'lsp-write', id, text })
+}
+
+/** Closes the engine's input (it exits on its own); `now` ends its process tree at once. */
+export function lspKill(id: string, now = false): void {
+  proc?.postMessage({ type: 'lsp-kill', id, now })
 }

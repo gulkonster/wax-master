@@ -163,4 +163,31 @@ describe('signer approval integrity', () => {
     )
     await expect(s.prepare({ networkId: 'n1', actions: [transfer], purpose: 'Run' })).rejects.toThrow(/no key/)
   })
+
+  it('deploys exactly the bytes whose hashes are shown', async () => {
+    const s = new Signer(deps())
+    const wasm = new Uint8Array([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0, 9, 9, 9])
+    const abiBytes = new Uint8Array([14, 101, 111, 115, 105, 111, 58, 58, 97, 98, 105, 47, 49, 46, 49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    const hex = (b: Uint8Array): string => Buffer.from(b).toString('hex')
+    const sha = (b: Uint8Array): string => require('node:crypto').createHash('sha256').update(b).digest('hex')
+    const auth = [{ actor: 'alice', permission: 'active' }]
+    const { record, secret } = await s.prepare({
+      networkId: 'n1',
+      purpose: 'Deploy',
+      actions: [
+        { account: 'eosio', name: 'setcode', authorization: auth, data: { account: 'alice', vmtype: 0, vmversion: 0, code: hex(wasm) } },
+        { account: 'eosio', name: 'setabi', authorization: auth, data: { account: 'alice', abi: hex(abiBytes) } }
+      ],
+      artifacts: { wasm, abi: abiBytes, currentCodeHash: '' }
+    })
+    expect(record.artifacts?.wasmSha256).toBe(sha(wasm))
+    expect(record.artifacts?.abiSha256).toBe(sha(abiBytes))
+    // Changing the source arrays after prepare cannot change what is signed.
+    wasm[10] = 0
+    await s.approve(record.id, secret)
+    const trx = unpackTransaction(hexToBytes(sent[0].body.packed_trx))
+    const code = (record.actions[0].data as { code: string }).code
+    expect(code).toBe(Buffer.from([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0, 9, 9, 9]).toString('hex'))
+    expect(trx.actions[0].data).toBe(record.actions[0].hex)
+  })
 })

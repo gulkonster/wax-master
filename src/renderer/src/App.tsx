@@ -7,6 +7,16 @@ import { startBuild } from './lib/build'
 import { Setup, refreshToolchainLabel } from './pages/Setup'
 import { Modal } from './components/Modal'
 import { AccountPage } from './pages/AccountPage'
+import { KeysDialog } from './components/KeysDialog'
+import { InspectorDialog } from './components/Inspector'
+import { DeployDialog } from './components/DeployDialog'
+import { CreateAccountDialog, ChangeKeyDialog } from './components/AccountDialogs'
+import { ClearCodeDialog, TestnetAccountDialog } from './components/MoreDialogs'
+import { InputDialog } from './components/Modal'
+import { refreshVault, watchVault } from './lib/vault'
+import { appendOutput } from './lib/stores'
+import type { InspectedTransaction } from '../../shared/trace-types'
+import { ContractPage } from './pages/ContractPage'
 import { AddNetworkDialog, ManageNetworksDialog, StarredManager } from './components/NetworkDialogs'
 import { refreshNetworks, watchNetworkEvents } from './lib/networks'
 import { errorText, toast } from './lib/toast'
@@ -40,8 +50,38 @@ export function App(): React.JSX.Element {
   const [unsaved, setUnsaved] = useState<null | ((r: 'save' | 'discard' | 'cancel') => void)>(null)
   const dirtyRef = useRef(0)
   const [dialog, setDialog] = useState<null | 'add-network' | 'manage-networks' | 'starred'>(null)
+  const [keysOpen, setKeysOpen] = useState<null | { filter: string | null }>(null)
+  const [inspect, setInspect] = useState<InspectedTransaction | null>(null)
+  const [deployOpen, setDeployOpen] = useState<null | { askAccount: boolean }>(null)
+  const [chainDialog, setChainDialog] = useState<null | 'create-account' | 'testnet-account' | 'clear-code' | 'open-transaction'>(null)
+  const [changeKey, setChangeKey] = useState<null | Parameters<typeof ChangeKeyDialog>[0]>(null)
 
-  useEffect(() => on('menu-command', (c) => setComing(c as string)), [])
+  const openTransaction = useCallback(async (id: string) => {
+    try {
+      setInspect(await window.wax.tx.open(id))
+    } catch (e) {
+      toast('Could not open the transaction', errorText(e), 'error')
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshVault()
+    const offs = [
+      watchVault(),
+      on('show-inspector', (t) => setInspect(t as InspectedTransaction)),
+      on('output-line', (t) => appendOutput(t as string)),
+      on('open-keys', (a) => setKeysOpen({ filter: (a as string | null) ?? null })),
+      on('open-transaction', (id) => void openTransaction(id as string)),
+      on('change-key', (p) => setChangeKey(p as Parameters<typeof ChangeKeyDialog>[0])),
+      on('open-account-page', (n) => {
+        setState((st) => ({ ...st, view: 'account' }))
+        setTimeout(() => emit('open-account', n), 0)
+      })
+    ]
+    return () => offs.forEach((o) => o())
+  }, [openTransaction])
+
+  useEffect(() => on('menu-command', (c) => (c === 'create-account' ? setChainDialog('create-account') : setComing(c as string))), [])
   useEffect(() => on('dialog', (d) => setDialog(d as 'add-network' | 'manage-networks' | 'starred')), [])
   useEffect(() => {
     void refreshNetworks()
@@ -176,6 +216,30 @@ export function App(): React.JSX.Element {
         case 'setup':
           actions.setView('setup')
           break
+        case 'manage-keypairs':
+          setKeysOpen({ filter: null })
+          break
+        case 'lock-vault':
+          void window.wax.keys.lock().then(() => toast('Vault locked'))
+          break
+        case 'deploy':
+        case 'simulate-deploy':
+        case 'deploy-to-account':
+          if (!s.project) toast('Open a project first', 'Deploy works on the current project.')
+          else setDeployOpen({ askAccount: cmd === 'deploy-to-account' })
+          break
+        case 'create-account':
+          setChainDialog('create-account')
+          break
+        case 'create-testnet-account':
+          setChainDialog('testnet-account')
+          break
+        case 'clear-code':
+          setChainDialog('clear-code')
+          break
+        case 'open-transaction':
+          setChainDialog('open-transaction')
+          break
         case 'add-network':
         case 'manage-networks':
           setDialog(cmd)
@@ -213,6 +277,8 @@ export function App(): React.JSX.Element {
         case 'rename-symbol':
         case 'go-to-definition':
         case 'find-references':
+        case 'switch-header-source':
+        case 'workspace-symbol':
         case 'command-palette':
         case 'show-outline':
         case 'project-settings':
@@ -245,7 +311,10 @@ export function App(): React.JSX.Element {
             <div style={{ display: state.view === 'account' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
               <AccountPage />
             </div>
-            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && state.view !== 'account' && <ComingLater what={state.view} />}
+            <div style={{ display: state.view === 'contract' ? 'flex' : 'none', flex: 1, minHeight: 0 }}>
+              <ContractPage />
+            </div>
+            {state.view !== 'home' && state.view !== 'project' && state.view !== 'setup' && state.view !== 'account' && state.view !== 'contract' && <ComingLater what={state.view} />}
             <BottomPanel terminal={<TerminalPanel visible={state.panelOpen && state.panelTab === 'terminal'} />} />
           </div>
         </div>
@@ -279,6 +348,27 @@ export function App(): React.JSX.Element {
       {dialog === 'add-network' && <AddNetworkDialog onClose={() => setDialog(null)} />}
       {dialog === 'manage-networks' && <ManageNetworksDialog onClose={() => setDialog(null)} />}
       {dialog === 'starred' && <StarredManager onClose={() => setDialog(null)} />}
+      {keysOpen && <KeysDialog filterAccount={keysOpen.filter} onClose={() => setKeysOpen(null)} />}
+      {inspect && <InspectorDialog t={inspect} onClose={() => setInspect(null)} />}
+      {deployOpen && state.project && (
+        <DeployDialog project={state.project} askAccount={deployOpen.askAccount} showPanel={(t) => actions.showPanel(t)} onClose={() => setDeployOpen(null)} />
+      )}
+      {chainDialog === 'create-account' && <CreateAccountDialog onClose={() => setChainDialog(null)} />}
+      {chainDialog === 'testnet-account' && <TestnetAccountDialog onClose={() => setChainDialog(null)} />}
+      {chainDialog === 'clear-code' && <ClearCodeDialog onClose={() => setChainDialog(null)} />}
+      {chainDialog === 'open-transaction' && (
+        <InputDialog
+          title="Open Transaction by Id"
+          label="Transaction id (64 hex characters)"
+          initial=""
+          okLabel="Open"
+          onOk={async (v) => {
+            setInspect(await window.wax.tx.open(v.trim()))
+          }}
+          onClose={() => setChainDialog(null)}
+        />
+      )}
+      {changeKey && <ChangeKeyDialog {...changeKey} onClose={() => setChangeKey(null)} />}
       <Toasts />
     </AppContext.Provider>
   )

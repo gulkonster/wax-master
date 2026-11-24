@@ -135,3 +135,32 @@ export const IconPencil = (p: P): React.JSX.Element => (
     <path d="M11.5 1.5l3 3-9 9H2.5v-3zm-1 2.4L4 10.4l1.6 1.6 6.5-6.5z" />
   </Svg>
 )
+export const IconPlay = (p: P): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M3.5 2l10 6-10 6z" />
+  </Svg>
+)
+export const IconHeart = ({ filled, ...p }: P & { filled?: boolean }): React.JSX.Element => (
+  <Svg {...p}>
+    {filled ? (
+      <path d="M8 14.2L2.2 8.6a3.7 3.7 0 015.2-5.3L8 3.9l.6-.6a3.7 3.7 0 015.2 5.3z" />
+    ) : (
+      <path d="M8 14.2L2.2 8.6a3.7 3.7 0 015.2-5.3L8 3.9l.6-.6a3.7 3.7 0 015.2 5.3zm0-2.1l4.7-4.6a2.2 2.2 0 00-3.1-3.1L8 6 6.4 4.4a2.2 2.2 0 00-3.1 3.1z" />
+    )}
+  </Svg>
+)
+export const IconClock = (p: P): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M8 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zm0 1.5a5 5 0 100 10A5 5 0 008 3zm-.75 1.5h1.5v3.4l2.4 1.4-.75 1.3-3.15-1.8z" />
+  </Svg>
+)
+export const IconTable = (p: P): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M2 2.5h12v11H2zm1.5 1.5v2h3V4zm4.5 0v2h4.5V4zM3.5 7.5v2h3v-2zm4.5 0v2h4.5v-2zm-4.5 3.5v1.5h3V11zm4.5 0v1.5h4.5V11z" />
+  </Svg>
+)
+export const IconCopy = (p: P): React.JSX.Element => (
+  <Svg {...p}>
+    <path d="M5.5 1.5h8v9h-8zM7 3v6h5V3zM2.5 5H4v8h6v1.5H2.5z" />
+  </Svg>
+)

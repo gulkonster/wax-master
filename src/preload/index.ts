@@ -9,7 +9,7 @@ const call =
   (...args: unknown[]): Promise<never> =>
     ipcRenderer.invoke(channel, ...args) as Promise<never>
 
-const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'terminal-data', 'terminal-exit', 'network-changed'])
+const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'terminal-data', 'terminal-exit', 'network-changed', 'vault-changed', 'editor-status', 'editor-message'])
 
 const api: WaxApi = {
   app: {
@@ -45,7 +45,14 @@ const api: WaxApi = {
     saveAs: call('files:saveAs'),
     openDialog: call('files:openDialog'),
     writeExternal: call('files:writeExternal'),
-    wasmInfo: call('files:wasmInfo')
+    wasmInfo: call('files:wasmInfo'),
+    search: call('files:search')
+  },
+  editor: {
+    start: call('editor:start'),
+    status: call('editor:status'),
+    send: call('editor:send'),
+    readToolchainFile: call('editor:readToolchainFile')
   },
   toolchain: {
     status: call('toolchain:status'),
@@ -69,6 +76,48 @@ const api: WaxApi = {
   chain: {
     account: call('chain:account'),
     actions: call('chain:actions')
+  },
+  contract: {
+    abi: call('contract:abi'),
+    pack: call('contract:pack'),
+    rows: call('contract:rows'),
+    scopes: call('contract:scopes'),
+    historyList: call('contract:historyList'),
+    historyAdd: call('contract:historyAdd'),
+    historyRemove: call('contract:historyRemove')
+  },
+  keys: {
+    status: call('keys:status'),
+    create: call('keys:create'),
+    unlock: call('keys:unlock'),
+    lock: call('keys:lock'),
+    list: call('keys:list'),
+    newPending: call('keys:newPending'),
+    savePending: call('keys:savePending'),
+    discardPending: call('keys:discardPending'),
+    import: call('keys:import'),
+    setLabel: call('keys:setLabel'),
+    remove: call('keys:remove'),
+    reveal: call('keys:reveal'),
+    accounts: call('keys:accounts'),
+    exportVault: call('keys:exportVault'),
+    importVault: call('keys:importVault')
+  },
+  tx: {
+    run: call('tx:run'),
+    simulate: call('tx:simulate'),
+    simulationSupport: call('tx:simulationSupport'),
+    open: call('tx:open')
+  },
+  deploy: {
+    plan: call('deploy:plan'),
+    simulate: call('deploy:simulate'),
+    run: call('deploy:run')
+  },
+  accounts: {
+    create: call('accounts:create'),
+    changeKey: call('accounts:changeKey'),
+    clearCode: call('accounts:clearCode')
   },
   clipboard: {
     writeText: call('clipboard:writeText'),

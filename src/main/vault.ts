@@ -203,6 +203,7 @@ export class Vault {
   }
 
   lock(): void {
+    this.discardPendingKey()
     if (this.derived) {
       this.derived.fill(0)
       this.derived = null
@@ -254,11 +255,39 @@ export class Vault {
     }
   }
 
+  private pending: PrivateKey | null = null
+
+  /** Creates a new key in memory only (Create dialog); returns its public key. Regenerating replaces it. */
+  newPendingKey(): string {
+    this.requireUnlocked()
+    this.discardPendingKey()
+    const priv = generatePrivateKey()
+    const pub = selfTest(priv)
+    this.pending = priv
+    return pub
+  }
+
+  discardPendingKey(): void {
+    this.pending?.data.fill(0)
+    this.pending = null
+  }
+
+  /** Stores the pending key under a label. */
+  savePendingKey(label: string): PublicKeyEntry {
+    if (!this.pending) throw new Error('No new key to save; press Regenerate')
+    const priv = this.pending
+    this.pending = null
+    return this.storeGenerated(priv, label)
+  }
+
   /** Generates a new key and stores it at once. Returns only the public entry. */
   generateKey(label: string): PublicKeyEntry {
+    return this.storeGenerated(generatePrivateKey(), label)
+  }
+
+  private storeGenerated(priv: PrivateKey, label: string): PublicKeyEntry {
     const key = this.requireUnlocked()
     const v = this.load()!
-    const priv = generatePrivateKey()
     try {
       const publicKey = selfTest(priv)
       const id = randomUUID()

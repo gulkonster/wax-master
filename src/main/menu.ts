@@ -71,7 +71,9 @@ export function buildMenu(
         item('Format Document', 'format', 'Shift+Alt+F'),
         item('Rename Symbol', 'rename-symbol', 'F2'),
         item('Go to Definition', 'go-to-definition', 'F12'),
-        item('Find References', 'find-references', 'Shift+F12')
+        item('Find References', 'find-references', 'Shift+F12'),
+        item('Go to Symbol in Workspace...', 'workspace-symbol', 'CmdOrCtrl+T'),
+        item('Switch Header/Source', 'switch-header-source', 'Alt+O')
       ]
     },
     {

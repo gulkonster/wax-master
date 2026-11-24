@@ -4,6 +4,10 @@ import { buildMenu } from './menu'
 import { registerIpc } from './ipc'
 import { guardWindow, registerCloseGuard } from './close-guard'
 import { registerChainIpc } from './ipc-chain'
+import { registerKeys } from './keys-service'
+import { registerTxIpc } from './ipc-tx'
+import { registerEditorIpc } from './ipc-editor'
+import { stopEditor } from './clangd'
 import { currentNetwork, endpointOf, listNetworks, onNetworksChanged, selectNetwork } from './networks'
 import { killAllTerminals } from './terminal'
 import { stopHelper } from './helper'
@@ -97,6 +101,9 @@ app.whenReady().then(() => {
   registerIpc(() => mainWindow)
   registerCloseGuard(() => mainWindow)
   registerChainIpc(() => mainWindow)
+  registerKeys(() => mainWindow)
+  registerTxIpc(() => mainWindow)
+  registerEditorIpc()
   const refreshMenu = (): void => {
     const cur = currentNetwork().id
     Menu.setApplicationMenu(
@@ -125,5 +132,6 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   killAllTerminals()
+  stopEditor('The app is closing.', true)
   setTimeout(stopHelper, 300)
 })

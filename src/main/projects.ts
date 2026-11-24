@@ -63,6 +63,19 @@ function readEosproj(root: string): EosProj | undefined {
 
 let current: Current | null = null
 
+export type ProjectChange = 'opened' | 'closed' | 'config' | 'files'
+const changeListeners = new Set<(c: ProjectChange) => void>()
+
+/** Notified when the project opens or closes, its settings change or source files are added or renamed. */
+export function onProjectChange(fn: (c: ProjectChange) => void): () => void {
+  changeListeners.add(fn)
+  return () => changeListeners.delete(fn)
+}
+
+function notify(c: ProjectChange): void {
+  for (const fn of changeListeners) fn(c)
+}
+
 export function currentProject(): Current | null {
   return current
 }
@@ -158,6 +171,7 @@ export function openProject(path: string): OpenProject {
   }
   current = { root, name, config, hasConfigFile, eosproj: hasConfigFile ? undefined : readEosproj(root) }
   upsertProject({ path: root, name, lastOpened: Date.now() })
+  notify('opened')
   return describe()
 }
 
@@ -178,6 +192,7 @@ export function setMainFile(main: string): OpenProject {
   }
   writeJson(join(current.root, PROJECT_FILE), current.config)
   current.hasConfigFile = true
+  notify('config')
   return describe()
 }
 
@@ -189,11 +204,13 @@ export function saveConfig(config: ProjectConfig): OpenProject {
   current.config = normalized
   writeJson(join(current.root, PROJECT_FILE), normalized)
   current.hasConfigFile = true
+  notify('config')
   return describe()
 }
 
 export function closeProject(): void {
   current = null
+  notify('closed')
 }
 
 export function createProject(template: TemplateId, name: string, parent: string): OpenProject {
@@ -281,6 +298,7 @@ export async function writeProjectFile(rel: string, content: string): Promise<vo
   if (current && rel.replace(/\\/g, '/') === PROJECT_FILE) {
     current.config = normalizeConfig(readJson(abs, {}), current.config.contract)
     current.hasConfigFile = true
+    notify('config')
   }
 }
 
@@ -291,6 +309,7 @@ export async function createEntry(rel: string, dir: boolean): Promise<void> {
   else {
     await fsp.mkdir(dirname(abs), { recursive: true })
     await fsp.writeFile(abs, '', { flag: 'wx' })
+    if (abs.endsWith('.cpp')) notify('files')
   }
 }
 
@@ -300,6 +319,7 @@ export async function renameEntry(from: string, to: string): Promise<void> {
   if (a === current?.root) throw new Error('Cannot rename the project folder')
   if (existsSync(b)) throw new Error('Target already exists')
   await fsp.rename(a, b)
+  notify('files')
 }
 
 export async function removeEntry(rel: string): Promise<string> {

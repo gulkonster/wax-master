@@ -124,6 +124,11 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
   const [historyNote, setHistoryNote] = useState('')
   const [more, setMore] = useState(false)
   const [loadingRows, setLoadingRows] = useState(false)
+  const [vaultKeys, setVaultKeys] = useState<string[]>([])
+
+  useEffect(() => {
+    window.wax.keys.list().then((l) => setVaultKeys(l.map((k) => k.publicKey))).catch(() => setVaultKeys([]))
+  }, [view])
 
   const load = useCallback(async () => {
     setError('')
@@ -203,8 +208,28 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
               </div>
               <div className="perm-auths">
                 {p.keys.map((k) => (
-                  <div key={k.key} className="mono-small"><span className="badge" title="Weight">{k.weight}</span> {k.key}</div>
+                  <div key={k.key} className="mono-small">
+                    {vaultKeys.includes(k.k1) && <span className="badge green" title="This key is in your vault">🔑 vault</span>}{' '}
+                    <span className="badge" title="Weight">{k.weight}</span> {k.key}
+                  </div>
                 ))}
+                {p.keys.some((k) => vaultKeys.includes(k.k1)) && (
+                  <button
+                    className="btn ghost"
+                    onClick={() =>
+                      emit('change-key', {
+                        account: view.name,
+                        permission: p.name,
+                        parent: p.parent,
+                        currentKeys: p.keys.map((k) => k.k1 || k.key),
+                        accounts: p.accounts,
+                        waits: p.waits
+                      })
+                    }
+                  >
+                    Change key...
+                  </button>
+                )}
                 {p.accounts.map((a) => (
                   <div key={`${a.actor}@${a.permission}`} className="mono-small">
                     <span className="badge" title="Weight">{a.weight}</span> {a.actor}@{a.permission}
