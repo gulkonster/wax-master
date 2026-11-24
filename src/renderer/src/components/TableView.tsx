@@ -6,6 +6,7 @@ import type { ContractAbiView, ContractField, ContractHistoryEntry } from '../..
 import { errorText, toast } from '../lib/toast'
 import { IconCheck, IconChevronDown, IconTable } from './Icons'
 import { PickMenu, SavedMenus } from './ActionForm'
+import { rememberTypedScope, scopeForTable, type TypedScopes } from '../lib/table-scope'
 
 const KEY_TYPES = ['i64', 'i128', 'i256', 'float64', 'float128', 'sha256', 'ripemd160', 'name']
 const MAX_ROWS = 10_000
@@ -58,6 +59,8 @@ export function TableView({ account, view }: { account: string; view: ContractAb
   const [ran, setRan] = useState(false)
   const [favorites, setFavorites] = useState<ContractHistoryEntry[]>([])
   const [history, setHistory] = useState<ContractHistoryEntry[]>([])
+  // Scopes the user typed per table in this tab (memory only).
+  const [typedScopes, setTypedScopes] = useState<TypedScopes>({})
 
   const info = view.tables.find((t) => t.name === table)
   const columns: ContractField[] =
@@ -119,14 +122,21 @@ export function TableView({ account, view }: { account: string; view: ContractAb
   }
 
   const pickTable = (name: string): void => {
+    // A scope typed before the first table is picked belongs to that table.
+    if (!table && q.scope !== account) setTypedScopes((s) => rememberTypedScope(s, name, q.scope))
+    const f = { ...q, scope: scopeForTable(table, name, q.scope, account, typedScopes) }
     setTable(name)
+    setQ(f)
     setRows([])
     setRan(false)
     setMore(false)
-    void run(name, q, false)
+    void run(name, f, false)
   }
 
-  const set = <K extends keyof QueryFields>(k: K, v: QueryFields[K]): void => setQ((s) => ({ ...s, [k]: v }))
+  const set = <K extends keyof QueryFields>(k: K, v: QueryFields[K]): void => {
+    setQ((s) => ({ ...s, [k]: v }))
+    if (k === 'scope') setTypedScopes((s) => rememberTypedScope(s, table, v as string))
+  }
   const enter = (e: React.KeyboardEvent): void => {
     if (e.key === 'Enter') void run(table, q, false)
   }
@@ -148,6 +158,7 @@ export function TableView({ account, view }: { account: string; view: ContractAb
     }
     setTable(e.name)
     setQ(f)
+    setTypedScopes((s) => rememberTypedScope(s, e.name, f.scope))
     setRows([])
     void run(e.name, f, false)
   }

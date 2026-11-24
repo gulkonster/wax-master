@@ -82,9 +82,15 @@ export function ContractPage(): React.JSX.Element {
         </div>
         <HelpButton place="contractPage" />
       </div>
-      {active && net.current ? (
-        <ContractBody key={`${net.current.id}:${active}`} name={active} />
-      ) : (
+      {/* Every open tab keeps its body mounted (hidden when not active), so its action, typed
+          fields, signer, table and query stay while the tab is open. Closing the tab forgets them. */}
+      {net.current &&
+        tabs.map((t) => (
+          <div key={`${net.current!.id}:${t}`} style={{ display: t === active ? 'contents' : 'none' }}>
+            <ContractBody name={t} />
+          </div>
+        ))}
+      {!(active && net.current) && (
         <div className="coming">
           <div>Enter a contract account name and press Enter.</div>
         </div>
