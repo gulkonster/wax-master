@@ -17,6 +17,7 @@ void on_transfer(name from, name to, asset quantity, std::string memo) {
 - The parameters are those of the notified action, in the same order and types.
 - The handler is not an action: it is not in the ABI and nobody can call it directly.
 - The contract is notified of its own outgoing transfers too: return early when `from` is the contract.
+- Return early when `to` is not the contract. Any account that receives WAX can pass the notification on with `require_recipient`; the token contract is still `eosio.token`, but `to` is that account. A handler that does not check `to` credits deposits that were never paid to it.
 - A `check` that fails in the handler refuses the whole transfer, so the tokens never move. Use it to refuse wrong tokens or a bad memo.
 - In a handler the RAM payer can only be the contract itself (`get_self()`); another payer is refused with `unprivileged contract cannot increase RAM usage of another account within a notify context`.
 

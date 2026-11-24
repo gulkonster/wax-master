@@ -3,7 +3,8 @@
 static constexpr symbol WAX_SYMBOL = symbol("WAX", 8);
 
 void %CLASS%::on_transfer(name from, name to, asset quantity, std::string memo) {
-  // Outgoing transfers (claims) and system payments are not stakes.
+  // Outgoing transfers (claims), notifications another account passed on with
+  // require_recipient (`to` is not this contract) and system payments are not stakes.
   if (from == get_self() || to != get_self()) return;
   if (from.prefix() == "eosio"_n) return;
   // A failed check refuses the whole transfer, so the tokens stay with the sender.

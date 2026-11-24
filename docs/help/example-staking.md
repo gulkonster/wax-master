@@ -33,9 +33,9 @@ r.claim_after = time_point_sec(current_time_point()) + UNSTAKE_SECONDS;
 
 1. File > New Project. Under **Examples** choose **Staking**, keep the name `staking`, choose the location and press **Create**.
 2. Contract > Build (Ctrl+B). The Output ends with no errors and no warnings.
-3. Select WAX Testnet with the Network button. Accounts > Create Testnet Account: create the contract account, press **Request test tokens**, then **Open account** and press the star. Create a second account the same way: the user account that stakes.
+3. Select WAX Testnet with the Network button. Accounts > Create Testnet Account: create the contract account, press **Request test tokens**, then **Open account** and press the star. Do this before anything is deployed: after deployment a payment to the contract account goes through its contract (see "What goes wrong"). The faucet creates only one account a day, so the user account is either an account you already have or one made from the contract account: on its Account page, section **Create account**, with some **Stake CPU** and **Stake NET** (for example `1.00000000 WAX` each). Send it 3 WAX from the contract account (section **Transfer**) if it has none.
 4. Contract > Deploy. **Account**: the contract account, **Permission**: `active`. If the dialog says RAM is missing, press **Buy RAM** and approve, then press **Deploy** and approve.
-5. The contract account pays for the stake rows. On its Account page open **RAM** and buy 2048 more bytes (**By bytes**).
+5. The contract account pays for the stake rows: about 250 bytes for the first, about 150 for each further account. Open **RAM** on its Account page: when fewer than 2,048 bytes are free, buy 2048 bytes (**By bytes**).
 6. On the contract account's Account page open **Keys and permissions**. On `active` use the switch **Allow this account's contract to send actions (eosio.code)**, press **Send to confirmation** and approve.
 7. Open the user account on the Account page, section **Transfer**. **To**: the contract account, **Amount**: `2`, **Memo**: `stake`. Press **Transfer** and approve.
 8. Press **Contracts** in the top bar and open the contract account. Pick the table `stakes` and press **Run query**: one row, `staked` = `2.00000000 WAX`, `unstaking` = `0.00000000 WAX`.
@@ -54,7 +54,13 @@ r.claim_after = time_point_sec(current_time_point()) + UNSTAKE_SECONDS;
 
 | What you see | Why |
 |---|---|
-| "send with the memo stake" | The transfer had another memo. It is refused on purpose, so the tokens stay with the sender. |
+| "send with the memo stake" | The transfer had another memo. It is refused on purpose, so the tokens stay with the sender. **Request test tokens** and any plain transfer to the deployed contract account are refused the same way: fund the contract account before deploying (step 3), or send with the memo `stake` and then `unstake` and `claim`. |
 | "the waiting time is not over yet" | `claim` came before `claim_after`. A later `unstake` moves `claim_after` again. |
 | "nothing is unstaking; call unstake first" | `claim` with nothing in `unstaking`. |
 | `claim` refused, the error names `eosio.code` | Step 6 is missing. |
+
+## Before you build on it
+
+- The stakes and the contract account's own WAX are one balance. The table is the only record of whose WAX it is, so whoever holds the contract account's keys, or deploys new code to it, controls all of it.
+- The contract pays the RAM of one row per sender: about 156 bytes, the first row 268. It takes any amount, so tiny stakes from many accounts can use up its RAM. A real contract sets a smallest amount.
+- Staking here pays no reward. What a real contract gives for a stake, and from which funds, is up to it.

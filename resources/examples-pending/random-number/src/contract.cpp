@@ -31,6 +31,14 @@ void %CLASS%::roll(name player) {
     .send();
 }
 
+void %CLASS%::remove(uint64_t id) {
+  rolls_table rolls(get_self(), get_self().value);
+  const auto& row = rolls.get(id, "no roll with this id");
+  require_auth(row.player);
+  check(row.result != 0, "the roll has no result yet");
+  rolls.erase(row); // the player paid for the row, so the RAM goes back to him
+}
+
 void %CLASS%::on_randnotify(uint64_t request_id, name dapp, uint64_t assoc_id, checksum256 rnd) {
   // A notification handler returns instead of failing: a failure would leave
   // the answer undelivered at orng.wax.

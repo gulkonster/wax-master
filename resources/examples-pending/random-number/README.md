@@ -4,11 +4,14 @@ A dice roll with the WAX random number service, the contract `orng.wax`. `roll` 
 
 This contract is an example to learn from: not audited; do not hold real value with it unchanged.
 
+Before you build on it: `roll` is open to everybody, and each call uses one of the contract's free requests at the service and about 212 bytes of the contract account's RAM until it is answered, so a stranger can use up the allowance. A real game takes a payment or limits the calls per account.
+
 Status: not tried on WAX Testnet, where the service does not answer at the moment; not included in New Project.
 
 ## What is in it
 
 - `roll(player)`: signed by `player`, who pays for the new row. Asks `orng.wax` for a number with the row id as `assoc_id` and a signing value made from the hash of the transaction.
+- `remove(id)`: signed by the roll's player; removes a roll that has its result, so the RAM of the row goes back to the player. A roll that still waits is refused with "the roll has no result yet".
 - `on_randnotify` (a notification handler, not an action): only `orng.wax` can send `randnotify`. It returns without a change for an answer meant for another contract, for an unknown roll and for a roll that already has its result; it does not fail, because a failure would leave the answer undelivered at `orng.wax`.
 - Table `rolls`, scope = the contract account: `id`, `player`, `result` (0 until the answer arrives, then 1 to 6), `random_value`.
 
@@ -22,20 +25,22 @@ Status: not tried on WAX Testnet, where the service does not answer at the momen
 
 1. File > New Project. Under **Examples** choose **Random number (ORNG)**, keep the name `%CONTRACT%`, choose the location and press **Create**.
 2. Contract > Build (Ctrl+B). The Output ends with no errors and no warnings.
-3. Select WAX Testnet with the Network button. Accounts > Create Testnet Account: create the **contract account**, press **Request test tokens**, then **Open account** and press the star. Create a second account the same way: the **player account**.
+3. Select WAX Testnet with the Network button. Accounts > Create Testnet Account: create the **contract account**, press **Request test tokens**, then **Open account** and press the star. The faucet creates only one account a day, so the **player account** is either an account you already have or one made from the contract account: on its Account page, section **Create account**, with some **Stake CPU** and **Stake NET** (for example `1.00000000 WAX` each). The player pays the RAM of his rolls from his own account.
 4. Contract > Deploy. **Account**: the contract account, **Permission**: `active`. If the dialog says RAM is missing, press **Buy RAM** and approve, then press **Deploy** and approve.
-5. On the contract account's Account page open **RAM** and buy 2048 more bytes (**By bytes**) for the requests at `orng.wax`.
+5. The contract account pays for each request at `orng.wax` while it waits for the answer: about 212 bytes. Open **RAM** on its Account page: when fewer than 2,048 bytes are free, buy 2048 bytes (**By bytes**).
 6. On the contract account's Account page open **Keys and permissions**. On `active` use the switch **Allow this account's contract to send actions (eosio.code)**, press **Send to confirmation** and approve.
 7. Press **Contracts** in the top bar and open the contract account. Choose the action `roll`: `player` = the player account. **Authorization**: the player account with `active`. Press **Run** and approve.
 8. Pick the table `rolls` and press **Run query**: one row, `id` = 0, `player` = the player account, `result` = 0.
 9. A few seconds later press **Run query** again: `result` is a number from 1 to 6 and `random_value` is filled. The contract account's **Transactions** on the Account page show the `randnotify` of `orng.wax`.
 10. Each further `roll` adds a row with the next `id`.
+11. Choose the action `remove`: `id` = 0. **Authorization**: the player account with `active`. Press **Run** and approve. The query no longer shows the row, and its RAM is back with the player.
 
 ## What goes wrong, and why
 
 - `roll` refused with a message that names `eosio.code`: step 6 is missing.
 - `roll` refused with "out of usage credits": the contract's allowance is used up. Wait, or stake or deposit WAX for it as above.
 - `roll` refused with a RAM error: the contract account needs more RAM (step 5).
+- `remove` refused with "the roll has no result yet": the service has not answered that roll.
 - `result` stays 0: the service has not answered. Open `orng.wax` on the Contract page and read its table `reqs`: your request is a row there while it waits.
 
 More in the documentation: Help > Documentation > Examples > Random number (ORNG).

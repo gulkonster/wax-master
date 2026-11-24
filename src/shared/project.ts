@@ -126,7 +126,7 @@ export function normalizeConfig(raw: unknown, fallbackContract: string): Project
 
 export type ProjectTemplateId = 'empty' | 'hello' | 'token'
 /** Example projects: folders in resources/templates/examples/<id>/. */
-export type ExampleId = 'transfer-listener' | 'staking'
+export type ExampleId = 'transfer-listener' | 'staking' | 'atomicassets' | 'alcor-swap'
 export type TemplateId = ProjectTemplateId | ExampleId
 
 export const TEMPLATES: { id: ProjectTemplateId; label: string; description: string }[] = [
@@ -150,6 +150,20 @@ export const EXAMPLES: { id: ExampleId; label: string; description: string; name
     description: 'Stake WAX with the memo "stake"; unstake starts a 5-minute wait; claim pays out after it.',
     name: 'staking',
     topic: 'example-staking'
+  },
+  {
+    id: 'atomicassets',
+    label: 'AtomicAssets',
+    description: 'Mints one NFT of your template per account (inline mintasset); counts assets of the collection that arrive (logtransfer).',
+    name: 'minter',
+    topic: 'example-atomicassets'
+  },
+  {
+    id: 'alcor-swap',
+    label: 'Alcor swap',
+    description: "Swaps the contract's own tokens on a swap.alcor pool with a transfer and the swap memo, with a minimum out.",
+    name: 'swapper',
+    topic: 'example-alcor-swap'
   }
 ]
 

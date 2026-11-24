@@ -279,7 +279,7 @@ describe('example projects', () => {
   })
 
   it('New Project accepts every template and listed example id', () => {
-    expect(TEMPLATE_IDS).toEqual(['empty', 'hello', 'token', 'transfer-listener', 'staking'])
+    expect(TEMPLATE_IDS).toEqual(['empty', 'hello', 'token', 'transfer-listener', 'staking', 'atomicassets', 'alcor-swap'])
     for (const e of EXAMPLES) expect(e.name, e.id).toMatch(/^[a-z1-5.]{1,12}$/)
   })
 
@@ -376,6 +376,57 @@ describe('example projects', () => {
     expect(actionsOf(f['include/staking.hpp'])).toEqual(['unstake', 'claim'])
   })
 
+  it('atomicassets: setconfig by the contract, one mint per account paid by the caller, a logtransfer handler that never fails', () => {
+    const f = templateFiles('atomicassets', 'minter')
+    const hpp = cppCode(f['include/minter.hpp'])
+    const cpp = cppCode(f['src/minter.cpp'])
+    expect(actionsOf(f['include/minter.hpp'])).toEqual(['setconfig', 'mint'])
+    expect(hpp).toContain('void setconfig(name collection, name schema, int32_t template_id);')
+    expect(hpp).toContain('[[eosio::on_notify("atomicassets::logtransfer")]]')
+    expect(hpp).toContain('void on_logtransfer(name collection_name, name from, name to, std::vector<uint64_t> asset_ids, std::string memo);')
+    expect(hpp).not.toContain('"atomicassets::transfer"')
+    const setconfig = cpp.slice(cpp.indexOf('::setconfig('), cpp.indexOf('::mint('))
+    expect(setconfig).toContain('require_auth(get_self());')
+    const mint = cpp.slice(cpp.indexOf('::mint('), cpp.indexOf('::on_logtransfer('))
+    expect(mint).toContain('require_auth(owner);')
+    expect(mint).toContain('check(minted.find(owner.value) == minted.end(), "this account has already minted");')
+    expect(mint).toContain('minted.emplace(owner,')
+    expect(mint).toMatch(/action\(permission_level\{get_self\(\), "active"_n\}, ATOMICASSETS, "mintasset"_n,\s*std::make_tuple\(get_self\(\), c\.collection, c\.schema, c\.template_id, owner,/)
+    // The handler returns for everything it does not count and needs no new RAM.
+    const handler = cpp.slice(cpp.indexOf('::on_logtransfer('))
+    expect(handler).toContain('if (to != get_self()) return;')
+    expect(handler).toContain('if (!cfg.exists()) return;')
+    expect(handler).toContain('if (collection_name != c.collection) return;')
+    expect(handler).toContain('cfg.set(c, same_payer);')
+    expect(handler).not.toMatch(/check\(|require_find|emplace/)
+  })
+
+  it('alcor swap: signed by the contract account, extended_asset in and out, the swap memo with a minimum out', () => {
+    const f = templateFiles('alcor-swap', 'swapper')
+    const hpp = cppCode(f['include/swapper.hpp'])
+    const cpp = cppCode(f['src/swapper.cpp'])
+    expect(actionsOf(f['include/swapper.hpp'])).toEqual(['swap'])
+    expect(hpp).toContain('void swap(uint64_t pool_id, extended_asset token_in, extended_asset min_out);')
+    expect(cpp).toContain('static constexpr name ALCOR_SWAP = "swap.alcor"_n;')
+    expect(cpp).toContain('require_auth(get_self());')
+    expect(cpp).toContain('min_out.quantity.amount > 0')
+    expect(cpp.replace(/\s+/g, ' ')).toContain(
+      '"swapexactin#" + std::to_string(pool_id) + "#" + get_self().to_string() + "#" + min_out.quantity.to_string() + "@" + min_out.contract.to_string() + "#" + std::to_string(deadline);'
+    )
+    expect(cpp).toMatch(/action\(permission_level\{get_self\(\), "active"_n\}, token_in\.contract, "transfer"_n,\s*std::make_tuple\(get_self\(\), ALCOR_SWAP, token_in\.quantity, memo\)\)/)
+  })
+
+  it('the examples index page links every example, the pending one with its mark', () => {
+    expect(examplesGroup[0]).toBe('examples')
+    const page = readFileSync(join(__dirname, '../../docs/help/examples.md'), 'utf8')
+    for (const e of EXAMPLES) {
+      expect(page, e.id).toContain(`(doc:${e.topic})`)
+      expect(page, e.id).toContain(`\`${e.name}\``)
+    }
+    const random = page.split('\n').find((l) => l.includes('(doc:example-random-number)'))
+    expect(random).toContain('Not tried on WAX Testnet; not included as a project')
+  })
+
   it('random number: not listed in New Project; requestrand inline, the answer by the randnotify notification', () => {
     expect(EXAMPLES.map((e) => e.id)).not.toContain('random-number')
     const f = pendingFiles('random-number')
@@ -390,8 +441,13 @@ describe('example projects', () => {
     expect(handler).toContain('if (dapp != get_self()) return;')
     expect(handler).toContain('if (it == rolls.end() || it->result != 0) return;')
     expect(handler).not.toMatch(/check\(|require_find|\.get\(|emplace/)
-    expect(actionsOf(f['include/my.ex.hpp'])).toEqual(['roll'])
+    expect(actionsOf(f['include/my.ex.hpp'])).toEqual(['roll', 'remove'])
     expect(hpp).not.toMatch(/void receiverand/)
+    // The player's RAM comes back: remove, by the player, only for a roll with a result.
+    const remove = cpp.slice(cpp.indexOf('::remove('), cpp.indexOf('::on_randnotify('))
+    expect(remove).toContain('require_auth(row.player);')
+    expect(remove).toContain('check(row.result != 0, "the roll has no result yet");')
+    expect(remove).toContain('rolls.erase(row);')
   })
 
   it('ships the listed example folders with the app, and not the pending ones', () => {

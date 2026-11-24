@@ -19,7 +19,7 @@ import { FaucetButton } from './FaucetButton'
 import { deployRamText, ramToBuy } from '../../../shared/ram-market'
 import { useApp } from '../state'
 import { lastOpened } from './ChainButtons'
-import { lastDeployPick, preselectAccount, rememberDeployPick } from '../lib/deploy-account'
+import { lastDeployPick, preselectAccount, readPlanAfterRamPurchase, rememberDeployPick } from '../lib/deploy-account'
 
 function short(h: string | null): string {
   return h ? `${h.slice(0, 16)}…${h.slice(-8)}` : '(none)'
@@ -66,6 +66,7 @@ export function DeployDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [net?.id, nets.stars, topAccount])
   const pickAccount = (a: string): void => {
+    stopRamReads()
     picked.current = true
     if (net) rememberDeployPick(project.path, net.id, a)
     setAccount(a)
@@ -76,6 +77,19 @@ export function DeployDialog({
   const [buildLine, setBuildLine] = useState('')
   const [buyOpen, setBuyOpen] = useState(false)
   const [ramNote, setRamNote] = useState('')
+  // The reads after Buy RAM; stopped when the dialog closes, the account changes or a new check starts.
+  const ramReads = useRef<(() => void) | null>(null)
+  const stopRamReads = (): void => {
+    ramReads.current?.()
+    ramReads.current = null
+  }
+  useEffect(
+    () => () => {
+      ramReads.current?.()
+      ramReads.current = null
+    },
+    []
+  )
   const { price: ramPrice } = useRamMarket()
   const target = project.config.deploy.target
   const [error, setError] = useState('')
@@ -116,6 +130,7 @@ export function DeployDialog({
   // Build only when needed (always for Rebuild), then compare with the account.
   const runCheck = async (always: boolean): Promise<void> => {
     if (!net || !valid) return
+    stopRamReads()
     setError('')
     setTrace(null)
     setPlan(null)
@@ -176,18 +191,35 @@ export function DeployDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, permission, net?.id])
 
-  // After RAM was bought: the comparison is read again, without building.
-  const refreshPlan = async (): Promise<void> => {
+  // After RAM was bought: the comparison is read again, without building, until the
+  // purchase is in a block (the available RAM changed) or the reads after a send are done.
+  const refreshPlan = (): void => {
+    if (!net || !plan) return
+    stopRamReads()
+    const request = { networkId: net.id, account, permission, target }
     setBusy('plan')
     setError('')
-    try {
-      await loadPlan()
-      setRamNote('RAM bought; the comparison was read again.')
-    } catch (e) {
-      setError(errorText(e))
-    } finally {
-      setBusy(null)
-    }
+    setRamNote('RAM bought; reading the account again...')
+    ramReads.current = readPlanAfterRamPurchase(
+      plan.ramAvailable,
+      () => window.wax.deploy.plan(request),
+      (p, changed) => {
+        ramReads.current = null
+        if (p) setPlan(p)
+        setRamNote(
+          changed
+            ? 'RAM bought; the comparison was read again.'
+            : 'RAM bought, but the account does not show it yet. Close Deploy and open it again in a moment.'
+        )
+        setBusy(null)
+      },
+      (e) => {
+        ramReads.current = null
+        setRamNote('')
+        setError(errorText(e))
+        setBusy(null)
+      }
+    )
   }
 
   const simulate = async (): Promise<void> => {
@@ -352,7 +384,7 @@ export function DeployDialog({
             <BuyRamPanel
               receiver={plan.account}
               initialBytes={ramToBuy(plan.ramNeeded, plan.ramAvailable)}
-              onBought={() => void refreshPlan()}
+              onBought={refreshPlan}
               onClose={() => setBuyOpen(false)}
             />
           )}

@@ -18,7 +18,7 @@ A project is a folder with your contract's source and one settings file, `waxmas
 New project:
 
 1. File > New Project (or **New** on the Home page).
-2. Choose a template: **Empty** (one empty action), **Hello World** (the `hi` action) or **Token** (a standard token).
+2. Choose a template or an example. The list has two groups. **Template**: **Empty** (one empty action), **Hello World** (the `hi` action) or **Token** (a standard token). **Examples**: each is a full project with a `README.md` that lists the steps to build, deploy and try it on WAX Testnet; see [Example: Transfer listener](doc:example-transfer-listener) and [Example: Staking](doc:example-staking).
 3. Enter the name: 1 to 12 characters, a-z, 1-5 and dots. It becomes the contract name.
 4. Choose the Location. The project is created in a new folder named after it.
 

@@ -3,7 +3,9 @@
 static constexpr symbol WAX_SYMBOL = symbol("WAX", 8);
 
 void %CLASS%::on_transfer(name from, name to, asset quantity, std::string memo) {
-  // The contract is notified of its own outgoing transfers too: skip them.
+  // Skip the contract's own outgoing transfers, and notifications another
+  // account passed on with require_recipient: the token contract is still
+  // eosio.token, but `to` is not this contract, so nothing was paid to it.
   if (from == get_self() || to != get_self()) return;
   // Tokens the system pays to this account (a RAM sale, an unstake refund)
   // are not deposits.

@@ -41,6 +41,8 @@ const FULL_FORMS = {
   ],
   'example-transfer-listener.md': [{ dirs: ['resources/templates/examples/transfer-listener'], contract: 'listener' }],
   'example-staking.md': [{ dirs: ['resources/templates/examples/staking'], contract: 'staking' }],
+  'example-atomicassets.md': [{ dirs: ['resources/templates/examples/atomicassets'], contract: 'minter' }],
+  'example-alcor-swap.md': [{ dirs: ['resources/templates/examples/alcor-swap'], contract: 'swapper' }],
   'example-random-number.md': [
     { dirs: ['resources/templates/examples/random-number', 'resources/examples-pending/random-number'], contract: 'dice' }
   ]

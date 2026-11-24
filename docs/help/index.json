@@ -15,7 +15,7 @@
       "id": "projects",
       "title": "Projects and building",
       "topics": [
-        { "id": "project-files", "title": "Project files and settings", "keywords": ["waxmaster.json", "project settings", "template", "eosproj", "folder"] },
+        { "id": "project-files", "title": "Project files and settings", "keywords": ["waxmaster.json", "project settings", "template", "example", "eosproj", "folder"] },
         { "id": "build-output-problems", "title": "Build, Output and Problems", "keywords": ["build", "compile", "ctrl+b", "output", "problems", "warning", "error"] },
         { "id": "compiler-errors", "title": "Common compiler errors", "keywords": ["error", "compile", "clang", "undeclared", "include"] },
         { "id": "abi-check", "title": "ABI check messages", "keywords": ["abi", "unknown type", "unknown type in abi", "deploy stopped", "table type"] },
@@ -111,8 +111,11 @@
       "id": "examples",
       "title": "Examples",
       "topics": [
+        { "id": "examples", "title": "All examples", "keywords": ["example", "examples", "sample projects", "new project", "learn"] },
         { "id": "example-transfer-listener", "title": "Example: Transfer listener", "keywords": ["example", "transfer listener", "deposit", "withdraw", "on_notify", "eosio.code", "inline transfer"] },
         { "id": "example-staking", "title": "Example: Staking", "keywords": ["example", "staking", "stake", "unstake", "claim", "waiting time", "memo", "cpu", "net"] },
+        { "id": "example-atomicassets", "title": "Example: AtomicAssets", "keywords": ["example", "atomicassets", "nft", "mint", "mintasset", "collection", "schema", "template", "logtransfer", "atomicmarket", "sale"] },
+        { "id": "example-alcor-swap", "title": "Example: Alcor swap", "keywords": ["example", "alcor", "swap", "swap.alcor", "pool", "swapexactin", "minimum out", "extended_asset", "dex"] },
         { "id": "example-random-number", "title": "Example: Random number (ORNG)", "keywords": ["example", "random", "orng", "orng.wax", "requestrand", "randnotify", "receiverand", "dice", "credits"] }
       ]
     },

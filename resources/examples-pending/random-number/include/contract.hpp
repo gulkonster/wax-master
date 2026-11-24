@@ -17,6 +17,11 @@ public:
   [[eosio::action]]
   void roll(name player);
 
+  // Removes a roll that has its result, signed by its player: the RAM of the
+  // row goes back to the player.
+  [[eosio::action]]
+  void remove(uint64_t id);
+
   // The answer: orng.wax runs its own action randnotify and notifies the
   // contract named in dapp. Only orng.wax can send that action. (Contracts
   // recorded by the service before December 2025 get the older call
