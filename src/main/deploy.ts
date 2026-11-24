@@ -8,7 +8,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { promises as fsp } from 'node:fs'
 import { abiToBinary, bytesToHex } from '../chain-core'
 import { effectiveOutput, type DeployTarget } from '../shared/project'
-import type { DeployPlan } from '../shared/chain-types'
+import { DEPLOY_PLAN_EXPIRED, type DeployPlan } from '../shared/chain-types'
 import { currentProject, resolveInProject } from './projects'
 import { abiRefusal } from './build'
 import { currentNetwork, endpointOf, getNetwork, readCall } from './networks'
@@ -164,7 +164,7 @@ export async function planDeploy(input: { networkId?: string; account: string; p
 /** Builds setcode/setabi for a plan with the exact bytes read when the plan was made. */
 export function deployActions(planId: string, opts: { clear?: boolean; keep?: boolean } = {}): { networkId: string; actions: ActionRequest[] } {
   const p = plans.get(planId)
-  if (!p) throw new Error('The deploy plan expired. Open Deploy again.')
+  if (!p) throw new Error(DEPLOY_PLAN_EXPIRED)
   if (!opts.keep) plans.delete(planId)
   const auth = [{ actor: p.account, permission: p.permission }]
   const actions: ActionRequest[] = []

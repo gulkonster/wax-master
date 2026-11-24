@@ -167,6 +167,7 @@ export function App(): React.JSX.Element {
         if (p.notices && p.notices.length > 0) toast('Project settings replaced', p.notices.join(' '), 'info')
         void window.wax.projects.list().then((projects) => patch({ projects }))
       },
+      projectUpdated: (p: OpenProject) => patch({ project: p }),
       closeProject: async () => {
         if (!(await confirmLeave())) return
         await window.wax.projects.close()

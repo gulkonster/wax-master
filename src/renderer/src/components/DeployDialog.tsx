@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { DeployPlan } from '../../../shared/chain-types'
+import { DEPLOY_PLAN_EXPIRED, type DeployPlan } from '../../../shared/chain-types'
 import type { InspectedTransaction } from '../../../shared/trace-types'
 import type { OpenProject } from '../../../shared/api'
 import { Modal } from './Modal'
@@ -15,6 +15,9 @@ import { ACCOUNT_NAME, AccountPicker, PermissionPicker, usePickList } from './Ac
 import { BuyRamPanel, useRamMarket } from './BuyRamPanel'
 import { FaucetButton } from './FaucetButton'
 import { ramToBuy } from '../../../shared/ram-market'
+import { useApp } from '../state'
+import { lastOpened } from './ChainButtons'
+import { lastDeployPick, preselectAccount, rememberDeployPick } from '../lib/deploy-account'
 
 function short(h: string | null): string {
   return h ? `${h.slice(0, 16)}…${h.slice(-8)}` : '(none)'
@@ -35,10 +38,30 @@ export function DeployDialog({
   showPanel: (t: 'output' | 'problems') => void
   onClose: () => void
 }): React.JSX.Element {
-  const net = useStore(networkStore).current
+  const { actions } = useApp()
+  const nets = useStore(networkStore)
+  const net = nets.current
+  const topAccount = useStore(lastOpened).account
   const saved = net ? project.config.deploy.networks[net.id] : undefined
-  const [account, setAccount] = useState(askAccount ? '' : (saved?.account ?? ''))
-  const [permission, setPermission] = useState(saved?.permission || 'active')
+  const initialAccount = (): string => (net ? preselectAccount(saved?.account, topAccount, lastDeployPick(project.path, net.id), nets.stars) : '')
+  const [account, setAccount] = useState(initialAccount)
+  const [permission, setPermission] = useState(() => (saved?.account && saved.account === initialAccount() && saved.permission) || 'active')
+  // Stars may arrive after the dialog opened: the preselection is made once they do, until the user picks.
+  const picked = useRef(false)
+  useEffect(() => {
+    if (picked.current || account) return
+    const a = initialAccount()
+    if (!a) return
+    setAccount(a)
+    setPermission((a === saved?.account && saved?.permission) || 'active')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [net?.id, nets.stars, topAccount])
+  const pickAccount = (a: string): void => {
+    picked.current = true
+    if (net) rememberDeployPick(project.path, net.id, a)
+    setAccount(a)
+    setPlan(null)
+  }
   const [plan, setPlan] = useState<DeployPlan | null>(null)
   const [busy, setBusy] = useState<null | 'ensure' | 'rebuild' | 'plan' | 'simulate' | 'deploy'>(null)
   const [buildLine, setBuildLine] = useState('')
@@ -59,9 +82,24 @@ export function DeployDialog({
     onClose()
   }
 
-  const loadPlan = async (): Promise<void> => {
-    if (!net) return
-    setPlan(await window.wax.deploy.plan({ networkId: net.id, account, permission, target }))
+  /** Compares the built files on disk with the account (no compile) and shows the new plan. */
+  const loadPlan = async (): Promise<DeployPlan | null> => {
+    if (!net) return null
+    const p = await window.wax.deploy.plan({ networkId: net.id, account, permission, target })
+    setPlan(p)
+    return p
+  }
+
+  /** Runs an operation on the plan; a plan that is used up or too old is prepared again from the same build first. */
+  const withPlan = async <T,>(id: string, run: (planId: string) => Promise<T>): Promise<T> => {
+    try {
+      return await run(id)
+    } catch (e) {
+      if (!errorText(e).includes(DEPLOY_PLAN_EXPIRED)) throw e
+      const fresh = await loadPlan()
+      if (!fresh) throw e
+      return run(fresh.id)
+    }
   }
 
   // Build only when needed (always for Rebuild), then compare with the account.
@@ -89,7 +127,8 @@ export function DeployDialog({
         if (r.build?.problems.length) showPanel('problems')
         return
       }
-      setBuildLine(r.upToDate ? `Build is up to date (built ${clock(r.builtAt)}).` : `Built ${clock(r.builtAt)}.`)
+      // B37: "Built" only when this check compiled; otherwise the stored build is up to date.
+      setBuildLine(r.build ? `Built ${clock(r.builtAt)}` : `Build is up to date (built ${clock(r.builtAt)})`)
       // The stored ABI explanation is shown at once; a WASM-only deployment is still allowed.
       if (r.result === 'abi-not-deployable' && target !== 'wasm') {
         setError(r.abiFindings.map((f) => f.text).join('\n\n') || 'The ABI of this build cannot be deployed; see Output.')
@@ -99,7 +138,8 @@ export function DeployDialog({
       await loadPlan()
       if (!askAccount && (saved?.account !== account || saved?.permission !== permission)) {
         const cfg = { ...project.config, deploy: { ...project.config.deploy, networks: { ...project.config.deploy.networks, [net.id]: { account, permission } } } }
-        await window.wax.projects.saveConfig(cfg)
+        // The window's copy of the project follows, so the dialog opens with this account next time.
+        actions.projectUpdated(await window.wax.projects.saveConfig(cfg))
       }
     } catch (e) {
       setError(errorText(e))
@@ -143,7 +183,7 @@ export function DeployDialog({
     setBusy('simulate')
     setError('')
     try {
-      setTrace(await window.wax.deploy.simulate(plan.id))
+      setTrace(await withPlan(plan.id, (id) => window.wax.deploy.simulate(id)))
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -156,8 +196,9 @@ export function DeployDialog({
     setBusy('deploy')
     setError('')
     try {
-      // A locked vault is asked for here; the same plan is sent after the unlock.
-      const r = await withVault(() => window.wax.deploy.run(plan.id))
+      // A locked vault is asked for here; the same plan is sent after the unlock. A plan that
+      // was used up by an earlier attempt is prepared again from the same build (no compile).
+      const r = await withPlan(plan.id, (id) => withVault(() => window.wax.deploy.run(id)))
       setPlan(null)
       if (r.status === 'sent') {
         setTrace(r.trace)
@@ -171,6 +212,9 @@ export function DeployDialog({
         } else setError('Cancelled; nothing was sent.')
       }
     } catch (e) {
+      // Failed after the plan was used (for example a network error while the transaction was
+      // prepared): the plan is prepared again from the same build, so Deploy can be pressed again.
+      await loadPlan().catch(() => undefined)
       if (!isUnlockCancelled(e)) setError(errorText(e))
     } finally {
       setBusy(null)
@@ -212,7 +256,7 @@ export function DeployDialog({
       <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 2 }}>
           <label>Account</label>
-          <AccountPicker mode="starred" value={account} onChange={(a) => (setAccount(a), setPlan(null))} onFind={findAccount} />
+          <AccountPicker mode="starred" value={account} onChange={pickAccount} onFind={findAccount} />
         </div>
         <div style={{ flex: 1 }}>
           <label>Permission</label>

@@ -148,6 +148,13 @@ export interface ContractHistoryEntry {
   payload: Record<string, unknown>
 }
 
+/**
+ * A deploy plan is used up by Deploy and kept for ten minutes otherwise. The
+ * Deploy dialog recognises this text and prepares the plan again from the same
+ * build (no compile).
+ */
+export const DEPLOY_PLAN_EXPIRED = 'The deploy plan expired. Open Deploy again.'
+
 export interface DeployPlan {
   id: string
   network: string

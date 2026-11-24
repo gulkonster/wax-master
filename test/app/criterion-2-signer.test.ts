@@ -191,3 +191,21 @@ describe('signer approval integrity', () => {
     expect(trx.actions[0].data).toBe(record.actions[0].hex)
   })
 })
+
+describe('a send repeated after a broken connection', () => {
+  it('a duplicate refusal says the transaction already reached the node', async () => {
+    const { RpcError } = await import('../../src/main/rpc')
+    const s = new Signer(
+      deps({
+        send: async (ep, body) => {
+          sent.push({ ep, body: body as never })
+          throw new RpcError('Duplicate transaction', 409, { code: 409, error: { code: 3040008, name: 'tx_duplicate', what: 'Duplicate transaction' } })
+        }
+      })
+    )
+    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer] })
+    await expect(s.approve(record.id, secret)).rejects.toThrow(new RegExp(`already has transaction ${record.transactionId}`))
+    expect(sent).toHaveLength(1)
+    expect(sent[0].ep).toBe('https://node-a.example')
+  })
+})

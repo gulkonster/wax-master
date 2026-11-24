@@ -170,6 +170,12 @@ export function defaultDeps(vault: Vault): SignerDeps {
     },
     getAccount: (ep, account) => chain.getAccount(ep, account),
     getCodeHash: async (ep, account) => (await chain.getCodeHash(ep, account)).code_hash,
+    // A send that failed on a broken keep-alive connection, before any answer
+    // came, is sent once more to the same endpoint (rpc.request, retryStale).
+    // This cannot run the transaction twice: the second attempt carries the
+    // same signed bytes, so the same transaction id, and the chain accepts a
+    // transaction id only once. If the first attempt did reach the node, the
+    // repeat is refused as a duplicate, and approve() says so plainly.
     send: (ep, body) => request(ep, '/v1/chain/send_transaction', { body, timeoutMs: 30_000 }),
     network: (id) => getNetwork(id),
     now: () => Date.now(),
@@ -182,6 +188,12 @@ interface Decoded {
   name: string
   authorization: PermissionLevel[]
   data: string
+}
+
+/** The node's answer to a transaction id it already has (tx_duplicate, code 3040008). */
+function isDuplicate(details: unknown): boolean {
+  const err = (details as { error?: { code?: unknown; name?: unknown } } | null)?.error
+  return !!err && (err.code === 3040008 || err.name === 'tx_duplicate')
 }
 
 /** Decodes a system action with the built-in eosio ABI (independent of what the endpoint serves). */
@@ -448,6 +460,12 @@ export class Signer {
       log.info(`Transaction ${s.record.transactionId} sent to ${s.endpoint}`)
       return { transactionId: s.record.transactionId, response }
     } catch (e) {
+      if (e instanceof RpcError && isDuplicate(e.details)) {
+        throw new SignerError(
+          `The node already has transaction ${s.record.transactionId}: an earlier attempt of this send reached it. Check the transaction in the history before sending again.`,
+          e.details
+        )
+      }
       if (e instanceof RpcError) throw new SignerError(nodeErrorMessage(e.details, e.message), e.details)
       throw e
     }

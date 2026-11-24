@@ -257,3 +257,26 @@ describe('vault file values are checked before use', () => {
     expect(validateVaultFile(raw, 2 ** 15)).toBe(false)
   })
 })
+
+describe('listeners hear about key changes', () => {
+  it('adding, generating, importing and removing keys each notify while unlocked', async () => {
+    const { v } = newVault()
+    await v.create(PW)
+    const counts: number[] = []
+    v.onChange((unlocked) => counts.push(unlocked ? v.list().length : -1))
+    const a = v.addKey(freshKey().text, 'a')
+    v.generateKey('b')
+    v.newPendingKey()
+    v.savePendingKey('c')
+    v.removeKey(a.id)
+    expect(counts).toEqual([1, 2, 3, 2])
+
+    const other = newVault().v
+    await other.create(PW)
+    other.addKey(freshKey().text, 'd')
+    other.addKey(freshKey().text, 'e')
+    counts.length = 0
+    expect(await v.importFile(other.exportFile(), PW)).toBe(2)
+    expect(counts).toEqual([4])
+  }, 30000)
+})

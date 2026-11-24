@@ -168,6 +168,7 @@ export class Vault {
     return new Vault(join(dir, 'vault.json'))
   }
 
+  /** Called after create, unlock and lock, and after keys were added, removed or imported. */
   onChange(fn: (unlocked: boolean) => void): () => void {
     this.listeners.add(fn)
     return () => this.listeners.delete(fn)
@@ -190,6 +191,12 @@ export class Vault {
 
   private save(): void {
     if (this.data) writeJson(this.file, this.data)
+  }
+
+  /** Saves after keys were added or removed and tells the listeners, so the shown key count follows. */
+  private saveKeys(): void {
+    this.save()
+    this.emit()
   }
 
   exists(): boolean {
@@ -294,7 +301,7 @@ export class Vault {
         enc: seal(key, priv.data, keyAad(id, publicKey))
       }
       v.keys.push(entry)
-      this.save()
+      this.saveKeys()
       return { id, label: entry.label, publicKey, created: entry.created }
     } finally {
       priv.data.fill(0)
@@ -345,7 +352,7 @@ export class Vault {
         enc: seal(key, priv.data, keyAad(id, publicKey))
       }
       v.keys.push(entry)
-      this.save()
+      this.saveKeys()
       return { id, label: entry.label, publicKey, created: entry.created }
     } finally {
       priv.data.fill(0)
@@ -364,7 +371,7 @@ export class Vault {
     const v = this.load()
     if (!v) return
     v.keys = v.keys.filter((k) => k.id !== id)
-    this.save()
+    this.saveKeys()
   }
 
   /**
@@ -443,7 +450,7 @@ export class Vault {
           data.fill(0)
         }
       }
-      this.save()
+      this.saveKeys()
       return added
     } finally {
       otherKey.fill(0)

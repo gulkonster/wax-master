@@ -28,6 +28,8 @@ export interface AppActions {
   openProjectPath(path: string): Promise<void>
   openProjectDialog(): Promise<void>
   projectOpened(p: OpenProject): void
+  /** The open project's settings were saved: the new state, without changing the view. */
+  projectUpdated(p: OpenProject): void
   closeProject(): Promise<void>
   newProject(): void
   updateSettings(patch: SettingsPatch): Promise<void>

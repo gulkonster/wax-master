@@ -69,24 +69,67 @@ export function nodeErrorMessage(body: unknown, fallback: string): string {
   return detail || b.error?.what || b.message || fallback
 }
 
+/**
+ * Codes of a connection that broke before any answer arrived. The built-in
+ * fetch keeps sockets open between requests (keep-alive). A node, or the load
+ * balancer in front of it, may close an idle socket without the client
+ * noticing; the next request written to that socket fails at once with
+ * "fetch failed" (cause: "other side closed", UND_ERR_SOCKET / ECONNRESET).
+ * Requests in quick succession find a live socket and work, which is why the
+ * first request after the app sat idle failed and an immediate repeat worked.
+ */
+const STALE_CONNECTION_CODES = new Set(['ECONNRESET', 'EPIPE', 'ECONNABORTED', 'UND_ERR_SOCKET', 'UND_ERR_CLOSED'])
+
+/** True when the error, or one of its causes, is a connection that broke before an answer came. */
+export function isStaleConnection(e: unknown): boolean {
+  let c: unknown = e
+  for (let depth = 0; depth < 5 && c && typeof c === 'object'; depth++) {
+    const code = (c as { code?: unknown }).code
+    if (typeof code === 'string' && STALE_CONNECTION_CODES.has(code)) return true
+    c = (c as { cause?: unknown }).cause
+  }
+  return false
+}
+
 export async function request<T>(
   endpoint: string,
   path: string,
-  opts: { body?: unknown; method?: 'GET' | 'POST'; timeoutMs?: number } = {}
+  opts: {
+    body?: unknown
+    method?: 'GET' | 'POST'
+    timeoutMs?: number
+    /**
+     * Send once more, on a new connection, when the first attempt failed on a
+     * broken connection before any answer arrived (default true). Only the
+     * fetch call itself is repeated, to the same URL: an answer whose body
+     * fails to read is never sent again. Every chain read is safe to repeat;
+     * for send_transaction see the note in signer.ts.
+     */
+    retryStale?: boolean
+  } = {}
 ): Promise<T> {
   const url = normalizeEndpoint(endpoint) + path
   const controller = new AbortController()
+  // One time limit covers both attempts.
   const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? REQUEST_TIMEOUT_MS)
   try {
     const method = opts.method ?? (opts.body === undefined ? 'GET' : 'POST')
-    const res = await fetch(url, {
+    const init: RequestInit = {
       method,
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
       headers: opts.body === undefined ? undefined : { 'Content-Type': 'application/json' },
       signal: controller.signal,
       redirect: 'error',
       credentials: 'omit'
-    })
+    }
+    let res: Response
+    try {
+      res = await fetch(url, init)
+    } catch (e) {
+      if (opts.retryStale === false || controller.signal.aborted || !isStaleConnection(e)) throw e
+      // The broken socket has left the pool; this attempt opens a new connection.
+      res = await fetch(url, init)
+    }
     const text = await readLimited(res)
     let json: unknown
     try {
