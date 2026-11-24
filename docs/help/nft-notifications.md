@@ -53,7 +53,7 @@ Several log actions carry attribute maps, often after the fields a game needs. A
 
 A field after a map can only be read with the map's full type in front of it: `asset_ram_payer` of `logburnasset`, or `backed_tokens` of `logmint`.
 
-Not tried on WAX Testnet: the sample was built, not yet deployed; reading only the leading fields follows from how the contract's generated code reads action data.
+Tried on WAX Testnet: the sample below, deployed and added as a notify account, counted `logmint`, `logtransfer`, `logsetdata`, `lognewtempl`, `logsetdatatl`, `logrampayer`, `lognewoffer` and `logburnasset` once each with handlers that declare only the leading fields.
 
 ## Who can send them, and checking the collection
 
@@ -230,7 +230,7 @@ private:
 
 You need the contract account, and a collection whose author you can sign for, with `allow_notify` ticked, a schema `items` (attribute `name` as `string`) and a burnable, transferable template. The collection of [Example: AtomicAssets](doc:example-atomicassets), steps 7 to 9, is such a collection; there the user account is the author and an authorized account. A second account receives a transfer.
 
-1. File > New Project, name `nftlog`. Replace the source file in `src/` with the example above, in one file as it is. Contract > Build (Ctrl+B): no errors.
+1. File > New Project, name `nftlog`. Replace the source file in `src/` with the example above, in one file as it is. Contract > Build (Ctrl+B): no errors. The Output warns that `setcol` has no Ricardian contract: the page sample comes without Ricardian files (Contract > Create Ricardian Files adds them).
 2. Select WAX Testnet. Contract > Deploy to the contract account with `active`; if the dialog says RAM is missing, press **Buy RAM**, approve, then **Deploy**. Keep about 2 KB of RAM free for the rows of step 3.
 3. Press **Contracts**, open the contract account, choose `setcol`: `collection` = your collection. **Authorization**: the contract account. **Run** and approve. Table `counters`, **Run query**: eight rows with `count` `0`.
 4. Open `atomicassets`, choose `addnotifyacc`: `collection_name` = your collection, `account_to_add` = the contract account. **Authorization**: the author. **Run** and approve. Table `collections`, **Lower bound** = the collection, **Limit** `1`: `notify_accounts` lists the contract account.

@@ -110,7 +110,7 @@ Assets are sold on `atomicmarket`, the market contract the AtomicHub site uses. 
 | What you see | Why |
 |---|---|
 | `mint` refused, the error names `eosio.code` | Step 6 is missing. |
-| "The minter is not authorized within the collection" | Step 10 is missing, or `setconfig` names another collection. |
+| "Missing authorization for this collection" | Step 10 is missing, or `setconfig` names another collection. |
 | "run setconfig first" | Step 12 is missing. |
 | "this account has already minted" | One asset per account, on purpose. |
 | "The template's maxsupply has already been reached" | `max_supply` assets are minted. Make a new template (step 9) and run `setconfig` with its id. |

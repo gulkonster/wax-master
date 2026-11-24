@@ -97,7 +97,7 @@ action(permission_level{get_self(), "active"_n}, ATOMICASSETS, "mintasset"_n,
 12. Press **Contracts** and open the contract account. Choose `setrecipe`: `id` = `1`, `collection` = `<collection>`, `ingredients` = `[<wood>, <stone>]`, `result_schema` = `blend`, `result_template` = `<axe>`. **Authorization**: the contract account with `active`. **Run** and approve. Pick the table `recipes`, **Run query**: one row with the two ids sorted.
 13. A wrong set: on the `atomicassets` tab choose `transfer`: `from` = the user account, `to` = the contract account, `asset_ids` = `["<wood 1>", "<wood 2>"]`, `memo` = `blend:1`. **Authorization**: the user account with `active`. **Run**: refused with "the assets sent are not the ingredients of this recipe". Both assets are still in the user account.
 14. An unknown recipe: the same `transfer` with `asset_ids` = `["<wood 1>", "<stone 1>"]` and `memo` = `blend:7`: refused with "no recipe with this id".
-15. The blend: the same `transfer` with `asset_ids` = `["<wood 1>", "<stone 1>"]` and `memo` = `blend:1`. **Run** and approve. Press **Open in inspector**: under the `transfer` the contract's two `burnasset` actions, its `mintasset` and the `logmint` of the new asset.
+15. The blend: the same `transfer` with `asset_ids` = `["<wood 1>", "<stone 1>"]` and `memo` = `blend:1`. **Run** and approve. Press **Open in inspector**: under the `transfer` the contract's two `burnasset` actions and its `mintasset`; open `mintasset` to see the `logmint` of the new asset.
 16. Table `assets`, **Scope** = the user account, **Run query**: `<wood 1>` and `<stone 1>` are gone, `<wood 2>` is still there, and a new asset has `template_id` = `<axe>`. With **Scope** = the contract account the table has no rows: the contract keeps nothing.
 17. On the contract account's tab choose `delrecipe`: `id` = `1`. **Authorization**: the contract account. **Run** and approve. A transfer with the memo `blend:1` is now refused with "no recipe with this id".
 
@@ -113,7 +113,7 @@ action(permission_level{get_self(), "active"_n}, ATOMICASSETS, "mintasset"_n,
 | What you see | Why |
 |---|---|
 | The transfer refused, the error names `eosio.code` | Step 6 is missing. |
-| "The minter is not authorized within the collection" | Step 10 is missing, or the recipe names another collection. |
+| "Missing authorization for this collection" | Step 10 is missing, or the recipe names another collection. |
 | `send the assets with the memo blend:<recipe id>` | The memo is not `blend:` followed by digits only. The contract accepts no assets for anything else. |
 | "no recipe with this id" | No row in `recipes` has that id (step 12, or removed in step 17). |
 | "send exactly as many assets as the recipe has ingredients" | Too many or too few assets. They stay with the sender. |

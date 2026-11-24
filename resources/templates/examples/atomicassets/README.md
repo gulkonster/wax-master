@@ -39,7 +39,7 @@ Only `atomicassets` can send `logtransfer`; the handler checks the collection be
 ## What goes wrong, and why
 
 - `mint` refused with a message that names `eosio.code`: step 6 is missing.
-- `mint` refused with "The minter is not authorized within the collection": step 10 is missing, or `setconfig` names another collection.
+- `mint` refused with "Missing authorization for this collection": step 10 is missing, or `setconfig` names another collection.
 - `mint` refused with "run setconfig first": step 12 is missing.
 - `mint` refused with "The template's maxsupply has already been reached": `max_supply` assets are minted. Make a new template (step 9) and run `setconfig` with its id.
 - `config` still shows `received` = `0` after step 16: the contract is not a notify account of the collection (step 11), or `setconfig` names another collection.
