@@ -70,15 +70,48 @@ describe('the line of a signing form', () => {
 
 describe('the confirmation window after a refused send', () => {
   it('adds one line with the node text, one line of at most 300 characters', () => {
-    expect(notSentText('account alice has insufficient ram; needs 183035 bytes has 177528 bytes', true)).toBe(
+    expect(notSentText('account alice has insufficient ram; needs 183035 bytes has 177528 bytes', 'refused')).toBe(
       'Not sent. The node refused the transaction: account alice has insufficient ram; needs 183035 bytes has 177528 bytes'
     )
-    const long = notSentText(`first line\nsecond\tline ${'x'.repeat(1000)}`, true)
+    const long = notSentText(`first line\nsecond\tline ${'x'.repeat(1000)}`, 'refused')
     expect(long).not.toMatch(/[\r\n\t]/)
     expect(long.length).toBe('Not sent. The node refused the transaction: '.length + NOT_SENT_MAX)
     expect(oneLine('a\r\n  b')).toBe('a b')
-    expect(notSentText('No answer from https://node.example', false)).toBe('Not sent: No answer from https://node.example')
-    expect(notSentText(undefined, false)).toBe('Not sent: Failed')
+    expect(notSentText(undefined, 'not-sent')).toBe('Not sent: Failed')
+  })
+
+  // The signer's own messages (the signer marks which of them may have arrived; see the signer tests).
+  const ID = 'a1'.repeat(32)
+  const NO_ANSWER = `Could not reach https://node-a.example: the connection was closed before an answer came. The transaction ${ID} may still have reached the node. Open it in the history (or look at the account) before sending again.`
+  const TIME_LIMIT = `Could not reach https://node-a.example: no answer within 30 s. The transaction ${ID} may still have reached the node. Open it in the history (or look at the account) before sending again.`
+  const DUPLICATE = `The node already has transaction ${ID}: an earlier attempt of this send reached it. Check the transaction in the history before sending again.`
+
+  it('says "Not sent" only when nothing can have reached the node', () => {
+    // The node answered with an error: refused.
+    expect(notSentText('assertion failure with message: overdrawn balance', 'refused')).toBe(
+      'Not sent. The node refused the transaction: assertion failure with message: overdrawn balance'
+    )
+    // No answer, a time limit or the duplicate case: the message alone, whole.
+    for (const m of [NO_ANSWER, TIME_LIMIT, DUPLICATE]) {
+      const line = notSentText(m, 'unknown')
+      expect(line).toBe(m)
+      expect(line).not.toMatch(/Not sent/)
+    }
+    // Failed before sending: nothing left the computer.
+    for (const m of [
+      'This approval has expired. Start the action again.',
+      'Type the account name "alice" to confirm',
+      'Signature check failed; nothing was sent'
+    ]) {
+      expect(notSentText(m, 'not-sent')).toBe(`Not sent: ${m}`)
+    }
+  })
+
+  it('the main process sends the failure kind, not a flag compared with text', () => {
+    const main = readFileSync(join(__dirname, '../../src/main/confirm-window.ts'), 'utf8')
+    expect(main).toContain('failure: approveFailure(err)')
+    expect(main).not.toContain('refused: details')
+    expect(src('confirm/main.tsx')).not.toMatch(/may still have reached|already has transaction/)
   })
 
   it('keeps the transaction rows; only a load failure gives the bare page', () => {
@@ -89,7 +122,7 @@ describe('the confirmation window after a refused send', () => {
     const confirm = page.slice(page.indexOf('function Confirm()'), page.indexOf('function Reveal()'))
     // The send failure is set as a line of the page, not as the bare page's text.
     expect(confirm).toContain("setLoadError('Nothing to confirm.')")
-    expect(confirm).toContain('setError(notSentText(r.error, r.refused === true))')
+    expect(confirm).toContain("setError(notSentText(r.error, r.failure ?? 'not-sent'))")
     expect(confirm).not.toMatch(/if \(error\) return/)
     expect(confirm).toMatch(/if \(kind === 'bare'\) return <div className="c-page">\{loadError\}<\/div>/)
     // The rows and the line are in the same page, and Close replaces the buttons.

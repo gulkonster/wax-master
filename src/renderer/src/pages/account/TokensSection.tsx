@@ -84,7 +84,10 @@ export function TokensSection({
           {tokens.rows.map((t) => (
             <div key={`${t.contract}|${t.symbol}`} className="token-row">
               <span className="token-name">
-                <span className="token-symbol">{t.symbol}</span>
+                <span className="token-symbol-line">
+                  <span className="token-symbol">{t.symbol}</span>
+                  {t.mark && <span className={`badge${t.mark.kind === 'lookalike' ? ' warn' : ''}`}>{t.mark.text}</span>}
+                </span>
                 <span className="token-contract mono-small">{t.contract}</span>
               </span>
               <span className="num">{t.balance || 'could not be read'}</span>
@@ -100,6 +103,12 @@ export function TokensSection({
               </span>
             </div>
           ))}
+        </div>
+      )}
+      {tokens?.rows.some((t) => t.source === 'history') && (
+        <div className="hint">
+          Tokens other than {ctx.view.symbol} are listed as the history service reports them. Anyone can create a token with any name and send it to an account; the
+          contract under the name tells which token it is.
         </div>
       )}
       <ViewOnlyLine ctx={ctx} />

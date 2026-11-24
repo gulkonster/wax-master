@@ -10,11 +10,15 @@ The easiest way is the Tokens and Transfer sections of the Account page:
 2. In **Tokens** press **Transfer** on the row of the token you want to send, or open the **Transfer** section.
 3. **From**: the signer, an account and permission the vault can sign for.
 4. **To**: the recipient. The app checks that the account exists on this network; if it does not, nothing is signed and the form says so.
-5. **Amount**: the number, with the token's precision (WAX has 8 decimals). The form shows the symbol.
+5. **Amount**: the number, with the token's precision (WAX has 8 decimals). The form shows the symbol and the balance read from the chain. Use a point for the decimals and no thousands separators: `1.5` is one and a half; `1,5` and `1,000` are refused.
 6. **Memo**: free text, or what the recipient asked for.
 7. Check the action shown below the fields (JSON and `cleos` line) and approve in the confirmation window.
 
 An account that is shown as view only cannot send; its Transfer buttons are disabled.
+
+## Tokens with the same name
+
+Anyone can create a token with any name and send it to any account, so the token list may show names you did not ask for. The contract under the name tells which token it is: the real WAX is the one of `eosio.token`, marked **core token**. A token with the network's symbol on another contract is marked as not being it and is listed last. For every token other than the core token the Transfer form says which contract it calls.
 
 You can also send a transfer from the Contract page with the action `transfer` of the token's contract. The fields are the same:
 

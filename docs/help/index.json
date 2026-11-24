@@ -46,6 +46,19 @@
       ]
     },
     {
+      "id": "permissions",
+      "title": "Permissions",
+      "topics": [
+        { "id": "permissions-overview", "title": "Owner, active and permissions", "keywords": ["permission","owner","active","authority","keys and permissions","updateauth"] },
+        { "id": "multisig-threshold", "title": "Thresholds and weights", "keywords": ["threshold","weight","multisig","2-of-2","2-of-3","lock out"] },
+        { "id": "custom-permissions", "title": "Custom permissions", "keywords": ["new permission","custom","claim","deleteauth","updateauth","parent"] },
+        { "id": "eosio-code", "title": "The eosio.code permission", "keywords": ["eosio.code","inline action","contract permission","updateauth"] },
+        { "id": "linked-actions", "title": "Linked actions (linkauth)", "keywords": ["linkauth","unlinkauth","link","requirement","custom permission","linked actions"] },
+        { "id": "change-key-safely", "title": "Changing a key safely", "keywords": ["change key","replace key","rotate","lock out","backup"] },
+        { "id": "contract-section", "title": "The Contract section", "keywords": ["code hash","abi hash","clear code","setcode","open as contract","deploy"] }
+      ]
+    },
+    {
       "id": "networks",
       "title": "Networks",
       "topics": [

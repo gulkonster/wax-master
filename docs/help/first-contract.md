@@ -46,7 +46,7 @@ void hello::hi(name user) {
 
 ## Step 4: build
 
-1. Press Ctrl+B (or Contract > Build).
+1. Press **Build** above the file tree (or Contract > Build, or Ctrl+B). Ctrl+B works while the keyboard is in the editor or the file tree; in the Terminal it goes to the shell.
 2. The Output panel shows the compiler lines and the result. Problems stays empty.
 
 The build writes `hello.wasm` (the code) and `hello.abi` (the description of its actions and tables) into the project folder. See [Build, Output and Problems](doc:build-output-problems).
@@ -76,7 +76,8 @@ See [Deploy](doc:deploy) for what the dialog compares and why code needs RAM.
 3. Open **Authorization**: it should read your account with permission `active`.
 4. Press **Run**. The confirmation window opens; press **Approve and send**.
 5. The Result section shows the transaction id, `executed`, the block and the CPU time.
-6. Press **Open in inspector**. Under the `hi` action, **Console** shows `Hello, ` followed by your account name.
+6. Press **Open in inspector**. Under the `hi` action, **Console** shows what the contract printed, when the endpoint returns it: `Hello, ` followed by your account name.
+7. Many public endpoints do not return console output, the default WAX Testnet endpoint among them. Console then shows `(empty)`, and under the actions a line says "Console output was not returned by this endpoint (or the contract printed nothing)." The action still ran: `executed` in step 5 is what tells you so.
 
 See [Run actions](doc:run-actions).
 

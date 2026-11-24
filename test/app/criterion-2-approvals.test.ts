@@ -332,6 +332,28 @@ describe('task 3: typed name', () => {
     expect(sent).toHaveLength(1)
   })
 
+  it('deleteauth, linkauth and unlinkauth need the typed account name on mainnet-like networks, not on testnet', async () => {
+    const sys = (name: string, data: Record<string, unknown>): typeof transfer => ({ account: 'eosio', name, authorization: auth('alice'), data: data as never })
+    const actions = [
+      sys('deleteauth', { account: 'alice', permission: 'claim' }),
+      sys('linkauth', { account: 'alice', code: 'eosio.token', type: 'transfer', requirement: 'claim' }),
+      sys('unlinkauth', { account: 'alice', code: 'eosio.token', type: 'transfer' })
+    ]
+    for (const a of actions) {
+      network = net('mainnet')
+      let s = new Signer(deps({ mainnetSigning: true }))
+      let r = await s.prepare({ networkId: 'n1', actions: [a] })
+      expect(r.record.typedName, a.name).toBe('alice')
+      await expect(s.approve(r.record.id, r.secret, 'bob')).rejects.toThrow(/Type the account name/)
+      network = net('testnet')
+      s = new Signer(deps())
+      r = await s.prepare({ networkId: 'n1', actions: [a] })
+      expect(r.record.typedName, a.name).toBeUndefined()
+      s.cancel(r.record.id)
+    }
+    expect(sent).toHaveLength(0)
+  })
+
   it('Clear Contract Code needs the typed name on a test network too; a transfer there does not', async () => {
     network = net('testnet')
     let s = new Signer(deps())

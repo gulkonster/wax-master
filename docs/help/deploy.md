@@ -19,7 +19,11 @@ Other commands in the Contract menu: **Deploy to Account...** (the same dialog, 
 
 ## RAM
 
-Code is stored in the account's RAM, and the chain counts the WASM ten times. The estimate is: WASM size x 10 + ABI size.
+Code is stored in the account's RAM, and the chain counts the WASM ten times. For a first deployment the estimate is: WASM size x 10 + ABI size.
+
+On an account that already has code or an ABI, the chain bills only the difference, and so does the dialog: it counts 10 x (new code - code on the account) when code is sent, plus (new ABI - ABI on the account) when the ABI is sent, never below zero. The line then reads "RAM needed about N bytes more than now (new code and ABI A bytes, replacing B bytes); available M bytes."
+
+When the size of the code on the account could not be read, the dialog counts it as zero and adds: "The size of the code now on the account could not be read; counted as a first deployment." When the account does have code, the real need is smaller than the line says.
 
 When the account has less RAM than needed, a yellow line shows both numbers with:
 
@@ -28,11 +32,11 @@ When the account has less RAM than needed, a yellow line shows both numbers with
 
 The warning never blocks Deploy: the chain decides.
 
-> Note: When the account already has code, the estimate counts the whole new code, while the chain counts only the difference to the old code. The real need can then be much smaller than the estimate.
-
 ## Example
 
 A fresh faucet account and the Hello World contract: the dialog says "RAM needed about 10,650 bytes; available 6,596 bytes." (your numbers may differ a little). Press Buy RAM, approve, then Deploy.
+
+A redeployment after a contract grew (code 15,488 to 17,525 bytes, ABI 3,310 to 4,045 bytes): "RAM needed about 21,105 bytes more than now (new code and ABI 179,295 bytes, replacing 158,190 bytes); available 15,598 bytes." Buy RAM then offers 8,192 bytes.
 
 ## What is needed
 

@@ -138,7 +138,7 @@ describe('the token list', () => {
   const n = { id: 'wax-testnet', name: 'WAX Testnet', symbol: 'WAX', precision: 8 } as NetworkInfo
   it('core first, then history tokens, then added ones not already listed', async () => {
     const r = await walletTokens(n, {
-      coreBalance: async () => '56.76675385 WAX',
+      coreBalance: async () => ['56.76675385 WAX'],
       historyTokens: async () => ({ tokens: [{ symbol: 'WAX', precision: 8, amount: 1, contract: 'eosio.token' }, { symbol: 'CRW', precision: 4, amount: 1, contract: 'chickentoken' }] }),
       balance: async (contract, symbol) => (symbol === 'TLM' ? ['3.5000 TLM'] : []),
       added: [
@@ -156,11 +156,17 @@ describe('the token list', () => {
     ])
   })
   it('without a history service, and when it fails', async () => {
-    const none = await walletTokens(n, { coreBalance: async () => '', balance: async () => [], added: [] })
+    const none = await walletTokens(n, {
+      coreBalance: async () => {
+        throw new Error('no answer')
+      },
+      balance: async () => [],
+      added: []
+    })
     expect(none.history).toBe('none')
-    expect(none.rows).toEqual([{ contract: 'eosio.token', symbol: 'WAX', precision: 8, balance: '', source: 'core' }])
+    expect(none.rows).toEqual([{ contract: 'eosio.token', symbol: 'WAX', precision: 8, balance: '', source: 'core', mark: { kind: 'core', text: 'core token' } }])
     const failed = await walletTokens(n, {
-      coreBalance: async () => '1.00000000 WAX',
+      coreBalance: async () => ['1.00000000 WAX'],
       historyTokens: async () => {
         throw new Error('HTTP 500')
       },
@@ -197,10 +203,10 @@ describe('RAM market: buy by amount, sell', () => {
 
 describe('wallet amounts', () => {
   it('amounts with the token precision', () => {
-    expect(amountUnits('1', 4)).toBe(10_000)
-    expect(amountUnits('1.5', 4)).toBe(15_000)
-    expect(amountUnits('0.0001', 4)).toBe(1)
-    expect(amountUnits('1.', 4)).toBe(10_000)
+    expect(amountUnits('1', 4)).toBe(10_000n)
+    expect(amountUnits('1.5', 4)).toBe(15_000n)
+    expect(amountUnits('0.0001', 4)).toBe(1n)
+    expect(amountUnits('1.', 4)).toBe(10_000n)
     expect(amountUnits('1.00001', 4)).toBeNull()
     expect(amountUnits('-1', 4)).toBeNull()
     expect(amountUnits('1e3', 4)).toBeNull()
@@ -211,8 +217,8 @@ describe('wallet amounts', () => {
     expect(quantityText('x', 0, 'NFT')).toBeNull()
   })
   it('asset text to units; memo bytes', () => {
-    expect(assetUnits('1.5000 TLM', 4, 'TLM')).toBe(15_000)
-    expect(assetUnits('1.5 TLM', 4, 'TLM')).toBe(15_000)
+    expect(assetUnits('1.5000 TLM', 4, 'TLM')).toBe(15_000n)
+    expect(assetUnits('1.5 TLM', 4, 'TLM')).toBe(15_000n)
     expect(assetUnits('1.5000 TLM', 4, 'WAX')).toBeNull()
     expect(memoBytes('abc')).toBe(3)
     expect(memoBytes('é')).toBe(2)
@@ -220,8 +226,8 @@ describe('wallet amounts', () => {
 })
 
 describe('wallet calls in the editor preload', () => {
-  it('exposes the four wallet calls', () => {
+  it('exposes the wallet calls', () => {
     const preload = readFileSync(join(__dirname, '../../src/preload/index.ts'), 'utf8')
-    for (const c of ['wallet:tokens', 'wallet:addedTokens', 'wallet:addToken', 'wallet:removeToken']) expect(preload).toContain(`call('${c}')`)
+    for (const c of ['wallet:tokens', 'wallet:addedTokens', 'wallet:balance', 'wallet:addToken', 'wallet:removeToken','wallet:permPreview', 'wallet:permSend', 'wallet:links', 'wallet:contractInfo']) expect(preload).toContain(`call('${c}')`)
   })
 })

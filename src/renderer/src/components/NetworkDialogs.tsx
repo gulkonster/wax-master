@@ -240,6 +240,7 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
 export function RemoveNetworkDialog({ network, onClose, onRemoved }: { network: NetworkInfo; onClose: () => void; onRemoved?: () => void }): React.JSX.Element {
   const net = useStore(networkStore)
   const [stars, setStars] = useState<string[] | null>(null)
+  const [tokens, setTokens] = useState<string[] | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   useEffect(() => {
@@ -247,6 +248,10 @@ export function RemoveNetworkDialog({ network, onClose, onRemoved }: { network: 
       .stars(network.id)
       .then(setStars)
       .catch(() => setStars([]))
+    void window.wax.wallet
+      .addedTokens(network.id)
+      .then((list) => setTokens(list.map((t) => `${t.symbol} (${t.contract})`)))
+      .catch(() => setTokens([]))
   }, [network.id])
   const last = net.list.length <= 1
   const isCurrent = net.current?.id === network.id
@@ -278,7 +283,7 @@ export function RemoveNetworkDialog({ network, onClose, onRemoved }: { network: 
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn danger" disabled={busy || last || stars === null} onClick={() => void remove()}>
+          <button className="btn danger" disabled={busy || last || stars === null || tokens === null} onClick={() => void remove()}>
             Remove
           </button>
         </>
@@ -301,6 +306,16 @@ export function RemoveNetworkDialog({ network, onClose, onRemoved }: { network: 
                 <li key={s}>{s}</li>
               ))}
             </ul>
+          )}
+          {tokens && tokens.length > 0 && (
+            <>
+              <p>{tokens.length === 1 ? 'The token added for it is forgotten:' : `The ${tokens.length} tokens added for it are forgotten:`}</p>
+              <ul className="net-remove-list mono">
+                {tokens.map((t) => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            </>
           )}
           {isCurrent && next && <p>It is the current network; {next.name} is selected instead.</p>}
           <p className="hint">

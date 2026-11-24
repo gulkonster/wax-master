@@ -18,9 +18,9 @@ const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
  * Accounts > Clear Contract Code: empty setcode and setabi. The account name
  * is typed in the confirmation window (on every network), not here.
  */
-export function ClearCodeDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
+export function ClearCodeDialog({ onClose, initialAccount = '' }: { onClose: () => void; initialAccount?: string }): React.JSX.Element {
   const net = useStore(networkStore).current
-  const [account, setAccount] = useState('')
+  const [account, setAccount] = useState(initialAccount)
   const [permission, setPermission] = useState('active')
   const [busy, setBusy] = useState(false)
   const [line, setLine] = useState<FormLine | null>(null)

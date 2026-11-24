@@ -19,6 +19,9 @@ import { changeKeyActions, createAccountActions } from './accounts'
 import { createTestnetAccount, randomTestnetName, requestTokens } from './faucet'
 import { bool, int } from '../shared/validate'
 import { withoutLockedCode } from '../shared/vault-locked'
+import type { NetworkInfo } from '../shared/chain-types'
+import { isUnknownAccount } from './account-pick'
+import { linksFromAccount, linksFromHistory, parsePermissionIntent, planPermissionChange, readPermissions, type PlanContext } from './wallet-permissions'
 
 const ACTION_NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 /** Same limit as contract:pack. */
@@ -100,6 +103,52 @@ function requireWaxTestnet(): void {
   if (n.chainId !== WAX_TESTNET_CHAIN) throw new Error('Switch to WAX Testnet first.')
 }
 
+/** Public keys of the vault (readable while it is locked; empty when there is none). */
+function vaultKeys(): string[] {
+  try {
+    return vault()
+      .list()
+      .map((k) => k.publicKey)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * What a permission change is built from: the account read from the endpoint the
+ * signer will use, the vault's public keys, and lookups on the same endpoint.
+ */
+export async function permissionContext(n: NetworkInfo, account: string): Promise<PlanContext> {
+  const ep = endpointOf(n)
+  const accountData = await chain.getAccount(ep, account)
+  let historyLinks = null
+  if (!linksFromAccount(accountData) && n.history) {
+    try {
+      historyLinks = linksFromHistory(await history.getLinks(n.history, account))
+    } catch {
+      historyLinks = null
+    }
+  }
+  return {
+    accountData,
+    vaultKeys: vaultKeys(),
+    historyLinks,
+    levelExists: async (actor, permission) => {
+      try {
+        return readPermissions(await chain.getAccount(ep, actor)).some((p) => p.name === permission)
+      } catch (e) {
+        if (isUnknownAccount(e)) return false
+        throw e
+      }
+    },
+    actionExists: async (code, action) => {
+      const r = await chain.getAbi(ep, code)
+      const actions = (r.abi as { actions?: unknown } | undefined)?.actions
+      return Array.isArray(actions) && actions.some((a) => (a as { name?: unknown } | null)?.name === action)
+    }
+  }
+}
+
 export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
   // The confirmation's title is made by the signer from the decoded actions; the editor sends only the actions.
   handle('tx:run', (_e, actions) => signAndSend(getWindow(), currentNetwork().id, parseActions(actions), 'run'))
@@ -178,6 +227,23 @@ export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
     const n = currentNetwork()
     const account = await chain.getAccount(endpointOf(n), input.account)
     return signAndSend(getWindow(), n.id, changeKeyActions(input, account), 'changeKey')
+  })
+
+  // Permission changes: the editor sends an intent; the authority is built here from the chain.
+  handle('wallet:permPreview', async (_e, rawIntent, signWith) => {
+    const intent = parsePermissionIntent(rawIntent)
+    const sign = chainName(signWith, 'signWith')
+    return planPermissionChange(intent, sign, await permissionContext(currentNetwork(), intent.account))
+  })
+  handle('wallet:permSend', async (_e, rawIntent, signWith, basis) => {
+    const intent = parsePermissionIntent(rawIntent)
+    const sign = chainName(signWith, 'signWith')
+    const shown = str(basis, 'basis', 64)
+    preflight(getWindow())
+    const n = currentNetwork()
+    const plan = await planPermissionChange(intent, sign, await permissionContext(n, intent.account))
+    if (plan.basis !== shown) throw new Error('The permissions of this account changed since the change was shown. Review it again; nothing was prepared.')
+    return signAndSend(getWindow(), n.id, [plan.action], 'run')
   })
 
   // WAX Testnet faucet (only on the WAX Testnet chain; keys go into the vault in this process).

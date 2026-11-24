@@ -29,13 +29,23 @@ describe('source scan', () => {
     // React calls whatever an effect returns as its clean-up; a promise (scrollTo returns one
     // in current Chromium) or any other value throws there and empties the window. An effect
     // written as `() => expression` may only use one of these forms.
-    const allowed = /^(\(\) => |void |on\(|on[A-Z]\w*Change\(|window\.wax\.on\(|s\.subscribe\(|watch[A-Z]\w*\(|set[A-Z]\w*\(|post\()/
+    // A state setter returns nothing; timers return a number, which React would call as the clean-up.
+    const allowed = /^(\(\) => |void |on\(|on[A-Z]\w*Change\(|window\.wax\.on\(|s\.subscribe\(|watch[A-Z]\w*\(|(?!setTimeout\(|setInterval\()set[A-Z]\w*\(|post\()/
+    const faults = (text: string): string[] =>
+      [...text.matchAll(/use(?:Layout)?Effect\(\s*\(\)\s*=>\s*([^\s{][^\n]*)/g)].filter((m) => !allowed.test(m[1])).map((m) => m[1].trim())
+    // The scan itself: these lines are refused, these are accepted.
+    const refused = [
+      'useEffect(() => setTimeout(() => setOpen(true), 100), [])',
+      'useEffect(() => setInterval(tick, 1000), [])',
+      'useEffect(() => requestAnimationFrame(draw), [])',
+      'useEffect(() => mainRef.current?.scrollTo(0, 0), [topic])'
+    ]
+    for (const line of refused) expect(faults(line), line).toHaveLength(1)
+    const accepted = ['useEffect(() => setOpen(false), [x])', 'useEffect(() => void setTimeout(f, 10), [])', "useEffect(() => on('menu', f), [])", 'useEffect(() => {', 'useEffect(() => () => stop(), [])']
+    for (const line of accepted) expect(faults(line), line).toEqual([])
     const bad: string[] = []
     for (const f of files(join(root, 'renderer'))) {
-      const text = readFileSync(f, 'utf8')
-      for (const m of text.matchAll(/use(?:Layout)?Effect\(\s*\(\)\s*=>\s*([^\s{][^\n]*)/g)) {
-        if (!allowed.test(m[1])) bad.push(`${f}: ${m[1].trim()}`)
-      }
+      for (const line of faults(readFileSync(f, 'utf8'))) bad.push(`${f}: ${line}`)
     }
     expect(bad).toEqual([])
   })

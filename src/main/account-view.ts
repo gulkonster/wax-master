@@ -4,7 +4,8 @@
 import type { AccountActionsPage, AccountView, PermissionView } from '../shared/chain-types'
 import { chain, history } from './rpc'
 import { parsePublicKey, publicKeyToString } from '../chain-core'
-import { currentNetwork, readCall } from './networks'
+import { currentNetwork, readCall, WAX_TESTNET_CHAIN } from './networks'
+import { formatUnits, readAsset, rescaleUnits } from '../shared/wallet'
 
 const MAX_DATA_TEXT = 4000
 
@@ -25,14 +26,10 @@ function str(v: unknown): string {
   return typeof v === 'string' ? v : ''
 }
 
-/** "12.34500000 WAX" -> 12.345 (as a number of whole units) */
-function assetAmount(a: string): number {
-  const m = /^(-?\d+(?:\.\d+)?)\s+[A-Z]{1,7}$/.exec(a.trim())
-  return m ? Number(m[1]) : 0
-}
-
-function fmt(amount: number, precision: number, symbol: string): string {
-  return `${amount.toFixed(precision)} ${symbol}`
+/** "12.34500000 WAX" -> whole units at the network's precision (0 when it is not an asset of the symbol). */
+function assetUnitsOf(a: string, precision: number, symbol: string): bigint {
+  const x = readAsset(a)
+  return x && x.symbol === symbol ? rescaleUnits(x.units, x.precision, precision) : 0n
 }
 
 function permissions(raw: unknown): PermissionView[] {
@@ -55,8 +52,24 @@ function permissions(raw: unknown): PermissionView[] {
   })
 }
 
-/** Refund delay of the system contract: unstaked tokens can be claimed 3 days after the request. */
+/**
+ * Refund delay: unstaked tokens can be claimed 3 days after the request. The
+ * number is `refund_delay_sec`, a constant compiled into the system contract
+ * (eosio.system); it is in no table and no API answer, so it cannot be read from
+ * the chain. It is exact on the WAX chains; elsewhere it is the standard value.
+ */
 export const REFUND_DELAY_SEC = 3 * 24 * 3600
+
+/** Chain ids whose refund waiting time is known to be REFUND_DELAY_SEC: WAX Mainnet and WAX Testnet. */
+export const WAX_CHAIN_IDS: readonly string[] = ['1064487b3cd1a897ce03ae5b6a865651747e2e152090f99c1d19d44e01aea5a4', WAX_TESTNET_CHAIN]
+
+/** Seconds from the chain's head time to the refund's due time (zero or below when due); null when a time is missing. */
+export function refundSecondsLeft(requestTime: string, headTime: string): number | null {
+  const due = chainTimePlus(requestTime, REFUND_DELAY_SEC)
+  const head = chainTimePlus(headTime, 0)
+  if (!due || !head) return null
+  return Math.ceil((new Date(due).getTime() - new Date(head).getTime()) / 1000)
+}
 
 /** Permissions are listed in this order: active, owner, then the others by name. */
 function permOrder(a: string, b: string): number {
@@ -100,26 +113,31 @@ export async function accountView(name: string, vaultKeys: readonly string[] = [
   const a = await readCall((ep) => chain.getAccount(ep, name), n)
   const sym = n.symbol
   const prec = n.precision
-  let liquid = assetAmount(str(a.core_liquid_balance))
+  // All sums in whole units, so every size is exact.
+  const units = (v: unknown): bigint => assetUnitsOf(str(v), prec, sym)
+  let liquid = units(a.core_liquid_balance)
   if (!a.core_liquid_balance) {
     try {
-      const bal = await readCall((ep) => chain.getCurrencyBalance(ep, 'eosio.token', name, sym), n)
-      liquid = bal.length ? assetAmount(bal[0]) : 0
+      const bal: unknown = await readCall((ep) => chain.getCurrencyBalance(ep, 'eosio.token', name, sym), n)
+      liquid = Array.isArray(bal) ? units(bal.find((b) => typeof b === 'string' && b.trim().endsWith(` ${sym}`))) : 0n
     } catch {
-      liquid = 0
+      liquid = 0n
     }
   }
   const self = (a.self_delegated_bandwidth ?? {}) as Record<string, unknown>
-  const cpuSelf = assetAmount(str(self.cpu_weight))
-  const netSelf = assetAmount(str(self.net_weight))
+  const cpuSelf = units(self.cpu_weight)
+  const netSelf = units(self.net_weight)
   const staked = cpuSelf + netSelf
   const refundReq = (a.refund_request ?? {}) as Record<string, unknown>
-  const refundCpu = assetAmount(str(refundReq.cpu_amount))
-  const refundNet = assetAmount(str(refundReq.net_amount))
+  const refundCpu = units(refundReq.cpu_amount)
+  const refundNet = units(refundReq.net_amount)
   const refund = refundCpu + refundNet
-  const refundRequested = refund > 0 ? chainTimePlus(str(refundReq.request_time), 0) : ''
+  const refundRequested = refund > 0n ? chainTimePlus(str(refundReq.request_time), 0) : ''
+  const left = refundRequested ? refundSecondsLeft(refundRequested, str(a.head_block_time)) : null
   const total = (a.total_resources ?? {}) as Record<string, unknown>
-  const byOthers = Math.max(0, assetAmount(str(total.cpu_weight)) + assetAmount(str(total.net_weight)) - staked)
+  const othersSum = units(total.cpu_weight) + units(total.net_weight) - staked
+  const byOthers = othersSum > 0n ? othersSum : 0n
+  const fmt = (u: bigint): string => formatUnits(u, prec, sym)
   const perms = permissions(a.permissions)
   const cpu = (a.cpu_limit ?? {}) as Record<string, unknown>
   const net = (a.net_limit ?? {}) as Record<string, unknown>
@@ -134,25 +152,28 @@ export async function accountView(name: string, vaultKeys: readonly string[] = [
     name,
     network: n.id,
     symbol: sym,
-    liquid: fmt(liquid, prec, sym),
-    staked: fmt(staked, prec, sym),
-    refund: fmt(refund, prec, sym),
-    total: fmt(liquid + staked + refund, prec, sym),
+    liquid: fmt(liquid),
+    staked: fmt(staked),
+    refund: fmt(refund),
+    total: fmt(liquid + staked + refund),
     ram: { usage: num(a.ram_usage), quota: num(a.ram_quota) },
     cpu: { used: num(cpu.used), max: num(cpu.max) },
     net: { used: num(net.used), max: num(net.max) },
-    cpuWeight: str(total.cpu_weight) || fmt(0, prec, sym),
-    netWeight: str(total.net_weight) || fmt(0, prec, sym),
+    cpuWeight: str(total.cpu_weight) || fmt(0n),
+    netWeight: str(total.net_weight) || fmt(0n),
     permissions: perms,
     hasCode,
     created: str(a.created),
-    cpuSelf: fmt(cpuSelf, prec, sym),
-    netSelf: fmt(netSelf, prec, sym),
-    stakedByOthers: fmt(byOthers, prec, sym),
-    refundCpu: fmt(refundCpu, prec, sym),
-    refundNet: fmt(refundNet, prec, sym),
+    cpuSelf: fmt(cpuSelf),
+    netSelf: fmt(netSelf),
+    stakedByOthers: fmt(byOthers),
+    refundCpu: fmt(refundCpu),
+    refundNet: fmt(refundNet),
     refundRequested,
     refundDue: refundRequested ? chainTimePlus(refundRequested, REFUND_DELAY_SEC) : '',
+    // Without a head time the due time is compared with nothing: the full waiting time is assumed.
+    refundSecondsLeft: refundRequested ? (left ?? REFUND_DELAY_SEC) : 0,
+    refundExact: WAX_CHAIN_IDS.includes(n.chainId),
     control: controlledPermissions(perms, vaultKeys)
   }
 }

@@ -69,10 +69,30 @@ export function deployRam(i: {
 }
 
 /**
+ * Hash of the code now on an account ('' for none). A failed read is taken as
+ * no code for the comparison, and reported as unread.
+ */
+export async function readCodeHash(read: () => Promise<{ code_hash: string }>): Promise<{ hash: string; unread: boolean }> {
+  try {
+    const r = await read()
+    return { hash: /^0+$/.test(r.code_hash) ? '' : r.code_hash, unread: false }
+  } catch {
+    return { hash: '', unread: true }
+  }
+}
+
+/**
  * Size of the code now on an account. Read only when the account has code and
  * new code is sent; a failed read counts as zero and is reported as unread.
+ * `hashUnread`: new code is sent but the code hash could not be read, so
+ * whether the account has code is not known; counted as zero and reported.
  */
-export async function chainCodeSize(hasCode: boolean, read: () => Promise<{ wasm?: string }>): Promise<{ size: number; unread: boolean }> {
+export async function chainCodeSize(
+  hasCode: boolean,
+  read: () => Promise<{ wasm?: string }>,
+  hashUnread = false
+): Promise<{ size: number; unread: boolean }> {
+  if (hashUnread) return { size: 0, unread: true }
   if (!hasCode) return { size: 0, unread: false }
   try {
     return { size: base64Size((await read()).wasm), unread: false }
@@ -137,9 +157,8 @@ export async function planDeploy(input: { networkId?: string; account: string; p
     }
   }
   // What is on the account now.
-  const codeHash = await readCall((ep) => chain.getCodeHash(ep, input.account), network)
-    .then((r) => (/^0+$/.test(r.code_hash) ? '' : r.code_hash))
-    .catch(() => '')
+  const hashRead = await readCodeHash(() => readCall((ep) => chain.getCodeHash(ep, input.account), network))
+  const codeHash = hashRead.hash
   const rawAbi = await readCall((ep) => chain.getRawAbi(ep, input.account), network).catch(() => null)
   const chainAbiHash = rawAbi && rawAbi.abi_hash && !/^0+$/.test(rawAbi.abi_hash) ? rawAbi.abi_hash : ''
   const account = await readCall((ep) => chain.getAccount(ep, input.account), network)
@@ -161,7 +180,11 @@ export async function planDeploy(input: { networkId?: string; account: string; p
     }
   }
   // RAM: setcode costs about 10x the code size, the ABI its own size; both less what they replace.
-  const onAccount = await chainCodeSize(sendWasm && codeHash !== '', () => readCall((ep) => chain.getRawCodeAndAbi(ep, input.account), network))
+  const onAccount = await chainCodeSize(
+    sendWasm && codeHash !== '',
+    () => readCall((ep) => chain.getRawCodeAndAbi(ep, input.account), network),
+    sendWasm && hashRead.unread
+  )
   const ram = deployRam({
     sendWasm,
     wasmSize: wasm?.length ?? 0,

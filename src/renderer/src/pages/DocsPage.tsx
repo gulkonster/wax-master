@@ -9,6 +9,7 @@ import { go, loadDocsIndex, pageHistory, search } from '../lib/docs'
 import { useStore } from '../lib/stores'
 import { errorText } from '../lib/toast'
 import { DocViewer } from '../components/Help'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 
 export function DocsPage(): React.JSX.Element {
   const history = useStore(pageHistory)
@@ -104,7 +105,10 @@ export function DocsPage(): React.JSX.Element {
       </div>
       <div ref={mainRef} className="page-scroll docs-main">
         <div className="docs-content">
-          <DocViewer history={history} setHistory={(h) => pageHistory.set(h)} onCommand={(c) => emit('menu-run', c)} showTitle />
+          {/* Its own boundary: a topic that fails to draw leaves the tree and the search usable; another topic clears it. */}
+          <ErrorBoundary what="This topic" resetKey={history.current ?? ''} onHome={() => emit('menu-run', 'home')}>
+            <DocViewer history={history} setHistory={(h) => pageHistory.set(h)} onCommand={(c) => emit('menu-run', c)} showTitle />
+          </ErrorBoundary>
         </div>
       </div>
     </div>

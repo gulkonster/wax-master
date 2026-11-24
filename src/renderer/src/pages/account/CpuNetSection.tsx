@@ -1,17 +1,17 @@
 // CPU and NET: stake (delegatebw) to this account or another one, unstake
-// (undelegatebw), the refund in progress with its time, and Claim refund (refund)
-// once it is due.
+// (undelegatebw), the refund in progress with its time, and Claim refund (refund).
+// Stake and Unstake are one form at a time, chosen by a switch.
 
 import { useEffect, useState } from 'react'
 import type { TxAction } from '../../../../shared/api'
-import { formatUnits } from '../../../../shared/ram-market'
-import { amountUnits, assetUnits } from '../../../../shared/wallet'
+import { amountField, amountUnits, assetUnits, formatUnits } from '../../../../shared/wallet'
 import { networkStore } from '../../lib/networks'
 import { useStore } from '../../lib/stores'
 import { errorText } from '../../lib/toast'
 import { AccountPicker, PermissionPicker } from '../../components/AccountPicker'
 import { HelpButton } from '../../components/HelpButton'
-import { CommandView, fmtBytes, fmtTime, fmtUs, Gauge, NAME, pct, recipientProblem, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
+import { CommandView, fmtBytes, fmtTime, fmtUs, FormSwitch, Gauge, NAME, pct, recipientProblem, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
+import { amountNote, CLEARED_FIELD, refundBlocked, refundTimeText, type AmountField } from './wallet-form'
 
 interface Delegation {
   to: string
@@ -20,8 +20,8 @@ interface Delegation {
 }
 
 /** Units of an amount field; an empty field counts as zero. */
-function fieldUnits(text: string, precision: number): number | null {
-  return text.trim() === '' ? 0 : amountUnits(text, precision)
+function fieldUnits(f: AmountField, precision: number): bigint | null {
+  return f.text.trim() === '' ? 0n : amountUnits(f.text, precision)
 }
 
 export function CpuNetSection({ ctx }: { ctx: WalletContext }): React.JSX.Element {
@@ -32,10 +32,11 @@ export function CpuNetSection({ ctx }: { ctx: WalletContext }): React.JSX.Elemen
   const [delegations, setDelegations] = useState<Delegation[] | null>(null)
   const [delError, setDelError] = useState('')
   const [unstakeFill, setUnstakeFill] = useState<Delegation | null>(null)
+  const [form, setForm] = useState<'stake' | 'unstake'>('stake')
 
+  // The stakes list, read with the account (and again with each read after a send).
   useEffect(() => {
     let live = true
-    setDelegations(null)
     setDelError('')
     window.wax.contract
       .rows({ account: 'eosio', table: 'delband', scope: view.name, lower: '', upper: '', limit: 100, index: '', keyType: '', reverse: false })
@@ -56,7 +57,7 @@ export function CpuNetSection({ ctx }: { ctx: WalletContext }): React.JSX.Elemen
     return () => {
       live = false
     }
-  }, [view])
+  }, [view, ctx.readTick])
 
   return (
     <section className="wallet-section">
@@ -83,7 +84,6 @@ export function CpuNetSection({ ctx }: { ctx: WalletContext }): React.JSX.Elemen
         </div>
       </div>
       <Refund ctx={ctx} />
-      <Stake ctx={ctx} symbol={symbol} precision={precision} />
       <div className="buy-ram">
         <div className="buy-ram-title">Staked by {view.name}</div>
         {delError && <div className="hint">The list could not be read: {delError}</div>}
@@ -96,7 +96,15 @@ export function CpuNetSection({ ctx }: { ctx: WalletContext }): React.JSX.Elemen
                 <span className="mono">{d.to}</span>
                 <span className="num">
                   CPU {d.cpu} / NET {d.net}{' '}
-                  <button className="btn subtle sm" disabled={ctx.viewOnly} title={ctx.viewOnly ? ctx.reason : 'Fill the unstake form'} onClick={() => setUnstakeFill({ ...d })}>
+                  <button
+                    className="btn subtle sm"
+                    disabled={ctx.viewOnly}
+                    title={ctx.viewOnly ? ctx.reason : 'Fill the unstake form'}
+                    onClick={() => {
+                      setUnstakeFill({ ...d })
+                      setForm('unstake')
+                    }}
+                  >
                     Unstake...
                   </button>
                 </span>
@@ -105,7 +113,16 @@ export function CpuNetSection({ ctx }: { ctx: WalletContext }): React.JSX.Elemen
           </div>
         )}
       </div>
-      <Unstake ctx={ctx} symbol={symbol} precision={precision} fill={unstakeFill} />
+      <FormSwitch
+        label="CPU and NET form"
+        value={form}
+        options={[
+          { id: 'stake', label: 'Stake' },
+          { id: 'unstake', label: 'Unstake' }
+        ]}
+        onChange={setForm}
+      />
+      {form === 'stake' ? <Stake ctx={ctx} symbol={symbol} precision={precision} /> : <Unstake ctx={ctx} symbol={symbol} precision={precision} fill={unstakeFill} />}
     </section>
   )
 }
@@ -113,15 +130,24 @@ export function CpuNetSection({ ctx }: { ctx: WalletContext }): React.JSX.Elemen
 function Refund({ ctx }: { ctx: WalletContext }): React.JSX.Element | null {
   const { view } = ctx
   const [permission, setPermission] = useState(view.control[0] ?? 'active')
-  const { busy, message, send } = useSend()
+  const { busy, message, send } = useSend(ctx.afterSend)
+  // The countdown starts at the moment of the read: chain time decides, not the PC clock.
+  const [readAt, setReadAt] = useState(() => Date.now())
   const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    setReadAt(Date.now())
+    setNow(Date.now())
+  }, [view])
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 30_000)
     return () => clearInterval(t)
   }, [])
   if (!view.refundRequested) return message ? <SendLine message={message} /> : null
-  const due = new Date(view.refundDue).getTime()
-  const isDue = Number.isFinite(due) && now >= due
+  const since = (now - readAt) / 1000
+  const isDue = since >= view.refundSecondsLeft
+  // The local due time shown: the moment of the read plus the seconds the chain still counts.
+  const dueText = fmtTime(new Date(readAt + Math.max(0, view.refundSecondsLeft) * 1000).toISOString())
+  const blocked = refundBlocked(view.refundExact, view.refundSecondsLeft, since)
   const action: TxAction | null = NAME.test(permission)
     ? { account: 'eosio', name: 'refund', authorization: [{ actor: view.name, permission }], data: { owner: view.name } }
     : null
@@ -133,22 +159,23 @@ function Refund({ ctx }: { ctx: WalletContext }): React.JSX.Element | null {
           {view.refund} (CPU {view.refundCpu} / NET {view.refundNet})
         </span>
         <span>Unstaked {fmtTime(view.refundRequested)}</span>
-        <span>{isDue ? 'Can be claimed now.' : `Can be claimed from ${fmtTime(view.refundDue)}.`}</span>
+        <span>{refundTimeText(view.refundExact, isDue, dueText, fmtTime(view.refundRequested))}</span>
       </div>
       <div className="buy-ram-actions">
         <div className="perm-inline">
           <PermissionPicker account={view.name} value={permission} onChange={setPermission} />
         </div>
         <button
-          className="btn primary"
-          disabled={busy || ctx.viewOnly || !isDue || !action}
-          title={!isDue ? 'The refund is not due yet' : undefined}
-          onClick={() => action && void send([action], 'Refund claimed.', ctx.reload)}
+          className="btn"
+          disabled={busy || ctx.viewOnly || blocked || !action}
+          title={blocked ? 'The refund is not due yet' : undefined}
+          onClick={() => action && void send([action], 'Refund claimed.')}
         >
           {busy ? 'Waiting for confirmation...' : 'Claim refund'}
         </button>
       </div>
-      {!isDue && !ctx.viewOnly && <div className="acct-note">Claim refund is possible once the refund time has passed.</div>}
+      {blocked && !ctx.viewOnly && <div className="acct-note">Claim refund is possible once the refund time has passed.</div>}
+      {!view.refundExact && <div className="acct-note">The chain refuses the claim while its waiting time runs.</div>}
       <ViewOnlyLine ctx={ctx} />
       <SendLine message={message} />
       <CommandView action={action} />
@@ -162,17 +189,18 @@ function Stake({ ctx, symbol, precision }: { ctx: WalletContext; symbol: string;
   const [from, setFrom] = useState(view.name)
   const [permission, setPermission] = useState(view.control[0] ?? 'active')
   const [receiver, setReceiver] = useState(view.name)
-  const [cpu, setCpu] = useState('')
-  const [netAmt, setNetAmt] = useState('')
-  const [touched, setTouched] = useState(false)
+  const [cpu, setCpu] = useState<AmountField>(CLEARED_FIELD)
+  const [netAmt, setNetAmt] = useState<AmountField>(CLEARED_FIELD)
   const [problem, setProblem] = useState<string | null>(null)
-  const { busy, message, send } = useSend()
+  const { busy, message, send } = useSend(ctx.afterSend)
 
   const cpuU = fieldUnits(cpu, precision)
   const netU = fieldUnits(netAmt, precision)
-  const valid = cpuU !== null && netU !== null && cpuU + netU > 0
+  const valid = cpuU !== null && netU !== null && cpuU + netU > 0n
   const available = from === view.name ? assetUnits(view.liquid, precision, symbol) : null
   const tooMuch = valid && available !== null && cpuU + netU > available
+  const touched = cpu.touched || netAmt.touched
+  const fieldNote = amountNote(cpu, precision, false) || amountNote(netAmt, precision, false)
   const action: TxAction | null =
     valid && NAME.test(from) && NAME.test(permission) && NAME.test(receiver)
       ? {
@@ -190,15 +218,17 @@ function Stake({ ctx, symbol, precision }: { ctx: WalletContext; symbol: string;
       : null
 
   const submit = async (): Promise<void> => {
-    setTouched(true)
+    setCpu((f) => ({ ...f, touched: true }))
+    setNetAmt((f) => ({ ...f, touched: true }))
     if (ctx.viewOnly || !action) return
     const p = receiver === from ? null : await recipientProblem(receiver, net?.name ?? 'this network')
     setProblem(p)
     if (p) return
     await send([action], `Staked to ${receiver}.`, () => {
-      setCpu('')
-      setNetAmt('')
-      ctx.reload()
+      // A sent form is empty and untouched: nothing is red after a success.
+      setCpu(CLEARED_FIELD)
+      setNetAmt(CLEARED_FIELD)
+      setProblem(null)
     })
   }
 
@@ -222,17 +252,12 @@ function Stake({ ctx, symbol, precision }: { ctx: WalletContext; symbol: string;
         <AccountPicker mode="other" value={receiver} onChange={(v) => (setReceiver(v), setProblem(null))} />
         {problem && <div className="acct-note bad">{problem}</div>}
       </div>
-      <div className="field-row">
-        <div className="field">
-          <label>CPU ({symbol})</label>
-          <input className="input mono" inputMode="decimal" value={cpu} placeholder="0" onChange={(e) => setCpu(e.target.value.trim())} onBlur={() => setTouched(true)} />
-        </div>
-        <div className="field">
-          <label>NET ({symbol})</label>
-          <input className="input mono" inputMode="decimal" value={netAmt} placeholder="0" onChange={(e) => setNetAmt(e.target.value.trim())} onBlur={() => setTouched(true)} />
-        </div>
-      </div>
-      {touched && !valid && <div className="acct-note bad">Enter an amount above zero for CPU or NET, with at most {precision} decimals.</div>}
+      <AmountPair symbol={symbol} cpu={cpu} net={netAmt} setCpu={setCpu} setNet={setNetAmt} />
+      {fieldNote ? (
+        <div className="acct-note bad">{fieldNote}</div>
+      ) : (
+        touched && !valid && <div className="acct-note bad">Enter an amount above zero for CPU or NET, with at most {precision} decimals.</div>
+      )}
       {tooMuch && <div className="acct-note bad">More than the available balance of {from}.</div>}
       <div className="buy-ram-actions">
         <button className="btn primary" disabled={busy || ctx.viewOnly || !action || tooMuch} onClick={() => void submit()}>
@@ -246,30 +271,78 @@ function Stake({ ctx, symbol, precision }: { ctx: WalletContext; symbol: string;
   )
 }
 
+function AmountPair({
+  symbol,
+  cpu,
+  net,
+  setCpu,
+  setNet
+}: {
+  symbol: string
+  cpu: AmountField
+  net: AmountField
+  setCpu: (f: (x: AmountField) => AmountField) => void
+  setNet: (f: (x: AmountField) => AmountField) => void
+}): React.JSX.Element {
+  return (
+    <div className="field-row">
+      <div className="field">
+        <label>CPU ({symbol})</label>
+        <input
+          className="input mono"
+          inputMode="decimal"
+          value={cpu.text}
+          placeholder="0"
+          onChange={(e) => {
+            const text = e.target.value.trim()
+            setCpu((f) => ({ ...f, text }))
+          }}
+          onBlur={() => setCpu((f) => ({ ...f, touched: true }))}
+        />
+      </div>
+      <div className="field">
+        <label>NET ({symbol})</label>
+        <input
+          className="input mono"
+          inputMode="decimal"
+          value={net.text}
+          placeholder="0"
+          onChange={(e) => {
+            const text = e.target.value.trim()
+            setNet((f) => ({ ...f, text }))
+          }}
+          onBlur={() => setNet((f) => ({ ...f, touched: true }))}
+        />
+      </div>
+    </div>
+  )
+}
+
 function Unstake({ ctx, symbol, precision, fill }: { ctx: WalletContext; symbol: string; precision: number; fill: Delegation | null }): React.JSX.Element {
   const { view } = ctx
   const net = useStore(networkStore).current
   const [permission, setPermission] = useState(view.control[0] ?? 'active')
   const [receiver, setReceiver] = useState(view.name)
-  const [cpu, setCpu] = useState('')
-  const [netAmt, setNetAmt] = useState('')
-  const [touched, setTouched] = useState(false)
+  const [cpu, setCpu] = useState<AmountField>(CLEARED_FIELD)
+  const [netAmt, setNetAmt] = useState<AmountField>(CLEARED_FIELD)
   const [problem, setProblem] = useState<string | null>(null)
-  const { busy, message, send } = useSend()
+  const { busy, message, send } = useSend(ctx.afterSend)
 
   useEffect(() => {
     if (!fill) return
     setReceiver(fill.to)
     const c = assetUnits(fill.cpu, precision, symbol)
     const n = assetUnits(fill.net, precision, symbol)
-    setCpu(c === null ? '' : formatUnits(c, precision, symbol).split(' ')[0])
-    setNetAmt(n === null ? '' : formatUnits(n, precision, symbol).split(' ')[0])
+    setCpu({ text: c === null ? '' : amountField(c, precision), touched: false })
+    setNetAmt({ text: n === null ? '' : amountField(n, precision), touched: false })
     setProblem(null)
   }, [fill, precision, symbol])
 
   const cpuU = fieldUnits(cpu, precision)
   const netU = fieldUnits(netAmt, precision)
-  const valid = cpuU !== null && netU !== null && cpuU + netU > 0
+  const valid = cpuU !== null && netU !== null && cpuU + netU > 0n
+  const touched = cpu.touched || netAmt.touched
+  const fieldNote = amountNote(cpu, precision, false) || amountNote(netAmt, precision, false)
   const action: TxAction | null =
     valid && NAME.test(permission) && NAME.test(receiver)
       ? {
@@ -286,15 +359,17 @@ function Unstake({ ctx, symbol, precision, fill }: { ctx: WalletContext; symbol:
       : null
 
   const submit = async (): Promise<void> => {
-    setTouched(true)
+    setCpu((f) => ({ ...f, touched: true }))
+    setNetAmt((f) => ({ ...f, touched: true }))
     if (ctx.viewOnly || !action) return
     const p = receiver === view.name ? null : await recipientProblem(receiver, net?.name ?? 'this network')
     setProblem(p)
     if (p) return
     await send([action], `Unstaked from ${receiver}; the refund has started.`, () => {
-      setCpu('')
-      setNetAmt('')
-      ctx.reload()
+      // A sent form is empty and untouched: nothing is red after a success.
+      setCpu(CLEARED_FIELD)
+      setNetAmt(CLEARED_FIELD)
+      setProblem(null)
     })
   }
 
@@ -312,17 +387,13 @@ function Unstake({ ctx, symbol, precision, fill }: { ctx: WalletContext; symbol:
         <AccountPicker mode="other" value={receiver} onChange={(v) => (setReceiver(v), setProblem(null))} />
         {problem && <div className="acct-note bad">{problem}</div>}
       </div>
-      <div className="field-row">
-        <div className="field">
-          <label>CPU ({symbol})</label>
-          <input className="input mono" inputMode="decimal" value={cpu} placeholder="0" onChange={(e) => setCpu(e.target.value.trim())} onBlur={() => setTouched(true)} />
-        </div>
-        <div className="field">
-          <label>NET ({symbol})</label>
-          <input className="input mono" inputMode="decimal" value={netAmt} placeholder="0" onChange={(e) => setNetAmt(e.target.value.trim())} onBlur={() => setTouched(true)} />
-        </div>
-      </div>
-      {touched && !valid && <div className="acct-note bad">Enter an amount above zero for CPU or NET, with at most {precision} decimals.</div>}
+      <AmountPair symbol={symbol} cpu={cpu} net={netAmt} setCpu={setCpu} setNet={setNetAmt} />
+      {fieldNote ? (
+        <div className="acct-note bad">{fieldNote}</div>
+      ) : (
+        touched && !valid && <div className="acct-note bad">Enter an amount above zero for CPU or NET, with at most {precision} decimals.</div>
+      )}
+      {view.refundRequested && <div className="acct-note warn">A new unstake starts the waiting time again for the whole refund.</div>}
       <div className="buy-ram-actions">
         <button className="btn primary" disabled={busy || ctx.viewOnly || !action} onClick={() => void submit()}>
           {busy ? 'Waiting for confirmation...' : 'Unstake'}

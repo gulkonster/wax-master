@@ -32,8 +32,10 @@ import {
   makeWindowErrorReport,
   oneLine,
   parseWindowErrorReport,
+  droppedLine,
   stackPlaces,
-  windowErrorLimiter
+  windowErrorLimiter,
+  withoutPaths
 } from '../../src/shared/window-error'
 
 setLogSink((l) => h.lines.push(l))
@@ -123,6 +125,50 @@ describe('window error reports: checks in the main process', () => {
     expect(results.filter(Boolean)).toHaveLength(20)
     t = 60_000
     expect(allow()).toBe(true)
+  })
+
+  it('counts the reports a minute dropped and says so with the first report of a later minute', () => {
+    let t = 0
+    const dropped: number[] = []
+    const allow = windowErrorLimiter(20, () => t, (n) => dropped.push(n))
+    for (let i = 0; i < 25; i++) allow()
+    expect(dropped).toEqual([])
+    t = 61_000
+    expect(allow()).toBe(true)
+    expect(dropped).toEqual([5])
+    // A minute without drops writes nothing more.
+    t = 130_000
+    allow()
+    expect(dropped).toEqual([5])
+    expect(droppedLine(5)).toBe('5 more window errors were not written')
+    expect(droppedLine(1)).toBe('1 more window error was not written')
+    // The registered listener writes that line through the log.
+    const src = readFileSync(join(__dirname, '../../src/main/window-errors.ts'), 'utf8')
+    expect(src).toContain('windowErrorLimiter(undefined, undefined, (n) => log.error(droppedLine(n)))')
+  })
+
+  it('writes folder paths and file addresses as [path]', () => {
+    h.lines.length = 0
+    const cases: [string, string][] = [
+      ['ENOENT: no such file C:\\Users\\name\\project\\x.cpp', 'ENOENT: no such file [path]'],
+      ["cannot open '/home/name/x' for reading", "cannot open '[path]' for reading"],
+      ['in C:\\Users\\John Smith\\My Project\\a.cpp at line 3', 'in [path] at line 3'],
+      ['share \\\\server\\share\\dir\\f.txt failed', 'share [path] failed'],
+      ['loaded file:///C:/Users/name/x.js twice', 'loaded [path] twice'],
+      ['C:/Users/name/x.wasm is too large', '[path] is too large'],
+      ['/Users/name/project/src/a.cpp:3:4: error', '[path] error']
+    ]
+    for (const [message, written] of cases) {
+      const r = parseWindowErrorReport({ kind: 'error', message, places: [] })
+      expect(r?.message, message).toBe(written)
+    }
+    onWindowError(editor as never, { kind: 'render', message: 'x at C:\\Users\\name\\project\\x.cpp', places: [] }, always)
+    expect(h.lines[0]).toMatch(/A view failed to draw: x at \[path\]$/)
+    expect(h.lines[0]).not.toContain('name')
+    // Addresses of the app and of the web, fractions and words with slashes stay.
+    for (const keep of ['at app://bundle/assets/index-B8.js', 'https://node.example/v1/chain/get_info failed', 'and/or 1/2/3', 'TypeError: x is not a function']) {
+      expect(withoutPaths(keep)).toBe(keep)
+    }
   })
 
   it('is registered as a one-way listener on its own channel and never throws', () => {
@@ -242,6 +288,52 @@ describe('error boundary', () => {
     const help = readFileSync(join(__dirname, '../../src/renderer/src/components/Help.tsx'), 'utf8')
     expect(help).toMatch(/<ErrorBoundary[^>]*>\s*<DocViewer/)
     const main = readFileSync(join(__dirname, '../../src/renderer/src/main.tsx'), 'utf8')
-    expect(main).toMatch(/installWindowErrorReports\(\)\s+createRoot/)
+    expect(main).toMatch(/installWindowErrorReports\(\)\s+(\/\/[^\n]*\s+)?createRoot/)
+  })
+
+  it('the last boundary around the whole window offers Reload window and says what is lost', async () => {
+    const ErrorBoundary = await loadBoundary()
+    const { RELOAD_LOSES_CHANGES } = (await import(/* @vite-ignore */ BOUNDARY)) as { RELOAD_LOSES_CHANGES: string }
+    const onReload = vi.fn()
+    const report = vi.fn()
+    const b = new ErrorBoundary({ onReload, report, what: 'The window' })
+    // A child that throws: caught, reported, and the panel drawn in its place.
+    const err = new TypeError('Cannot read properties of undefined (reading "title")')
+    b.state = ErrorBoundary.getDerivedStateFromError(err)
+    b.componentDidCatch(err, { componentStack: '' })
+    expect(report).toHaveBeenCalledWith(err)
+    const panel = b.render()
+    const html = renderToStaticMarkup(panel as ReactElement)
+    expect(html).toContain('The window could not be shown')
+    expect(html).toContain('Reload window')
+    expect(html).not.toContain('Back to Home')
+    expect(html).toContain(RELOAD_LOSES_CHANGES)
+    expect(RELOAD_LOSES_CHANGES).toMatch(/not saved are lost/)
+    findButton(panel)!.props.onClick!()
+    expect(onReload).toHaveBeenCalledTimes(1)
+    // App, its dialogs, title bar, top bar and bottom panel are all inside it; the reload is a real one.
+    const main = readFileSync(join(__dirname, '../../src/renderer/src/main.tsx'), 'utf8')
+    expect(main).toMatch(/\.render\(\s*<ErrorBoundary what="The window" onReload=\{reloadWindow\}>\s*<App \/>\s*<\/ErrorBoundary>\s*\)/)
+    expect(main).toContain('location.reload()')
+  })
+
+  it('a failing topic on the Documentation page leaves the tree and the search drawn', async () => {
+    const page = readFileSync(join(__dirname, '../../src/renderer/src/pages/DocsPage.tsx'), 'utf8')
+    // The viewer has its own boundary, cleared by another topic; the tree and the search are outside it.
+    const m = page.match(/<ErrorBoundary what="This topic" resetKey=\{history\.current \?\? ''\}[^\n]*>\s*<DocViewer[^\n]*\/>\s*<\/ErrorBoundary>/)
+    expect(m).not.toBeNull()
+    const at = page.indexOf(m![0])
+    expect(page.indexOf('className="docs-side"')).toBeLessThan(at)
+    expect(page.indexOf('placeholder="Search the documentation"')).toBeLessThan(at)
+    expect(page.slice(page.indexOf('className="docs-side"'), at)).not.toContain('<ErrorBoundary')
+    // The boundary itself: a failed topic is a panel; choosing another topic clears it.
+    const ErrorBoundary = await loadBoundary()
+    const b = new ErrorBoundary({ onHome: () => undefined, what: 'This topic', resetKey: 'deploy' })
+    b.state = ErrorBoundary.getDerivedStateFromError(new Error('bad table'))
+    b.setState = (s: unknown) => Object.assign(b.state, s)
+    expect(renderToStaticMarkup(b.render() as ReactElement)).toContain('This topic could not be shown')
+    b.props = { ...b.props, resetKey: 'vault' }
+    b.componentDidUpdate({ ...b.props, resetKey: 'deploy' })
+    expect(b.state.error).toBeNull()
   })
 })

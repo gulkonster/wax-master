@@ -61,6 +61,14 @@ export interface AccountView {
   refundRequested: string
   refundDue: string
   /**
+   * Seconds from the chain's head time (of the same get_account answer) to the
+   * due time of the refund; the page counts down from the moment of the read.
+   * 0 when no refund waits.
+   */
+  refundSecondsLeft: number
+  /** True on the two WAX chains, whose waiting time is known; elsewhere the time is "about". */
+  refundExact: boolean
+  /**
    * Permissions whose threshold the vault's keys reach with their own weights
    * (keys only; accounts and waits are not counted). Empty: view only.
    */
@@ -76,6 +84,18 @@ export interface TokenRow {
   balance: string
   /** Where the row comes from: the chain's core token, the history service, or a token the user added. */
   source: 'core' | 'history' | 'added'
+  /**
+   * Set by the main process: 'core' on the network's own token (eosio.token and
+   * the network's symbol); 'lookalike' on the network's symbol from another
+   * contract. `text` is the tag the page draws.
+   */
+  mark?: { kind: 'core' | 'lookalike'; text: string }
+}
+
+/** A balance read from the chain for a form that sends: the asset text and the token's precision. */
+export interface TokenBalance {
+  balance: string
+  precision: number
 }
 
 export interface WalletTokens {
@@ -247,4 +267,73 @@ export interface NetworkStatus {
   latencyMs: number | null
   /** Time of the last check (ms since 1970), null before the first. */
   checkedAt: number | null
+}
+
+/** An authority as shown in the wallet: threshold and entries in the chain's order. */
+export interface AuthorityView {
+  threshold: number
+  keys: { key: string; weight: number }[]
+  accounts: { actor: string; permission: string; weight: number }[]
+  waits: { waitSec: number; weight: number }[]
+}
+
+/**
+ * A permission change as the editor window asks for it. The main process reads
+ * the current authority from the chain and builds the new one; an authority is
+ * never sent by the editor window.
+ */
+export type PermissionIntent =
+  | { kind: 'addKey'; account: string; permission: string; key: string; weight: number }
+  | { kind: 'removeKey'; account: string; permission: string; key: string }
+  | { kind: 'addAccount'; account: string; permission: string; actor: string; actorPermission: string; weight: number }
+  | { kind: 'removeAccount'; account: string; permission: string; actor: string; actorPermission: string }
+  | { kind: 'setThreshold'; account: string; permission: string; threshold: number }
+  /** The `eosio.code` switch: adds or removes `<account>@eosio.code` with a weight equal to the threshold. */
+  | { kind: 'eosioCode'; account: string; permission: string; enable: boolean }
+  /** A new permission under `parent` with one key (threshold 1, weight 1). */
+  | { kind: 'newPermission'; account: string; permission: string; parent: string; key: string }
+  | { kind: 'deletePermission'; account: string; permission: string }
+  | { kind: 'link'; account: string; code: string; type: string; requirement: string }
+  | { kind: 'unlink'; account: string; code: string; type: string }
+
+/** What a permission change will do, built by the main process from the chain's current state. */
+export interface PermissionPlanView {
+  title: string
+  /** Plain sentences about the change. */
+  explanation: string[]
+  /** Extra lines (changing owner, the vault losing control, ...). */
+  warnings: string[]
+  /** The permission that is changed (or linked to). */
+  permission: string
+  /** The full authority before and after the change; null where there is none (link, new or deleted permission). */
+  before: AuthorityView | null
+  after: AuthorityView | null
+  /** Changes when the account's permissions change; the send is refused when it differs. */
+  basis: string
+  /** The action that will be sent, as JSON (for the Command view). */
+  action: { account: string; name: string; authorization: AuthLevel[]; data: unknown }
+}
+
+/** One linked action: `contract::action` (action '' = every action of the contract) needs `permission`. */
+export interface LinkedActionRow {
+  contract: string
+  action: string
+  permission: string
+}
+
+export interface LinkedActionsView {
+  rows: LinkedActionRow[]
+  /** Where the list comes from: the node's get_account, the history service, or nowhere. */
+  source: 'node' | 'history' | 'none'
+}
+
+/** The Contract section: what is deployed on the account. */
+export interface ContractInfoView {
+  hasCode: boolean
+  /** SHA-256 of the code ('' when none). */
+  codeHash: string
+  /** SHA-256 of the ABI ('' when none). */
+  abiHash: string
+  /** Last code update (chain time, '' when unknown). */
+  lastCodeUpdate: string
 }

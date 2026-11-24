@@ -340,6 +340,13 @@ const FEATURE_TOPICS: [string, keyof typeof HELP_TOPICS][] = [
   ['Wallet CPU / NET', 'walletCpuNet'],
   ['Wallet testnet faucet', 'walletFaucet'],
   ['Wallet transactions', 'walletTransactions'],
+  ['Wallet keys and permissions', 'walletPermissions'],
+  ['Wallet permission threshold', 'walletThreshold'],
+  ['Wallet new permission', 'walletNewPermission'],
+  ['Wallet eosio.code switch', 'walletEosioCode'],
+  ['Wallet linked actions', 'walletLinks'],
+  ['Wallet create account', 'walletCreateAccount'],
+  ['Wallet contract', 'walletContract'],
   ['CPU / NET / RAM refusal', 'resourceRefusal'],
   ['ABI check', 'abiCheck']
 ]

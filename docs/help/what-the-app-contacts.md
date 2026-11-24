@@ -12,6 +12,7 @@ WAX Master sends nothing anywhere on its own except to the addresses below. It h
 | GitHub (`api.github.com`) | The update check, once a day | File > Settings > Updates |
 | The WAX Testnet faucet (`faucet.waxsweden.org`) | Only when you press Create account in Create Testnet Account, or Request tokens / Request testnet tokens | Do not press them |
 | A web page you open | Only after the app shows you the address and you press **Open** | - |
+| Microsoft (Windows itself) | When you press Enable WSL in Setup and WSL is not installed: Windows downloads WSL | Do not press it; install WSL yourself |
 
 ## What stays on this computer
 

@@ -8,7 +8,7 @@
 
 import { app, BrowserWindow, ipcMain, screen, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
-import type { ApprovalRecord, SendResult, Signer } from './signer'
+import { approveFailure, type ApprovalRecord, type SendResult, type Signer } from './signer'
 import { APP_ORIGIN, isAllowedOrigin, secureWebPreferences } from './security'
 import { log } from './log'
 import { withoutLockedCode } from '../shared/vault-locked'
@@ -106,8 +106,8 @@ export function registerConfirmWindow(signer: Signer): void {
       p.secret.fill(0)
       p.settle({ approved: false, reason: 'error', error: message, details })
       pendingByWindow.delete(e.sender.id)
-      // refused: the node answered with an error (not a timeout or a local failure).
-      return { ok: false, error: message, refused: details !== undefined }
+      // failure: refused (the node answered with an error), unknown (it may have arrived) or not-sent.
+      return { ok: false, error: message, failure: approveFailure(err) }
     }
   })
   ipcMain.handle('confirm:cancel', (e, id: unknown) => {

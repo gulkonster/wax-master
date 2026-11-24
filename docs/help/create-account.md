@@ -15,6 +15,8 @@ On WAX an account is created by another account, the creator. The creator pays f
 
 If a chosen key has no backup yet, the dialog says so before it goes on; on a mainnet network it asks a blocking question.
 
+The same form is the **Create account** section of the Account page: choose it, fill in the fields and the section shows the actions it will send. The menu command stays as well.
+
 [Create Account](app:create-account)
 
 ## Example
@@ -37,4 +39,4 @@ The confirmation shows three actions: `newaccount`, `buyrambytes` and `delegateb
 - A creator account with a key in the vault and enough tokens for the RAM and the stake.
 - Two public keys (they may be the same key). Use different keys for `owner` and `active` on accounts that matter.
 
-See also [Create a testnet account](doc:create-testnet-account) and [Accounts and names](doc:accounts-and-names).
+After creation, the new account's `owner` and `active` permissions hold the keys you chose; see [Owner, active and permissions](doc:permissions-overview). See also [Create a testnet account](doc:create-testnet-account) and [Accounts and names](doc:accounts-and-names).

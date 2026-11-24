@@ -1,7 +1,10 @@
-// Keeps the window usable when a view fails to draw: instead of an empty
+// Keeps the window usable when a part of it fails to draw: instead of an empty
 // window, a short panel with the error line and "Back to Home". The error is
 // written to the main log. The panel goes away when `resetKey` changes (a
-// new view was chosen) or when the user picks Back to Home.
+// new view or topic was chosen) or when the user picks Back to Home.
+//
+// The last boundary around the whole window has nothing to go back to; its
+// panel offers "Reload window" instead.
 
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { oneLine } from '../../../shared/window-error'
@@ -10,7 +13,9 @@ import { reportWindowError } from '../lib/window-errors'
 interface Props {
   children: ReactNode
   /** Back to Home: the caller shows the Home page (and closes what it must). */
-  onHome: () => void
+  onHome?: () => void
+  /** Reload window: given only to the boundary around the whole window, in place of Back to Home. */
+  onReload?: () => void
   /** A change of this value (such as the view name) clears the panel. */
   resetKey?: string
   /** What failed, for the panel title. */
@@ -22,6 +27,9 @@ interface Props {
 interface State {
   error: string | null
 }
+
+/** Said under the panel of the whole window: open files keep their changes only in the page that failed. */
+export const RELOAD_LOSES_CHANGES = 'Reload window starts the window again. Changes in open files that were not saved are lost.'
 
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null }
@@ -40,21 +48,32 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     if (this.state.error === null) return this.props.children
+    const { onReload, onHome } = this.props
     return (
-      <div className="view-error" role="alert">
+      <div className={`view-error${onReload ? ' window-error' : ''}`} role="alert">
+        {onReload && <div className="window-error-drag" />}
         <h2>{this.props.what ?? 'This view'} could not be shown</h2>
         <div className="hint">{this.state.error}</div>
         <div className="hint">The error was written to logs\main.log in the app data folder.</div>
-        <button
-          type="button"
-          className="btn primary"
-          onClick={() => {
-            this.setState({ error: null })
-            this.props.onHome()
-          }}
-        >
-          Back to Home
-        </button>
+        {onReload ? (
+          <>
+            <div className="hint">{RELOAD_LOSES_CHANGES}</div>
+            <button type="button" className="btn primary" onClick={onReload}>
+              Reload window
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => {
+              this.setState({ error: null })
+              onHome?.()
+            }}
+          >
+            Back to Home
+          </button>
+        )}
       </div>
     )
   }

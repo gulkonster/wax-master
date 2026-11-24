@@ -6,7 +6,7 @@ import type { InspectedTransaction } from './trace-types'
 import type { DeployPlan } from './chain-types'
 import type { RamPrice } from './ram-market'
 import type { NetworkHead, NetworkOverview } from './network-info'
-import type { AccountActionsPage, AccountView, AddedToken, NetworkInfo, NetworkKind, NetworkStatus, WalletTokens } from './chain-types'
+import type { AccountActionsPage, AccountView, AddedToken, ContractInfoView, LinkedActionsView, NetworkInfo, NetworkKind, NetworkStatus, PermissionIntent, PermissionPlanView, TokenBalance, WalletTokens } from './chain-types'
 import type { AuthLevel, ContractAbiView, ContractHistoryEntry, ContractHistoryKind, ContractHistoryList, PackResult, RowsQuery, RowsResult, ScopesResult } from './chain-types'
 import type { WindowErrorReport } from './window-error'
 
@@ -467,10 +467,21 @@ export interface WaxApi {
   wallet: {
     /** Core token, the history service's tokens of the account, and the tokens added for this network, with balances. */
     tokens(account: string): Promise<WalletTokens>
-    addedTokens(): Promise<AddedToken[]>
+    /** The tokens added for the current network, or for the network with this id. */
+    addedTokens(networkId?: string): Promise<AddedToken[]>
+    /** One token's balance and precision read from the chain (zero at the token's precision when the account has no row). */
+    balance(account: string, contract: string, symbol: string): Promise<TokenBalance>
     /** Checked on the chain (the contract must have the token); returns the added tokens of this network. */
     addToken(contract: string, symbol: string): Promise<AddedToken[]>
     removeToken(contract: string, symbol: string): Promise<AddedToken[]>
+    /** Builds a permission change from the chain's current state; nothing is signed. A refusal rejects with its reason. */
+    permPreview(intent: PermissionIntent, signWith: string): Promise<PermissionPlanView>
+    /** Builds the change again from the chain (refused when the permissions differ from basis) and sends it through the confirmation. */
+    permSend(intent: PermissionIntent, signWith: string, basis: string): Promise<TxOutcome>
+    /** Linked actions of the account (node first, history service second). */
+    links(account: string): Promise<LinkedActionsView>
+    /** Code hash, ABI hash and last code update of the account. */
+    contractInfo(account: string): Promise<ContractInfoView>
   }
   networkInfo: {
     /** Chain state of a saved network for the Network page: get_info, RAM, RAM price, core token. */

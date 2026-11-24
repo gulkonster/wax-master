@@ -32,70 +32,20 @@ If a field named `to`, `receiver` or `recipient` holds an account that does not 
 
 Run, approve, then Open in inspector: Console shows `Hello, ` and your account name.
 
-## Example: add `eosio.code` to a permission
+## Example: change a permission from the Contract page
 
-**What it is.** A contract cannot hold keys. When a contract sends an action itself (an inline action), for example sending tokens from its own account, the chain checks that action with the special permission `<contract>@eosio.code`. The account must allow it: one of its permissions, usually `active`, must list `<contract>@eosio.code` as an entry. Without it the inline action fails with an error that names `eosio.code` among the provided permissions.
+The Account page has sections for permissions (**Keys and permissions**, **Linked actions**). The same changes can be sent here as system actions of `eosio`:
 
-**How it is done today.** The permission is changed with the system action `eosio::updateauth` on the Contract page. `updateauth` replaces the whole permission, so the new value must contain everything the permission already has, plus the new entry.
+| Action | What it does | Help |
+|---|---|---|
+| `updateauth` | Replaces a whole permission. Use it to add `<contract>@eosio.code` to `active`. It must contain every key and account the permission already has. | [The eosio.code permission](doc:eosio-code), [Custom permissions](doc:custom-permissions) |
+| `linkauth` | Lets an action of a contract be signed by a custom permission. | [Linked actions](doc:linked-actions) |
+| `unlinkauth` | Removes such a link. Do this before deleting the permission. | [Linked actions](doc:linked-actions) |
+| `deleteauth` | Deletes a permission. The chain refuses it while actions are still linked to it. | [Custom permissions](doc:custom-permissions) |
 
-1. Open your contract account on the Account page. Under **Permission Keys**, note the `active` permission: its threshold and every key and account with their weights.
-2. Press the **Contracts** button, type `eosio` and press Enter. Choose the action `updateauth`.
-3. Fill in `account` = your contract account, `permission` = `active`, `parent` = `owner`.
-4. In `auth`, write the current keys again and add the account entry. Give it a weight equal to the threshold, so the contract's code alone satisfies the permission.
-5. Authorization: your contract account @ `active` (or `owner`).
-6. Run, check the new permission in the confirmation window, approve.
-7. Refresh the Account page: `active` now lists `yourcontract@eosio.code`.
+Choose the action, fill in `account` and the other fields, and set Authorization to your account @ `active` (or `owner`).
 
-The `auth` value for an account `mycontract111` with one key, threshold 1:
-
-```json
-{
-  "threshold": 1,
-  "keys": [
-    { "key": "PUB_K1_...", "weight": 1 }
-  ],
-  "accounts": [
-    { "permission": { "actor": "mycontract111", "permission": "eosio.code" }, "weight": 1 }
-  ],
-  "waits": []
-}
-```
-
-Replace `PUB_K1_...` with the public key that `active` has now, exactly as the Account page shows it. If the permission has several keys or accounts, keep all of them; the chain wants keys sorted and accounts sorted by name.
-
-To remove `eosio.code` again, send the same `updateauth` without the `accounts` entry.
-
-> Note: A mistake in `auth` can lock you out of the permission. Check that the key you write is a key whose private part is in your vault. Change `active` with `owner` as the signer, so a wrong `active` can still be repaired.
-
-## Example: link an action to a permission (`linkauth`)
-
-**What it is.** By default every action needs `active` (or `owner`). `linkauth` says: this action of this contract may be signed by a smaller permission of mine. A common use is a permission `claim` with its own key that can only call one game action, so a bot or a second computer never holds your `active` key.
-
-**How it is done today**, with the system actions on the Contract page (`eosio`):
-
-**Step 1: create the permission.** Make a new key in Accounts > Manage Keypairs > Create. Then run the action `updateauth` with `account` = your account, `permission` = `claim`, `parent` = `active`, and this `auth` with the new public key. Authorization: your account @ `active`.
-
-```json
-{
-  "threshold": 1,
-  "keys": [ { "key": "PUB_K1_...", "weight": 1 } ],
-  "accounts": [],
-  "waits": []
-}
-```
-
-**Step 2: link the action.** Run the action `linkauth` with `account` = your account, `code` = the contract, `type` = the action, `requirement` = `claim`. Authorization: your account @ `active`.
-
-**Step 3: use it.** Open the contract, choose that action, and in Authorization choose your account with permission `claim`.
-
-An empty `type` links every action of that contract that has no link of its own.
-
-## Example: remove a link (`unlinkauth`) and the permission
-
-1. Action `unlinkauth` on `eosio` with `account` = your account, `code` = the contract, `type` = the action. Authorization: your account @ `active`. After it, the action needs `active` again.
-2. To delete the permission too, run `deleteauth` with `account` = your account and `permission` = `claim`. The chain refuses to delete a permission that is still linked, so unlink first.
-
-> Note: The Account page lists permissions and their keys but not the links yet. Keep a note of what you linked.
+> Note: A mistake in `auth` can lock you out of the permission. Never remove the last key that reaches the threshold of `owner` or `active`, and change `active` with `owner` as the signer. See [Changing a key safely](doc:change-key-safely).
 
 ## What is needed
 

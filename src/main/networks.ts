@@ -10,6 +10,7 @@ import { readJson, writeJson } from './jsonfile'
 import { chain, normalizeEndpoint, RpcError } from './rpc'
 import { log } from './log'
 import { oneLineText, plainTextOrEmpty } from '../shared/network-info'
+import { addedTokens } from './wallet-tokens'
 
 export const WAX_MAINNET_ID = 'wax-mainnet'
 export const WAX_TESTNET_ID = 'wax-testnet'
@@ -547,7 +548,7 @@ export async function updateNetwork(
 }
 
 /**
- * Removes a network and forgets its starred accounts. At least one network
+ * Removes a network and forgets its starred accounts and the tokens added for it. At least one network
  * stays. Removing the current one selects WAX Testnet if present, else the
  * first of the list. A removed default can be restored.
  */
@@ -560,6 +561,11 @@ export function removeNetwork(id: string): NetworkInfo {
   if (isDefaultId(id) && !f.removedDefaults.includes(id)) f.removedDefaults.push(id)
   if (f.current === id || !f.networks.some((x) => x.id === f.current)) f.current = fallbackNetwork(listNetworks()).id
   save()
+  try {
+    addedTokens().forget(id)
+  } catch (e) {
+    log.warn(`Network removed; its added tokens could not be forgotten: ${e instanceof Error ? e.message : 'unknown error'}`)
+  }
   return currentNetwork()
 }
 

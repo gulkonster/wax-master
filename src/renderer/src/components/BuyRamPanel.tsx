@@ -5,8 +5,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { RamMarket, RamPrice } from '../../../shared/ram-market'
-import { formatCost, formatUnits, parseAsset, ramCost, ramForAmount, RAM_MAX_BUY } from '../../../shared/ram-market'
-import { amountUnits } from '../../../shared/wallet'
+import { formatCost, ramCost, ramForAmount, RAM_MAX_BUY } from '../../../shared/ram-market'
+import { amountUnits, assetUnits, formatUnits as formatAmount } from '../../../shared/wallet'
+import { amountNote } from '../pages/account/wallet-form'
 import type { TxAction } from '../../../shared/api'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
 import { networkStore } from '../lib/networks'
@@ -62,12 +63,15 @@ export function useRamMarket(): { price: RamPrice | null; error: string } {
   return { price, error }
 }
 
-/** Liquid balance text in the market's whole units (null when unreadable). */
-function unitsOf(liquid: string, market: RamMarket): number | null {
-  const a = parseAsset(liquid)
-  if (!a) return null
-  const shift = market.precision - a.precision
-  return shift >= 0 ? a.units * 10 ** shift : Math.floor(a.units / 10 ** -shift)
+/** Liquid balance text in the market's whole units, exact at any size (null when unreadable). */
+function unitsOf(liquid: string, market: RamMarket): bigint | null {
+  return assetUnits(liquid, market.precision, market.symbol)
+}
+
+/** A balance at the market's precision, exact at any size; the text as read when it is not the market's token. */
+function payerText(liquid: string, market: RamMarket): string {
+  const u = assetUnits(liquid, market.precision, market.symbol)
+  return u === null ? liquid : formatAmount(u, market.precision, market.symbol)
 }
 
 // ---------------------------------------------------------------- panel
@@ -111,9 +115,11 @@ export function BuyRamPanel({
   const [amountText, setAmountText] = useState('')
   const [amountTouched, setAmountTouched] = useState(false)
   const amount = market ? amountUnits(amountText, market.precision) : null
-  const amountOk = amount !== null && amount > 0
-  const amountBytes = market && amountOk ? ramForAmount(market, amount) : 0
-  const cost = mode === 'amount' ? (amountOk ? amount : null) : market && bytesOk ? ramCost(market, bytes) : null
+  const amountOk = amount !== null && amount > 0n
+  // The RAM market arithmetic is an estimate in numbers; the amount sent stays exact.
+  const amountBytes = market && amountOk ? ramForAmount(market, Number(amount)) : 0
+  const cost = mode === 'amount' ? (amountOk ? Number(amount) : null) : market && bytesOk ? ramCost(market, bytes) : null
+  const amountMessage = market ? amountNote({ text: amountText, touched: amountTouched }, market.precision, true) : ''
 
   const [payer, setPayer] = useState('')
   const [payerChosen, setPayerChosen] = useState(false)
@@ -166,9 +172,11 @@ export function BuyRamPanel({
       const b = balances[name]
       if (!market || cost === null || b === undefined || b === null) return false
       const u = unitsOf(b, market)
-      return u !== null && u >= cost
+      // By amount the exact amount is compared; by bytes the estimated cost.
+      const need = mode === 'amount' && amount !== null ? amount : BigInt(Math.ceil(cost))
+      return u !== null && u >= need
     },
-    [balances, market, cost]
+    [balances, market, cost, mode, amount]
   )
   const signable = useCallback((name: string) => (list?.entries.find((e) => e.account === name)?.signable.length ?? 0) > 0, [list])
   const allRead = candidates.every((c) => c in balances)
@@ -186,12 +194,12 @@ export function BuyRamPanel({
     ? null
     : mode === 'amount'
       ? market && amountOk
-        ? { account: 'eosio', name: 'buyram', authorization: [{ actor: payer, permission }], data: { payer, receiver, quant: formatUnits(amount, market.precision, market.symbol) } }
+        ? { account: 'eosio', name: 'buyram', authorization: [{ actor: payer, permission }], data: { payer, receiver, quant: formatAmount(amount, market.precision, market.symbol) } }
         : null
       : bytesOk
         ? { account: 'eosio', name: 'buyrambytes', authorization: [{ actor: payer, permission }], data: { payer, receiver, bytes } }
         : null
-  const boughtText = mode === 'amount' && market && amountOk ? `RAM for ${formatUnits(amount, market.precision, market.symbol)}` : `${bytes.toLocaleString()} bytes of RAM`
+  const boughtText = mode === 'amount' && market && amountOk ? `RAM for ${formatAmount(amount, market.precision, market.symbol)}` : `${bytes.toLocaleString()} bytes of RAM`
 
   const buy = async (): Promise<void> => {
     setBytesTouched(true)
@@ -205,6 +213,10 @@ export function BuyRamPanel({
         setMessage({ text: `${boughtText} bought for ${receiver}.`, kind: 'good' })
         toast('RAM bought', `${boughtText} for ${receiver}`, 'success')
         setTick((t) => t + 1)
+        // A sent form is untouched again: nothing is red after a success.
+        setAmountText('')
+        setAmountTouched(false)
+        setBytesTouched(false)
         onBought?.()
       } else if (r.status === 'failed') setMessage({ text: r.error, kind: 'error' })
       // A cancel is a neutral note, never an error.
@@ -259,9 +271,7 @@ export function BuyRamPanel({
               onChange={(e) => setAmountText(e.target.value.trim())}
               onBlur={() => setAmountTouched(true)}
             />
-            {amountTouched && !amountOk && market && (
-              <div className="acct-note bad">Enter an amount above zero with at most {market.precision} decimals.</div>
-            )}
+            {amountMessage && <div className="acct-note bad">{amountMessage}</div>}
           </div>
         ) : (
         <div className="field buy-ram-bytes">
@@ -317,7 +327,7 @@ export function BuyRamPanel({
         {payer && (
           <span>
             Balance of {payer}:{' '}
-            {payerBalance === undefined ? 'reading...' : payerBalance === null ? 'could not be read' : market ? formatUnits(unitsOf(payerBalance, market) ?? 0, market.precision, market.symbol) : payerBalance}
+            {payerBalance === undefined ? 'reading...' : payerBalance === null ? 'could not be read' : market ? payerText(payerBalance, market) : payerBalance}
           </span>
         )}
       </div>

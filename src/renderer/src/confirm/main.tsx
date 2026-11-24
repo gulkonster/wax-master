@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import '../styles.css'
 import './confirm.css'
 import { checkPassword } from '../../../shared/password'
-import { confirmPageKind, notSentText } from './not-sent'
+import { confirmPageKind, notSentText, type SendFailure } from './not-sent'
 
 interface Blob {
   field: 'code' | 'abi'
@@ -41,7 +41,7 @@ declare global {
   interface Window {
     confirmation: {
       load(): Promise<Approval>
-      approve(id: string, typedName?: string): Promise<{ ok: boolean; transactionId?: string; error?: string; notReady?: boolean; refused?: boolean }>
+      approve(id: string, typedName?: string): Promise<{ ok: boolean; transactionId?: string; error?: string; notReady?: boolean; failure?: SendFailure }>
       cancel(id: string): Promise<boolean>
       revealLoad(): Promise<{ label: string; publicKey: string }>
       revealShow(password: string): Promise<string>
@@ -152,7 +152,7 @@ function Confirm(): React.JSX.Element {
       setNote(r.error ?? '')
     } else {
       setState('failed')
-      setError(notSentText(r.error, r.refused === true))
+      setError(notSentText(r.error, r.failure ?? 'not-sent'))
     }
   }
 

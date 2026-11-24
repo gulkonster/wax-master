@@ -3642,6 +3642,20 @@ button.sb-item.mainnet:hover {
   padding: var(--sp-6);
   color: var(--text-2);
 }
+/* The whole window failed: the panel fills it, under a plain strip that still moves the window. */
+.view-error.window-error {
+  height: 100%;
+  padding-top: calc(var(--titlebar) + var(--sp-6));
+}
+.window-error-drag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: var(--titlebar);
+  width: env(titlebar-area-width, 100%);
+  background: var(--bg-chrome);
+  -webkit-app-region: drag;
+}
 .view-error h2 {
   margin: 0;
   font-weight: 600;
@@ -3869,6 +3883,113 @@ button.sb-item.mainnet:hover {
   flex-wrap: wrap;
   gap: var(--gap-group);
 }
+/* A section with more than one form: the switch that picks the one drawn. */
+.wallet-switch {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: var(--sp-half);
+  padding: var(--sp-half);
+  background: var(--bg-surface-2);
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius);
+}
+.wallet-switch button {
+  height: var(--ctl-sm);
+  min-width: var(--btn-min);
+  padding: 0 var(--sp-3);
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text-2);
+  font: inherit;
+  cursor: pointer;
+}
+.wallet-switch button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.wallet-switch button.active {
+  background: var(--sel-bg);
+  color: var(--sel-text);
+  font-weight: 600;
+}
+.token-symbol-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.acct-note.warn {
+  color: var(--warn-text);
+}
 .perm-inline {
   min-width: var(--field-perm);
+}
+
+/* Wallet: keys and permissions tree, the permission change dialog */
+.perm-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4) var(--sp-3) calc(var(--sp-4) + var(--sp-6) * var(--perm-depth, 0));
+}
+.perm-entries {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.perm-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1h);
+  min-width: 0;
+}
+.perm-entry-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.perm-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.perm-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.perm-review {
+  max-width: none;
+}
+.auth-compare {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--gap-row);
+}
+.auth-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: var(--sp-3);
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+}
+.auth-box-title {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+.auth-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1h);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.kv-row .num.wrap {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

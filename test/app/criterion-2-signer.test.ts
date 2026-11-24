@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ app: { getPath: () => tmpdir(), isPackaged: false } }))
 
-import { Signer, type SignerDeps } from '../../src/main/signer'
+import { Signer, approveFailure, type SignerDeps } from '../../src/main/signer'
 import { Vault } from '../../src/main/vault'
 import type { NetworkInfo } from '../../src/shared/chain-types'
 import abis from '../fixtures/chain/system-abis.json'
@@ -253,5 +253,33 @@ describe('a send repeated after a broken connection', () => {
     await expect(s.approve(record.id, secret)).rejects.toThrow(
       `Could not reach https://node-a.example: no answer within 30 s. The transaction ${record.transactionId} may still have reached the node.`
     )
+  })
+})
+
+describe('the kind of a failed approval', () => {
+  it('no answer, a time limit and the duplicate case may have arrived; a node error is a refusal; a local failure sent nothing', async () => {
+    const { RpcError, noAnswerMessage } = await import('../../src/main/rpc')
+    const fail = async (err: () => Error, after?: () => void, typed?: string): Promise<unknown> => {
+      const s = new Signer(deps({ send: async () => Promise.reject(err()) }))
+      const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer] })
+      after?.()
+      return s.approve(record.id, secret, typed).catch((e) => e)
+    }
+    const timeLimit = (): Error => new RpcError(noAnswerMessage('https://node-a.example', new Error('aborted'), { timedOut: true, timeoutMs: 30_000 }), 0)
+    const duplicate = (): Error => new RpcError('Duplicate transaction', 409, { code: 409, error: { code: 3040008, name: 'tx_duplicate', what: 'Duplicate transaction' } })
+    const overdrawn = (): Error =>
+      new RpcError('Internal Service Error', 500, { code: 500, error: { code: 3050003, name: 'eosio_assert_message_exception', what: 'eosio_assert_message assertion failure', details: [{ message: 'assertion failure with message: overdrawn balance' }] } })
+    for (const e of [await fail(timeLimit), await fail(duplicate)]) {
+      expect((e as { mayHaveArrived?: boolean }).mayHaveArrived).toBe(true)
+      expect(approveFailure(e)).toBe('unknown')
+    }
+    const refused = await fail(overdrawn)
+    expect((refused as Error).message).toMatch(/overdrawn balance/)
+    expect(approveFailure(refused)).toBe('refused')
+    const expired = await fail(overdrawn, () => (now += 10 * 60 * 60 * 1000))
+    expect((expired as Error).message).toMatch(/expired/)
+    expect(approveFailure(expired)).toBe('not-sent')
+    expect(approveFailure(new Error('Vault is locked'))).toBe('not-sent')
+    expect(sent).toHaveLength(0)
   })
 })

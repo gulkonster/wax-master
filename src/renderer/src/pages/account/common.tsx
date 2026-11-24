@@ -1,7 +1,7 @@
 // Shared pieces of the wallet sections: number formats, the resource gauge,
 // the Command view of a form, and sending through the confirmation window.
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { TxAction } from '../../../../shared/api'
 import type { AccountView, PackResult } from '../../../../shared/chain-types'
 import { isUnlockCancelled } from '../../../../shared/vault-locked'
@@ -9,6 +9,7 @@ import { copyText } from '../../lib/clipboard'
 import { withVault } from '../../lib/vault'
 import { errorText, toast } from '../../lib/toast'
 import { IconCopy } from '../../components/Icons'
+import { scheduleReadsAfterSend } from './wallet-form'
 
 export const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
@@ -21,6 +22,36 @@ export interface WalletContext {
   reason: string
   /** Reads the account (and the token list) again. */
   reload: () => void
+  /** After a sent transaction: reads the account, the token list and the stakes at once, after 1.5 s and after 4 s. */
+  afterSend: () => void
+  /** Grows with each of those reads; a section that reads its own data (the stakes list) follows it. */
+  readTick: number
+}
+
+/**
+ * The reads after a sent transaction (`scheduleReadsAfterSend`); a new send
+ * replaces the pending ones and leaving the page stops them.
+ */
+export function useReadsAfterSend(read: () => void, readLast: () => void): () => void {
+  const fns = useRef({ read, readLast })
+  fns.current = { read, readLast }
+  const stop = useRef<(() => void) | null>(null)
+  useEffect(
+    () => () => {
+      stop.current?.()
+      stop.current = null
+    },
+    []
+  )
+  return useCallback(() => {
+    stop.current?.()
+    stop.current = scheduleReadsAfterSend(
+      (fn, ms) => setTimeout(fn, ms),
+      (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
+      () => fns.current.read(),
+      () => fns.current.readLast()
+    )
+  }, [])
 }
 
 export function viewOnlyReason(name: string): string {
@@ -147,8 +178,9 @@ export type SendMessage = { text: string; kind: 'good' | 'note' | 'error' } | nu
  * Sends actions through the normal path: the main process prepares them, the
  * confirmation window shows them, nothing is signed without the user's approval.
  * A locked vault is unlocked in place first. A cancel is a neutral note.
+ * `afterSend` (the page's reads after a send) runs after every sent transaction.
  */
-export function useSend(): {
+export function useSend(afterSend?: () => void): {
   busy: boolean
   message: SendMessage
   setMessage: (m: SendMessage) => void
@@ -165,6 +197,7 @@ export function useSend(): {
         setMessage({ text: `${done} Transaction ${r.trace.id.slice(0, 12)}...`, kind: 'good' })
         toast(done, r.trace.id, 'success')
         onSent?.()
+        afterSend?.()
         return true
       }
       if (r.status === 'failed') setMessage({ text: r.error, kind: 'error' })
@@ -177,6 +210,19 @@ export function useSend(): {
     return false
   }
   return { busy, message, setMessage, send }
+}
+
+/** The switch of a section with more than one form ("Buy | Sell"): only the chosen form is drawn. */
+export function FormSwitch<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly { id: T; label: string }[]; onChange: (v: T) => void }): React.JSX.Element {
+  return (
+    <div className="wallet-switch" role="tablist" aria-label={label}>
+      {options.map((o) => (
+        <button key={o.id} type="button" role="tab" aria-selected={o.id === value} className={o.id === value ? 'active' : undefined} onClick={() => onChange(o.id)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 export function SendLine({ message }: { message: SendMessage }): React.JSX.Element | null {

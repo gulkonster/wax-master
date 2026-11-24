@@ -71,6 +71,8 @@ export function App(): React.JSX.Element {
   const [deployOpen, setDeployOpen] = useState<null | { askAccount: boolean }>(null)
   const [chainDialog, setChainDialog] = useState<null | 'create-account' | 'testnet-account' | 'clear-code' | 'open-transaction'>(null)
   const [changeKey, setChangeKey] = useState<null | Parameters<typeof ChangeKeyDialog>[0]>(null)
+  /** Clear Contract Code opened from the wallet's Contract section, for that account. */
+  const [clearCodeFor, setClearCodeFor] = useState<string | null>(null)
   const [helpTopic, setHelpTopic] = useState<string | null>(null)
   const goHome = useCallback(() => setState((st) => ({ ...st, view: 'home' })), [])
 
@@ -91,6 +93,7 @@ export function App(): React.JSX.Element {
       on('open-keys', (a) => setKeysOpen({ filter: (a as string | null) ?? null })),
       on('open-transaction', (id) => void openTransaction(id as string)),
       on('change-key', (p) => setChangeKey(p as Parameters<typeof ChangeKeyDialog>[0])),
+      on('clear-code-for', (a) => setClearCodeFor(a as string)),
       // Help for a place: over an open dialog in the help window, else on the Documentation page.
       on('open-help', (id) => {
         if (document.querySelector('.modal')) setHelpTopic(id as string)
@@ -470,6 +473,7 @@ export function App(): React.JSX.Element {
       {chainDialog === 'create-account' && <CreateAccountDialog onClose={() => setChainDialog(null)} />}
       {chainDialog === 'testnet-account' && <TestnetAccountDialog onClose={() => setChainDialog(null)} />}
       {chainDialog === 'clear-code' && <ClearCodeDialog onClose={() => setChainDialog(null)} />}
+      {clearCodeFor !== null && <ClearCodeDialog initialAccount={clearCodeFor} onClose={() => setClearCodeFor(null)} />}
       {chainDialog === 'open-transaction' && (
         <InputDialog
           title="Open Transaction by Id"

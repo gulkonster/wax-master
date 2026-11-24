@@ -4,12 +4,12 @@ CPU is processing time and NET is transaction size. Every transaction uses a lit
 
 ## How to do it here
 
-Open the Account page, then the CPU and NET section. It shows what is staked, the gauges, and any refund in progress.
+Open the Account page, then the CPU and NET section. It shows what is staked, the gauges, and any refund in progress. The switch **Stake | Unstake** chooses the form.
 
-- **Stake**: enter the WAX for CPU and for NET. By default the stake goes to the account itself. You can stake to another account instead, and choose whether the tokens then belong to that account. It sends `eosio::delegatebw`.
-- **Unstake**: enter the WAX to take back from CPU and from NET. It sends `eosio::undelegatebw`. The tokens do not return at once.
-- **Refund**: unstaked tokens wait before they are free. The section shows the amount and the time when they can be claimed. The waiting time is a few days; the page shows the exact time.
-- **Claim refund**: when the time has passed, the button sends `eosio::refund` and the tokens move to the liquid balance. On many chains this also happens by itself with the next stake or unstake.
+- **Stake**: enter the WAX for CPU and for NET. By default the stake goes to the account itself. You can stake to another account instead; the tokens stay yours. It sends `eosio::delegatebw`. A new stake is taken from a waiting refund first, before the liquid balance.
+- **Unstake**: enter the WAX to take back from CPU and from NET. It sends `eosio::undelegatebw`. The tokens do not return at once. While a refund waits, a new unstake starts the waiting time again for the whole refund.
+- **Refund**: unstaked tokens wait before they are free. The waiting time is 3 days on WAX; it is fixed in the system contract and is not something the chain reports. On WAX the section shows the exact time when the refund can be claimed. On other chains it shows "about 3 days" and leaves the button on; the chain refuses the claim while its own waiting time runs.
+- **Claim refund**: when the time has passed, the button sends `eosio::refund` and the tokens move to the liquid balance.
 
 Choose the signer, check the action shown below the fields and approve in the confirmation window.
 
@@ -22,6 +22,6 @@ Stake `1.00000000 WAX` to CPU on your testnet account, approve, then unstake the
 - Liquid WAX to stake, and a key of the staking account in the vault.
 - Patience when unstaking: the tokens come back after the waiting time.
 
-> Note: Staking to another account gives that account CPU or NET. If the tokens do not belong to it, you can take them back later by unstaking.
+> Note: Staking to another account gives that account CPU or NET. The tokens stay yours: you can take them back later by unstaking.
 
 See also [The Account page as a wallet](doc:wallet-overview), [RAM](doc:resources-ram) and [Simulate and the transaction inspector](doc:simulate-inspector).

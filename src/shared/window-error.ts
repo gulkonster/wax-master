@@ -1,13 +1,15 @@
 // Errors of the editor page, reported one way to the main log so a broken view
-// leaves a line there. A report holds only what the code produced: the kind,
-// the first line of the error message (at most 500 characters) and up to five
-// places in the app's own script files (file name, line, column). No stack
-// text with other paths, no component props, nothing the user typed.
+// leaves a line there. A report holds the kind, the first line of the error
+// message (at most 500 characters) and up to five places in the app's own
+// script files (file name, line, column). No stack text, no component props.
+// The message is whatever the error carries, so it can hold a piece of text
+// the user typed; before it is written, folder paths in it are replaced by
+// [path] and the log's key and password patterns are applied to the line.
 
 export const WINDOW_ERROR_CHANNEL = 'app:windowError'
 export const MAX_WINDOW_ERROR_MESSAGE = 500
 export const MAX_WINDOW_ERROR_PLACES = 5
-/** At most this many reports a minute are written; the rest are counted and dropped. */
+/** At most this many reports a minute are written; the rest are dropped and their number written once the next minute starts. */
 export const MAX_WINDOW_ERRORS_PER_MINUTE = 20
 
 export type WindowErrorKind = 'error' | 'rejection' | 'render'
@@ -72,6 +74,21 @@ export function makeWindowErrorReport(kind: WindowErrorKind, thrown: unknown, or
   return { kind, message: oneLine(message) || 'no message', places: stackPlaces(stack, origins) }
 }
 
+// Folder names inside a path may hold spaces; its last part may not (the end of a path in a sentence is not known otherwise).
+/** Windows drive paths, with either separator. */
+const DRIVE_PATH = /(?<![A-Za-z0-9])[A-Za-z]:[\\/](?:[^\\/\s'"<>|*?]+(?: [^\\/\s'"<>|*?]+)*[\\/])*[^\\/\s'"<>|*?]*/g
+/** Network share paths: two backslashes, a server name, a backslash, the rest. */
+const UNC_PATH = /\\\\[^\\/\s'"<>|*?]+\\(?:[^\\/\s'"<>|*?]+(?: [^\\/\s'"<>|*?]+)*\\)*[^\\/\s'"<>|*?]*/g
+/** file:// addresses. */
+const FILE_URL = /\bfile:\/\/\S*/gi
+/** Absolute POSIX paths of two or more parts (not the path part of an address such as https://host/a/b). */
+const POSIX_PATH = /(?<![\w.:\/\\-])\/[^\s\/'"<>|]+(?:\/[^\s\/'"<>|]+)+\/?/g
+
+/** A message with folder paths and file addresses replaced by [path]. */
+export function withoutPaths(text: string): string {
+  return text.replace(FILE_URL, '[path]').replace(UNC_PATH, '[path]').replace(DRIVE_PATH, '[path]').replace(POSIX_PATH, '[path]')
+}
+
 /** Checks a report sent by the page. Returns null for anything not exactly of the report's shape. */
 export function parseWindowErrorReport(raw: unknown): WindowErrorReport | null {
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
@@ -82,7 +99,7 @@ export function parseWindowErrorReport(raw: unknown): WindowErrorReport | null {
   if (typeof r.message !== 'string' || r.message.length > 4 * MAX_WINDOW_ERROR_MESSAGE) return null
   if (!Array.isArray(r.places) || r.places.length > MAX_WINDOW_ERROR_PLACES) return null
   if (!r.places.every((p) => typeof p === 'string' && PLACE.test(p))) return null
-  const message = oneLine(r.message)
+  const message = withoutPaths(oneLine(r.message))
   if (!message) return null
   return { kind: r.kind as WindowErrorKind, message, places: [...(r.places as string[])] }
 }
@@ -93,13 +110,27 @@ export function windowErrorLine(r: WindowErrorReport): string {
   return `${what}: ${r.message}${r.places.length ? ` (at ${r.places.join(', ')})` : ''}`
 }
 
-/** Lets through at most `limit` reports per minute. */
-export function windowErrorLimiter(limit = MAX_WINDOW_ERRORS_PER_MINUTE, now: () => number = Date.now): () => boolean {
+/** The line written for the reports a full minute dropped. */
+export function droppedLine(n: number): string {
+  return `${n} more window error${n === 1 ? ' was' : 's were'} not written`
+}
+
+/**
+ * Lets through at most `limit` reports per minute. The reports dropped in a
+ * minute are counted; `onDropped` gets their number with the first report of
+ * a later minute.
+ */
+export function windowErrorLimiter(
+  limit = MAX_WINDOW_ERRORS_PER_MINUTE,
+  now: () => number = Date.now,
+  onDropped: (n: number) => void = () => undefined
+): () => boolean {
   let start = 0
   let count = 0
   return () => {
     const t = now()
     if (t - start >= 60_000) {
+      if (count > limit) onDropped(count - limit)
       start = t
       count = 0
     }

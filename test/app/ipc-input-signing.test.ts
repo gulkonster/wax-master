@@ -98,7 +98,7 @@ beforeEach(() => {
 
 const CHANNELS = [
   'tx:run', 'deploy:plan', 'deploy:simulate', 'deploy:run',
-  'accounts:create', 'accounts:changeKey', 'accounts:clearCode', 'accounts:pickList',
+  'accounts:create', 'accounts:changeKey', 'accounts:clearCode', 'accounts:pickList', 'wallet:permPreview', 'wallet:permSend',
   'faucet:create', 'faucet:tokens', 'faucet:suggestName',
   'toolchains:chooseFile', 'keys:exportVault', 'keys:newPending', 'keys:discardPending', 'keys:remove',
   'build:run', 'build:ensure', 'build:rebuild', 'ricardian:create', 'files:wasmInfo', 'app:setDirty'
@@ -166,6 +166,16 @@ describe('malformed input', () => {
     ['accounts:changeKey', [{ account: 'alice' }]],
     ['accounts:changeKey', [{ account: 'alice', permission: 'active', oldKey: 'a', newKey: 'b', signWith: 'BAD' }]],
     ['accounts:changeKey', [{ account: 'alice', permission: 'active', oldKey: 7, newKey: 'b', signWith: 'alice' }]],
+    ['wallet:permPreview', ['text', 'active']],
+    ['wallet:permPreview', [{ kind: 'updateauth', account: 'alice', permission: 'active' }, 'active']],
+    ['wallet:permPreview', [{ kind: 'setThreshold', account: 'alice', permission: 'active', threshold: 0 }, 'active']],
+    ['wallet:permPreview', [{ kind: 'addKey', account: 'alice', permission: 'active', key: KEY, weight: 1 }, 'BAD NAME']],
+    ['wallet:permPreview', [{ kind: 'addKey', account: 'alice', permission: 'active', key: KEY, weight: 1 }, 7]],
+    ['wallet:permPreview', [{ kind: 'addKey', account: 'BAD', permission: 'active', key: KEY, weight: 1 }, 'active']],
+    ['wallet:permSend', [{ kind: 'addKey', account: 'alice', permission: 'active', key: KEY, weight: 1 }, 'active', 7]],
+    ['wallet:permSend', [{ kind: 'addKey', account: 'alice', permission: 'active', key: KEY, weight: 1 }, 'active', 'x'.repeat(65)]],
+    ['wallet:permSend', [{ kind: 'deletePermission', account: 'alice', permission: 'claim', auth: {} }, 'BAD', 'b']],
+    ['wallet:permSend', [{ kind: 'eosioCode', account: 'alice', permission: 'active', enable: 'yes' }, 'active', 'b']],
     ['accounts:clearCode', [7, 'active']],
     ['accounts:clearCode', ['alice', 7]],
     ['accounts:clearCode', ['BAD', 'active']],
@@ -213,6 +223,10 @@ describe('malformed input', () => {
     expect(h.dialogCalls).toBe(1)
     await expect(call('keys:exportVault')).resolves.toBe(false)
     expect(h.dialogCalls).toBe(2)
+  })
+  it('wallet:permSend with a good shape stops at the locked vault before reading the chain or opening a window', async () => {
+    await expect(call('wallet:permSend', { kind: 'addKey', account: 'alice', permission: 'active', key: KEY, weight: 1 }, 'active', 'b')).rejects.toThrow(/unlock/i)
+    expect(h.dialogCalls).toBe(0)
   })
   it('a signing call with a good shape stops at the locked vault before any window', async () => {
     await expect(call('tx:run', [action])).rejects.toThrow(/unlock/i)

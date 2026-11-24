@@ -20,7 +20,7 @@ interface VaultKey {
   publicKey: string
 }
 
-function useVaultKeys(): VaultKey[] {
+export function useVaultKeys(): VaultKey[] {
   const [keys, setKeys] = useState<VaultKey[]>([])
   useEffect(() => {
     window.wax.keys.list().then(setKeys).catch(() => setKeys([]))
@@ -28,7 +28,7 @@ function useVaultKeys(): VaultKey[] {
   return keys
 }
 
-function KeyPicker({ value, onChange, keys }: { value: string; onChange: (v: string) => void; keys: VaultKey[] }): React.JSX.Element {
+export function KeyPicker({ value, onChange, keys }: { value: string; onChange: (v: string) => void; keys: VaultKey[] }): React.JSX.Element {
   return (
     <div className="key-picker">
       <select className="select" value={keys.some((k) => k.publicKey === value) ? value : ''} onChange={(e) => onChange(e.target.value)}>
@@ -44,13 +44,18 @@ function KeyPicker({ value, onChange, keys }: { value: string; onChange: (v: str
   )
 }
 
-export function CreateAccountDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
+/**
+ * The Create Account form: used by the dialog (Accounts menu) and by the
+ * wallet's Create account section. Returns the fields, the state of the
+ * Create button and the action that sends.
+ */
+export function useCreateAccountForm(initialCreator = ''): { body: React.JSX.Element; ok: boolean; busy: boolean; create: () => Promise<void> } {
   const net = useStore(networkStore).current
   const keys = useVaultKeys()
   const sym = net?.symbol ?? 'WAX'
   const prec = net?.precision ?? 8
   const zero = `${(0).toFixed(prec)} ${sym}`
-  const [creator, setCreator] = useState('')
+  const [creator, setCreator] = useState(initialCreator)
   const [creatorPerm, setCreatorPerm] = useState('active')
   const [name, setName] = useState('')
   const [ownerKey, setOwnerKey] = useState('')
@@ -121,24 +126,8 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
     }
   }
 
-  return (
-    <Modal
-      size="m"
-      name="create-account"
-      help="createAccount"
-      title={`Create Account on ${net?.name ?? ''}`}
-      onClose={busy ? undefined : onClose}
-      footer={
-        <>
-          <button className="btn" disabled={busy} onClick={onClose}>
-            Close
-          </button>
-          <button className="btn primary" disabled={!ok || busy} onClick={() => void create()}>
-            {busy ? 'Waiting for confirmation...' : 'Create'}
-          </button>
-        </>
-      }
-    >
+  const body = (
+    <>
       <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 2 }}>
           <label>Creator (pays)</label>
@@ -196,6 +185,33 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
       {line && <div className={formLineClass(line)}>{line.text}</div>}
       {trace && <InspectorBody t={trace} />}
       {noBackup.element}
+    </>
+  )
+  return { body, ok, busy, create }
+}
+
+export function CreateAccountDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
+  const net = useStore(networkStore).current
+  const { body, ok, busy, create } = useCreateAccountForm()
+  return (
+    <Modal
+      size="m"
+      name="create-account"
+      help="createAccount"
+      title={`Create Account on ${net?.name ?? ''}`}
+      onClose={busy ? undefined : onClose}
+      footer={
+        <>
+          <button className="btn" disabled={busy} onClick={onClose}>
+            Close
+          </button>
+          <button className="btn primary" disabled={!ok || busy} onClick={() => void create()}>
+            {busy ? 'Waiting for confirmation...' : 'Create'}
+          </button>
+        </>
+      }
+    >
+      {body}
     </Modal>
   )
 }

@@ -7,7 +7,7 @@ export const HELP_TOPICS = {
   createAccount: 'create-account',
   testnetAccount: 'create-testnet-account',
   manageKeypairs: 'vault',
-  changeKey: 'accounts-and-names',
+  changeKey: 'change-key-safely',
   addNetwork: 'add-remove-networks',
   manageNetworks: 'add-remove-networks',
   networkPage: 'network-page',
@@ -23,6 +23,13 @@ export const HELP_TOPICS = {
   walletCpuNet: 'resources-cpu-net',
   walletFaucet: 'create-testnet-account',
   walletTransactions: 'transaction-history',
+  walletPermissions: 'permissions-overview',
+  walletThreshold: 'multisig-threshold',
+  walletNewPermission: 'custom-permissions',
+  walletEosioCode: 'eosio-code',
+  walletLinks: 'linked-actions',
+  walletCreateAccount: 'create-account',
+  walletContract: 'contract-section',
   /** "Read more" under a CPU / NET / RAM refusal. */
   resourceRefusal: 'simulate-inspector',
   /** "Read more" under the ABI check text. */

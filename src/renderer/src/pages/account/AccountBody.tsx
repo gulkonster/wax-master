@@ -12,7 +12,7 @@ import { errorText } from '../../lib/toast'
 import { isWaxTestnet } from '../../components/FaucetButton'
 import { HelpButton } from '../../components/HelpButton'
 import { IconKey } from '../../components/Icons'
-import { fmtBytes, fmtTime, fmtUs, Gauge, pct, viewOnlyReason, type WalletContext } from './common'
+import { fmtBytes, fmtTime, fmtUs, Gauge, pct, useReadsAfterSend, viewOnlyReason, type WalletContext } from './common'
 import { TokensSection } from './TokensSection'
 import { TransferSection } from './TransferSection'
 import { RamSection } from './RamSection'
@@ -20,8 +20,11 @@ import { CpuNetSection } from './CpuNetSection'
 import { PermissionsSection } from './PermissionsSection'
 import { FaucetSection } from './FaucetSection'
 import { TransactionsSection } from './TransactionsSection'
+import { LinksSection } from './LinksSection'
+import { ContractSection } from './ContractSection'
+import { CreateAccountSection } from './CreateAccountSection'
 
-type SectionId = 'tokens' | 'transfer' | 'ram' | 'cpunet' | 'keys' | 'faucet' | 'transactions'
+type SectionId = 'tokens' | 'transfer' | 'ram' | 'cpunet' | 'keys' | 'links' | 'contract' | 'create' | 'faucet' | 'transactions'
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'tokens', label: 'Tokens' },
@@ -29,6 +32,9 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'ram', label: 'RAM' },
   { id: 'cpunet', label: 'CPU / NET' },
   { id: 'keys', label: 'Keys and permissions' },
+  { id: 'links', label: 'Linked actions' },
+  { id: 'contract', label: 'Contract' },
+  { id: 'create', label: 'Create account' },
   { id: 'faucet', label: 'Testnet faucet' },
   { id: 'transactions', label: 'Transactions' }
 ]
@@ -67,6 +73,17 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
     void loadTokens()
   }, [load, loadTokens])
 
+  // After a sent transaction: account, tokens and stakes at once, after 1.5 s and after 4 s; the Transactions list with the last.
+  const [readTick, setReadTick] = useState(0)
+  const [txTick, setTxTick] = useState(0)
+  const afterSend = useReadsAfterSend(
+    () => {
+      reload()
+      setReadTick((t) => t + 1)
+    },
+    () => setTxTick((t) => t + 1)
+  )
+
   // Read again when the vault's keys change: the badge follows them.
   useEffect(() => {
     reload()
@@ -90,7 +107,7 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
   if (!view) return <div className="coming">Loading {name}...</div>
 
   const viewOnly = view.control.length === 0
-  const ctx: WalletContext = { view, viewOnly, reason: viewOnlyReason(view.name), reload }
+  const ctx: WalletContext = { view, viewOnly, reason: viewOnlyReason(view.name), reload, afterSend, readTick }
   const testnet = isWaxTestnet(net)
   const shown = SECTIONS.filter((s) => s.id !== 'faucet' || testnet)
   const current = shown.some((s) => s.id === section) ? section : 'tokens'
@@ -170,8 +187,11 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
           {current === 'ram' && <RamSection ctx={ctx} />}
           {current === 'cpunet' && <CpuNetSection ctx={ctx} />}
           {current === 'keys' && <PermissionsSection ctx={ctx} />}
+          {current === 'links' && <LinksSection ctx={ctx} />}
+          {current === 'contract' && <ContractSection ctx={ctx} />}
+          {current === 'create' && <CreateAccountSection ctx={ctx} />}
           {current === 'faucet' && <FaucetSection ctx={ctx} />}
-          {current === 'transactions' && <TransactionsSection name={view.name} />}
+          {current === 'transactions' && <TransactionsSection name={view.name} refresh={txTick} />}
         </div>
       </div>
     </div>

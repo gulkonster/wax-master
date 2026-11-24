@@ -22,9 +22,9 @@ The **Token** template is a standard token contract, the same interface as `eosi
 
 ## The zero-balance rule
 
-In this template a balance row is erased as soon as it reaches zero. That gives the row's RAM (about 240 bytes) back to whoever paid for it. Rules that follow:
+In this template a balance row is erased as soon as it reaches zero, and its RAM goes back to whoever paid for it. A row is 128 bytes; the first row of an account costs 112 bytes more, for the account's table. When a holder sends a part of his balance, he becomes the payer of his row and its 128 bytes move to him. The 112 bytes stay with whoever paid for the account's first row until the account's last row is removed. Rules that follow:
 
-- A missing row means a zero balance.
+- A missing row means a zero balance. The template's `get_balance` returns zero without a row, but another contract compiled with the standard token header still fails in its own `get_balance` for an account without a row, exactly as for an account that never held the token.
 - The next transfer to that account creates the row again; the receiver pays if he signed, otherwise the sender pays.
 - `open` and `close` keep their standard form. A row opened at zero stays until it has held tokens and is emptied.
 - `retire` of the issuer's whole balance erases the issuer's row; `issue` creates it again.
@@ -36,7 +36,7 @@ The source carries a commented-out action `transfers(from, to, quantities, memo)
 ## How to do it here
 
 1. File > New Project > **Token**. Name it, for example `mytoken`.
-2. Build (Ctrl+B) and deploy it to a starred testnet account. The code needs about 180,000 bytes of RAM; the Deploy dialog offers Buy RAM. See [Deploy](doc:deploy).
+2. Build (Ctrl+B) and deploy it to a starred testnet account. The code needs about 160,000 bytes of RAM; the Deploy dialog offers Buy RAM. See [Deploy](doc:deploy).
 3. On the Contract page open the contract account and run, signed by the contract account: `create` with `issuer` = your account and `maximum_supply` = `1000000.0000 WMT`.
 4. Run `issue` signed by the issuer: `to` = the issuer, `quantity` = `1000.0000 WMT`.
 5. Run `transfer` to send some to another account.
@@ -46,7 +46,7 @@ The source carries a commented-out action `transfers(from, to, quantities, memo)
 
 ## Example
 
-After issuing 1000 and transferring all of it away, a query of `accounts` with scope = the issuer shows **No rows.** The issuer's RAM usage dropped by about 240 bytes. Transfer 50 back and the row is there again.
+After issuing 1000 and transferring all of it away, a query of `accounts` with scope = the issuer shows **No rows.** The issuer's RAM usage dropped by 240 bytes: 128 for the row and 112 for the issuer's table, since it was his last row. Transfer 50 back and the row is there again.
 
 ## What is needed
 

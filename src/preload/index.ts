@@ -160,8 +160,13 @@ const api: WaxApi = {
   wallet: {
     tokens: call('wallet:tokens'),
     addedTokens: call('wallet:addedTokens'),
+    balance: call('wallet:balance'),
     addToken: call('wallet:addToken'),
-    removeToken: call('wallet:removeToken')
+    removeToken: call('wallet:removeToken'),
+    permPreview: call('wallet:permPreview'),
+    permSend: call('wallet:permSend'),
+    links: call('wallet:links'),
+    contractInfo: call('wallet:contractInfo')
   },
   networkInfo: {
     overview: call('networkInfo:overview'),

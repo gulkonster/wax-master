@@ -9,7 +9,8 @@ import { HelpButton } from '../../components/HelpButton'
 import { IconRefresh } from '../../components/Icons'
 import { fmtTime } from './common'
 
-export function TransactionsSection({ name }: { name: string }): React.JSX.Element {
+/** `refresh` grows with the last read after a sent transaction: the list is read again then. */
+export function TransactionsSection({ name, refresh = 0 }: { name: string; refresh?: number }): React.JSX.Element {
   const [rows, setRows] = useState<AccountActionRow[]>([])
   const [historyNote, setHistoryNote] = useState('')
   const [more, setMore] = useState(false)
@@ -39,7 +40,7 @@ export function TransactionsSection({ name }: { name: string }): React.JSX.Eleme
 
   useEffect(() => {
     void loadRows(0)
-  }, [loadRows])
+  }, [loadRows, refresh])
 
   useEffect(
     () =>

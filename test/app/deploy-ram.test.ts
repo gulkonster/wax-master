@@ -1,11 +1,13 @@
 // RAM estimate of a deployment: the chain bills the difference to what the
 // account already holds, so a redeployment needs only the bytes it adds.
 
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({ dataDir: '' }))
 vi.mock('electron', () => ({ app: { getPath: () => h.dataDir, isPackaged: false, getAppPath: () => h.dataDir }, BrowserWindow: class {}, dialog: {} }))
-import { base64Size, chainCodeSize, deployRam } from '../../src/main/deploy'
+import { base64Size, chainCodeSize, deployRam, readCodeHash } from '../../src/main/deploy'
 import { CODE_SIZE_UNREAD, deployRamText, ramToBuy } from '../../src/shared/ram-market'
 
 const n = (x: number): string => x.toLocaleString()
@@ -79,5 +81,29 @@ describe('the size of the code on the account', () => {
       `RAM needed about ${n(175_250)} bytes; available ${n(1_000)} bytes. ${CODE_SIZE_UNREAD}`
     )
     expect(CODE_SIZE_UNREAD).toBe('The size of the code now on the account could not be read; counted as a first deployment.')
+  })
+
+  it('a failed code hash read is said when code is sent', async () => {
+    const hash = await readCodeHash(async () => Promise.reject(new Error('down')))
+    // The comparison keeps treating it as no code, but the read is remembered.
+    expect(hash).toEqual({ hash: '', unread: true })
+    expect(await readCodeHash(async () => ({ code_hash: '0'.repeat(64) }))).toEqual({ hash: '', unread: false })
+    expect(await readCodeHash(async () => ({ code_hash: 'ab'.repeat(32) }))).toEqual({ hash: 'ab'.repeat(32), unread: false })
+    const read = vi.fn(async () => ({ wasm: 'AAAA' }))
+    const code = await chainCodeSize(hash.hash !== '', read, hash.unread)
+    expect(code).toEqual({ size: 0, unread: true })
+    expect(read).not.toHaveBeenCalled()
+    const r = deployRam({ sendWasm: true, wasmSize: 17_525, chainCodeSize: code.size, sendAbi: false, abiSize: 0, chainAbiSize: 0 })
+    expect(deployRamText({ ramNeeded: r.needed, ramNew: r.newBytes, ramReplaced: r.replacedBytes, ramAvailable: 1_000, chainCodeUnread: code.unread })).toBe(
+      `RAM needed about ${n(175_250)} bytes; available ${n(1_000)} bytes. ${CODE_SIZE_UNREAD}`
+    )
+    // Only the ABI sent: no code is counted, nothing to say.
+    expect(await chainCodeSize(false, read, false)).toEqual({ size: 0, unread: false })
+  })
+
+  it('the deployment plan passes a failed hash read on', () => {
+    const src = readFileSync(join(__dirname, '../../src/main/deploy.ts'), 'utf8')
+    expect(src).toContain('readCodeHash(() => readCall((ep) => chain.getCodeHash(')
+    expect(src).toContain('sendWasm && hashRead.unread')
   })
 })

@@ -15,6 +15,8 @@ The header shows the account name, its star, its creation date and a control bad
 
 Below the header a summary band shows the totals: the total, the available (liquid) balance, the staked part (CPU and NET), tokens in a refund that is still waiting, and tokens staked to this account by others. Next to it, gauges show RAM, CPU and NET with what is used and the total.
 
+The Tokens section lists the core token read from the chain; tokens other than the core token are listed as the history service reports them, with the contract under each name.
+
 A list of sections sits on the left of the page. Each section is one job, for example tokens and transfers, RAM, CPU and NET, the testnet faucet on WAX Testnet, and the transactions of the account. Sections that are not ready in your version of the app are not shown.
 
 Every form has the same shape: one sentence on what it does, its fields, the action it will send shown below the fields (as JSON and as a `cleos` line), a **?** button that opens its help page, and a button that opens the confirmation window. A signer picker lets you choose which permission signs, from those the vault can satisfy.

@@ -10,7 +10,8 @@ import { ContractHistory, getContractAbi, getContractDef, KEY_TYPES, packAction,
 import { dataDir } from './paths'
 import { chain, history, request } from './rpc'
 import { vault } from './keys-service'
-import { addedTokens, MAX_HISTORY_TOKENS, precisionFromStats, TOKEN_SYMBOL, walletTokens } from './wallet-tokens'
+import { linksFromAccount, linksFromHistory } from './wallet-permissions'
+import { addedTokens, MAX_HISTORY_TOKENS, NETWORK_ID_FORM, precisionFromStats, TOKEN_SYMBOL, tokenBalance, walletTokens } from './wallet-tokens'
 
 /** Public keys of the vault (empty when there is none or it cannot be read). */
 function vaultPublicKeys(): string[] {
@@ -28,7 +29,7 @@ import { log } from './log'
 import { isUnknownAccount } from './account-pick'
 import { ramPriceError, readRamPrice } from './ram-price'
 import { RAM_MAX_BUY } from '../shared/ram-market'
-import type { AuthLevel, ContractHistoryKind, ContractHistoryList } from '../shared/chain-types'
+import type { AuthLevel, ContractHistoryKind, ContractHistoryList, ContractInfoView, LinkedActionsView } from '../shared/chain-types'
 
 const KINDS = ['mainnet', 'testnet', 'local'] as const
 const HIST_KINDS = ['action', 'query'] as const
@@ -162,7 +163,7 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
     if (!acc) throw new Error('account: enter an account name')
     const n = networks.currentNetwork()
     return walletTokens(n, {
-      coreBalance: async () => (await networks.readCall((ep) => chain.getCurrencyBalance(ep, 'eosio.token', acc, n.symbol), n))[0] ?? '',
+      coreBalance: () => networks.readCall((ep) => chain.getCurrencyBalance(ep, 'eosio.token', acc, n.symbol), n),
       balance: (contract, symbol) => networks.readCall((ep) => chain.getCurrencyBalance(ep, contract, acc, symbol), n),
       historyTokens: n.history ? () => history.getTokens(n.history!, acc, MAX_HISTORY_TOKENS) : undefined,
       added: addedTokens().list(n.id)
@@ -185,12 +186,57 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
     if (precision === null) throw new Error(`${code} has no token ${sym} on ${n.name}.`)
     return addedTokens().add(n.id, { contract: code, symbol: sym, precision })
   })
+  // The balance and precision of one token for a form that sends, read from the chain (never from the history service).
+  handle('wallet:balance', (_e, account, contract, symbol) => {
+    const acc = chainName(account, 'account')
+    if (!acc) throw new Error('account: enter an account name')
+    const code = chainName(contract, 'contract')
+    if (!code) throw new Error('contract: enter the token contract')
+    const sym = str(symbol, 'symbol', 7)
+    if (!TOKEN_SYMBOL.test(sym)) throw new Error('symbol: 1 to 7 capital letters')
+    const n = networks.currentNetwork()
+    return tokenBalance(
+      {
+        balance: () => networks.readCall((ep) => chain.getCurrencyBalance(ep, code, acc, sym), n),
+        stats: () => networks.readCall((ep) => chain.getCurrencyStats(ep, code, sym), n)
+      },
+      code,
+      sym
+    )
+  })
   handle('wallet:removeToken', (_e, contract, symbol) => {
     const sym = str(symbol, 'symbol', 7)
     if (!TOKEN_SYMBOL.test(sym)) throw new Error('symbol: 1 to 7 capital letters')
     return addedTokens().remove(networks.currentNetwork().id, chainName(contract, 'contract'), sym)
   })
-  handle('wallet:addedTokens', () => addedTokens().list(networks.currentNetwork().id))
+  // Linked actions: the node's get_account first, the history service when the node does not report them.
+  handle('wallet:links', async (_e, name): Promise<LinkedActionsView> => {
+    const acc = chainName(name, 'account')
+    if (!acc) throw new Error('account: enter an account name')
+    const n = networks.currentNetwork()
+    const fromNode = linksFromAccount(await networks.readCall((ep) => chain.getAccount(ep, acc), n))
+    if (fromNode) return { rows: fromNode, source: 'node' }
+    if (!n.history) return { rows: [], source: 'none' }
+    return { rows: linksFromHistory(await history.getLinks(n.history, acc)), source: 'history' }
+  })
+  // Contract section: code hash, ABI hash and the last code update.
+  handle('wallet:contractInfo', async (_e, name): Promise<ContractInfoView> => {
+    const acc = chainName(name, 'account')
+    if (!acc) throw new Error('account: enter an account name')
+    const n = networks.currentNetwork()
+    const a = await networks.readCall((ep) => chain.getAccount(ep, acc), n)
+    const raw = await networks.readCall((ep) => chain.getRawAbi(ep, acc), n)
+    const hash = (v: unknown): string => (typeof v === 'string' && /^[0-9a-f]{64}$/.test(v) && !/^0+$/.test(v) ? v : '')
+    const codeHash = hash(raw.code_hash)
+    const last = typeof a.last_code_update === 'string' && /^\d{4}-\d\d-\d\dT[\d:.]+$/.test(a.last_code_update) ? a.last_code_update : ''
+    return { hasCode: codeHash !== '', codeHash, abiHash: hash(raw.abi_hash), lastCodeUpdate: codeHash && !last.startsWith('1970-') ? last : '' }
+  })
+  // The tokens added for the current network, or for a named one (the question before a network is removed).
+  handle('wallet:addedTokens', (_e, networkId) => {
+    const id = optStr(networkId, 'network', 64)
+    if (id !== undefined && !NETWORK_ID_FORM.test(id)) throw new Error('network: not a network id')
+    return addedTokens().list(id ?? networks.currentNetwork().id)
+  })
   // Existence of an account (recipient check, "name is free"); a failed request is an error, not "missing".
   handle('chain:accountExists', async (_e, name) => {
     const acc = chainName(name, 'account')

@@ -259,6 +259,8 @@ export const history = {
     request<Record<string, unknown>>(hist, `/v2/history/get_transaction?id=${encodeURIComponent(id)}`),
   getTokens: (hist: string, account: string, limit: number) =>
     request<Record<string, unknown>>(hist, `/v2/state/get_tokens?account=${encodeURIComponent(account)}&limit=${limit}`),
+  getLinks: (hist: string, account: string) =>
+    request<Record<string, unknown>>(hist, `/v2/state/get_links?account=${encodeURIComponent(account)}&limit=500`),
   health: (hist: string) => request<Record<string, unknown>>(hist, '/v2/health', { timeoutMs: 8000 })
 }
 

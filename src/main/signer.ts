@@ -131,10 +131,23 @@ export interface SendResult {
 export class SignerError extends Error {
   constructor(
     message: string,
-    readonly details?: unknown
+    readonly details?: unknown,
+    /** Set when the transaction may have reached the node: no answer, or the node already has it. */
+    readonly mayHaveArrived = false
   ) {
     super(message)
   }
+}
+
+/** How an approval failed: the node refused it, it may have arrived, or nothing was sent. */
+export type ApproveFailure = 'refused' | 'unknown' | 'not-sent'
+
+/** The kind of a failed approval, from the error the signer threw. */
+export function approveFailure(err: unknown): ApproveFailure {
+  if (err instanceof SignerError && err.mayHaveArrived) return 'unknown'
+  // Only the node's own error answer carries details.
+  if (err instanceof SignerError && err.details !== undefined) return 'refused'
+  return 'not-sent'
 }
 
 function sha256Hex(b: Uint8Array): string {
@@ -465,13 +478,16 @@ export class Signer {
       if (e instanceof RpcError && isDuplicate(e.details)) {
         throw new SignerError(
           `The node already has transaction ${s.record.transactionId}: an earlier attempt of this send reached it. Check the transaction in the history before sending again.`,
-          e.details
+          e.details,
+          true
         )
       }
       // No answer at all (also a time limit): the transaction may have arrived before the connection broke.
       if (e instanceof RpcError && e.status === 0) {
         throw new SignerError(
-          `${e.message} The transaction ${s.record.transactionId} may still have reached the node. Open it in the history (or look at the account) before sending again.`
+          `${e.message} The transaction ${s.record.transactionId} may still have reached the node. Open it in the history (or look at the account) before sending again.`,
+          undefined,
+          true
         )
       }
       if (e instanceof RpcError) throw new SignerError(nodeErrorMessage(e.details, e.message), e.details)

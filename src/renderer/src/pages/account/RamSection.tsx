@@ -7,7 +7,7 @@ import { accountRamDefault, formatCost, formatUnits, ramCost, ramSellReturn } fr
 import { BuyRamPanel, useRamMarket } from '../../components/BuyRamPanel'
 import { PermissionPicker } from '../../components/AccountPicker'
 import { HelpButton } from '../../components/HelpButton'
-import { CommandView, fmtBytes, Gauge, NAME, pct, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
+import { CommandView, fmtBytes, FormSwitch, Gauge, NAME, pct, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
 
 export function RamSection({ ctx }: { ctx: WalletContext }): React.JSX.Element {
   const { view } = ctx
@@ -16,6 +16,7 @@ export function RamSection({ ctx }: { ctx: WalletContext }): React.JSX.Element {
   const unlimited = view.ram.quota < 0
   const free = unlimited ? 0 : Math.max(0, view.ram.quota - view.ram.usage)
   const perKb = market ? ramCost(market, 1024) : null
+  const [form, setForm] = useState<'buy' | 'sell'>('buy')
 
   return (
     <section className="wallet-section">
@@ -37,16 +38,30 @@ export function RamSection({ ctx }: { ctx: WalletContext }): React.JSX.Element {
         <div className="hint">{price.reason}</div>
       ) : (
         <>
-          <BuyRamPanel
-            receiver={view.name}
-            initialBytes={accountRamDefault(view.ram.usage, view.ram.quota)}
-            onBought={ctx.reload}
-            onFaucet={ctx.reload}
-            byAmount
-            blockedReason={ctx.viewOnly ? ctx.reason : undefined}
-            commandView={(action) => <CommandView action={action} />}
-          />
-          {!unlimited && <SellRam ctx={ctx} free={free} />}
+          {!unlimited && (
+            <FormSwitch
+              label="RAM form"
+              value={form}
+              options={[
+                { id: 'buy', label: 'Buy' },
+                { id: 'sell', label: 'Sell' }
+              ]}
+              onChange={setForm}
+            />
+          )}
+          {form === 'sell' && !unlimited ? (
+            <SellRam ctx={ctx} free={free} />
+          ) : (
+            <BuyRamPanel
+              receiver={view.name}
+              initialBytes={accountRamDefault(view.ram.usage, view.ram.quota)}
+              onBought={ctx.afterSend}
+              onFaucet={ctx.reload}
+              byAmount
+              blockedReason={ctx.viewOnly ? ctx.reason : undefined}
+              commandView={(action) => <CommandView action={action} />}
+            />
+          )}
         </>
       )}
     </section>
@@ -60,7 +75,7 @@ function SellRam({ ctx, free }: { ctx: WalletContext; free: number }): React.JSX
   const [bytesText, setBytesText] = useState('1024')
   const [touched, setTouched] = useState(false)
   const [permission, setPermission] = useState(view.control[0] ?? 'active')
-  const { busy, message, send } = useSend()
+  const { busy, message, send } = useSend(ctx.afterSend)
   const bytes = /^\d{1,10}$/.test(bytesText) ? Number(bytesText) : NaN
   const bytesOk = Number.isInteger(bytes) && bytes >= 1 && bytes <= free
   const back = market && bytesOk ? ramSellReturn(market, bytes) : null
@@ -73,7 +88,7 @@ function SellRam({ ctx, free }: { ctx: WalletContext; free: number }): React.JSX
   const sell = async (): Promise<void> => {
     setTouched(true)
     if (ctx.viewOnly || !action) return
-    await send([action], `${bytes.toLocaleString()} bytes of RAM sold.`, ctx.reload)
+    await send([action], `${bytes.toLocaleString()} bytes of RAM sold.`, () => setTouched(false))
   }
 
   return (
