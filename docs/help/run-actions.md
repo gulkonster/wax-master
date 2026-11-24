@@ -7,7 +7,7 @@ An action is a function of a contract that you call with a transaction. The Cont
 1. Press the **Contracts** button in the top bar (or **Open as contract** on the Account page). Type the contract account and press Enter. Each contract opens in its own tab.
 2. Choose the action in the list at the top left.
 3. Fill in **Parameters**. Fields of type `name` offer your starred accounts and vault accounts; `asset` fields show the format, for example `1.00000000 WAX`. Fields of a struct or list type take JSON. **Raw JSON** switches to one JSON text for the whole action.
-4. Open **Authorization**: the account and permission that sign. **Add signer** adds a second signer when the action needs two.
+4. Open **Authorization**: the account and permission that sign. A new tab starts with the opened account when it is starred, else with the signer you last used with Run or Simulate on this network, else with the account of the top bar's Account button and `active`. **Add signer** adds a second signer when the action needs two.
 5. Press **Run**. The confirmation window shows the network, the signers and the action data. Press **Approve and send**.
 6. **Result** shows the transaction id, status, block and CPU time. **Open in inspector** shows the full trace, including the console output of each action.
 

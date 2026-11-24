@@ -13,6 +13,9 @@ import { isUnlockCancelled } from '../../../shared/vault-locked'
 import { CANCELLED_NOT_SIGNED, formLineClass, outcomeLine, type FormLine } from '../lib/tx-outcome'
 import { AccountPicker, PermissionPicker } from './AccountPicker'
 import { ReadMore } from './HelpButton'
+import { lastOpened } from './ChainButtons'
+import { networkStore } from '../lib/networks'
+import { defaultContractSigner, lastContractSigner, rememberContractSigner } from '../lib/contract-signer'
 
 // ---------------------------------------------------------------- shared dropdown
 
@@ -260,7 +263,10 @@ export function ActionForm({ account, view, network }: { account: string; view: 
   const [rawText, setRawText] = useState('{}')
   const [command, setCommand] = useState(false)
   // Who signs: one or more account@permission levels, chosen with the account and permission pickers.
-  const [auth, setAuth] = useState<AuthLevel[]>([{ actor: account, permission: 'active' }])
+  // The first signer is worked out once, when the tab opens; it never changes by itself.
+  const [auth, setAuth] = useState<AuthLevel[]>(() =>
+    defaultContractSigner(account, networkStore.get().stars, lastContractSigner(network.id), lastOpened.get().account)
+  )
   const authText = auth.map((l) => `${l.actor}@${l.permission}`).join(', ')
   const setLevel = (i: number, patch: Partial<AuthLevel>): void => {
     setTouched(true)
@@ -391,8 +397,8 @@ export function ActionForm({ account, view, network }: { account: string; view: 
     }
   }
 
+  // Switching between the form and Raw JSON is not an edit: errors stay hidden until the user edits or presses Run / Simulate / Command.
   const toggleRaw = (): void => {
-    setTouched(true)
     if (!raw) {
       const cur = (() => {
         try {
@@ -435,6 +441,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
       toast('Check the form', cur.error || auth.error || 'Authorization is required', 'error')
       return null
     }
+    rememberContractSigner(network.id, auth.levels)
     return [{ account, name: action.name, authorization: auth.levels, data: cur.data }]
   }
 

@@ -45,7 +45,7 @@ action(permission_level{get_self(), "active"_n}, token_in.contract, "transfer"_n
 
 - `token_in` is an `extended_asset`: the transfer goes to `token_in.contract`, the contract that issues the token. With a plain `asset` the contract would have to guess the token contract, and a token with the same symbol on another contract is a different token. See [Assets and symbols](doc:contract-assets).
 - `min_out` is an `extended_asset` too: its quantity and contract are the memo's minimum out.
-- The deadline is the block time plus `DEADLINE_SECONDS` (3 minutes). Inside one transaction it cannot pass; it matters when a swap is sent later.
+- The deadline is the block time of the action plus `DEADLINE_SECONDS` (3 minutes). It is worked out when the action runs, so it moves with the transaction and can never pass: here it protects nothing. The memo needs one; `0` would do the same.
 - The transfer is signed by the contract's own `active` permission, so the account needs `eosio.code`; see [The eosio.code permission](doc:eosio-code) and [Inline actions](doc:contract-inline-actions).
 - `swap.alcor` runs the swap when it receives the transfer and sends the token out to the recipient, the contract account. If anything is refused, the whole transaction is undone and nothing moves.
 
@@ -61,7 +61,7 @@ action(permission_level{get_self(), "active"_n}, token_in.contract, "transfer"_n
 
 1. File > New Project. Under **Examples** choose **Alcor swap**, keep the name `swapper`, choose the location and press **Create**.
 2. Contract > Build (Ctrl+B). The Output ends with no errors and no warnings.
-3. Select WAX Testnet with the Network button. Accounts > Create Testnet Account: create the contract account, press **Request test tokens**, then **Open account** and press the star. This example needs no second account: the contract swaps its own WAX.
+3. Select WAX Testnet with the Network button. Accounts > Create Testnet Account: create the contract account, press **Request test tokens**, then **Open account** and press the star. This example needs no second account: the contract swaps its own WAX. If **Request test tokens** is refused (the faucet limits how often it sends tokens and shows its own message), send WAX to the contract account from an account you have (its Account page, section **Transfer**) before deploying.
 4. Contract > Deploy. **Account**: the contract account, **Permission**: `active`. If the dialog says RAM is missing, press **Buy RAM** and approve, then press **Deploy** and approve.
 5. This contract has no tables, so it needs no RAM for rows. The first time the contract account receives a token, `swap.alcor` pays for its balance row at that token's contract.
 6. On the contract account's Account page open **Keys and permissions**. On `active` use the switch **Allow this account's contract to send actions (eosio.code)**, press **Send to confirmation** and approve.
@@ -92,6 +92,7 @@ action(permission_level{get_self(), "active"_n}, token_in.contract, "transfer"_n
 
 - Only the contract account can call `swap`. An action anybody could call would let him trade the contract's tokens at a price he moved in the same transaction.
 - The minimum out comes from the caller, read from the pool before sending, never worked out inside the contract from the pool's price.
+- The deadline protects nothing here: it is worked out when the action runs. A contract whose swap can run later than it was signed (a multisig proposal, for example) takes the deadline as a parameter from the caller, like the minimum out.
 - The pools belong to others: their tokens, price and liquidity can change at any time, and a pool id can point to another pair on another network.
 - The contract does not check what came back. A contract that must use the result listens for the transfer from `swap.alcor` with a notification handler on the token contract it expects (see [Notifications (on_notify)](doc:contract-notifications)) and checks `from` and the quantity.
 

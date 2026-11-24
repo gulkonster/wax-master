@@ -5,11 +5,12 @@ A contract that swaps its own tokens on Alcor, the exchange of WAX. `swap` sends
 This contract is an example to learn from: not audited; do not hold real value with it unchanged.
 
 Before you build on it: only the contract account can call `swap`, because an action anybody could call would let him trade the contract's tokens at a price he moved in the same transaction; and the minimum out comes from the caller, read from the pool before sending, never worked out inside the contract from the pool's price.
+The deadline in the memo is worked out when the action runs, so it never passes; a contract whose swap can run later than it was signed (a multisig proposal, for example) takes the deadline from the caller, like the minimum out.
 The pools belong to others: their tokens, price and liquidity can change at any time. The contract does not check what came back; a contract that must use the result listens for the transfer from `swap.alcor` on the token contract it expects.
 
 ## What is in it
 
-- `swap(pool_id, token_in, min_out)`: signed by the contract account. `token_in` and `min_out` are `extended_asset`s: a quantity and the token contract that issues it, so the transfer goes to the right token contract and the memo names the token wanted. Sends `token_in` from the contract account to `swap.alcor` with the memo `swapexactin#<pool_id>#<contract account>#<min_out quantity>@<min_out contract>#<deadline>`, the deadline 3 minutes ahead (`DEADLINE_SECONDS`). The inline transfer is signed by the contract's own `active`, so it needs `eosio.code`. The memo is printed to the console.
+- `swap(pool_id, token_in, min_out)`: signed by the contract account. `token_in` and `min_out` are `extended_asset`s: a quantity and the token contract that issues it, so the transfer goes to the right token contract and the memo names the token wanted. Sends `token_in` from the contract account to `swap.alcor` with the memo `swapexactin#<pool_id>#<contract account>#<min_out quantity>@<min_out contract>#<deadline>`; the deadline is the block time of the action plus 3 minutes (`DEADLINE_SECONDS`), so it cannot pass and protects nothing. The inline transfer is signed by the contract's own `active`, so it needs `eosio.code`. The memo is printed to the console.
 - `swap.alcor` checks the memo, swaps in the pool and sends the other token to the contract account with the memo `Swap tokenOut - Pool ID #<id>`. If the pool cannot give `min_out`, the whole transaction is refused and nothing moves.
 - No tables.
 
@@ -17,7 +18,7 @@ The pools belong to others: their tokens, price and liquidity can change at any 
 
 1. File > New Project. Under **Examples** choose **Alcor swap**, keep the name `%CONTRACT%`, choose the location and press **Create**.
 2. Contract > Build (Ctrl+B). The Output ends with no errors and no warnings.
-3. Select WAX Testnet with the Network button. Accounts > Create Testnet Account: create the **contract account**, press **Request test tokens**, then **Open account** and press the star. This example needs no second account: the contract swaps its own WAX.
+3. Select WAX Testnet with the Network button. Accounts > Create Testnet Account: create the **contract account**, press **Request test tokens**, then **Open account** and press the star. This example needs no second account: the contract swaps its own WAX. If **Request test tokens** is refused (the faucet limits how often it sends tokens and shows its own message), send WAX to the contract account from an account you have (its Account page, section **Transfer**) before deploying.
 4. Contract > Deploy. **Account**: the contract account, **Permission**: `active`. If the dialog says RAM is missing, press **Buy RAM** and approve, then press **Deploy** and approve.
 5. This contract has no tables, so it needs no RAM for rows. The first time the contract account receives a token, `swap.alcor` pays for its balance row at that token's contract.
 6. On the contract account's Account page open **Keys and permissions**. On `active` use the switch **Allow this account's contract to send actions (eosio.code)**, press **Send to confirmation** and approve.

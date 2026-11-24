@@ -1,7 +1,10 @@
 #include <%CONTRACT%.hpp>
 
 static constexpr name ALCOR_SWAP = "swap.alcor"_n;
-// swap.alcor refuses the swap after this many seconds (the memo's deadline).
+// The memo needs a deadline. This one is the block time of the action plus
+// these seconds, so it cannot pass and protects nothing. A contract whose swap
+// can run later than it was signed (a multisig proposal, for example) takes
+// the deadline as a parameter from the caller, like the minimum out.
 static constexpr uint32_t DEADLINE_SECONDS = 3 * 60;
 
 void %CLASS%::swap(uint64_t pool_id, extended_asset token_in, extended_asset min_out) {
@@ -17,6 +20,8 @@ void %CLASS%::swap(uint64_t pool_id, extended_asset token_in, extended_asset min
   check(token_in.get_extended_symbol() != min_out.get_extended_symbol(), "token_in and min_out are the same token");
 
   // swapexactin#<pool id>#<recipient>#<minimum out>@<token contract>#<deadline>
+  // The deadline is worked out when the action runs (block time plus 3
+  // minutes): it moves with the transaction, so swap.alcor never sees it pass.
   const uint32_t deadline = current_time_point().sec_since_epoch() + DEADLINE_SECONDS;
   const std::string memo = "swapexactin#" + std::to_string(pool_id) + "#" + get_self().to_string() + "#" +
                            min_out.quantity.to_string() + "@" + min_out.contract.to_string() + "#" +
