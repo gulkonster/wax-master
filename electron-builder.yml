@@ -29,6 +29,10 @@ extraResources:
       - '**/*'
   - from: build/icon.ico
     to: icon.ico
+  - from: LICENSE
+    to: LICENSE.txt
+  - from: THIRD_PARTY_NOTICES.md
+    to: THIRD_PARTY_NOTICES.md
   - from: toolchain-parts
     to: toolchain-parts
     filter:

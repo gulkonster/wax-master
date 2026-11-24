@@ -89,7 +89,7 @@
       ],
       "size": 5836188,
       "sha256": "67ceb432593fe62afbaf3bd85c73d46c66fa19433a6b58326a3248162f139b19",
-      "license": "see /usr/share/doc/libz3-4/copyright",
+      "license": "MIT",
       "source": "https://launchpad.net/ubuntu/+source/libz3-4"
     },
     {

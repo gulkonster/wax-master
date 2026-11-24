@@ -29,7 +29,9 @@ export default defineConfig({
   main: {
     define: {
       __APP_COMMIT__: JSON.stringify(commit()),
-      __APP_STAGE__: JSON.stringify(stage)
+      __APP_STAGE__: JSON.stringify(stage),
+      // Only the release workflow sets WAXMASTER_RELEASE_MAINNET=1, after the release checks have passed.
+      __MAINNET_SIGNING__: JSON.stringify(process.env.WAXMASTER_RELEASE_MAINNET === '1')
     },
     build: {
       rollupOptions: {
