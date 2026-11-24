@@ -18,7 +18,7 @@ import { FLAG_SETUP, compileCommands } from './compile-commands'
 import { lspKill, lspStart, lspWrite, onLspMessage, run, type LspProcessMessage } from './helper'
 import { log } from './log'
 import { currentProject } from './projects'
-import { toWslPath, toolchainState } from './toolchain'
+import { toWslPath, toolchainForProject, toolchainState, type ToolchainState } from './toolchain'
 
 const MAX_MESSAGE_CHARS = 16 * 1024 * 1024
 const MAX_HEADER_BYTES = 4 * 1024 * 1024
@@ -60,7 +60,15 @@ export function editorStatus(): EditorStatus {
 
 /** "wax-cdt-4.1.1wax01" -> "4.1.1wax01" */
 function cdtVersionOf(toolchainId: string): string {
-  return toolchainId.replace(/^wax-cdt-/, '')
+  const st = toolchainState(toolchainId)
+  if (st?.cdtRoot) return st.cdtRoot.split('/').pop() ?? toolchainId
+  return toolchainId.replace(/^(wax-)?cdt-/, '')
+}
+
+/** The toolchain whose headers the editor engine reads: the project's own choice when installed. */
+function engineToolchain(): ToolchainState | null {
+  const p = currentProject()
+  return toolchainState(toolchainForProject(p?.config.cdt ?? '').id)
 }
 
 export function projectEngineId(root: string): string {
@@ -193,7 +201,7 @@ export async function startEditor(sender: WebContents): Promise<EditorStatus> {
   killEngine()
   const p = currentProject()
   if (!p) return setStatus({ state: 'off', detail: 'No project is open.' }, sender)
-  const tc = toolchainState()
+  const tc = engineToolchain()
   if (!tc) {
     return setStatus(
       { state: 'off', detail: 'Code intelligence is off: the toolchain is not set up (Help > Setup). Syntax colors still work.' },
@@ -250,7 +258,7 @@ export function stopEditor(detail = 'No project is open.', now = false): void {
  */
 export async function refreshEditor(): Promise<void> {
   const e = engine
-  const tc = toolchainState()
+  const tc = engineToolchain()
   if (!e || !tc) return
   const p = currentProject()
   if (!p || p.root !== e.root) return
@@ -278,7 +286,7 @@ export function sendToEditor(session: number, msg: Record<string, unknown>): voi
 
 /** Reads a toolchain header for a read-only tab; only files under the toolchain header folders. */
 export async function readToolchainFile(uri: string): Promise<string> {
-  const tc = toolchainState()
+  const tc = engineToolchain()
   if (!tc) throw new Error('The toolchain is not set up.')
   const cdtRoot = `/usr/opt/cdt/${cdtVersionOf(tc.id)}`
   const roots = [`${cdtRoot}/include`]
