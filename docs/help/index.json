@@ -118,9 +118,9 @@
       "title": "NFTs and game tools",
       "topics": [
         { "id": "nft-atomicassets", "title": "AtomicAssets in short", "keywords": ["nft", "atomicassets", "collection", "schema", "template", "asset", "authorized account", "notify account", "mutable data", "burn", "backed tokens", "offer"] },
-        { "id": "nft-notifications", "title": "AtomicAssets notifications (logmint, logtransfer, ...)", "keywords": ["logmint", "logburnasset", "logtransfer", "lognewtempl", "logsetdata", "logbackasset", "lognewoffer", "notify account", "addnotifyacc", "on_notify", "hook"] },
-        { "id": "nft-drops", "title": "Drops (atomicdropsx)", "keywords": ["drop", "drops", "atomicdropsx", "createdrop", "claimdrop", "sell nft", "sale", "price", "whitelist", "deposit_collection_ram", "neftyblocksd"] },
-        { "id": "nft-packs", "title": "Packs (atomicpacksx)", "keywords": ["pack", "packs", "unbox", "open pack", "atomicpacksx", "announcepack", "addpackroll", "completepack", "claimunboxed", "odds", "chance", "probability", "loot box"] },
+        { "id": "nft-notifications", "title": "AtomicAssets notifications (logmint, logtransfer, ...)", "keywords": ["logmint", "logburnasset", "logtransfer", "lognewtempl", "logsetdata", "logbackasset", "lognewoffer", "notify account", "addnotifyacc", "on_notify", "hook", "nft transferred", "nft received"] },
+        { "id": "nft-drops", "title": "Drops (atomicdropsx)", "keywords": ["drop", "drops", "atomicdropsx", "createdrop", "claimdrop", "sell nft", "sale", "price", "whitelist", "deposit_collection_ram", "neftyblocksd", "free mint", "usd"] },
+        { "id": "nft-packs", "title": "Packs (atomicpacksx)", "keywords": ["pack", "packs", "unbox", "open pack", "atomicpacksx", "announcepack", "addpackroll", "completepack", "claimunboxed", "odds", "chance", "probability", "loot box", "rarity", "-1"] },
         { "id": "wax-services", "title": "Contracts and services a WAX game uses", "keywords": ["services", "ecosystem", "atomichub", "neftyblocks", "alcor", "orng", "delphioracle", "price oracle", "cloud wallet", "anchor", "hyperion", "api"] }
       ]
     },
@@ -133,7 +133,7 @@
         { "id": "example-staking", "title": "Example: Staking", "keywords": ["example", "staking", "stake", "unstake", "claim", "waiting time", "memo", "cpu", "net"] },
         { "id": "example-atomicassets", "title": "Example: AtomicAssets", "keywords": ["example", "atomicassets", "nft", "mint", "mintasset", "collection", "schema", "template", "logtransfer", "atomicmarket", "sale"] },
         { "id": "example-alcor-swap", "title": "Example: Alcor swap", "keywords": ["example", "alcor", "swap", "swap.alcor", "pool", "swapexactin", "minimum out", "extended_asset", "dex"] },
-        { "id": "example-nft-staking", "title": "Example: NFT staking", "keywords": ["example", "nft staking", "stake nft", "unstake", "ownership", "whose nft", "atomicassets", "transfer", "assets table"] },
+        { "id": "example-nft-staking", "title": "Example: NFT staking", "keywords": ["example", "nft staking", "stake nft", "unstake", "ownership", "whose nft", "atomicassets", "transfer", "assets table", "nft ownership", "staked_at", "byowner"] },
         { "id": "example-nft-blend", "title": "Example: NFT blend", "keywords": ["example", "blend", "craft", "merge", "combine", "burn", "burnasset", "mintasset", "recipe", "upgrade nft"] },
         { "id": "example-payments", "title": "Example: Token payments", "keywords": ["example", "payments", "accept token", "fake token", "scam", "get_first_receiver", "deposit", "withdraw", "extended_symbol"] },
         { "id": "example-random-number", "title": "Example: Random number (ORNG)", "keywords": ["example", "random", "orng", "orng.wax", "requestrand", "randnotify", "receiverand", "dice", "credits"] }

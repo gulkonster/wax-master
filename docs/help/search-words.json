@@ -19,7 +19,7 @@
     ["error", "problem", "fail", "failure", "broken", "not working"],
     ["fake token", "scam token", "fake", "scam", "counterfeit"],
     ["negative", "minus", "below zero", "less than zero"],
-    ["odds", "chance", "probability", "drop rate", "drop odds", "drop chance"],
+    ["odds", "chance", "probability", "drop rate", "drop odds", "drop chance", "rarity", "outcome"],
     ["ram", "memory", "storage"],
     ["account name", "username", "user name"],
     ["permission", "authority", "auth"],
@@ -83,6 +83,23 @@
     ["eosio.token", "system token"],
     ["amount", "quantity"],
     ["overflow", "wrap around", "too big"],
-    ["limit", "maximum", "max"]
+    ["limit", "maximum", "max"],
+    ["outbid", "refund", "bidrefund", "get my bid back", "claim refund"],
+    ["win a name", "won name", "create premium account"],
+    ["owner", "ownership", "whose", "holder"],
+    ["migrate", "migration", "move rows"],
+    ["binary extension", "optional field"],
+    ["table structure", "row layout", "struct"],
+    ["ram deposit", "collection ram", "deposit collection ram", "rambalances"],
+    ["checklist", "before mainnet", "security review"],
+    ["first receiver", "token contract", "issuer"],
+    ["look alike", "lookalike", "spoof", "counterfeit", "fake"],
+    ["cosigner", "cosign", "sponsor"],
+    ["free mint", "free drop", "giveaway"],
+    ["notify account", "notify accounts", "hook", "listener"],
+    ["mutable data", "setassetdata", "asset data"],
+    ["offer", "trade"],
+    ["log action", "logmint", "logtransfer"],
+    ["recipe", "blend recipe"]
   ]
 }

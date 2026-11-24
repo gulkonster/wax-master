@@ -59,7 +59,7 @@ The numbers are the service's own and can change. Open `orng.wax` on the Contrac
 
 These are the steps of the project. The note at the top says which of them were run on WAX Testnet.
 
-1. File > New Project > Examples > **Random number (ORNG)**. Keep the name `dice`, choose the location and press **Create**.
+1. File > New Project. Under **Examples** choose **Random number (ORNG)**, keep the name `dice`, choose the location and press **Create**.
 2. Contract > Build (Ctrl+B). The Output ends with no errors and no warnings.
 3. Select WAX Testnet with the Network button. Accounts > Create Testnet Account: create the contract account, press **Request test tokens**, then **Open account** and press the star. The faucet limits how often it creates accounts and sends tokens, and shows its own message when it refuses. The player account is an account you already have or one made from the contract account: on its Account page, section **Create account**, with some **Stake CPU** and **Stake NET** (for example `1.00000000 WAX` each). The player pays the RAM of his rolls from his own account. If **Request test tokens** is refused, send WAX to the contract account from an account you have (its Account page, section **Transfer**) before deploying.
 4. Contract > Deploy. **Account**: the contract account, **Permission**: `active`. If the dialog says RAM is missing, press **Buy RAM** and approve, then press **Deploy** and approve.

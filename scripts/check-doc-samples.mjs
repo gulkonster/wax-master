@@ -270,7 +270,12 @@ async function main() {
   const builtCount = [...results.values()].filter((b) => (b.expectError ? !b.built : b.built)).length
   console.log(`\n${rows.length} blocks, ${builds.size} builds, ${builtCount} as expected, ${failed} failed.`)
 
-  rmSync(work, { recursive: true, force: true })
+  try {
+    rmSync(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+  } catch (e) {
+    // A build process may still hold a file on Windows; the folder is in the temp folder.
+    console.log(`Could not remove ${work}: ${e.code ?? e}`)
+  }
   if (failed > 0) process.exit(1)
 }
 

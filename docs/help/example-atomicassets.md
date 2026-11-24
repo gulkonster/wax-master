@@ -12,6 +12,8 @@ Everything lives in the contract `atomicassets`. A **collection** has an author,
 
 Attribute values are typed. In the Contract page form an `ATTRIBUTE_MAP` field takes JSON: a list of pairs whose value is `["type", value]`, for example `[{"key":"name","value":["string","Example item"]}]`.
 
+More about collections, data, RAM, burning and offers: [AtomicAssets in short](doc:nft-atomicassets).
+
 ## How it works
 
 `setconfig(collection, schema, template_id)` stores what `mint` mints from, in a one-row table (see [Singletons](doc:contract-singletons)). Every reader creates his own collection, so these are not constants in the source. Only the contract account can run it.
@@ -41,7 +43,7 @@ action(permission_level{get_self(), "active"_n}, ATOMICASSETS, "mintasset"_n,
 | `atomicassets::transfer` | `from` and `to` | a `transfer` action only |
 | `atomicassets::logtransfer(collection_name, from, to, asset_ids, memo)` | the collection's notify accounts | every movement of the collection's assets, also an accepted offer (which sends no `transfer`) |
 
-The example listens to `logtransfer`. That is why the setup adds the contract as a notify account, why the handler gets the collection name without reading a table of `atomicassets`, and why it also sees assets that arrive through an offer.
+`logtransfer` is one of several log actions; [AtomicAssets notifications](doc:nft-notifications) lists them all with their fields, and has a sample that handles them. The example listens to `logtransfer`. That is why the setup adds the contract as a notify account, why the handler gets the collection name without reading a table of `atomicassets`, and why it also sees assets that arrive through an offer.
 
 ```cpp
 if (to != get_self()) return;
@@ -123,4 +125,4 @@ Assets are sold on `atomicmarket`, the market contract the AtomicHub site uses. 
 - Assets sent to the contract account stay with it: the contract has no action that sends them on, and only the contract account's own key can move them.
 - The handler cannot fail as written, but a new deployment that changes the `config` struct (a field added, for example) makes `cfg.get()` fail on the stored row: then every transfer, sale and offer of the collection is refused. The collection's author ends that with `atomicassets::remnotifyacc`, which removes the contract from the notify accounts.
 
-See also [Example: Transfer listener](doc:example-transfer-listener) for a notification handler on `eosio.token`, and [All examples](doc:examples).
+See also [AtomicAssets in short](doc:nft-atomicassets), [AtomicAssets notifications](doc:nft-notifications), [Example: Transfer listener](doc:example-transfer-listener) for a notification handler on `eosio.token`, and [All examples](doc:examples).
