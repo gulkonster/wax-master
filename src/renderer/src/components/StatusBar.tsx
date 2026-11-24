@@ -106,7 +106,7 @@ function ToolchainPicker({ ready, label }: { ready: boolean; label: string }): R
       </button>
       {open && (
         <div className="dropdown right" onMouseLeave={() => setOpen(false)}>
-          <div className="dd-section">LOCAL TOOLCHAINS</div>
+          <div className="dd-section">Local toolchains</div>
           {list.map((t) => (
             <div key={t.id} className={`dd-item${t.id === chosen ? ' selected' : ''}`} onClick={() => void pick(t.id)}>
               <span className="dd-lead">{t.id === chosen && <IconCheck />}</span>

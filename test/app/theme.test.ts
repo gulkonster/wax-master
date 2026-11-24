@@ -95,6 +95,18 @@ describe('colour tokens', () => {
     expect(checked).toBeGreaterThanOrEqual(9)
   })
 
+  it('editor comments and line numbers keep 4.5 : 1 on the content background', () => {
+    const lum = (hex: string): number => {
+      const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    }
+    const ratio = (a: string, b: string): number => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05)
+    expect(THEME.comment).toBe('#6A9955')
+    expect(THEME.lineNumber).toBe('#8A8A8A')
+    expect(ratio(THEME.comment, THEME.content)).toBeGreaterThanOrEqual(4.5)
+    expect(ratio(THEME.lineNumber, THEME.content)).toBeGreaterThanOrEqual(4.5)
+  })
+
   it('the first paint of each page and window has the background of its token', () => {
     const t = tokens()
     const html = (f: string): string => readFileSync(join(renderer, '..', f), 'utf8')

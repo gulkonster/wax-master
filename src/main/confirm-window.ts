@@ -56,6 +56,16 @@ export function focusOpenConfirmation(): void {
   }
 }
 
+/**
+ * Closes every open confirmation window (the vault was locked: its approval is gone).
+ * A window whose approval is already being sent is left alone; it ends with the send.
+ */
+export function closeOpenConfirmations(): void {
+  for (const p of [...pendingByWindow.values()]) {
+    if (!p.busy && !p.win.isDestroyed()) p.win.close()
+  }
+}
+
 export function registerConfirmWindow(signer: Signer): void {
   signerRef = signer
   if (registered) return

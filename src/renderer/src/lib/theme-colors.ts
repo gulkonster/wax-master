@@ -13,6 +13,10 @@ export const THEME = {
   text2: '#BDBDBD',
   /** --text-disabled */
   textDisabled: '#6E6E6E',
+  /** editor line numbers: 5.1 : 1 on --bg-content (no token) */
+  lineNumber: '#8A8A8A',
+  /** editor comments: 4.9 : 1 on --bg-content (no token) */
+  comment: '#6A9955',
   /** --accent */
   accent: '#DE8334',
   /** --bg-flyout */

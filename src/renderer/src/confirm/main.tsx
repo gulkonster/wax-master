@@ -207,20 +207,25 @@ function Confirm(): React.JSX.Element {
         <Row label="Expires">
           {a.expiration} UTC ({expired ? 'expired' : `${left} s left`})
         </Row>
-        {a.blocked && <div className="c-blocked">{a.blocked}</div>}
-        {a.typedName && !a.blocked && (
-          <div className="field" style={{ marginTop: 12 }}>
-            <label>
-              Type <b>{a.typedName}</b> to confirm this change on {a.network.name}:
-            </label>
-            <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} spellCheck={false} />
-          </div>
-        )}
         {note && <div className="hint">{note}</div>}
         {error && <div className="error-text">{error}</div>}
         {state === 'done' && <div className="c-done">Sent.</div>}
       </div>
       <div className="c-foot">
+        {state !== 'failed' && state !== 'done' && (
+          <div className="c-foot-notes">
+            {a.blocked && <div className="c-blocked">{a.blocked}</div>}
+            {a.typedName && !a.blocked && (
+              <div className="field">
+                <label>
+                  Type <b>{a.typedName}</b> to confirm this change on {a.network.name}:
+                </label>
+                <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} spellCheck={false} />
+              </div>
+            )}
+          </div>
+        )}
+        <div className="c-foot-actions">
         {state === 'failed' || state === 'done' ? (
           <button className="btn" onClick={() => window.close()}>
             Close
@@ -239,6 +244,7 @@ function Confirm(): React.JSX.Element {
             </button>
           </>
         )}
+        </div>
       </div>
     </div>
   )
@@ -316,6 +322,7 @@ function Reveal(): React.JSX.Element {
         {error && <div className="error-text">{error}</div>}
       </div>
       <div className="c-foot">
+        <div className="c-foot-actions">
         <button
           className="btn"
           onClick={() => {
@@ -332,6 +339,7 @@ function Reveal(): React.JSX.Element {
         <button className="btn danger" disabled={!pw} onClick={() => void show()}>
           Show for 30 seconds
         </button>
+        </div>
       </div>
     </div>
   )

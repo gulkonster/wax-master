@@ -3,6 +3,7 @@
 // into the vault and are never logged or sent to a window.
 
 import { parsePrivateKey } from '../chain-core'
+import { redact } from './log'
 import type { Vault } from './vault'
 
 export const FAUCET_HOST = 'https://faucet.waxsweden.org'
@@ -25,15 +26,39 @@ export interface FaucetResult {
 
 export type Fetcher = (url: string) => Promise<{ status: number; text: string }>
 
+/** Reads the body while it arrives and stops as soon as it passes `max` bytes. */
+export async function readCapped(res: Response, max: number, onTooLarge: () => void = () => undefined): Promise<string> {
+  const tooLarge = (): Error => {
+    onTooLarge()
+    return new Error('The faucet answer is too large')
+  }
+  if (Number(res.headers.get('content-length') ?? '0') > max) {
+    await res.body?.cancel().catch(() => undefined)
+    throw tooLarge()
+  }
+  if (!res.body) return ''
+  const reader = res.body.getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > max) {
+      await reader.cancel().catch(() => undefined)
+      throw tooLarge()
+    }
+    chunks.push(value)
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks))
+}
+
 export const defaultFetcher: Fetcher = async (url) => {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
   try {
     const res = await fetch(url, { signal: controller.signal, redirect: 'error', credentials: 'omit' })
-    const len = Number(res.headers.get('content-length') ?? '0')
-    if (len > MAX_BYTES) throw new Error('The faucet answer is too large')
-    const text = await res.text()
-    if (text.length > MAX_BYTES) throw new Error('The faucet answer is too large')
+    const text = await readCapped(res, MAX_BYTES, () => controller.abort())
     return { status: res.status, text }
   } catch (e) {
     if (controller.signal.aborted) throw new Error('The faucet did not answer within 20 seconds')
@@ -51,7 +76,7 @@ export function randomTestnetName(): string {
 
 function message(json: unknown, fallback: string): string {
   const m = (json as { msg?: unknown; message?: unknown } | null)?.msg ?? (json as { message?: unknown } | null)?.message
-  return typeof m === 'string' ? m.slice(0, 300) : fallback
+  return typeof m === 'string' ? redact(m.slice(0, 300)) : fallback
 }
 
 /** Finds the owner and active private keys in the faucet's answer. */
@@ -98,8 +123,35 @@ export async function createTestnetAccount(name: string, vault: Vault, fetcher: 
   if (!keys) {
     return { ok: false, message: `${message(json, `HTTP ${res.status}`)} Nothing was imported.` }
   }
-  const owner = vault.addKey(keys.owner, `${name} owner (faucet)`)
-  const active = keys.active === keys.owner ? owner : vault.addKey(keys.active, `${name} active (faucet)`)
+  // The vault may have locked during the wait; the account then exists without its keys in the vault.
+  if (!vault.isUnlocked()) {
+    return {
+      ok: false,
+      account: name,
+      message: `The vault was locked while the faucet worked. The account ${name} was probably created, but its keys could not be stored and cannot be recovered. Use another account name.`
+    }
+  }
+  let owner: { publicKey: string }
+  try {
+    owner = vault.addKey(keys.owner, `${name} owner (faucet)`)
+  } catch {
+    return {
+      ok: false,
+      account: name,
+      message: `The account ${name} was created, but its keys could not be stored (the vault locked or refused them). Nothing else can be done; use another account name.`
+    }
+  }
+  let active: { publicKey: string }
+  try {
+    active = keys.active === keys.owner ? owner : vault.addKey(keys.active, `${name} active (faucet)`)
+  } catch {
+    return {
+      ok: false,
+      account: name,
+      ownerPublic: owner.publicKey,
+      message: `Half import: the account ${name} was created and its owner key is in the vault, but its active key could not be stored. Nothing else can be done; use the owner key to set a new active key.`
+    }
+  }
   return {
     ok: true,
     message: message(json, 'Account created'),

@@ -25,7 +25,7 @@ self.MonacoEnvironment = {
 monaco.editor.defineTheme('wax-dark', {
   base: 'vs-dark',
   inherit: true,
-  rules: [],
+  rules: [{ token: 'comment', foreground: THEME.comment.slice(1) }],
   colors: {
     'editor.background': THEME.content,
     'editorGutter.background': THEME.content,
@@ -52,7 +52,7 @@ monaco.editor.defineTheme('wax-dark', {
     'scrollbarSlider.background': THEME.scrollThumb,
     'scrollbarSlider.hoverBackground': THEME.scrollThumbHover,
     'scrollbarSlider.activeBackground': THEME.scrollThumbHover,
-    'editorLineNumber.foreground': THEME.textDisabled,
+    'editorLineNumber.foreground': THEME.lineNumber,
     'editorLineNumber.activeForeground': THEME.text2
   }
 })

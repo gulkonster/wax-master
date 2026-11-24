@@ -127,7 +127,7 @@ export function DeployDialog({
       <div className="field" style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 1 }}>
           <label>Network</label>
-          <div className={`chip${net?.kind === 'mainnet' ? ' mainnet-text' : ''}`}>{net ? `${net.name} · ${net.endpoints[net.currentEndpoint]}` : '(none)'}</div>
+          <div className={`chip ui${net?.kind === 'mainnet' ? ' mainnet-text' : ''}`}>{net ? `${net.name} · ${net.endpoints[net.currentEndpoint]}` : '(none)'}</div>
         </div>
       </div>
       <div className="field" style={{ display: 'flex', gap: 8 }}>
@@ -147,9 +147,9 @@ export function DeployDialog({
             <thead>
               <tr>
                 <th />
-                <th>THIS BUILD (SHA-256)</th>
-                <th>ON THE ACCOUNT NOW</th>
-                <th>SENT</th>
+                <th>This build (SHA-256)</th>
+                <th>On the account now</th>
+                <th>Sent</th>
               </tr>
             </thead>
             <tbody>

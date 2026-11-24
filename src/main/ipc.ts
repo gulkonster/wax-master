@@ -3,7 +3,7 @@
 
 import { app, clipboard, dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { existsSync, mkdirSync } from 'node:fs'
-import type { AppInfo, Settings } from '../shared/api'
+import type { AppInfo, OpenProject, Settings } from '../shared/api'
 import { bool, int, localAbsPath, obj, oneOf, relPath, str } from '../shared/validate'
 import { normalizeConfig, type TemplateId } from '../shared/project'
 import { BUILD_COMMIT, BUILD_STAGE, MAINNET_SIGNING } from './build-info'
@@ -14,6 +14,7 @@ import * as store from './store'
 import * as toolchain from './toolchain'
 import * as terminal from './terminal'
 import { wasmInfo } from './wasm-info'
+import { openNotices } from './project-notices'
 import { runBuild, defaultBuildArgs } from './build'
 import { optStr } from '../shared/validate'
 import { run as runHelper } from './helper'
@@ -68,6 +69,12 @@ function handleTerminal(channel: string, fn: Handler): void {
 /** Editor calls: accepted only from the main frame of the editor page. */
 export function handle(channel: string, fn: Handler): void {
   guarded(channel, fromMainPage, fn)
+}
+
+/** Adds the one notice about replaced project values to the result of opening a folder. */
+function withNotices(p: OpenProject): OpenProject {
+  const notices = openNotices(p.path)
+  return notices.length > 0 ? { ...p, notices } : p
 }
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
@@ -125,13 +132,13 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     }
     const r = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)
     if (r.canceled || r.filePaths.length === 0) return null
-    return projects.openProject(r.filePaths[0])
+    return withNotices(projects.openProject(r.filePaths[0]))
   })
   handle('projects:open', (_e, path) => {
     const p = str(path, 'path', 1024)
     // Only projects already in the list can be opened by path; new ones go through the dialog.
     if (!store.findProject(p)) throw new Error('Unknown project; use Open Project')
-    return projects.openProject(p)
+    return withNotices(projects.openProject(p))
   })
   handle('projects:setMainFile', (_e, main) => projects.setMainFile(relPath(main, 'main')))
   handle('projects:saveConfig', (_e, cfg) => {
@@ -150,8 +157,18 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
 
   handle('files:tree', () => projects.projectTree())
   handle('files:read', (_e, rel) => projects.readProjectFile(relPath(rel, 'path')))
-  handle('files:write', async (e, rel, content) => {
-    const stamp = await projects.writeProjectFile(relPath(rel, 'path'), str(content, 'content', 20 * 1024 * 1024))
+  handle('files:write', async (e, rel, content, expected) => {
+    const path = relPath(rel, 'path')
+    const text = str(content, 'content', 20 * 1024 * 1024)
+    // The window passes the stamp it last saw; a different one on disk refuses the write here.
+    if (expected !== undefined && expected !== null) {
+      const o = obj(expected, 'expected')
+      if (typeof o.mtimeMs !== 'number' || !Number.isFinite(o.mtimeMs)) throw new Error('expected.mtimeMs: expected a number')
+      const want = { mtimeMs: o.mtimeMs, size: int(o.size, 'expected.size', 0, Number.MAX_SAFE_INTEGER) }
+      const now = await projects.statProjectFile(path)
+      if (now && (now.mtimeMs !== want.mtimeMs || now.size !== want.size)) throw new Error('changed on disk')
+    }
+    const stamp = await projects.writeProjectFile(path, text)
     e.sender.send('files-changed')
     return stamp
   })

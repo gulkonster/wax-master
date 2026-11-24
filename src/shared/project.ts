@@ -113,7 +113,7 @@ export function normalizeConfig(raw: unknown, fallbackContract: string): Project
   }
   return {
     ...base,
-    cdt: /^[a-z0-9.-]{0,64}$/.test(s('cdt')) ? s('cdt') : '',
+    cdt: /^([a-z0-9][a-z0-9.-]{0,63})?$/.test(s('cdt')) ? s('cdt') : '',
     include: safeProjectPath(s('include')),
     resource: safeProjectPath(s('resource')),
     output: ((o) => (o.endsWith('.wasm') ? o : ''))(safeProjectPath(s('output'))),
@@ -129,3 +129,51 @@ export const TEMPLATES: { id: TemplateId; label: string; description: string }[]
   { id: 'hello', label: 'Hello World', description: 'The classic "hi" action that prints a greeting.' },
   { id: 'token', label: 'Token', description: 'A standard token contract (create, issue, transfer, retire).' }
 ]
+
+function given(r: Record<string, unknown>, k: string): boolean {
+  return r[k] !== undefined && r[k] !== null && r[k] !== ''
+}
+
+/**
+ * Names of the waxmaster.json values that `normalizeConfig` replaced by a default
+ * because they were not valid or not safe (empty or missing values are not reported).
+ */
+export function replacedConfigValues(raw: unknown): string[] {
+  const r = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
+  const str = (k: string): string => (typeof r[k] === 'string' ? (r[k] as string) : '')
+  const out: string[] = []
+  const bad = (k: string, ok: boolean): void => {
+    if (given(r, k) && !ok) out.push(k)
+  }
+  bad('contract', isValidContract(str('contract')))
+  bad('main', ((p) => p !== '' && p.endsWith('.cpp'))(safeProjectPath(str('main'))))
+  bad('cdt', /^[a-z0-9.-]{0,64}$/.test(str('cdt')))
+  bad('include', safeProjectPath(str('include')) !== '')
+  bad('resource', safeProjectPath(str('resource')) !== '')
+  bad('output', ((p) => p !== '' && p.endsWith('.wasm'))(safeProjectPath(str('output'))))
+  bad('buildCommand', typeof r.buildCommand === 'string')
+  const d = r.deploy
+  if (given(r, 'deploy') && (typeof d !== 'object' || d === null)) out.push('deploy')
+  else if (typeof d === 'object' && d !== null) {
+    const t = (d as Record<string, unknown>).target
+    if (given(d as Record<string, unknown>, 'target') && t !== 'both' && t !== 'wasm' && t !== 'abi') out.push('deploy.target')
+  }
+  return out
+}
+
+/** Names of the .eosproj values that are not valid or not safe and were left out. */
+export function replacedEosprojValues(raw: unknown): string[] {
+  const r = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>
+  const out: string[] = []
+  const safe = (k: string, ext?: string): void => {
+    if (!given(r, k)) return
+    const p = typeof r[k] === 'string' ? safeProjectPath(r[k] as string) : ''
+    if (p === '' || (ext !== undefined && !p.endsWith(ext))) out.push(k)
+  }
+  safe('main', '.cpp')
+  safe('include')
+  safe('resource')
+  safe('output')
+  if (given(r, 'contract') && !(typeof r.contract === 'string' && isValidContract(r.contract))) out.push('contract')
+  return out
+}

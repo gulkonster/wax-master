@@ -25,11 +25,6 @@ import {
   secureWebPreferences
 } from './security'
 
-// A packaged build never runs with debugging, inspector or security-weakening switches.
-if (app.isPackaged && hasBlockedSwitch(process.argv, (s) => app.commandLine.hasSwitch(s))) {
-  app.exit(1)
-}
-
 process.on('uncaughtException', (err) => log.error('Uncaught error', err))
 process.on('unhandledRejection', (err) => log.error('Unhandled rejection', err))
 
@@ -45,6 +40,12 @@ app.setName('WAX Master')
     toFile(line)
     if (!app.isPackaged) process.stdout.write(line + '\n')
   })
+}
+
+// A packaged build never runs with debugging, inspector or security-weakening switches.
+if (app.isPackaged && hasBlockedSwitch(process.argv, (s) => app.commandLine.hasSwitch(s))) {
+  log.error('WAX Master did not start: a command line switch that is not allowed was given (debugging, inspector or security setting).')
+  app.exit(1)
 }
 
 app.setAppUserModelId('io.github.gulkonster.waxmaster')

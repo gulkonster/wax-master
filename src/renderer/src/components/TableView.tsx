@@ -79,7 +79,7 @@ export function TableView({ account, view }: { account: string; view: ContractAb
     if (!tbl) return
     const limit = f.limit.trim() === '' ? 10 : Number(f.limit)
     if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
-      setError('LIMIT: enter a whole number from 1 to 1000')
+      setError('Limit: enter a whole number from 1 to 1000')
       return
     }
     setLoading(true)
@@ -173,7 +173,7 @@ export function TableView({ account, view }: { account: string; view: ContractAb
               <span className="lead">
                 <IconTable />
               </span>
-              <span className="name">{table || (view.tables.length ? 'Pick a table' : '(no tables)')}</span>
+              <span className={`name${table ? '' : ' ui'}`}>{table || (view.tables.length ? 'Pick a table' : '(no tables)')}</span>
               <IconChevronDown className="chev" />
             </>
           }
@@ -215,27 +215,27 @@ export function TableView({ account, view }: { account: string; view: ContractAb
       </div>
       <div className="query-grid">
         <div>
-          <div className="field-label">SCOPE</div>
+          <div className="field-label">Scope</div>
           <input className="field-input" spellCheck={false} value={q.scope} placeholder={account} onChange={(e) => set('scope', e.target.value)} onKeyDown={enter} />
         </div>
         <div>
-          <div className="field-label">LOWER_BOUND</div>
+          <div className="field-label">Lower bound</div>
           <input className="field-input" spellCheck={false} value={q.lower} placeholder="Default: 0" onChange={(e) => set('lower', e.target.value)} onKeyDown={enter} />
         </div>
         <div>
-          <div className="field-label">UPPER_BOUND</div>
+          <div className="field-label">Upper bound</div>
           <input className="field-input" spellCheck={false} value={q.upper} placeholder="Default: none" onChange={(e) => set('upper', e.target.value)} onKeyDown={enter} />
         </div>
         <div>
-          <div className="field-label">LIMIT</div>
+          <div className="field-label">Limit</div>
           <input className="field-input" spellCheck={false} value={q.limit} placeholder="Default: 10" onChange={(e) => set('limit', e.target.value)} onKeyDown={enter} />
         </div>
         <div>
-          <div className="field-label">INDEX</div>
+          <div className="field-label">Index</div>
           <input className="field-input" spellCheck={false} value={q.index} placeholder="Default: 1 (primary)" onChange={(e) => set('index', e.target.value)} onKeyDown={enter} />
         </div>
         <div>
-          <div className="field-label">KEY TYPE</div>
+          <div className="field-label">Key type</div>
           <select className="field-input" value={q.keyType} onChange={(e) => set('keyType', e.target.value)}>
             <option value="">Default</option>
             {KEY_TYPES.map((k) => (
@@ -246,7 +246,7 @@ export function TableView({ account, view }: { account: string; view: ContractAb
           </select>
         </div>
         <div>
-          <div className="field-label">REVERSE</div>
+          <div className="field-label">Reverse</div>
           <label className="field-check">
             <input type="checkbox" checked={q.reverse} onChange={(e) => set('reverse', e.target.checked)} /> Newest first
           </label>

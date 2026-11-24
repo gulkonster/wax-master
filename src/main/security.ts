@@ -3,6 +3,7 @@
 import { app, dialog, protocol, session, shell, type BrowserWindow, net } from 'electron'
 import { join, normalize, relative, isAbsolute } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { DEV_URL_ARG } from '../shared/preload-exposure'
 import { TERMINAL_HOST, TERMINAL_ORIGIN, TERMINAL_PAGE, terminalPageUrl } from '../shared/terminal-frame'
 
 export const APP_SCHEME = 'app'
@@ -98,7 +99,10 @@ export function secureWebPreferences(preload: string): Electron.WebPreferences {
     allowRunningInsecureContent: false,
     webviewTag: false,
     spellcheck: false,
-    devTools: !app.isPackaged
+    devTools: !app.isPackaged,
+    // Development only: the preload then also accepts the dev server's exact origin.
+    additionalArguments:
+      !app.isPackaged && process.env.ELECTRON_RENDERER_URL ? [`${DEV_URL_ARG}${process.env.ELECTRON_RENDERER_URL}`] : []
   }
 }
 

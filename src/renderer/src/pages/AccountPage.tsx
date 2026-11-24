@@ -277,9 +277,9 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
           <table className="tx-table clickable">
             <thead>
               <tr>
-                <th>TIME</th>
-                <th>ACTION</th>
-                <th>DATA</th>
+                <th>Time</th>
+                <th>Action</th>
+                <th>Data</th>
               </tr>
             </thead>
             <tbody>

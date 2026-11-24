@@ -69,7 +69,7 @@ Existing EOS Studio projects open as they are (File > Open Project); settings ar
 - Verify installers as described above before first use.
 - A copied private key stays in Windows clipboard history (Win+V) or in clipboard tools if you use them; the app clears only the normal clipboard after 30 seconds.
 - Networks you add yourself count as mainnet (red confirmation, typed account names) unless they are marked as test networks; the WAX Mainnet chain id is always treated as mainnet.
-- The app contacts only the chain endpoints you choose, the GitHub release check (can be turned off), and the WAX Testnet faucet (https://faucet.waxsweden.org) when you press Create Testnet Account.
+- The app contacts only the chain endpoints you choose, the GitHub release check (can be turned off), and the WAX Testnet faucet (https://faucet.waxsweden.org) when you press Create Testnet Account or Request test tokens.
 
 See [SECURITY.md](SECURITY.md) to report a vulnerability.
 

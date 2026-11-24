@@ -95,7 +95,7 @@ export function SavedMenus(props: {
             >
               <IconHeart /> Save current {noun} as favorite
             </div>
-            <div className="dd-section">FAVORITES</div>
+            <div className="dd-section">Favorites</div>
             {props.favorites.length === 0 && <div className="dd-note">No favorites yet</div>}
             {list(props.favorites, 'favorite', close)}
           </>
@@ -104,7 +104,7 @@ export function SavedMenus(props: {
       <PickMenu button={<IconClock />} title={`${noun[0].toUpperCase()}${noun.slice(1)} history`} align="right">
         {(close) => (
           <>
-            <div className="dd-section">HISTORY</div>
+            <div className="dd-section">History</div>
             {props.history.length === 0 && <div className="dd-note">Nothing yet</div>}
             {list(props.history, 'history', close)}
           </>
@@ -549,8 +549,8 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                   {(
                     [
                       ['JSON', pack?.json],
-                      ['PACKED HEX', pack?.hex],
-                      ['CLEOS', pack?.cleos]
+                      ['Packed hex', pack?.hex],
+                      ['Cleos', pack?.cleos]
                     ] as const
                   ).map(([label, text]) => (
                     <div key={label}>
@@ -622,10 +622,10 @@ export function ActionForm({ account, view, network }: { account: string; view: 
               {resultNote && <div className="error-text">{resultNote}</div>}
               {!result && !resultNote && !running && <div>(None)</div>}
               {result && (
-                <div className="mono-small">
-                  {result.source === 'simulation' ? 'Simulation' : 'Transaction'} {result.id.slice(0, 16)}… · {result.status}
+                <div className="result-line">
+                  {result.source === 'simulation' ? 'Simulation' : 'Transaction'} <span className="mono-small">{result.id.slice(0, 16)}…</span> · {result.status}
                   {result.block ? ` · block ${result.block}` : ''}
-                  {result.cpuUs !== null ? ` · CPU ${result.cpuUs} µs` : ''}
+                  {result.cpuUs !== null ? ` · CPU ${result.cpuUs} µs` : ''}
                   {result.errorMessage && <div className="error-text">{result.errorMessage}</div>}
                   <div>
                     <button className="btn" style={{ marginTop: 8 }} onClick={() => emit('show-inspector', result)}>

@@ -11,7 +11,7 @@ import { getSettings } from './store'
 import { focusOpenConfirmation, hasOpenConfirmation, openConfirmation } from './confirm-window'
 import { simulate, probeSimulation } from './simulate'
 import { fromHistory, fromNodeAnswer, fromNodeError, withResourceState } from './trace'
-import { currentNetwork, endpointOf, getNetwork } from './networks'
+import { WAX_TESTNET_CHAIN, WAX_TESTNET_ID, currentNetwork, endpointOf, getNetwork } from './networks'
 import { chain, history } from './rpc'
 import { clearCodeActions, deployActions, planDeploy } from './deploy'
 import { BUSY_MESSAGE, LOCKED_MESSAGE, type ActionRequest, type PrepareKind } from './signer'
@@ -92,6 +92,12 @@ async function signAndSend(win: BrowserWindow | null, networkId: string, actions
     }
   }
   return { status: 'cancelled' }
+}
+
+/** The faucet is for WAX Testnet only: the preset id and its chain id must both match. */
+function requireWaxTestnet(): void {
+  const n = currentNetwork()
+  if (n.id !== WAX_TESTNET_ID || n.chainId !== WAX_TESTNET_CHAIN) throw new Error('Switch to WAX Testnet first.')
 }
 
 export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
@@ -176,11 +182,11 @@ export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
 
   // WAX Testnet faucet (only on the WAX Testnet preset; keys go into the vault in this process).
   handle('faucet:create', async (_e, name) => {
-    if (currentNetwork().id !== 'wax-testnet') throw new Error('Switch to WAX Testnet first.')
+    requireWaxTestnet()
     return createTestnetAccount(str(name, 'name', 12), vault())
   })
   handle('faucet:tokens', async (_e, name) => {
-    if (currentNetwork().id !== 'wax-testnet') throw new Error('Switch to WAX Testnet first.')
+    requireWaxTestnet()
     return requestTokens(chainName(name, 'name'))
   })
   handle('faucet:suggestName', () => randomTestnetName())

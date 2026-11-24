@@ -178,6 +178,8 @@ export function setMainFile(main: string): OpenProject {
   const abs = resolveInProject(main)
   if (!existsSync(abs) || !abs.endsWith('.cpp')) throw new Error('Main file must be an existing .cpp file')
   const rel = toRel(abs)
+  // The main file goes to the compiler as given: no path part may start with "-".
+  if (safeProjectPath(rel) !== rel) throw new Error('The main file path must not have a part that starts with "-"')
   const stem = basename(rel, '.cpp').toLowerCase()
   const e = current.eosproj
   const contract = e?.contract ?? (isValidContractName(stem) ? stem : current.config.contract)
@@ -308,7 +310,8 @@ export async function readProjectBytes(rel: string, maxBytes = 50 * 1024 * 1024)
 
 /** Git's own data is never changed from the editor (hooks there would run as the user). */
 export function refuseGitPath(rel: string): void {
-  if (rel.replace(/\\/g, '/').split('/').some((seg) => seg.toLowerCase() === '.git')) {
+  // GIT~1 is the 8.3 short name of .git where short names are on; it reaches the same folder.
+  if (rel.replace(/\\/g, '/').split('/').some((seg) => seg.toLowerCase() === '.git' || /^git~\d+$/i.test(seg))) {
     throw new Error('Files inside .git cannot be changed from the editor')
   }
 }

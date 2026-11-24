@@ -770,6 +770,12 @@ input[type='radio'] {
   line-height: 18px;
 }
 /* A read-only value (key, hash, path) shown in full. */
+.chip.ui {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
 .chip {
   display: block;
   padding: 6px 10px;
@@ -1765,6 +1771,20 @@ button.sb-item.mainnet:hover {
   border: 1px solid transparent;
   border-radius: var(--radius);
 }
+.keys-table .key-label {
+  min-width: 220px;
+}
+.keys-table td.mono-small {
+  min-width: 240px;
+}
+.keys-table .label-input {
+  width: 100%;
+}
+.keys-table .key-accounts .mono-small {
+  word-break: normal;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
 .label-input:hover {
   border-color: var(--border-control);
 }
@@ -1971,6 +1991,10 @@ button.sb-item.mainnet:hover {
   max-height: 54px;
   overflow: hidden;
   color: var(--text-2);
+}
+.result-line {
+  line-height: 18px;
+  user-select: text;
 }
 .mono-small {
   font-family: var(--font-mono);
@@ -2227,6 +2251,9 @@ button.sb-item.mainnet:hover {
   white-space: nowrap;
   font-family: var(--font-mono);
 }
+.pick-btn .name.ui {
+  font-family: var(--font-ui);
+}
 .pick-btn .chev {
   color: var(--text-2);
 }
@@ -2336,11 +2363,12 @@ button.sb-item.mainnet:hover {
 }
 .query-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 0 16px;
   padding: 0 12px 12px;
 }
 .query-grid .field-label {
+  font-family: var(--font-ui);
   margin-top: 8px;
 }
 .data-scroll {

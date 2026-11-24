@@ -8,7 +8,7 @@ import { handle } from './ipc'
 import { dataDir } from './paths'
 import { Vault, MIN_PASSWORD_LENGTH, type VaultFile } from './vault'
 import { Signer, defaultDeps } from './signer'
-import { registerConfirmWindow } from './confirm-window'
+import { closeOpenConfirmations, registerConfirmWindow } from './confirm-window'
 import { getSettings } from './store'
 import { chain } from './rpc'
 import { currentNetwork, readCall } from './networks'
@@ -147,7 +147,10 @@ export function registerKeys(getWindow: () => BrowserWindow | null): void {
     if (w && !w.isDestroyed()) w.webContents.send('vault-changed', status())
   })
   vault().onChange((unlocked) => {
-    if (!unlocked) closeRevealWindows()
+    if (!unlocked) {
+      closeRevealWindows()
+      closeOpenConfirmations()
+    }
   })
 
   handle('keys:status', () => status())

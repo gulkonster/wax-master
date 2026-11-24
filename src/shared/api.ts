@@ -61,6 +61,8 @@ export interface OpenProject {
   candidates: string[]
   /** Present when settings were taken from an EOS Studio .eosproj file. */
   eosproj?: { buildScript: string }
+  /** Set once when the folder opened: project values that were replaced by their default. */
+  notices?: string[]
 }
 
 /** What identifies one state of a file on disk. */
@@ -266,8 +268,11 @@ export interface WaxApi {
   files: {
     tree(): Promise<TreeNode>
     read(rel: string): Promise<FileContent>
-    /** Writes the file and returns its new modification time and size. */
-    write(rel: string, content: string): Promise<FileStamp>
+    /**
+     * Writes the file and returns its new modification time and size. With `expected`, the main
+     * process refuses ("changed on disk") when the file on disk has another modification time or size.
+     */
+    write(rel: string, content: string, expected?: FileStamp): Promise<FileStamp>
     /** Modification time and size, or null when the file does not exist. */
     stat(rel: string): Promise<FileStamp | null>
     create(rel: string, dir: boolean): Promise<void>

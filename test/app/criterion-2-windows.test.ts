@@ -294,3 +294,26 @@ describe('task 5b and 5c: one confirmation at a time; a locked vault stops befor
     await call('keys:unlock', editor(), PW)
   })
 })
+
+describe('locking the vault closes an open confirmation window', () => {
+  it('keys:lock closes the window, ends the request as closed and frees the next one', async () => {
+    await call('keys:unlock', editor(), PW).catch(() => undefined)
+    const { win, done } = openOne('appr-lock')
+    expect(hasOpenConfirmation()).toBe(true)
+    await call('keys:lock', editor())
+    expect(win.destroyed).toBe(true)
+    await expect(done).resolves.toEqual({ approved: false, reason: 'closed' })
+    expect(hasOpenConfirmation()).toBe(false)
+    // An approve that arrives afterwards is refused: the window is no longer known.
+    await expect(call('confirm:approve', confirmEvent(win), 'appr-lock')).rejects.toThrow('Refused')
+    await call('keys:unlock', editor(), PW)
+  })
+
+  it('the vault locking by itself (not only keys:lock) does the same', async () => {
+    const { win, done } = openOne('appr-lock2')
+    vault().lock()
+    expect(win.destroyed).toBe(true)
+    await expect(done).resolves.toMatchObject({ approved: false, reason: 'closed' })
+    await call('keys:unlock', editor(), PW)
+  })
+})

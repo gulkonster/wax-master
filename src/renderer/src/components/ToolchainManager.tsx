@@ -59,8 +59,8 @@ export function ToolchainManager({ busy, onBusy }: { busy: boolean; onBusy: (b: 
       <table className="tx-table">
         <thead>
           <tr>
-            <th>TOOLCHAIN</th>
-            <th>COMPILER</th>
+            <th>Toolchain</th>
+            <th>Compiler</th>
             <th>WSL</th>
             <th />
           </tr>

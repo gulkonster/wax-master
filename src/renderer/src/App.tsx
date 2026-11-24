@@ -157,6 +157,7 @@ export function App(): React.JSX.Element {
       },
       projectOpened: (p: OpenProject) => {
         patch({ project: p, view: 'project' })
+        if (p.notices && p.notices.length > 0) toast('Project settings replaced', p.notices.join(' '), 'info')
         void window.wax.projects.list().then((projects) => patch({ projects }))
       },
       closeProject: async () => {

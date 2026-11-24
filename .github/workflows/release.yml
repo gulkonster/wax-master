@@ -33,9 +33,11 @@ jobs:
 
       - name: Check that the tag matches package.json
         shell: pwsh
+        env:
+          TAG_NAME: ${{ github.ref_name }}
         run: |
           $pkg = Get-Content package.json -Raw | ConvertFrom-Json
-          $tag = '${{ github.ref_name }}'.TrimStart('v')
+          $tag = $env:TAG_NAME.TrimStart('v')
           if ($pkg.version -ne $tag) { throw "Tag $tag does not match package.json version $($pkg.version)" }
 
       - name: Install pinned dependencies (no package install scripts)
@@ -61,7 +63,8 @@ jobs:
 
       - name: Build the installer
         env:
-          WAXMASTER_RELEASE_MAINNET: '1'
+          # Mainnet signing only in a final release tag (no "-" suffix); release candidates keep it off.
+          WAXMASTER_RELEASE_MAINNET: ${{ !contains(github.ref_name, '-') && '1' || '0' }}
         run: npm run dist
 
       - name: Packaging check of the built app
@@ -84,18 +87,21 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
           $f = (Get-ChildItem dist -Filter 'WAX-Master-Setup-*.exe').FullName
-          gh attestation verify $f -R ${{ github.repository }}
+          gh attestation verify $f -R $env:REPO
           if ($LASTEXITCODE -ne 0) { throw 'Attestation check failed' }
 
       - name: Create the draft release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
         run: |
           $f = (Get-ChildItem dist -Filter 'WAX-Master-Setup-*.exe').FullName
-          $ghArgs = @('release', 'create', '${{ github.ref_name }}', $f, 'dist/SHA256SUMS.txt', '--draft', '--title', 'WAX Master ${{ github.ref_name }}', '--notes-file', 'docs/release-notes-template.md', '-R', '${{ github.repository }}')
-          if ('${{ github.ref_name }}' -match '-') { $ghArgs += '--prerelease' }
+          $ghArgs = @('release', 'create', $env:TAG_NAME, $f, 'dist/SHA256SUMS.txt', '--draft', '--title', "WAX Master $($env:TAG_NAME)", '--notes-file', 'docs/release-notes-template.md', '-R', $env:REPO)
+          if ($env:TAG_NAME -match '-') { $ghArgs += '--prerelease' }
           & gh @ghArgs
           if ($LASTEXITCODE -ne 0) { throw 'Creating the draft release failed' }

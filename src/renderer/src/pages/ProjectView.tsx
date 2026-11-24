@@ -429,6 +429,8 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     if (!d?.model) return null
     try {
       if (tab.kind === 'file') {
+        // The stamp the main process compares with the disk before it writes.
+        let expected = d.mtimeMs !== undefined && d.size !== undefined ? { mtimeMs: d.mtimeMs, size: d.size } : undefined
         if (d.mtimeMs !== undefined) {
           const st = await window.wax.files.stat(tab.rel)
           if (st && (st.mtimeMs !== d.mtimeMs || st.size !== d.size)) {
@@ -442,9 +444,11 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
               d.size = f.size
               return null
             }
+            // The user chose to overwrite what is on disk now.
+            expected = { mtimeMs: st.mtimeMs, size: st.size }
           }
         }
-        const stamp = await window.wax.files.write(tab.rel, d.model.getValue())
+        const stamp = await window.wax.files.write(tab.rel, d.model.getValue(), expected)
         d.mtimeMs = stamp.mtimeMs
         d.size = stamp.size
       } else if (tab.kind === 'external') await window.wax.files.writeExternal(tab.token, d.model.getValue())

@@ -94,7 +94,8 @@ export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit:
   const restoreTo = useRef<Element | null>(null)
   const barRef = useRef<HTMLDivElement | null>(null)
   const labelRefs = useRef<(HTMLButtonElement | null)[]>([])
-  const lastAltMouse = useRef(0)
+  /** True once the current Alt press has seen a mouse click or another key: its release is not a menu key. */
+  const altUsed = useRef(false)
 
   const editable = (): boolean => !!target.current.editor || !!editableField(target.current.element)
 
@@ -186,7 +187,7 @@ export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit:
   useEffect(
     () =>
       on('focus-menu', () => {
-        if (Date.now() - lastAltMouse.current < 600) return
+        if (altUsed.current) return
         if (active) {
           leave(true)
           return
@@ -199,13 +200,23 @@ export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit:
     [active, leave]
   )
 
-  // Alt+click in the editor adds a cursor; it must not count as an Alt tap.
+  // Alt+click in the editor adds a cursor, and Alt with another key is a shortcut:
+  // neither counts as an Alt tap. A new Alt press starts clean.
   useEffect(() => {
-    const h = (e: MouseEvent): void => {
-      if (e.altKey) lastAltMouse.current = Date.now()
+    const down = (e: MouseEvent): void => {
+      if (e.altKey) altUsed.current = true
     }
-    window.addEventListener('mousedown', h, true)
-    return () => window.removeEventListener('mousedown', h, true)
+    const key = (e: KeyboardEvent): void => {
+      if (e.key === 'Alt') {
+        if (!e.repeat) altUsed.current = false
+      } else if (e.altKey) altUsed.current = true
+    }
+    window.addEventListener('mousedown', down, true)
+    window.addEventListener('keydown', key, true)
+    return () => {
+      window.removeEventListener('mousedown', down, true)
+      window.removeEventListener('keydown', key, true)
+    }
   }, [])
 
   // A click anywhere else closes the menus.

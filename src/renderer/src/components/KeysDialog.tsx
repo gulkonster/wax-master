@@ -102,16 +102,16 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
       <table className="tx-table keys-table">
         <thead>
           <tr>
-            <th>LABEL</th>
-            <th>PUBLIC KEY</th>
-            <th>ACCOUNTS (current network)</th>
+            <th>Label</th>
+            <th>Public key</th>
+            <th>Accounts (current network)</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {shown.map((k) => (
             <tr key={k.id}>
-              <td>
+              <td className="key-label">
                 <input
                   className="label-input"
                   defaultValue={k.label}
@@ -122,11 +122,15 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
               <td className="mono-small">
                 {k.publicKey}
               </td>
-              <td className="mono-small">
+              <td className="key-accounts">
                 {accounts
                   .filter((a) => a.key === k.publicKey)
-                  .map((a) => `${a.account}@${a.permission}`)
-                  .join(', ') || '-'}
+                  .map((a) => (
+                    <div key={`${a.account}@${a.permission}`} className="mono-small">
+                      {a.account}@{a.permission}
+                    </div>
+                  ))}
+                {!accounts.some((a) => a.key === k.publicKey) && '-'}
               </td>
               <td className="actions">
                 <button className="btn subtle" onClick={() => void window.wax.keys.reveal(k.id)}>

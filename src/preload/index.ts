@@ -5,7 +5,7 @@
 
 import { contextBridge, ipcRenderer } from 'electron'
 import type { WaxApi, WaxTerminalApi } from '../shared/api'
-import { TERMINAL_ORIGIN, TERMINAL_PAGE } from '../shared/terminal-frame'
+import { devUrlFromArgv, interfaceFor } from '../shared/preload-exposure'
 
 const call =
   (channel: string) =>
@@ -15,16 +15,12 @@ const call =
 // The preload runs in a page; this build's type settings have no DOM types.
 const page = globalThis as unknown as {
   top: unknown
-  location: { origin: string; protocol: string; hostname: string; pathname: string }
+  location: { origin: string; pathname: string }
 }
-const location = page.location
-const isTopFrame = page.top === globalThis
-// Development server: the terminal page is served under the other loopback host name.
-const isTerminalFrame =
-  !isTopFrame &&
-  location.pathname === TERMINAL_PAGE &&
-  (location.origin === TERMINAL_ORIGIN || (location.protocol === 'http:' && location.hostname === 'localhost'))
-const isEditorPage = isTopFrame && location.pathname !== TERMINAL_PAGE && !location.pathname.endsWith('/confirm.html')
+const exposed = interfaceFor(
+  { isTopFrame: page.top === globalThis, origin: page.location.origin, pathname: page.location.pathname },
+  devUrlFromArgv(process.argv)
+)
 
 const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'network-changed', 'vault-changed', 'update-available', 'editor-status', 'editor-message'])
 const TERMINAL_EVENTS = new Set(['terminal-data', 'terminal-exit'])
@@ -184,5 +180,5 @@ const api: WaxApi = {
   }
 } as WaxApi
 
-if (isTerminalFrame) contextBridge.exposeInMainWorld('waxTerminal', terminalApi)
-else if (isEditorPage) contextBridge.exposeInMainWorld('wax', api)
+if (exposed === 'terminal') contextBridge.exposeInMainWorld('waxTerminal', terminalApi)
+else if (exposed === 'editor') contextBridge.exposeInMainWorld('wax', api)

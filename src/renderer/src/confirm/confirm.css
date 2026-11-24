@@ -79,11 +79,23 @@
 }
 .c-foot {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
   padding: 12px 20px;
   background: var(--bg-chrome);
   border-top: 1px solid var(--border);
+}
+.c-foot-notes {
+  max-height: 140px;
+  overflow: auto;
+}
+.c-foot .c-blocked {
+  margin-top: 0;
+}
+.c-foot-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 .c-foot .btn {
   height: var(--ctl-lg);

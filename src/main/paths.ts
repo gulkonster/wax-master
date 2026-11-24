@@ -16,7 +16,7 @@ export function defaultProjectsDir(): string {
   return join(app.getPath('documents'), 'WAX Master')
 }
 
-/** Folder with bundled read-only resources (templates, toolchain scripts). */
+/** Folder with bundled read-only resources (project templates; the toolchain setup script is compiled into the app). */
 export function resourcesDir(): string {
   return app.isPackaged ? join(process.resourcesPath, 'resources') : join(app.getAppPath(), 'resources')
 }

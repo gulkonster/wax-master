@@ -72,7 +72,7 @@ export function ChainButtons({ onAddNetwork, onManageNetworks, onStarred }: { on
 
   const starredList = (pick: (name: string) => void, close: () => void): React.ReactNode => (
     <>
-      <div className="dd-section">STARRED</div>
+      <div className="dd-section">Starred</div>
       <div
         className="dd-item"
         onClick={() => {

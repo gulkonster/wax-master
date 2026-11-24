@@ -60,7 +60,7 @@ export function TopBar(): React.JSX.Element {
             >
               <IconFolderOpen /> Open Project...
             </div>
-            <div className="dd-section">LOCAL PROJECTS</div>
+            <div className="dd-section">Local projects</div>
             {state.projects.length === 0 && <div className="dd-note">No projects yet</div>}
             {state.projects.map((p) => (
               <div
