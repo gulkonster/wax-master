@@ -81,7 +81,11 @@ function useArmed(delay: number): { armed: boolean; waitMs: number } {
     window.addEventListener('focus', on)
     window.addEventListener('blur', off)
     document.addEventListener('visibilitychange', vis)
-    const t = setInterval(() => setNow(Date.now()), 100)
+    // Focus can arrive before these listeners exist; notice it on the next tick too.
+    const t = setInterval(() => {
+      setNow(Date.now())
+      setSince((s) => (s === null && document.hasFocus() && document.visibilityState === 'visible' ? Date.now() : s))
+    }, 100)
     return () => {
       window.removeEventListener('focus', on)
       window.removeEventListener('blur', off)
