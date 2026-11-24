@@ -1,0 +1,81 @@
+.c-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  user-select: text;
+}
+.c-header {
+  padding: 14px 20px;
+  background: var(--accent);
+  color: #fff;
+}
+.c-header.mainnet {
+  background: var(--red);
+}
+.c-title {
+  font-size: 20px;
+  margin-bottom: 2px;
+}
+.c-body {
+  flex: 1;
+  overflow: auto;
+  padding: 12px 20px;
+}
+.c-row {
+  display: flex;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.c-label {
+  width: 160px;
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+.c-value {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+.c-section {
+  margin: 16px 0 6px;
+  font-size: 16px;
+}
+.c-action {
+  background: var(--bg-2);
+  padding: 10px 12px;
+  margin-bottom: 6px;
+}
+.c-json {
+  margin: 8px 0 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 320px;
+  overflow: auto;
+}
+.c-artifacts {
+  background: #2a2410;
+  border-left: 4px solid var(--amber);
+  padding: 4px 10px;
+  margin: 10px 0;
+}
+.c-blocked {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #3a1416;
+  border-left: 4px solid var(--red);
+}
+.c-done {
+  margin-top: 12px;
+  color: var(--green-2);
+  font-size: 16px;
+}
+.c-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--line);
+}
