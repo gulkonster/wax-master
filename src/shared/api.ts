@@ -6,7 +6,7 @@ import type { InspectedTransaction } from './trace-types'
 import type { DeployPlan } from './chain-types'
 import type { RamPrice } from './ram-market'
 import type { NetworkHead, NetworkOverview } from './network-info'
-import type { AccountActionsFilter, PowerupStateView, ProxyInfoView, SystemFeatures, VotingView } from './chain-types'
+import type { AccountActionsFilter, NameAuctions, NameBidLookup, PowerupStateView, ProxyInfoView, SystemFeatures, VotingView } from './chain-types'
 import type { AccountActionsPage, AccountView, AddedToken, ContractInfoView, LinkedActionsView, NetworkInfo, NetworkKind, NetworkStatus, PermissionIntent, PermissionPlanView, TokenBalance, WalletTokens } from './chain-types'
 import type { AuthLevel, ContractAbiView, ContractHistoryEntry, ContractHistoryKind, ContractHistoryList, PackResult, RowsQuery, RowsResult, ScopesResult } from './chain-types'
 import type { WindowErrorReport } from './window-error'
@@ -492,6 +492,10 @@ export interface WaxApi {
     proxyInfo(account: string): Promise<ProxyInfoView>
     /** The PowerUp market of the current network, checked; null when the chain has none. */
     powerup(): Promise<PowerupStateView | null>
+    /** One name for one account: whether the account exists, its namebids row, the account's bidrefunds row under the name. */
+    nameBid(name: string, account: string): Promise<NameBidLookup>
+    /** The open name auctions of the current network, highest bid first (at most 100), and the chain's last close. */
+    nameAuctions(): Promise<NameAuctions>
   }
   networkInfo: {
     /** Chain state of a saved network for the Network page: get_info, RAM, RAM price, core token. */

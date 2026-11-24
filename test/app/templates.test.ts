@@ -253,7 +253,6 @@ describe('example projects', () => {
   const topicIds = new Set(allTopics(index).map((t) => t.id))
   const examplesGroup = index.groups.find((g) => g.id === 'examples')?.topics.map((t) => t.id) ?? []
   const root = join(__dirname, '../../resources/templates/examples')
-  const pending = join(__dirname, '../../resources/examples-pending')
 
   const list = (dir: string, base = ''): string[] =>
     readdirSync(join(dir, base), { withFileTypes: true }).flatMap((d) =>
@@ -279,25 +278,24 @@ describe('example projects', () => {
   })
 
   it('New Project accepts every template and listed example id', () => {
-    expect(TEMPLATE_IDS).toEqual(['empty', 'hello', 'token', 'transfer-listener', 'staking', 'atomicassets', 'alcor-swap'])
+    expect(TEMPLATE_IDS).toEqual([
+      'empty',
+      'hello',
+      'token',
+      'transfer-listener',
+      'staking',
+      'atomicassets',
+      'alcor-swap',
+      'random-number',
+      'nft-staking',
+      'nft-blend',
+      'payments'
+    ])
     for (const e of EXAMPLES) expect(e.name, e.id).toMatch(/^[a-z1-5.]{1,12}$/)
   })
 
-  /** The files of an example as New Project writes them for the contract "my.ex". */
-  const pendingFiles = (id: string): Record<string, string> => {
-    const fill = (rel: string): string => fillTemplate(readFileSync(join(pending, id, rel), 'utf8'), 'my.ex', classNameFor('my.ex'))
-    return {
-      'src/my.ex.cpp': fill('src/contract.cpp'),
-      'include/my.ex.hpp': fill('include/contract.hpp'),
-      'resource/my.ex.contracts.md': fill('resource/contract.contracts.md'),
-      'resource/my.ex.clauses.md': fill('resource/contract.clauses.md'),
-      'README.md': fill('README.md')
-    }
-  }
-
   const cases: { id: string; topic: string; files: () => Record<string, string> }[] = [
-    ...EXAMPLES.map((e) => ({ id: e.id, topic: e.topic, files: () => templateFiles(e.id, 'my.ex') })),
-    { id: 'random-number', topic: 'example-random-number', files: () => pendingFiles('random-number') }
+    ...EXAMPLES.map((e) => ({ id: e.id, topic: e.topic, files: () => templateFiles(e.id, 'my.ex') }))
   ]
 
   for (const c of cases) {
@@ -416,7 +414,7 @@ describe('example projects', () => {
     expect(cpp).toMatch(/action\(permission_level\{get_self\(\), "active"_n\}, token_in\.contract, "transfer"_n,\s*std::make_tuple\(get_self\(\), ALCOR_SWAP, token_in\.quantity, memo\)\)/)
   })
 
-  it('the examples index page links every example, the pending one with its mark', () => {
+  it('the examples index page links every example, Random number with its testnet words', () => {
     expect(examplesGroup[0]).toBe('examples')
     const page = readFileSync(join(__dirname, '../../docs/help/examples.md'), 'utf8')
     for (const e of EXAMPLES) {
@@ -424,12 +422,14 @@ describe('example projects', () => {
       expect(page, e.id).toContain(`\`${e.name}\``)
     }
     const random = page.split('\n').find((l) => l.includes('(doc:example-random-number)'))
-    expect(random).toContain('Not tried on WAX Testnet; not included as a project')
+    expect(random).toContain('`dice`')
+    expect(page).toContain('Steps 9 to 11 were not tried.')
+    expect(page).not.toContain('not included as a project')
   })
 
-  it('random number: not listed in New Project; requestrand inline, the answer by the randnotify notification', () => {
-    expect(EXAMPLES.map((e) => e.id)).not.toContain('random-number')
-    const f = pendingFiles('random-number')
+  it('random number: listed in New Project; requestrand inline, the answer by the randnotify notification', () => {
+    expect(EXAMPLES.map((e) => e.id)).toContain('random-number')
+    const f = templateFiles('random-number', 'my.ex')
     const hpp = cppCode(f['include/my.ex.hpp'])
     const cpp = cppCode(f['src/my.ex.cpp'])
     expect(cpp).toContain('static constexpr name ORNG = "orng.wax"_n;')
@@ -450,7 +450,7 @@ describe('example projects', () => {
     expect(remove).toContain('rolls.erase(row);')
   })
 
-  it('ships the listed example folders with the app, and not the pending ones', () => {
+  it('ships the listed example folders with the app', () => {
     const yml = readFileSync(join(__dirname, '../../electron-builder.yml'), 'utf8')
     expect(yml).toMatch(/- from: resources\n\s+to: resources\n\s+filter:\n\s+- 'templates\/\*\*'\n/)
     expect(yml).not.toContain('examples-pending')

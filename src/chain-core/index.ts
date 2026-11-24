@@ -90,6 +90,8 @@ export {
   claimgbmvote,
   claimgenesis,
   powerup,
+  bidname,
+  bidrefund,
   type Authority,
   type AuthorityInput,
   type TransferArgs

@@ -170,7 +170,9 @@ const api: WaxApi = {
     system: call('wallet:system'),
     voting: call('wallet:voting'),
     proxyInfo: call('wallet:proxyInfo'),
-    powerup: call('wallet:powerup')
+    powerup: call('wallet:powerup'),
+    nameBid: call('wallet:nameBid'),
+    nameAuctions: call('wallet:nameAuctions')
   },
   networkInfo: {
     overview: call('networkInfo:overview'),

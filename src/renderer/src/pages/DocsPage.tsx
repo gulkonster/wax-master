@@ -3,7 +3,7 @@
 // shipped with the app, so the page works without a network.
 
 import { useEffect, useRef, useState } from 'react'
-import type { DocsIndex, SearchHit } from '../../../shared/docs'
+import type { DocsIndex, SearchResult } from '../../../shared/docs'
 import { emit } from '../lib/bus'
 import { go, loadDocsIndex, pageHistory, search } from '../lib/docs'
 import { useStore } from '../lib/stores'
@@ -16,7 +16,7 @@ export function DocsPage(): React.JSX.Element {
   const [index, setIndex] = useState<DocsIndex | null>(null)
   const [indexError, setIndexError] = useState('')
   const [query, setQuery] = useState('')
-  const [hits, setHits] = useState<SearchHit[] | null>(null)
+  const [result, setResult] = useState<SearchResult | null>(null)
   const [searchError, setSearchError] = useState('')
   const seq = useRef(0)
   const mainRef = useRef<HTMLDivElement>(null)
@@ -40,7 +40,7 @@ export function DocsPage(): React.JSX.Element {
     const q = query.trim()
     const n = ++seq.current
     if (!q) {
-      setHits(null)
+      setResult(null)
       setSearchError('')
       return
     }
@@ -48,7 +48,7 @@ export function DocsPage(): React.JSX.Element {
       search(q)
         .then((r) => {
           if (n !== seq.current) return
-          setHits(r)
+          setResult(r)
           setSearchError('')
         })
         .catch((e) => n === seq.current && setSearchError(errorText(e)))
@@ -77,11 +77,13 @@ export function DocsPage(): React.JSX.Element {
               <div className="hint">{indexError}</div>
             </div>
           )}
-          {hits !== null ? (
+          {result !== null ? (
             <>
               {searchError && <div className="error-text">{searchError}</div>}
-              {!searchError && hits.length === 0 && <div className="hint">No topic contains every word of the search.</div>}
-              {hits.map((h) => (
+              {!searchError && result.corrected.length > 0 && <div className="hint">Showing results for {result.corrected.join(', ')}</div>}
+              {!searchError && result.hits.length === 0 && <div className="hint">No topic contains every word of the search.</div>}
+              {!searchError && result.partial && result.hits.length > 0 && <div className="hint">No page has all these words. Pages with some of them:</div>}
+              {result.hits.map((h) => (
                 <button key={h.id} type="button" className={`docs-item hit${h.id === history.current ? ' sel' : ''}`} onClick={() => open(h.id)}>
                   <span className="docs-item-title">{h.title}</span>
                   <span className="docs-item-group">{h.group}</span>

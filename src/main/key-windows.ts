@@ -9,6 +9,7 @@
 
 import { app, BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
+import { iconPath } from './paths'
 import { APP_ORIGIN, isAllowedOrigin, secureWebPreferences } from './security'
 import { followTheme, themeArgs, windowBackground } from './theme'
 
@@ -74,6 +75,7 @@ export function openKeyWindow(
   const size = SIZES[mode]
   const win = new BrowserWindow({
     parent: parent ?? undefined,
+    icon: iconPath(),
     // The size of the page inside the frame: a key or code fits on one line without scrolling.
     useContentSize: true,
     width: size.width,

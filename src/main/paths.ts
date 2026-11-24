@@ -20,3 +20,8 @@ export function defaultProjectsDir(): string {
 export function resourcesDir(): string {
   return app.isPackaged ? join(process.resourcesPath, 'resources') : join(app.getAppPath(), 'resources')
 }
+
+/** The window and taskbar icon. */
+export function iconPath(): string {
+  return app.isPackaged ? join(process.resourcesPath, 'icon.ico') : join(app.getAppPath(), 'build', 'icon.ico')
+}

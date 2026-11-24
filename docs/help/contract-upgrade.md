@@ -21,6 +21,8 @@ Deploying new code to an account that already has a contract replaces the code a
 - **Add at the end with `binary_extension`.** The field is wrapped: `has_value()`, `value()`, `emplace(...)`. Only the last fields of a row can be extensions, and every field after one must be an extension too. The ABI shows the type with a `$`, for example `string$`.
 - **Migrate to a new table.** Keep the old struct and table, add the new one under a new name (`profiles2`), and an action that moves a limited number of rows per call, so one transaction does not run out of CPU. Remove the old table from the code only when it is empty.
 
+[Changing a table: what breaks and how to migrate](doc:contract-table-migration) shows both ways step by step, and what the node and the Contract page answer when a plain field is added to a table that has rows.
+
 ## Example
 
 A complete contract after an upgrade: version 1 had `user` and `nickname`; version 2 adds `avatar` at the end.

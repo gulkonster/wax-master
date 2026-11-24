@@ -108,4 +108,4 @@ public:
 
 > Note: The struct of a table that already has rows cannot be changed freely: old rows are stored in the old layout. See [Upgrading a contract and its tables](doc:contract-upgrade).
 
-See also [Singletons](doc:contract-singletons) and [Reading another contract's table](doc:contract-read-other-table).
+See also [Who pays: RAM and CPU for your users](doc:contract-who-pays), [Singletons](doc:contract-singletons) and [Reading another contract's table](doc:contract-read-other-table).

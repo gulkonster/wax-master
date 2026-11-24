@@ -32,6 +32,7 @@ export const HELP_TOPICS = {
   walletContract: 'contract-section',
   walletVoting: 'voting-rewards',
   walletPowerup: 'powerup',
+  walletNameBids: 'name-bids',
   /** Pages and dialogs of the projects, the editor and the window. */
   home: 'what-is-wax-master',
   newProject: 'project-files',

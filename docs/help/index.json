@@ -44,20 +44,21 @@
         { "id": "resources-ram", "title": "RAM", "keywords": ["ram", "buy ram", "sell ram", "buyrambytes", "buyram", "sellram", "price", "fee"] },
         { "id": "resources-cpu-net", "title": "CPU and NET", "keywords": ["cpu", "net", "stake", "unstake", "refund", "claim refund", "delegatebw", "undelegatebw"] },
         { "id": "powerup", "title": "PowerUp", "keywords": ["powerup", "rent", "cpu", "net", "powup.state", "max_payment", "fee"] },
-        { "id": "voting-rewards", "title": "Voting and rewards", "keywords": ["vote", "voting", "producer", "proxy", "voteproducer", "voterclaim", "claimgenesis", "rewards", "claim"] }
+        { "id": "voting-rewards", "title": "Voting and rewards", "keywords": ["vote", "voting", "producer", "proxy", "voteproducer", "voterclaim", "claimgenesis", "rewards", "claim"] },
+        { "id": "name-bids", "title": "Name bids (premium names)", "keywords": ["bidname", "bidrefund", "premium name", "short name", "name bid", "auction", "bid", "refund", "namebids", "eosio.names"] }
       ]
     },
     {
       "id": "permissions",
       "title": "Permissions",
       "topics": [
-        { "id": "permissions-overview", "title": "Owner, active and permissions", "keywords": ["permission","owner","active","authority","keys and permissions","updateauth"] },
-        { "id": "multisig-threshold", "title": "Thresholds and weights", "keywords": ["threshold","weight","multisig","2-of-2","2-of-3","lock out"] },
-        { "id": "custom-permissions", "title": "Custom permissions", "keywords": ["new permission","custom","claim","deleteauth","updateauth","parent"] },
-        { "id": "eosio-code", "title": "The eosio.code permission", "keywords": ["eosio.code","inline action","contract permission","updateauth"] },
-        { "id": "linked-actions", "title": "Linked actions (linkauth)", "keywords": ["linkauth","unlinkauth","link","requirement","custom permission","linked actions"] },
-        { "id": "change-key-safely", "title": "Changing a key safely", "keywords": ["change key","replace key","rotate","lock out","backup"] },
-        { "id": "contract-section", "title": "The Contract section", "keywords": ["code hash","abi hash","clear code","setcode","open as contract","deploy"] }
+        { "id": "permissions-overview", "title": "Owner, active and permissions", "keywords": ["permission", "owner", "active", "authority", "keys and permissions", "updateauth"] },
+        { "id": "multisig-threshold", "title": "Thresholds and weights", "keywords": ["threshold", "weight", "multisig", "2-of-2", "2-of-3", "lock out"] },
+        { "id": "custom-permissions", "title": "Custom permissions", "keywords": ["new permission", "custom", "claim", "deleteauth", "updateauth", "parent"] },
+        { "id": "eosio-code", "title": "The eosio.code permission", "keywords": ["eosio.code", "inline action", "contract permission", "updateauth"] },
+        { "id": "linked-actions", "title": "Linked actions (linkauth)", "keywords": ["linkauth", "unlinkauth", "link", "requirement", "custom permission", "linked actions"] },
+        { "id": "change-key-safely", "title": "Changing a key safely", "keywords": ["change key", "replace key", "rotate", "lock out", "backup"] },
+        { "id": "contract-section", "title": "The Contract section", "keywords": ["code hash", "abi hash", "clear code", "setcode", "open as contract", "deploy"] }
       ]
     },
     {
@@ -103,8 +104,24 @@
         { "id": "contract-time", "title": "Time", "keywords": ["time", "current_time_point", "time_point_sec", "block time", "timestamp", "deadline", "timer", "now"] },
         { "id": "contract-random", "title": "Random numbers (ORNG)", "keywords": ["random", "orng", "orng.wax", "rng", "requestrand", "randnotify", "receiverand", "dice", "randomness"] },
         { "id": "contract-assets", "title": "Assets and symbols", "keywords": ["asset", "symbol", "precision", "decimals", "extended_asset", "amount", "overflow"] },
+        { "id": "contract-accept-tokens", "title": "Accepting tokens safely", "keywords": ["accept token", "payment", "deposit", "receive tokens", "fake token", "scam", "token contract", "get_first_receiver", "extended_symbol", "wildcard"] },
+        { "id": "contract-validate-input", "title": "Checking input: negative numbers, limits, overflow", "keywords": ["negative", "minus", "amount", "overflow", "underflow", "limit", "validate", "is_valid", "int64", "uint64"] },
         { "id": "contract-errors", "title": "Error messages", "keywords": ["check", "assert", "assertion failure", "eosio_assert", "error message", "print", "debug"] },
-        { "id": "contract-upgrade", "title": "Upgrading a contract and its tables", "keywords": ["upgrade", "upgrade contract", "migrate", "migration", "binary_extension", "redeploy", "change table", "new field"] }
+        { "id": "contract-upgrade", "title": "Upgrading a contract and its tables", "keywords": ["upgrade", "upgrade contract", "migrate", "migration", "binary_extension", "redeploy", "change table", "new field"] },
+        { "id": "contract-table-migration", "title": "Changing a table: what breaks and how to migrate", "keywords": ["table structure", "add field", "new field", "new column", "migrate", "migration", "binary_extension", "broken table", "cannot read rows"] },
+        { "id": "contract-who-pays", "title": "Who pays: RAM and CPU for your users", "keywords": ["ram payer", "who pays", "cpu", "cloud wallet", "wam", "players", "free transactions", "first authorizer", "cosign", "powerup"] },
+        { "id": "contract-checklist", "title": "Before mainnet: a checklist", "keywords": ["checklist", "security", "safe", "audit", "exploit", "hack", "mainnet", "launch"] }
+      ]
+    },
+    {
+      "id": "nft",
+      "title": "NFTs and game tools",
+      "topics": [
+        { "id": "nft-atomicassets", "title": "AtomicAssets in short", "keywords": ["nft", "atomicassets", "collection", "schema", "template", "asset", "authorized account", "notify account", "mutable data", "burn", "backed tokens", "offer"] },
+        { "id": "nft-notifications", "title": "AtomicAssets notifications (logmint, logtransfer, ...)", "keywords": ["logmint", "logburnasset", "logtransfer", "lognewtempl", "logsetdata", "logbackasset", "lognewoffer", "notify account", "addnotifyacc", "on_notify", "hook"] },
+        { "id": "nft-drops", "title": "Drops (atomicdropsx)", "keywords": ["drop", "drops", "atomicdropsx", "createdrop", "claimdrop", "sell nft", "sale", "price", "whitelist", "deposit_collection_ram", "neftyblocksd"] },
+        { "id": "nft-packs", "title": "Packs (atomicpacksx)", "keywords": ["pack", "packs", "unbox", "open pack", "atomicpacksx", "announcepack", "addpackroll", "completepack", "claimunboxed", "odds", "chance", "probability", "loot box"] },
+        { "id": "wax-services", "title": "Contracts and services a WAX game uses", "keywords": ["services", "ecosystem", "atomichub", "neftyblocks", "alcor", "orng", "delphioracle", "price oracle", "cloud wallet", "anchor", "hyperion", "api"] }
       ]
     },
     {
@@ -116,6 +133,9 @@
         { "id": "example-staking", "title": "Example: Staking", "keywords": ["example", "staking", "stake", "unstake", "claim", "waiting time", "memo", "cpu", "net"] },
         { "id": "example-atomicassets", "title": "Example: AtomicAssets", "keywords": ["example", "atomicassets", "nft", "mint", "mintasset", "collection", "schema", "template", "logtransfer", "atomicmarket", "sale"] },
         { "id": "example-alcor-swap", "title": "Example: Alcor swap", "keywords": ["example", "alcor", "swap", "swap.alcor", "pool", "swapexactin", "minimum out", "extended_asset", "dex"] },
+        { "id": "example-nft-staking", "title": "Example: NFT staking", "keywords": ["example", "nft staking", "stake nft", "unstake", "ownership", "whose nft", "atomicassets", "transfer", "assets table"] },
+        { "id": "example-nft-blend", "title": "Example: NFT blend", "keywords": ["example", "blend", "craft", "merge", "combine", "burn", "burnasset", "mintasset", "recipe", "upgrade nft"] },
+        { "id": "example-payments", "title": "Example: Token payments", "keywords": ["example", "payments", "accept token", "fake token", "scam", "get_first_receiver", "deposit", "withdraw", "extended_symbol"] },
         { "id": "example-random-number", "title": "Example: Random number (ORNG)", "keywords": ["example", "random", "orng", "orng.wax", "requestrand", "randnotify", "receiverand", "dice", "credits"] }
       ]
     },

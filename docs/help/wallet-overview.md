@@ -27,6 +27,7 @@ A list of sections sits on the left of the page. Each section is one job:
 | Keys and permissions, Linked actions | Keys, thresholds, custom permissions, `eosio.code`, `linkauth`. See [Owner, active and permissions](doc:permissions-overview). |
 | Contract | Code and ABI hashes, deploy, clear code. See [The Contract section](doc:contract-section). |
 | Create account | A new account paid by this one. See [Create an account](doc:create-account). |
+| Name bids | Bid on a premium name of 1 to 11 characters, see its auction, claim an outbid amount back, create a won name. Shown when the chain's system contract has name bids. See [Name bids (premium names)](doc:name-bids). |
 | Voting and rewards | Vote for producers or a proxy, claim rewards. Shown when the chain offers voting. See [Voting and rewards](doc:voting-rewards). |
 | PowerUp | Rent CPU and NET for a day. Shown when the chain has the PowerUp market. See [PowerUp](doc:powerup). |
 | Testnet faucet | Free test tokens, on WAX Testnet only. |

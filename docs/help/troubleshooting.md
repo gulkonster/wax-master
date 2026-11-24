@@ -58,6 +58,26 @@ Find what you see in the left column of a section, then follow the fix or the li
 | "No rows." for a table that has rows | Another scope; many contracts use the user's account as scope; see [Read tables](doc:read-tables) |
 | "This account has no contract (no ABI)" | The account has no contract on this network, or you are on another network; see [Mainnet and testnet](doc:mainnet-and-testnet) |
 
+## NFTs, tokens and examples
+
+The first column is the text the chain or an example contract answers with. The first six come from the contract `atomicassets`; its source is public.
+
+| What you see | Usual cause | Fix |
+|---|---|---|
+| `The asset is not burnable` | The asset's template was made with `burnable` false, which is decided when the template is made | Use an asset of a template made burnable; see [AtomicAssets in short](doc:nft-atomicassets) and [Example: NFT blend](doc:example-nft-blend) |
+| `At least one asset isn't transferable (ID: ...)` | The asset's template was made with `transferable` false | The asset cannot be sent or offered; see [AtomicAssets in short](doc:nft-atomicassets) |
+| `The minter is not authorized within the collection`, `The creator is not authorized within the collection` or `The editor is not authorized within the collection` | The account that signed is not in the collection's `authorized_accounts` | Add it with `addcolauth` (signed by the collection's author), or sign with an authorized account; see [AtomicAssets in short](doc:nft-atomicassets) |
+| `The template's maxsupply has already been reached` | The template has already made as many assets as its `max_supply` | Make a new template |
+| `Sender doesn't own at least one of the provided assets (ID: ...)` or `No asset with this id exists for this owner` | The asset id belongs to another account, or the asset was burned or moved | Read the table `assets` of `atomicassets` with the owner as scope; see [Read tables](doc:read-tables) |
+| `The transferred token is not supported` | A token was sent to `atomicassets` that it does not take (it takes only the tokens in its `config`, to back NFTs) | Do not send tokens to `atomicassets` unless you are backing an NFT; see [AtomicAssets in short](doc:nft-atomicassets) |
+| `this token is not accepted here` | A contract of this program's examples refused a token from a contract it does not accept, or with another symbol or precision. This is the check against fake tokens working | Send the token the contract accepts, from its contract; see [Accepting tokens safely](doc:contract-accept-tokens) and [Example: Token payments](doc:example-payments) |
+| An NFT transfer to your contract is refused with your own message | A refused notification refuses the whole transfer, so the NFT stays with its sender. That is intended in [Example: NFT staking](doc:example-nft-staking) and [Example: NFT blend](doc:example-nft-blend) | Read the message; it names the memo, the collection or the recipe that did not match |
+| Minting or moving assets of a collection stops with a message of your contract | A notify account's handler of `logmint` or `logtransfer` refused, and that refuses the mint or transfer | The handler of a notify account never fails; see [AtomicAssets notifications](doc:nft-notifications) |
+| The roll stays without a result and cannot be removed | The random number service has not answered yet | Wait; see [Random numbers (ORNG)](doc:contract-random) and [Example: Random number (ORNG)](doc:example-random-number) |
+| Rows of a table cannot be read after a new deployment | A field was added to the row struct, so old rows are shorter than the new type | [Changing a table: what breaks and how to migrate](doc:contract-table-migration) |
+
+[Contracts and services a WAX game uses](doc:wax-services) lists the contracts these messages come from.
+
 ## What is needed
 
 - The exact message. **Show full error** in the inspector and the Output panel can both be copied into a search or a bug report.

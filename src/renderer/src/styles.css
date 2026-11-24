@@ -70,9 +70,13 @@
   --scroll-thumb: #4D4D4D;
   --scroll-thumb-hover: #6B6B6B;
 
-  /* The application symbol's own artwork colours (build/icon.svg). */
-  --logo: #F0A830;
-  --logo-bg: #1E1F21;
+  /* The logo's own colours (build/icon.svg); the same in both themes. */
+  --logo-top: #FFC27A;
+  --logo-left: #F28C28;
+  --logo-right: #9C4F0C;
+  --logo-w: #FFE2BC;
+  --logo-m: #2B1608;
+  --logo-lines: #B8360F;
 
   /* Type */
   --font-ui: 'Segoe UI Variable Text', 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
@@ -428,14 +432,26 @@ h3 {
   margin-right: var(--sp-2);
   -webkit-app-region: no-drag;
 }
-.app-icon-bg {
-  fill: var(--logo-bg);
+.logo-top {
+  fill: var(--logo-top);
 }
-.app-icon-mark {
-  stroke: var(--logo);
+.logo-left {
+  fill: var(--logo-left);
 }
-.app-icon-tag {
-  fill: var(--logo);
+.logo-right {
+  fill: var(--logo-right);
+}
+.logo-w {
+  fill: var(--logo-w);
+}
+.logo-m {
+  fill: var(--logo-m);
+}
+.logo-lines {
+  fill: var(--logo-lines);
+}
+.app-logo {
+  flex: none;
 }
 .menubar {
   display: flex;

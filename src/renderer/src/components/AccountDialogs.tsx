@@ -51,7 +51,7 @@ export function KeyPicker({ value, onChange, keys }: { value: string; onChange: 
  * wallet's Create account section. Returns the fields, the state of the
  * Create button and the action that sends.
  */
-export function useCreateAccountForm(initialCreator = ''): {
+export function useCreateAccountForm(initialCreator = '', initialName = ''): {
   body: React.JSX.Element
   ok: boolean
   busy: boolean
@@ -66,7 +66,7 @@ export function useCreateAccountForm(initialCreator = ''): {
   const zero = `${(0).toFixed(prec)} ${sym}`
   const [creator, setCreator] = useState(initialCreator)
   const [creatorPerm, setCreatorPerm] = useState('active')
-  const [name, setName] = useState('')
+  const [name, setName] = useState(initialName)
   const [ownerKey, setOwnerKey] = useState('')
   const [activeKey, setActiveKey] = useState('')
   const [ram, setRam] = useState(4096)

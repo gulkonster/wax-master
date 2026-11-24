@@ -64,3 +64,5 @@ r.claim_after = time_point_sec(current_time_point()) + UNSTAKE_SECONDS;
 - The stakes and the contract account's own WAX are one balance. The table is the only record of whose WAX it is, so whoever holds the contract account's keys, or deploys new code to it, controls all of it.
 - The contract pays the RAM of one row per sender: about 156 bytes, the first row 268. It takes any amount, so tiny stakes from many accounts can use up its RAM. A real contract sets a smallest amount.
 - Staking here pays no reward. What a real contract gives for a stake, and from which funds, is up to it.
+
+See also [Example: NFT staking](doc:example-nft-staking), the same pattern for AtomicAssets NFTs, with one row per staked asset.

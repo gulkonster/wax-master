@@ -25,8 +25,9 @@ import { ContractSection } from './ContractSection'
 import { CreateAccountSection } from './CreateAccountSection'
 import { VotingSection } from './VotingSection'
 import { PowerupSection } from './PowerupSection'
+import { NameBidsSection } from './NameBidsSection'
 
-type SectionId = 'tokens' | 'transfer' | 'ram' | 'cpunet' | 'keys' | 'links' | 'contract' | 'create' | 'voting' | 'powerup' | 'faucet' | 'transactions'
+type SectionId = 'tokens' | 'transfer' | 'ram' | 'cpunet' | 'keys' | 'links' | 'contract' | 'create' | 'namebids' | 'voting' | 'powerup' | 'faucet' | 'transactions'
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'tokens', label: 'Tokens' },
@@ -37,6 +38,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'links', label: 'Linked actions' },
   { id: 'contract', label: 'Contract' },
   { id: 'create', label: 'Create account' },
+  { id: 'namebids', label: 'Name bids' },
   { id: 'voting', label: 'Voting and rewards' },
   { id: 'powerup', label: 'PowerUp' },
   { id: 'faucet', label: 'Testnet faucet' },
@@ -52,13 +54,15 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
   const [tokensError, setTokensError] = useState('')
   const [section, setSection] = useState<SectionId>('tokens')
   const [transferToken, setTransferToken] = useState<TokenRow | null>(null)
+  // A name won in Name bids, filled into Create account when that section is opened from there.
+  const [createName, setCreateName] = useState('')
   // Sections offered by the chain's system contract; hidden until the chain says it has them.
-  const [system, setSystem] = useState<SystemFeatures>({ voting: false, powerup: false })
+  const [system, setSystem] = useState<SystemFeatures>({ voting: false, powerup: false, nameBids: false })
   useEffect(() => {
     let live = true
     window.wax.wallet.system().then(
       (f) => live && setSystem(f),
-      () => live && setSystem({ voting: false, powerup: false })
+      () => live && setSystem({ voting: false, powerup: false, nameBids: false })
     )
     return () => {
       live = false
@@ -125,7 +129,9 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
   const viewOnly = view.control.length === 0
   const ctx: WalletContext = { view, viewOnly, reason: viewOnlyReason(view.name), reload, afterSend, readTick }
   const testnet = isWaxTestnet(net)
-  const shown = SECTIONS.filter((s) => (s.id !== 'faucet' || testnet) && (s.id !== 'voting' || system.voting) && (s.id !== 'powerup' || system.powerup))
+  const shown = SECTIONS.filter(
+    (s) => (s.id !== 'faucet' || testnet) && (s.id !== 'voting' || system.voting) && (s.id !== 'powerup' || system.powerup) && (s.id !== 'namebids' || system.nameBids)
+  )
   const current = shown.some((s) => s.id === section) ? section : 'tokens'
 
   return (
@@ -181,7 +187,15 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
       <div className="wallet-layout">
         <nav className="wallet-nav" aria-label="Wallet sections">
           {shown.map((s) => (
-            <button key={s.id} className={`wallet-nav-item${s.id === current ? ' active' : ''}`} aria-current={s.id === current} onClick={() => setSection(s.id)}>
+            <button
+              key={s.id}
+              className={`wallet-nav-item${s.id === current ? ' active' : ''}`}
+              aria-current={s.id === current}
+              onClick={() => {
+                setSection(s.id)
+                setCreateName('')
+              }}
+            >
               {s.label}
             </button>
           ))}
@@ -205,7 +219,16 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
           {current === 'keys' && <PermissionsSection ctx={ctx} />}
           {current === 'links' && <LinksSection ctx={ctx} />}
           {current === 'contract' && <ContractSection ctx={ctx} />}
-          {current === 'create' && <CreateAccountSection ctx={ctx} />}
+          {current === 'create' && <CreateAccountSection key={createName} ctx={ctx} initialName={createName} />}
+          {current === 'namebids' && (
+            <NameBidsSection
+              ctx={ctx}
+              onCreate={(n) => {
+                setCreateName(n)
+                setSection('create')
+              }}
+            />
+          )}
           {current === 'voting' && <VotingSection ctx={ctx} />}
           {current === 'powerup' && <PowerupSection ctx={ctx} />}
           {current === 'faucet' && <FaucetSection ctx={ctx} />}

@@ -1,15 +1,17 @@
 // Wallet sections built on the system contract (eosio): which features the
-// chain offers (read from its ABI), voting and voter rewards, and the PowerUp
-// market. Every row from the chain is untrusted: names are checked, numbers are
+// chain offers (read from its ABI), voting and voter rewards, the PowerUp
+// market, and name bids. Every row from the chain is untrusted: names are checked, numbers are
 // read only from the expected forms, lists are cut at fixed sizes.
 
 import type { AbiDef } from '../chain-core'
-import type { NetworkInfo, PowerupResourceView, PowerupStateView, ProducerRow, ProxyInfoView, SystemFeatures, VoterClaimView, VotingView } from '../shared/chain-types'
+import type { NameAuctions, NameBidLookup, NetworkInfo, PowerupResourceView, PowerupStateView, ProducerRow, ProxyInfoView, SystemFeatures, VoterClaimView, VotingView } from '../shared/chain-types'
 import { formatUnits, readAsset, rescaleUnits } from '../shared/wallet'
 import { CLAIM_INTERVAL_SEC, claimChoices, MAX_VOTE_PRODUCERS, voterRewardEstimate } from '../shared/wallet-voting'
 import type { ReadCall } from './contract-view'
 import { chain } from './rpc'
 import { WAX_CHAIN_IDS } from './account-view'
+import { isUnknownAccount } from './account-pick'
+import { chainTimeIso, NAME_AUCTIONS_MAX, OPEN_AUCTIONS_LOWER, parseBidRefundRow, parseNameBidRow, parseOpenAuctions } from '../shared/name-bids'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 /** Producer rows read at most (pages of PRODUCER_PAGE). */
@@ -54,10 +56,11 @@ function activeFlag(v: unknown): boolean {
 
 /** Features of the system contract from its ABI; PowerUp also needs the row of powup.state. */
 export async function systemFeatures(def: AbiDef | null, powerupRow: () => Promise<unknown>): Promise<SystemFeatures> {
-  if (!def) return { voting: false, powerup: false }
+  if (!def) return { voting: false, powerup: false, nameBids: false }
   const actions = new Set(def.actions.map((a) => a.name))
   const tables = new Set(def.tables.map((t) => t.name))
   const voting = actions.has('voteproducer') && tables.has('producers') && tables.has('voters')
+  const nameBids = actions.has('bidname') && actions.has('bidrefund') && tables.has('namebids') && tables.has('bidrefunds')
   let powerup = false
   if (actions.has('powerup') && tables.has('powup.state')) {
     try {
@@ -66,7 +69,7 @@ export async function systemFeatures(def: AbiDef | null, powerupRow: () => Promi
       powerup = false
     }
   }
-  return { voting, powerup }
+  return { voting, powerup, nameBids }
 }
 
 /** Active producers, most votes first, with their share of the votes. */
@@ -260,4 +263,58 @@ export async function powerupState(n: NetworkInfo, readCall: ReadCall): Promise<
   const head = chainMs((await readCall((ep) => chain.getInfo(ep), n)).head_block_time)
   if (head === null) throw new Error('The chain did not report its head time.')
   return parsePowerupState(row, Math.floor(head / 1000), n.precision, n.symbol)
+}
+
+/**
+ * One name for one account: whether an account of that name exists, its row of
+ * namebids, and the account's row of bidrefunds under the name (scope = the name).
+ */
+export async function nameBidLookup(n: NetworkInfo, name: string, account: string, readCall: ReadCall): Promise<NameBidLookup> {
+  const table = (body: Row): Promise<TableRows> => readCall((ep) => chain.getTableRows(ep, { json: true, code: 'eosio', ...body }), n)
+  let exists = true
+  try {
+    await readCall((ep) => chain.getAccount(ep, name), n)
+  } catch (e) {
+    if (!isUnknownAccount(e)) throw e
+    exists = false
+  }
+  const bidRow = rowsOf(await table({ scope: 'eosio', table: 'namebids', lower_bound: name, upper_bound: name, limit: 1 }), 1)[0]
+  const refundRow = rowsOf(await table({ scope: name, table: 'bidrefunds', lower_bound: account, upper_bound: account, limit: 1 }), 1)[0]
+  return {
+    name,
+    account,
+    exists,
+    bid: parseNameBidRow(bidRow, name),
+    refund: parseBidRefundRow(refundRow, account, n.precision, n.symbol),
+    symbol: n.symbol,
+    precision: n.precision
+  }
+}
+
+/**
+ * The open auctions, highest bid first: the second index of namebids from where
+ * the open ones start, at most NAME_AUCTIONS_MAX rows; and the chain's last
+ * close from the global table.
+ */
+export async function nameAuctions(n: NetworkInfo, readCall: ReadCall): Promise<NameAuctions> {
+  const table = (body: Row): Promise<TableRows> => readCall((ep) => chain.getTableRows(ep, { json: true, code: 'eosio', ...body }), n)
+  const r = await table({
+    scope: 'eosio',
+    table: 'namebids',
+    index_position: 2,
+    key_type: 'i64',
+    lower_bound: OPEN_AUCTIONS_LOWER,
+    limit: NAME_AUCTIONS_MAX
+  })
+  const rows = rowsOf(r, NAME_AUCTIONS_MAX)
+  let lastNameClose = ''
+  try {
+    const g = rowsOf(await table({ scope: 'eosio', table: 'global', limit: 1 }), 1)[0]
+    const t = chainTimeIso(g?.last_name_close)
+    // A chain that never closed an auction keeps the zero time.
+    lastNameClose = t && !t.startsWith('1970-') && !t.startsWith('2000-01-01') ? t : ''
+  } catch {
+    lastNameClose = ''
+  }
+  return { open: parseOpenAuctions(rows), more: r.more === true, lastNameClose, symbol: n.symbol, precision: n.precision }
 }

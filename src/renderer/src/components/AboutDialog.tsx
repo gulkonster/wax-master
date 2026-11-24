@@ -1,5 +1,6 @@
 import { useApp } from '../state'
 import { Modal } from './Modal'
+import { AppLogo } from './Icons'
 
 export function AboutDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
   const { state } = useApp()
@@ -18,6 +19,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }): React.JSX.Ele
       }
     >
       <div style={{ userSelect: 'text', lineHeight: 'var(--lh-card)' }}>
+        <AppLogo size={64} />
         <div style={{ fontSize: 'var(--fs-card)', fontWeight: 600 }}>WAX Master</div>
         <div>Version {i?.version}</div>
         <div>

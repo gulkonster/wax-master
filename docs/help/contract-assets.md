@@ -69,4 +69,4 @@ public:
 
 - The exact symbol of every token you accept, with its precision and its contract. Read it from the token contract's `stat` table, scope = the symbol code; see [The token contract](doc:token-contract).
 
-See also [Transfers and memos](doc:transfers) and [Error messages](doc:contract-errors).
+See also [Checking input: negative numbers, limits, overflow](doc:contract-validate-input), [Transfers and memos](doc:transfers) and [Error messages](doc:contract-errors).

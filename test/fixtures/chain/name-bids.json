@@ -1,0 +1,251 @@
+{
+  "note": "Read-only rows of the eosio namebids, bidrefunds and global tables, read on 2026-11-25 from https://testnet.waxsweden.org (WAX Testnet) and https://wax.greymass.com (WAX Mainnet). WAX Testnet: the first rows of namebids by name (one row left out for its account name); its second index from 9223372036854775807 (the open auctions) answered no rows. WAX Mainnet: the second index from 9223372036854775807, limit 15, with the highest row left out for its name. high_bid comes as a number or as text in the same answer.",
+  "testnet": {
+    "namebids": [
+      {
+        "newname": "1oa",
+        "high_bidder": "noam1111tene",
+        "high_bid": -210000000,
+        "last_bid_time": "2023-06-22T19:25:58.000"
+      },
+      {
+        "newname": "5seveni",
+        "high_bidder": "betabetabeta",
+        "high_bid": -1000000000,
+        "last_bid_time": "2021-09-02T07:57:03.500"
+      },
+      {
+        "newname": "abuz",
+        "high_bidder": "abuztradewax",
+        "high_bid": -100000000,
+        "last_bid_time": "2022-11-03T16:26:31.000"
+      },
+      {
+        "newname": "anhtriet",
+        "high_bidder": "anhtrietdz12",
+        "high_bid": -1000000000,
+        "last_bid_time": "2024-08-19T09:17:12.500"
+      },
+      {
+        "newname": "archie",
+        "high_bidder": "archieisgood",
+        "high_bid": -100000000,
+        "last_bid_time": "2023-12-31T07:57:53.000"
+      },
+      {
+        "newname": "asteron",
+        "high_bidder": "waxdao",
+        "high_bid": "-5000000000",
+        "last_bid_time": "2024-07-09T09:30:59.500"
+      },
+      {
+        "newname": "aurora",
+        "high_bidder": "waxdao",
+        "high_bid": "-5000000000",
+        "last_bid_time": "2024-08-03T00:36:09.500"
+      },
+      {
+        "newname": "b1",
+        "high_bidder": "spamspamspam",
+        "high_bid": -100000000,
+        "last_bid_time": "2020-04-08T11:25:43.000"
+      },
+      {
+        "newname": "bagz",
+        "high_bidder": "alpacaworlds",
+        "high_bid": -1000000000,
+        "last_bid_time": "2024-06-21T09:38:44.000"
+      },
+      {
+        "newname": "block",
+        "high_bidder": "myleafwallet",
+        "high_bid": -500000000,
+        "last_bid_time": "2023-08-26T03:17:47.000"
+      },
+      {
+        "newname": "blu",
+        "high_bidder": "rland",
+        "high_bid": "-65000000000",
+        "last_bid_time": "2024-01-14T01:02:09.000"
+      },
+      {
+        "newname": "bludac",
+        "high_bidder": "rland",
+        "high_bid": "-5000000000",
+        "last_bid_time": "2024-01-14T01:04:37.500"
+      },
+      {
+        "newname": "blume",
+        "high_bidder": "rland",
+        "high_bid": -1,
+        "last_bid_time": "2024-01-14T00:58:56.000"
+      },
+      {
+        "newname": "bluswap",
+        "high_bidder": "rland",
+        "high_bid": "-64000000000",
+        "last_bid_time": "2024-01-14T01:02:19.500"
+      },
+      {
+        "newname": "burnie",
+        "high_bidder": "eosiodetroit",
+        "high_bid": "-1000000000000",
+        "last_bid_time": "2021-01-23T23:25:44.500"
+      },
+      {
+        "newname": "cb",
+        "high_bidder": "love",
+        "high_bid": -2,
+        "last_bid_time": "2022-12-13T08:44:13.500"
+      },
+      {
+        "newname": "ccg",
+        "high_bidder": "stuckatsixpm",
+        "high_bid": -100000000,
+        "last_bid_time": "2023-10-17T02:29:04.500"
+      },
+      {
+        "newname": "cd",
+        "high_bidder": "love",
+        "high_bid": -2,
+        "last_bid_time": "2022-12-13T08:44:16.000"
+      },
+      {
+        "newname": "ce",
+        "high_bidder": "love",
+        "high_bid": -2,
+        "last_bid_time": "2022-12-13T08:44:17.500"
+      }
+    ],
+    "openIndex": {
+      "rows": [],
+      "more": false,
+      "next_key": ""
+    },
+    "global": {
+      "last_name_close": "2026-08-16T22:33:25.500"
+    },
+    "bidrefunds": {
+      "blu": [
+        {
+          "bidder": "gifter.king",
+          "amount": "10.00000000 WAX"
+        },
+        {
+          "bidder": "rland",
+          "amount": "0.00000002 WAX"
+        }
+      ]
+    }
+  },
+  "mainnet": {
+    "openIndex": {
+      "rows": [
+        {
+          "newname": "element",
+          "high_bidder": "ferret",
+          "high_bid": "6668310005",
+          "last_bid_time": "2026-11-10T16:06:07.500"
+        },
+        {
+          "newname": "ab",
+          "high_bidder": "ferret",
+          "high_bid": "5511000001",
+          "last_bid_time": "2026-10-26T18:50:30.000"
+        },
+        {
+          "newname": "no1",
+          "high_bidder": "ferret",
+          "high_bid": "5500000001",
+          "last_bid_time": "2026-10-26T18:48:28.000"
+        },
+        {
+          "newname": "npl",
+          "high_bidder": "roockstaar11",
+          "high_bid": "5200000000",
+          "last_bid_time": "2026-11-24T07:17:56.500"
+        },
+        {
+          "newname": "nep",
+          "high_bidder": "roockstaar11",
+          "high_bid": "5100000000",
+          "last_bid_time": "2026-10-30T04:39:11.000"
+        },
+        {
+          "newname": "josh",
+          "high_bidder": "qjlka.wam",
+          "high_bid": "5000000000",
+          "last_bid_time": "2026-08-20T06:07:30.000"
+        },
+        {
+          "newname": "lupusrex",
+          "high_bidder": "l11karlstein",
+          "high_bid": "5000000000",
+          "last_bid_time": "2021-06-03T04:01:07.500"
+        },
+        {
+          "newname": "mack",
+          "high_bidder": "4ourq.wam",
+          "high_bid": "5000000000",
+          "last_bid_time": "2021-08-25T16:23:01.500"
+        },
+        {
+          "newname": "manic",
+          "high_bidder": "i3dqu.wam",
+          "high_bid": "5000000000",
+          "last_bid_time": "2022-01-24T19:27:12.500"
+        },
+        {
+          "newname": "mark",
+          "high_bidder": "qjlka.wam",
+          "high_bid": "5000000000",
+          "last_bid_time": "2026-08-20T06:05:18.000"
+        },
+        {
+          "newname": "mosthighnft",
+          "high_bidder": "3gyb2.wam",
+          "high_bid": "5000000000",
+          "last_bid_time": "2021-03-23T04:28:57.000"
+        },
+        {
+          "newname": "mrbeast",
+          "high_bidder": "qjlka.wam",
+          "high_bid": "5000000000",
+          "last_bid_time": "2026-08-20T06:05:47.000"
+        },
+        {
+          "newname": "mrwiggles",
+          "high_bidder": "rvfr2.wam",
+          "high_bid": "5000000000",
+          "last_bid_time": "2021-10-18T01:36:03.000"
+        },
+        {
+          "newname": "nicolas",
+          "high_bidder": "d5eqy.wam",
+          "high_bid": "5000000000",
+          "last_bid_time": "2021-02-21T13:30:44.500"
+        }
+      ],
+      "more": true,
+      "next_key": "18446744068709551616"
+    },
+    "global": {
+      "last_name_close": "2026-11-24T00:04:46.000"
+    },
+    "bidrefunds": {
+      "no1": [
+        {
+          "bidder": "onfqu.wam",
+          "amount": "50.00000000 WAX"
+        }
+      ],
+      "josh": [
+        {
+          "bidder": "4ebdw.wam",
+          "amount": "10.00000000 WAX"
+        }
+      ],
+      "element": []
+    }
+  }
+}

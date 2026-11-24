@@ -47,6 +47,8 @@ import {
   claimgbmvote,
   claimgenesis,
   powerup,
+  bidname,
+  bidrefund,
   deleteauth,
   linkauth,
   unlinkauth,
@@ -222,6 +224,13 @@ describe('criterion 1: action data matches eosjs', () => {
     crossCheck(claimgenesis({ claimer: 'alice' }), EOSIO, { claimer: 'alice' })
     const p = powerup({ payer: 'alice', receiver: 'bob', days: 1, netFrac: 0, cpuFrac: '1000000000000', maxPayment: '1.00000000 WAX' })
     crossCheck(p, EOSIO, { payer: 'alice', receiver: 'bob', days: 1, net_frac: 0, cpu_frac: '1000000000000', max_payment: '1.00000000 WAX' })
+  })
+
+  it('bidname and bidrefund', () => {
+    crossCheck(bidname({ bidder: 'alice', newname: 'short', bid: '1.00000000 WAX' }), EOSIO, { bidder: 'alice', newname: 'short', bid: '1.00000000 WAX' })
+    crossCheck(bidname({ bidder: 'bob.wam', newname: 'a', bid: '108.90000001 WAX' }), EOSIO, { bidder: 'bob.wam', newname: 'a', bid: '108.90000001 WAX' })
+    crossCheck(bidname({ bidder: 'alice', newname: 'abcde12345z', bid: '0.00000001 WAX' }), EOSIO, { bidder: 'alice', newname: 'abcde12345z', bid: '0.00000001 WAX' })
+    crossCheck(bidrefund({ bidder: 'alice', newname: 'short' }), EOSIO, { bidder: 'alice', newname: 'short' })
   })
 
   it('the embedded system ABIs encode the same as the on-chain ABIs', () => {

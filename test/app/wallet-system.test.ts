@@ -89,13 +89,21 @@ describe('claim actions from the system ABI', () => {
     expect(claimAction(cg, 'alice', 'claim')).toEqual({ account: 'eosio', name: 'claimgenesis', authorization: [{ actor: 'alice', permission: 'claim' }], data: { claimer: 'alice' } })
     expect(claimAction(vc, 'BAD', 'active')).toBeNull()
   })
-  it('features: voting and PowerUp on WAX Testnet; voting only on the reference contract; nothing without an ABI', async () => {
+  it('features: voting, PowerUp and name bids on WAX Testnet; voting only on the reference contract; nothing without an ABI', async () => {
     const row = async (): Promise<unknown> => ({ rows: [fixture.powupState], more: false })
-    expect(await systemFeatures(abiOf(fixture.actions, fixture.tables), row)).toEqual({ voting: true, powerup: true })
-    expect(await systemFeatures(abiOf(STANDARD_ACTIONS, STANDARD_TABLES), row)).toEqual({ voting: true, powerup: false })
-    expect(await systemFeatures(abiOf(fixture.actions, fixture.tables), async () => ({ rows: [] }))).toEqual({ voting: true, powerup: false })
-    expect(await systemFeatures(abiOf(fixture.actions, fixture.tables), async () => Promise.reject(new Error('x')))).toEqual({ voting: true, powerup: false })
-    expect(await systemFeatures(null, row)).toEqual({ voting: false, powerup: false })
+    expect(await systemFeatures(abiOf(fixture.actions, fixture.tables), row)).toEqual({ voting: true, powerup: true, nameBids: true })
+    expect(await systemFeatures(abiOf(STANDARD_ACTIONS, STANDARD_TABLES), row)).toEqual({ voting: true, powerup: false, nameBids: false })
+    expect(await systemFeatures(abiOf(fixture.actions, fixture.tables), async () => ({ rows: [] }))).toEqual({ voting: true, powerup: false, nameBids: true })
+    expect(await systemFeatures(abiOf(fixture.actions, fixture.tables), async () => Promise.reject(new Error('x')))).toEqual({ voting: true, powerup: false, nameBids: true })
+    expect(await systemFeatures(null, row)).toEqual({ voting: false, powerup: false, nameBids: false })
+  })
+  it('name bids need both actions and both tables', async () => {
+    const none = async (): Promise<unknown> => ({ rows: [] })
+    const actions = ['bidname', 'bidrefund']
+    const tables = ['namebids', 'bidrefunds']
+    expect((await systemFeatures(abiOf(actions, tables), none)).nameBids).toBe(true)
+    expect((await systemFeatures(abiOf(['bidname'], tables), none)).nameBids).toBe(false)
+    expect((await systemFeatures(abiOf(actions, ['namebids']), none)).nameBids).toBe(false)
   })
 })
 

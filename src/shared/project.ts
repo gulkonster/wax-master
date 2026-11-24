@@ -126,7 +126,15 @@ export function normalizeConfig(raw: unknown, fallbackContract: string): Project
 
 export type ProjectTemplateId = 'empty' | 'hello' | 'token'
 /** Example projects: folders in resources/templates/examples/<id>/. */
-export type ExampleId = 'transfer-listener' | 'staking' | 'atomicassets' | 'alcor-swap'
+export type ExampleId =
+  | 'transfer-listener'
+  | 'staking'
+  | 'atomicassets'
+  | 'alcor-swap'
+  | 'random-number'
+  | 'nft-staking'
+  | 'nft-blend'
+  | 'payments'
 export type TemplateId = ProjectTemplateId | ExampleId
 
 export const TEMPLATES: { id: ProjectTemplateId; label: string; description: string }[] = [
@@ -164,6 +172,34 @@ export const EXAMPLES: { id: ExampleId; label: string; description: string; name
     description: "Swaps the contract's own tokens on a swap.alcor pool with a transfer and the swap memo, with a minimum out.",
     name: 'swapper',
     topic: 'example-alcor-swap'
+  },
+  {
+    id: 'random-number',
+    label: 'Random number (ORNG)',
+    description: 'Asks orng.wax for a number and stores the answer of a later transaction (randnotify). On WAX Testnet the answer may not come.',
+    name: 'dice',
+    topic: 'example-random-number'
+  },
+  {
+    id: 'nft-staking',
+    label: 'NFT staking',
+    description: 'Takes AtomicAssets NFTs sent with the memo "stake", records whose each one is, and gives them back with unstake.',
+    name: 'nftstake',
+    topic: 'example-nft-staking'
+  },
+  {
+    id: 'nft-blend',
+    label: 'NFT blend',
+    description: 'Burns the NFTs of a recipe sent with the memo "blend:<id>" and mints the result to the sender.',
+    name: 'blender',
+    topic: 'example-nft-blend'
+  },
+  {
+    id: 'payments',
+    label: 'Token payments',
+    description: 'Accepts only the tokens on its list, checked by token contract and symbol; refuses look-alikes; withdraw pays back.',
+    name: 'payments',
+    topic: 'example-payments'
   }
 ]
 

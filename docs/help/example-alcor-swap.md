@@ -92,6 +92,7 @@ action(permission_level{get_self(), "active"_n}, token_in.contract, "transfer"_n
 
 - Only the contract account can call `swap`. An action anybody could call would let him trade the contract's tokens at a price he moved in the same transaction.
 - The minimum out comes from the caller, read from the pool before sending, never worked out inside the contract from the pool's price.
+- Never use a pool's price as an oracle: do not read `pools` inside a contract to decide what to pay, mint or sell. Anybody who can trade in the pool can move its price for the length of one transaction, so a contract that pays by it can be robbed; take a price from a price feed such as `delphioracle` (see [Contracts and services a WAX game uses](doc:wax-services)).
 - The deadline protects nothing here: it is worked out when the action runs. A contract whose swap can run later than it was signed (a multisig proposal, for example) takes the deadline as a parameter from the caller, like the minimum out.
 - The pools belong to others: their tokens, price and liquidity can change at any time, and a pool id can point to another pair on another network.
 - The contract does not check what came back. A contract that must use the result listens for the transfer from `swap.alcor` with a notification handler on the token contract it expects (see [Notifications (on_notify)](doc:contract-notifications)) and checks `from` and the quantity.

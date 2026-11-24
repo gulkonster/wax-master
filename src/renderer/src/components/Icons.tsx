@@ -246,13 +246,57 @@ export const IconHelp = (p: P): React.JSX.Element => (
   </Svg>
 )
 
-/** The application symbol (same artwork as build/icon.svg) in the title bar; its size is --app-icon. */
-export function AppIcon(): React.JSX.Element {
+const LOGO_LETTER = '0.15,0.25 0.28,0.25 0.36,0.58 0.44,0.25 0.56,0.25 0.64,0.58 0.72,0.25 0.85,0.25 0.71,0.75 0.59,0.75 0.5,0.43 0.41,0.75 0.29,0.75'
+// The small form scales the letters 1.2 times about the face centre.
+const LOGO_SMALL_SCALE = 'translate(0.5 0.5) scale(1.2) translate(-0.5 -0.5)'
+
+/**
+ * The application logo: an isometric cube with a W on the left face, the same letter turned upside down
+ * (an M) on the right face and lines of code on the top face. Same drawing as build/icon.svg (large) and
+ * build/icon-small.svg (small: three code lines and larger letters, for 16 to 24 px).
+ */
+function Logo({ small, className, size }: { small: boolean; className: string; size?: number }): React.JSX.Element {
+  const scale = small ? `${LOGO_SMALL_SCALE} ` : ''
   return (
-    <svg viewBox="0 0 256 256" className="app-icon" aria-hidden="true">
-      <rect className="app-icon-bg" x="8" y="8" width="240" height="240" rx="48" />
-      <path className="app-icon-mark" d="M50 78 L88 194 L128 110 L168 194 L194 106" fill="none" strokeWidth="28" strokeLinejoin="round" strokeLinecap="round" />
-      <rect className="app-icon-tag" x="160" y="62" width="76" height="34" rx="6" transform="rotate(17 198 79)" />
+    <svg viewBox="0 0 180 180" className={className} width={size} height={size} aria-hidden="true">
+      <g transform="translate(-80,-80)">
+        <polygon className="logo-top" points="170,80 247.9,125 170,170 92.1,125" />
+        <polygon className="logo-left" points="92.1,125 170,170 170,260 92.1,215" />
+        <polygon className="logo-right" points="170,170 247.9,125 247.9,215 170,260" />
+        <g transform="matrix(77.9,45,0,90,92.1,125)">
+          <polygon className="logo-w" transform={small ? LOGO_SMALL_SCALE : undefined} points={LOGO_LETTER} />
+        </g>
+        <g transform="matrix(77.9,-45,0,90,170,170)">
+          <polygon className="logo-m" transform={`${scale}rotate(180 0.5 0.5)`} points={LOGO_LETTER} />
+        </g>
+        <g className="logo-lines" transform="matrix(77.9,-45,77.9,45,92.1,125)">
+          {small ? (
+            <>
+              <rect x="0.2" y="0.22" width="0.42" height="0.13" rx="0.06" />
+              <rect x="0.32" y="0.44" width="0.48" height="0.13" rx="0.06" />
+              <rect x="0.32" y="0.66" width="0.3" height="0.13" rx="0.06" />
+            </>
+          ) : (
+            <>
+              <rect x="0.2" y="0.2" width="0.42" height="0.075" rx="0.035" />
+              <rect x="0.32" y="0.34" width="0.48" height="0.075" rx="0.035" />
+              <rect x="0.32" y="0.48" width="0.28" height="0.075" rx="0.035" />
+              <rect x="0.44" y="0.62" width="0.36" height="0.075" rx="0.035" />
+              <rect x="0.2" y="0.76" width="0.22" height="0.075" rx="0.035" />
+            </>
+          )}
+        </g>
+      </g>
     </svg>
   )
+}
+
+/** The logo in the title bar (small form); its size is --app-icon. */
+export function AppIcon(): React.JSX.Element {
+  return <Logo small className="app-icon" />
+}
+
+/** The logo (large form) on Home and in About; pass the size in px. */
+export function AppLogo({ size }: { size: number }): React.JSX.Element {
+  return <Logo small={false} className="app-logo" size={size} />
 }

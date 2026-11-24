@@ -32,6 +32,7 @@ extraResources:
     filter:
       - '*.md'
       - index.json
+      - search-words.json
   - from: build/icon.ico
     to: icon.ico
   - from: LICENSE

@@ -93,7 +93,7 @@ Before the notification, the service called an action of the contract itself: `r
 1. Build and deploy the contract to a WAX Testnet account.
 2. Add `eosio.code` to the account's `active` (Account page > **Keys and permissions**).
 3. Run `roll` on the Contract page. The row appears with `result` = 0.
-4. Read the table `rolls` again later: `result` is set when the service has answered. On mainnet that takes a few seconds; on WAX Testnet the service may answer late or not at all. **Transaction history** of the contract account then shows `orng.wax` `randnotify`. See [Transaction history](doc:transaction-history).
+4. Read the table `rolls` again later: `result` is set when the service has answered. On mainnet that takes a few seconds; on WAX Testnet the service did not answer requests when this page was written (none since 2026-10-21). **Transaction history** of the contract account then shows `orng.wax` `randnotify`. See [Transaction history](doc:transaction-history).
 5. A request that still waits is a row of the service's table: open `orng.wax` on the Contract page, table `reqs`, scope `orng.wax`. Look for your contract in `dapp` and your row id in `assoc_id`; `rnd` stays all zeros until the answer. See [Read tables](doc:read-tables).
 
 ## What is needed

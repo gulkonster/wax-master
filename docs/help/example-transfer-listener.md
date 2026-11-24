@@ -70,4 +70,4 @@ The contract signs this transfer with its own `active` permission. That works on
 - The deposits and the contract account's own WAX are one balance. The table is the only record of whose WAX it is, so whoever holds the contract account's keys, or deploys new code to it, controls all of it.
 - The contract pays the RAM of one row per sender: about 136 bytes, the first row 248. It takes any amount, so tiny deposits from many accounts can use up its RAM. A real contract sets a smallest amount.
 
-See also [Example: Staking](doc:example-staking), which builds on this one.
+See also [Example: Staking](doc:example-staking), which builds on this one, and [Example: Token payments](doc:example-payments), which accepts more than one token.

@@ -13,6 +13,8 @@ import {
   voteproducer,
   claimgenesis,
   powerup,
+  bidname,
+  bidrefund,
   generatePrivateKey,
   headerFromChainInfo,
   hexToBytes,
@@ -162,6 +164,18 @@ describe('system action helpers', () => {
     expect(() => voteproducer({ voter: 'alice', producers: ['Bad'] })).toThrow()
     expect(claimgenesis({ claimer: 'alice' }).authorization[0].actor).toBe('alice')
     expect(() => powerup({ payer: 'a', receiver: 'b', days: 1, netFrac: 0, cpuFrac: 0, maxPayment: 'x' })).toThrow()
+  })
+
+  it('name bid helpers default authorization to the bidder and validate input', () => {
+    const b = bidname({ bidder: 'alice', newname: 'short', bid: '1.00000000 WAX' })
+    expect(b).toMatchObject({ account: 'eosio', name: 'bidname', authorization: [{ actor: 'alice', permission: 'active' }] })
+    expect(decodeActionData(EOSIO_ABI, b)).toEqual({ bidder: 'alice', newname: 'short', bid: '1.00000000 WAX' })
+    expect(decodeActionData(sys.abi.eosio, b)).toEqual({ bidder: 'alice', newname: 'short', bid: '1.00000000 WAX' })
+    expect(() => bidname({ bidder: 'alice', newname: 'short', bid: '1 wax' })).toThrow()
+    expect(() => bidname({ bidder: 'alice', newname: 'Short', bid: '1.00000000 WAX' })).toThrow()
+    const r = bidrefund({ bidder: 'bob', newname: 'short', authorization: [{ actor: 'bob', permission: 'bids' }] })
+    expect(r.authorization).toEqual([{ actor: 'bob', permission: 'bids' }])
+    expect(decodeActionData(sys.abi.eosio, r)).toEqual({ bidder: 'bob', newname: 'short' })
   })
 })
 

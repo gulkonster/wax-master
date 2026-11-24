@@ -1,7 +1,20 @@
 // The documentation in the editor page: files read once through the one main
 // process call and kept, the page's history, the search, and openHelp(topic).
 
-import { DOCS_INDEX_FILE, allTopics, parseDocsIndex, searchDocs, topicFile, type DocsIndex, type SearchDoc, type SearchHit } from '../../../shared/docs'
+import {
+  DOCS_INDEX_FILE,
+  NO_SEARCH_WORDS,
+  SEARCH_WORDS_FILE,
+  allTopics,
+  parseSearchWords,
+  parseDocsIndex,
+  searchDocumentation,
+  topicFile,
+  type DocsIndex,
+  type SearchDoc,
+  type SearchResult,
+  type SearchWords
+} from '../../../shared/docs'
 import { documentText, parseMarkdown, type MdDocument } from '../../../shared/markdown'
 import { emit } from './bus'
 import { Store } from './stores'
@@ -40,9 +53,9 @@ function loadSearchDocs(): Promise<SearchDoc[]> {
         index.groups.flatMap((g) =>
           g.topics.map(async (t): Promise<SearchDoc> => {
             try {
-              return { id: t.id, title: t.title, group: g.title, keywords: t.keywords.join(' '), ...documentText(await loadTopic(t.id)) }
+              return { id: t.id, title: t.title, group: g.title, keywords: t.keywords, ...documentText(await loadTopic(t.id)) }
             } catch {
-              return { id: t.id, title: t.title, group: g.title, keywords: t.keywords.join(' '), headings: '', body: '' }
+              return { id: t.id, title: t.title, group: g.title, keywords: t.keywords, headings: '', body: '' }
             }
           })
         )
@@ -55,8 +68,22 @@ function loadSearchDocs(): Promise<SearchDoc[]> {
   return searchDocsPromise
 }
 
-export async function search(query: string): Promise<SearchHit[]> {
-  return searchDocs(query, await loadSearchDocs())
+let searchWordsPromise: Promise<SearchWords> | null = null
+
+/** The similar-word groups, read on the first search. A missing or malformed list leaves the search without them. */
+function loadSearchWords(): Promise<SearchWords> {
+  if (!searchWordsPromise) {
+    searchWordsPromise = window.wax.docs
+      .read(SEARCH_WORDS_FILE)
+      .then(parseSearchWords)
+      .catch(() => NO_SEARCH_WORDS)
+  }
+  return searchWordsPromise
+}
+
+export async function search(query: string): Promise<SearchResult> {
+  const [docs, searchWords] = await Promise.all([loadSearchDocs(), loadSearchWords()])
+  return searchDocumentation(query, docs, searchWords)
 }
 
 export async function topicTitle(id: string): Promise<string | null> {

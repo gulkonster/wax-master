@@ -8,6 +8,7 @@
 
 import { app, BrowserWindow, ipcMain, screen, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
+import { iconPath } from './paths'
 import { approveFailure, type ApprovalRecord, type SendResult, type Signer } from './signer'
 import { APP_ORIGIN, isAllowedOrigin, secureWebPreferences } from './security'
 import { log } from './log'
@@ -135,6 +136,7 @@ export function openConfirmation(parent: BrowserWindow | null, record: ApprovalR
     const area = (parent ? screen.getDisplayMatching(parent.getBounds()) : screen.getPrimaryDisplay()).workAreaSize
     const win = new BrowserWindow({
       parent: parent ?? undefined,
+      icon: iconPath(),
       modal: false,
       width: Math.min(CONFIRM_WIDTH, area.width),
       height: Math.min(CONFIRM_HEIGHT, area.height),

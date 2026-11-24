@@ -1,6 +1,6 @@
 # Example: Random number (ORNG)
 
-> Note: Not tried on WAX Testnet; not included as a project. The random number service on WAX Testnet does not answer requests at the moment, so this example is not in File > New Project yet. The page shows the contract and the steps it will have.
+> Note: On WAX Testnet the random number service did not answer requests when this example was written (none since 2026-10-21). Steps 1 to 8 work there as written. The result of step 9 arrives only when the service answers; on WAX Mainnet it answers within seconds. Steps 9 to 11 were not tried.
 
 A dice roll with the WAX random number service on the account `orng.wax`. `roll` stores a roll without a result and asks the service for a number; the service answers in a later transaction, and the contract writes the result, 1 to 6, into the roll. It teaches the request-and-answer pattern, a notification handler and `eosio.code`. Why a contract cannot make the number itself is on [Random numbers (ORNG)](doc:contract-random).
 
@@ -57,9 +57,9 @@ The numbers are the service's own and can change. Open `orng.wax` on the Contrac
 
 ## How to do it here
 
-These are the steps the project will have once it is included.
+These are the steps of the project. The note at the top says which of them were run on WAX Testnet.
 
-1. File > New Project. Under **Examples** choose **Random number (ORNG)**, keep the name `dice`, choose the location and press **Create**.
+1. File > New Project > Examples > **Random number (ORNG)**. Keep the name `dice`, choose the location and press **Create**.
 2. Contract > Build (Ctrl+B). The Output ends with no errors and no warnings.
 3. Select WAX Testnet with the Network button. Accounts > Create Testnet Account: create the contract account, press **Request test tokens**, then **Open account** and press the star. The faucet limits how often it creates accounts and sends tokens, and shows its own message when it refuses. The player account is an account you already have or one made from the contract account: on its Account page, section **Create account**, with some **Stake CPU** and **Stake NET** (for example `1.00000000 WAX` each). The player pays the RAM of his rolls from his own account. If **Request test tokens** is refused, send WAX to the contract account from an account you have (its Account page, section **Transfer**) before deploying.
 4. Contract > Deploy. **Account**: the contract account, **Permission**: `active`. If the dialog says RAM is missing, press **Buy RAM** and approve, then press **Deploy** and approve.
@@ -68,7 +68,8 @@ These are the steps the project will have once it is included.
 7. Press **Contracts** in the top bar and open the contract account. Choose the action `roll`: `player` = the player account. **Authorization**: the player account with `active`. Press **Run** and approve.
 8. Pick the table `rolls` and press **Run query**: one row, `id` = 0, `player` = the player account, `result` = 0.
 9. A few seconds later press **Run query** again: `result` is a number from 1 to 6 and `random_value` is filled. The contract account's **Transactions** on the Account page show the `randnotify` of `orng.wax`.
-10. Choose the action `remove`: `id` = 0. **Authorization**: the player account with `active`. Press **Run** and approve. The query no longer shows the row, and its RAM is back with the player.
+10. Each further `roll` adds a row with the next `id`.
+11. Choose the action `remove`: `id` = 0. **Authorization**: the player account with `active`. Press **Run** and approve. The query no longer shows the row, and its RAM is back with the player.
 
 ## What goes wrong, and why
 
@@ -78,6 +79,7 @@ These are the steps the project will have once it is included.
 | "out of usage credits" | The contract's allowance is used up. Wait, or stake or deposit WAX for it. |
 | `roll` refused with a RAM error | The contract account needs RAM for the request row (step 5). |
 | "the roll has no result yet" | `remove` came before the service answered that roll. |
+| A roll stays without a result, cannot be removed, and keeps the player's row | While the service is silent nothing answers it. The row, and about 212 bytes of the contract account at `orng.wax`, stay. Roll once, not many times. |
 | `result` stays 0 | The service has not answered. The request is a row in the table `reqs` of `orng.wax` while it waits. |
 
 ## Before you build on it

@@ -5,7 +5,22 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { allTopics, docsCommands, isDocsFileName, isTopicId, parseDocsIndex, searchDocs, topicFile, type SearchDoc } from '../../src/shared/docs'
+import {
+  NO_SEARCH_WORDS,
+  SEARCH_WORDS_FILE,
+  allTopics,
+  docsCommands,
+  editDistance,
+  isDocsFileName,
+  isTopicId,
+  parseDocsIndex,
+  parseSearchWords,
+  searchDocs,
+  searchDocumentation,
+  stem,
+  topicFile,
+  type SearchDoc
+} from '../../src/shared/docs'
 import { documentLinks, documentText, inlineText, parseMarkdown, type Block, type Inline } from '../../src/shared/markdown'
 import { MENU_MODEL } from '../../src/shared/menu-model'
 import { HELP_TOPICS } from '../../src/renderer/src/lib/help-topics'
@@ -245,12 +260,131 @@ describe('documentation search', () => {
   it('needs every word, ignores case and punctuation, and gives a snippet', () => {
     expect(searchDocs('buy ram', docs).map((h) => h.id)).toEqual(['ram-basics', 'welcome'])
     expect(searchDocs('BUY, RAM!', docs).map((h) => h.id)).toEqual(['ram-basics', 'welcome'])
-    expect(searchDocs('ram nothing', docs)).toEqual([])
+    expect(searchDocumentation('buy ram', docs).partial).toBe(false)
     expect(searchDocs('   ', docs)).toEqual([])
     expect(searchDocs('faucet', docs)[0].snippet).toContain('faucet sends tokens')
   })
+  it('lists the pages with the most of the words when no page has them all', () => {
+    const r = searchDocumentation('ram nothing', docs)
+    expect(r.partial).toBe(true)
+    expect(r.hits.map((h) => h.id)).toEqual(['ram-basics', 'welcome', 'faucet'])
+    const two = searchDocumentation('buy ram nothing', docs)
+    expect([two.partial, two.hits.map((h) => h.id)]).toEqual([true, ['ram-basics', 'welcome']])
+    expect(searchDocumentation('zzzz qqqq', docs)).toEqual({ hits: [], partial: false, corrected: [] })
+  })
   it('treats regular expression characters in the query as text', () => {
     expect(() => searchDocs('a.b (x) [y] *z+ ?', docs)).not.toThrow()
+  })
+
+  const code: SearchDoc[] = [
+    { id: 'auth', title: 'Authority checks', group: 'Writing', keywords: ['require_auth', 'has_auth'], headings: '', body: 'Call require_auth(user) first. The eosio.code permission sends inline actions.' },
+    { id: 'notify', title: 'Notifications', group: 'Writing', keywords: ['on_notify'], headings: 'Listening', body: 'An on_notify handler listens to transfers. Staking rewards are paid later.' },
+    { id: 'single', title: 'Singletons', group: 'Writing', keywords: ['config'], headings: 'Entries', body: 'A singleton keeps one row of settings. The fees are low.' },
+    { id: 'nft', title: 'NFT blend', group: 'NFTs', keywords: ['blend', 'short name'], headings: '', body: 'Blend two assets into a new one. Premium accounts have a short name.' }
+  ]
+  it('finds a word joined by _ . or @ by its parts', () => {
+    expect(searchDocs('require auth', code).map((h) => h.id)).toEqual(['auth'])
+    expect(searchDocs('on notify', code).map((h) => h.id)).toEqual(['notify'])
+    expect(searchDocs('eosio code', code).map((h) => h.id)).toEqual(['auth'])
+    expect(searchDocs('require_auth', code).map((h) => h.id)).toEqual(['auth'])
+  })
+  it('drops the small words of a question unless nothing else is left', () => {
+    expect(searchDocs('how do i buy ram', docs)).toEqual(searchDocs('buy ram', docs))
+    expect(searchDocs('what is the singleton for', code).map((h) => h.id)).toEqual(['single'])
+    expect(searchDocs('the', [{ ...docs[0], body: 'the end' }]).length).toBe(1)
+  })
+  it('meets plural and verb forms through a short stem rule', () => {
+    expect(new Set(['staking', 'staked', 'stakes', 'stake'].map(stem))).toEqual(new Set(['stak']))
+    expect([stem('entries'), stem('entry'), stem('fees'), stem('fee'), stem('uses'), stem('classes'), stem('class'), stem('settings'), stem('setting')]).toEqual([
+      'entry',
+      'entry',
+      'fee',
+      'fee',
+      'use',
+      'class',
+      'class',
+      'sett',
+      'sett'
+    ])
+    // Never below three letters; words with a digit, _, . or @ stay.
+    expect([stem('bed'), stem('ties'), stem('require_auth'), stem('eosio.code'), stem('v2s'), stem('ram')]).toEqual(['bed', 'tie', 'require_auth', 'eosio.code', 'v2s', 'ram'])
+    expect(searchDocs('stake', code).map((h) => h.id)).toEqual(['notify'])
+    expect(searchDocs('entry', code).map((h) => h.id)).toEqual(['single'])
+    expect(searchDocs('fee', code).map((h) => h.id)).toEqual(['single'])
+  })
+  it('measures typing mistakes with a swap of neighbours as one edit', () => {
+    expect(editDistance('stakng', 'staking', 2)).toBe(1)
+    expect(editDistance('singelton', 'singleton', 2)).toBe(1)
+    expect(editDistance('kitten', 'sitting', 3)).toBe(3)
+    expect(editDistance('abcd', 'dcba', 1)).toBe(2)
+  })
+  it('searches the nearest word of the documentation for a word that finds nothing, with the same first letter', () => {
+    expect(searchDocumentation('singelton', code)).toMatchObject({ corrected: ['singleton'], partial: false, hits: [{ id: 'single' }] })
+    // 4 to 7 letters: one edit; 8 or more: two.
+    expect(searchDocumentation('notfy', code).corrected).toEqual(['notify'])
+    expect(searchDocumentation('ntfy', code).corrected).toEqual([])
+    expect(searchDocumentation('notifcatins', code).corrected).toEqual(['notifications'])
+    // Another first letter, fewer than 4 letters, or a word with a digit: no guess.
+    expect(searchDocumentation('xingleton', code).hits).toEqual([])
+    expect(searchDocumentation('rwo', code).hits).toEqual([])
+    expect(searchDocumentation('singl3ton', code).corrected).toEqual([])
+    // A word found by its stem or the start of a word is not a mistake.
+    expect(searchDocumentation('staked', code).corrected).toEqual([])
+    // "ram" does not find "random", and no guess turns it into another word.
+    expect(searchDocumentation('ram', [docs[0], { ...docs[1], title: 'Rooms', body: 'random', keywords: '' }])).toMatchObject({ corrected: [], hits: [{ id: 'welcome' }] })
+  })
+  it('a word or phrase of a similar-word group also searches the others', () => {
+    const sw = parseSearchWords(JSON.stringify({ version: 1, groups: [['blend', 'craft', 'merge'], ['premium name', 'short name', 'name bid'], ['stake', 'lock']] }))
+    expect(searchDocs('craft', code)).toEqual([])
+    expect(searchDocs('craft', code, sw).map((h) => h.id)).toEqual(['nft'])
+    expect(searchDocs('crafting', code, sw).map((h) => h.id)).toEqual(['nft'])
+    expect(searchDocs('premium name', code, sw).map((h) => h.id)).toEqual(['nft'])
+    expect(searchDocs('name bid', code, sw).map((h) => h.id)).toEqual(['nft'])
+    // A group phrase no page has is searched word by word.
+    expect(searchDocs('name bid', [{ ...code[3], keywords: [], body: 'Bid on a name.' }], sw).map((h) => h.id)).toEqual(['nft'])
+    expect(searchDocs('lock', code, sw).map((h) => h.id)).toEqual(['notify'])
+    // The snippet starts at the first word that matched, of whatever kind.
+    expect(searchDocs('lock', code, sw)[0].snippet).toBe('An on_notify handler listens to transfers. Staking rewards are paid later.')
+    expect(searchDocs('stakes', code)[0].snippet).toContain('Staking rewards')
+  })
+  it('ranks by one score: field weight times kind of match, body hits, the whole query as title or keyword', () => {
+    const rank: SearchDoc[] = [
+      { id: 'body', title: 'One', group: 'G', keywords: [], headings: '', body: 'blend blend blend blend blend blend blend' },
+      { id: 'head', title: 'Two', group: 'G', keywords: [], headings: 'Blend', body: 'blend' },
+      { id: 'key', title: 'Three', group: 'G', keywords: ['blend'], headings: '', body: '' },
+      { id: 'title', title: 'Blend', group: 'G', keywords: [], headings: '', body: '' },
+      { id: 'similar', title: 'Craft', group: 'G', keywords: [], headings: '', body: '' }
+    ]
+    const sw = { groups: [['blend', 'craft']] }
+    // title 10 + 5, keyword 8 + 5, similar title 6, body 1 + 5 (capped), heading 4 + 1.
+    expect(searchDocs('blend', rank, sw).map((h) => h.id)).toEqual(['title', 'key', 'body', 'similar', 'head'])
+    // Equal scores keep the order of the index.
+    expect(searchDocs('blend', [rank[3], { ...rank[3], id: 'title2' }]).map((h) => h.id)).toEqual(['title', 'title2'])
+  })
+  it('an empty or broken similar-word list changes nothing else', () => {
+    for (const q of ['ram', 'buy ram', 'faucet', 'recovery', 'ram nothing', 'singelton']) {
+      expect(searchDocumentation(q, [...docs, ...code], NO_SEARCH_WORDS)).toEqual(searchDocumentation(q, [...docs, ...code]))
+      expect(searchDocumentation(q, [...docs, ...code], { groups: [] })).toEqual(searchDocumentation(q, [...docs, ...code]))
+    }
+    const bad: unknown[] = [
+      'not json',
+      [],
+      { groups: [['a', 'b']], extra: 1 },
+      { version: 2, groups: [] },
+      { groups: [['alone']] },
+      { groups: [['Blend', 'craft']] },
+      { groups: [['blend', 'craft  merge']] },
+      { groups: [['blend', ' craft']] },
+      { groups: [['blend', 7]] },
+      { groups: [['blend', 'x'.repeat(41)]] },
+      { groups: [['blend', 'one two three four five']] },
+      { groups: [Array.from({ length: 21 }, (_, i) => `w${i}`)] },
+      { groups: Array.from({ length: 401 }, () => ['a', 'b']) },
+      { groups: 'blend' }
+    ]
+    for (const b of bad) expect(() => parseSearchWords(typeof b === 'string' ? b : JSON.stringify(b)), JSON.stringify(b)).toThrow()
+    expect(parseSearchWords('{"groups":[]}')).toEqual({ groups: [] })
+    expect(isDocsFileName(SEARCH_WORDS_FILE)).toBe(true)
   })
 })
 
@@ -349,6 +483,7 @@ const FEATURE_TOPICS: [string, keyof typeof HELP_TOPICS][] = [
   ['Wallet contract', 'walletContract'],
   ['Wallet voting and rewards', 'walletVoting'],
   ['Wallet PowerUp', 'walletPowerup'],
+  ['Wallet name bids', 'walletNameBids'],
   ['Home page (projects)', 'home'],
   ['New Project dialog', 'newProject'],
   ['Choose the main file dialog', 'mainFile'],
@@ -529,6 +664,7 @@ describe('context help', () => {
       ['pages/account/CreateAccountSection.tsx', 'walletCreateAccount'],
       ['pages/account/VotingSection.tsx', 'walletVoting'],
       ['pages/account/PowerupSection.tsx', 'walletPowerup'],
+      ['pages/account/NameBidsSection.tsx', 'walletNameBids'],
       ['pages/account/FaucetSection.tsx', 'walletFaucet'],
       ['pages/account/TransactionsSection.tsx', 'walletTransactions']
     ]

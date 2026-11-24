@@ -13,7 +13,7 @@
 //
 // Prints one line per sample and ends with an error when one fails.
 // It needs WSL and the toolchain (Help > Setup in the app), so it is not part of
-// the test suite. Usage: node scripts/check-doc-samples.mjs [--distro <name>]
+// the test suite. Usage: node scripts/check-doc-samples.mjs [--distro <name>] [--page <file.md>[,<file.md>...]]
 
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -43,8 +43,15 @@ const FULL_FORMS = {
   'example-staking.md': [{ dirs: ['resources/templates/examples/staking'], contract: 'staking' }],
   'example-atomicassets.md': [{ dirs: ['resources/templates/examples/atomicassets'], contract: 'minter' }],
   'example-alcor-swap.md': [{ dirs: ['resources/templates/examples/alcor-swap'], contract: 'swapper' }],
-  'example-random-number.md': [
-    { dirs: ['resources/templates/examples/random-number', 'resources/examples-pending/random-number'], contract: 'dice' }
+  'example-random-number.md': [{ dirs: ['resources/templates/examples/random-number'], contract: 'dice' }],
+  'example-nft-staking.md': [{ dirs: ['resources/templates/examples/nft-staking'], contract: 'nftstake' }],
+  'example-nft-blend.md': [{ dirs: ['resources/templates/examples/nft-blend'], contract: 'blender' }],
+  'example-payments.md': [{ dirs: ['resources/templates/examples/payments'], contract: 'payments' }],
+  'contract-table-migration.md': [
+    { dirs: ['test/fixtures/doc-samples/migration-v1'], contract: 'migrate' },
+    { dirs: ['test/fixtures/doc-samples/migration-v2-plain'], contract: 'migrate' },
+    { dirs: ['test/fixtures/doc-samples/migration-v2-extension'], contract: 'migrate' },
+    { dirs: ['test/fixtures/doc-samples/migration-v3-newtable'], contract: 'migrate' }
   ]
 }
 
@@ -170,7 +177,8 @@ async function main() {
   const builds = new Map()
   /** Lines of the table: { page, block, kind, sample, buildKey, problem } */
   const rows = []
-  const pages = readdirSync(DOCS).filter((f) => f.endsWith('.md')).sort()
+  const only = argValue('--page', '').split(',').map((s) => s.trim()).filter(Boolean)
+  const pages = readdirSync(DOCS).filter((f) => f.endsWith('.md') && (only.length === 0 || only.includes(f))).sort()
   const complete = new Set()
 
   for (const page of pages) {
@@ -248,7 +256,7 @@ async function main() {
     if (result.startsWith('FAILED')) failed++
     lines.push({ cells: [r.page, String(r.block), r.kind, r.sample], result })
   }
-  for (const page of writing) {
+  for (const page of writing.filter((p) => only.length === 0 || only.includes(p))) {
     if (!complete.has(page)) {
       failed++
       lines.push({ cells: [page, '-', '-', '-'], result: 'FAILED: a "Writing contracts" page without a complete sample' })

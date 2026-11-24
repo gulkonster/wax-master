@@ -11,7 +11,8 @@ import { dataDir } from './paths'
 import { chain, history, request } from './rpc'
 import { vault } from './keys-service'
 import { linksFromAccount, linksFromHistory } from './wallet-permissions'
-import { powerupState, powerupStateRow, proxyInfo, systemFeatures, votingView } from './wallet-system'
+import { nameAuctions, nameBidLookup, powerupState, powerupStateRow, proxyInfo, systemFeatures, votingView } from './wallet-system'
+import { bidNameProblem } from '../shared/name-bids'
 import { checkActionsFilter } from '../shared/history-filter'
 import type { AbiDef } from '../chain-core'
 import { addedTokens, MAX_HISTORY_TOKENS, NETWORK_ID_FORM, precisionFromStats, TOKEN_SYMBOL, tokenBalance, walletTokens } from './wallet-tokens'
@@ -282,6 +283,17 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
     if (!acc) throw new Error('account: enter an account name')
     return proxyInfo(networks.currentNetwork(), acc, networks.readCall)
   })
+  // Name bids: one name for one account (the account of that name, its auction row, the account's refund row).
+  handle('wallet:nameBid', (_e, name, account) => {
+    const nm = chainName(name, 'name')
+    const problem = bidNameProblem(nm)
+    if (problem) throw new Error(`name: ${problem}`)
+    const acc = chainName(account, 'account')
+    if (!acc) throw new Error('account: enter an account name')
+    return nameBidLookup(networks.currentNetwork(), nm, acc, networks.readCall)
+  })
+  // Name bids: the open auctions, highest bid first, and the chain's last close. Read on request only.
+  handle('wallet:nameAuctions', () => nameAuctions(networks.currentNetwork(), networks.readCall))
   // The PowerUp market (powup.state) of the current network; null when the chain has none.
   handle('wallet:powerup', () => powerupState(networks.currentNetwork(), networks.readCall))
   // RAM price of the current network for `bytes` (0: the market only); buyrambytes takes a uint32.

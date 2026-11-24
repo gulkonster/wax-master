@@ -13,7 +13,7 @@ void on_transfer(name from, name to, asset quantity, std::string memo) {
 ```
 
 - The text is `"contract::action"`. The handler runs only when `eosio.token` itself sent the `transfer`. A fake token contract that also calls its action `transfer` and also uses the symbol `WAX` does not reach this handler.
-- `"*::transfer"` accepts any contract. Then check `get_first_receiver()` yourself, or anyone can credit himself with a worthless token of the same symbol.
+- `"*::transfer"` accepts any contract. Then check `get_first_receiver()` yourself, or anyone can credit himself with a worthless token of the same symbol; see [Accepting tokens safely](doc:contract-accept-tokens).
 - The parameters are those of the notified action, in the same order and types.
 - The handler is not an action: it is not in the ABI and nobody can call it directly.
 - The contract is notified of its own outgoing transfers too: return early when `from` is the contract.

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu } from 'electron'
 import { join } from 'node:path'
+import { iconPath } from './paths'
 import { buildMenu, watchMenuKey } from './menu'
 import { hasBlockedSwitch } from './switches'
 import { registerIpc } from './ipc'
@@ -63,10 +64,6 @@ if (!app.requestSingleInstanceLock()) {
 registerSchemes()
 
 let mainWindow: BrowserWindow | null = null
-
-function iconPath(): string {
-  return app.isPackaged ? join(process.resourcesPath, 'icon.ico') : join(app.getAppPath(), 'build', 'icon.ico')
-}
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({

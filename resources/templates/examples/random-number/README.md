@@ -6,7 +6,7 @@ This contract is an example to learn from: not audited; do not hold real value w
 
 Before you build on it: `roll` is open to everybody, and each call uses one of the contract's free requests at the service and about 212 bytes of the contract account's RAM until it is answered, so a stranger can use up the allowance. A real game takes a payment or limits the calls per account.
 
-Status: not tried on WAX Testnet, where the service does not answer at the moment; not included in New Project.
+Status: On WAX Testnet the random number service did not answer requests when this example was written (none since 2026-10-21). Steps 1 to 8 work there as written. The result of step 9 arrives only when the service answers; on WAX Mainnet it answers within seconds. Steps 9 to 11 were not tried.
 
 ## What is in it
 
@@ -23,7 +23,7 @@ Status: not tried on WAX Testnet, where the service does not answer at the momen
 
 ## Steps in WAX Master (WAX Testnet)
 
-1. File > New Project. Under **Examples** choose **Random number (ORNG)**, keep the name `%CONTRACT%`, choose the location and press **Create**.
+1. File > New Project > Examples > **Random number (ORNG)**. Keep the name `%CONTRACT%`, choose the location and press **Create**.
 2. Contract > Build (Ctrl+B). The Output ends with no errors and no warnings.
 3. Select WAX Testnet with the Network button. Accounts > Create Testnet Account: create the **contract account**, press **Request test tokens**, then **Open account** and press the star. The faucet limits how often it creates accounts and sends tokens, and shows its own message when it refuses. The **player account** is an account you already have or one made from the contract account: on its Account page, section **Create account**, with some **Stake CPU** and **Stake NET** (for example `1.00000000 WAX` each). The player pays the RAM of his rolls from his own account. If **Request test tokens** is refused, send WAX to the contract account from an account you have (its Account page, section **Transfer**) before deploying.
 4. Contract > Deploy. **Account**: the contract account, **Permission**: `active`. If the dialog says RAM is missing, press **Buy RAM** and approve, then press **Deploy** and approve.
@@ -41,6 +41,7 @@ Status: not tried on WAX Testnet, where the service does not answer at the momen
 - `roll` refused with "out of usage credits": the contract's allowance is used up. Wait, or stake or deposit WAX for it as above.
 - `roll` refused with a RAM error: the contract account needs more RAM (step 5).
 - `remove` refused with "the roll has no result yet": the service has not answered that roll.
+- While the service is silent, a roll stays without a result, cannot be removed, and keeps the player's row (and about 212 bytes of the contract account at `orng.wax`); roll once, not many times.
 - `result` stays 0: the service has not answered. Open `orng.wax` on the Contract page and read its table `reqs`: your request is a row there while it waits.
 
 More in the documentation: Help > Documentation > Examples > Random number (ORNG).

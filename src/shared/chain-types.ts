@@ -148,6 +148,45 @@ export interface SystemFeatures {
   voting: boolean
   /** The ABI has powerup and the powup.state table has its row. */
   powerup: boolean
+  /** The ABI has bidname and bidrefund and the namebids and bidrefunds tables. */
+  nameBids: boolean
+}
+
+/** One row of the namebids table, checked. */
+export interface NameBidRow {
+  name: string
+  highBidder: string
+  /** The highest bid in whole units of the core token, always above zero (the table keeps a closed bid negative). */
+  highBid: string
+  /** Time of the last bid, ISO in UTC. */
+  lastBidTime: string
+  /** The chain closed the auction: the high bidder won the name. */
+  closed: boolean
+}
+
+/** What the chain says about one name for one account: the account, the auction row, the account's refund under the name. */
+export interface NameBidLookup {
+  name: string
+  account: string
+  /** An account of this name exists. */
+  exists: boolean
+  bid: NameBidRow | null
+  /** The account's outbid amount waiting in bidrefunds under this name, in whole units; null when there is none. */
+  refund: string | null
+  symbol: string
+  precision: number
+}
+
+/** The open auctions of the chain, highest bid first. */
+export interface NameAuctions {
+  /** At most NAME_AUCTIONS_MAX rows. */
+  open: NameBidRow[]
+  /** More open auctions exist than were read. */
+  more: boolean
+  /** The chain's last close of an auction, ISO in UTC; '' when it is not known. */
+  lastNameClose: string
+  symbol: string
+  precision: number
 }
 
 export interface ProducerRow {

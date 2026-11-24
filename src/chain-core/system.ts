@@ -85,7 +85,9 @@ export const EOSIO_ABI: AbiDef = {
       f('net_frac', 'int64'),
       f('cpu_frac', 'int64'),
       f('max_payment', 'asset')
-    ])
+    ]),
+    st('bidname', [f('bidder', 'name'), f('newname', 'name'), f('bid', 'asset')]),
+    st('bidrefund', [f('bidder', 'name'), f('newname', 'name')])
   ],
   actions: [
     act('newaccount'),
@@ -105,7 +107,9 @@ export const EOSIO_ABI: AbiDef = {
     act('voterclaim'),
     act('claimgbmvote'),
     act('claimgenesis'),
-    act('powerup')
+    act('powerup'),
+    act('bidname'),
+    act('bidrefund')
   ],
   ...emptyAbiParts
 }
@@ -465,5 +469,27 @@ export function powerup(args: {
     net_frac: args.netFrac,
     cpu_frac: args.cpuFrac,
     max_payment: args.maxPayment
+  })
+}
+
+/**
+ * Bids `bid` (core token) on the premium name `newname`. The amount is transferred
+ * from `bidder` to eosio.names at once; it comes back only through bidrefund after
+ * another account outbids it.
+ */
+export function bidname(args: { bidder: string; newname: string; bid: string; authorization?: PermissionLevel[] }): Action {
+  parseAsset(args.bid)
+  return mk('eosio', 'bidname', EOSIO_ABI, args.authorization ?? active(args.bidder), {
+    bidder: args.bidder,
+    newname: args.newname,
+    bid: args.bid
+  })
+}
+
+/** Pays the outbid amount of `bidder` on `newname` back from eosio.names. */
+export function bidrefund(args: { bidder: string; newname: string; authorization?: PermissionLevel[] }): Action {
+  return mk('eosio', 'bidrefund', EOSIO_ABI, args.authorization ?? active(args.bidder), {
+    bidder: args.bidder,
+    newname: args.newname
   })
 }
