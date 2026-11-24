@@ -53,4 +53,5 @@ nsis:
   artifactName: WAX-Master-Setup-${version}.exe
   uninstallDisplayName: WAX Master
   deleteAppDataOnUninstall: false
+  include: build/installer.nsh
 publish: null
