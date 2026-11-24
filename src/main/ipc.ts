@@ -1,5 +1,5 @@
-// IPC handlers for the editor window. Each handler checks the sender and
-// validates every argument before acting.
+// IPC handlers for the editor window and its terminal frame. Each handler
+// checks the sender and validates every argument before acting.
 
 import { app, clipboard, dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import { existsSync, mkdirSync } from 'node:fs'
@@ -9,7 +9,7 @@ import { normalizeConfig, type TemplateId } from '../shared/project'
 import { BUILD_COMMIT, BUILD_STAGE, MAINNET_SIGNING } from './build-info'
 import { log } from './log'
 import * as projects from './projects'
-import { isAllowedOrigin, openExternalConfirmed } from './security'
+import { isAllowedOrigin, isTerminalFrameUrl, openExternalConfirmed } from './security'
 import * as store from './store'
 import * as toolchain from './toolchain'
 import * as terminal from './terminal'
@@ -21,17 +21,35 @@ import { join, resolve } from 'node:path'
 
 type Handler = (e: IpcMainInvokeEvent, ...args: unknown[]) => unknown
 
-/** Only the main editor page may call these handlers (not the confirmation page). */
-function fromMainPage(e: IpcMainInvokeEvent): boolean {
-  const url = e.senderFrame?.url ?? ''
+function isEditorPageUrl(url: string): boolean {
   if (!isAllowedOrigin(url)) return false
-  if (e.senderFrame !== e.sender.mainFrame) return false
-  return !new URL(url).pathname.endsWith('/confirm.html')
+  const path = new URL(url).pathname
+  return !path.endsWith('/confirm.html') && !path.endsWith('/terminal.html')
 }
 
-export function handle(channel: string, fn: Handler): void {
+/** Only the main editor page may call these handlers (not the confirmation page, not a sub frame). */
+function fromMainPage(e: IpcMainInvokeEvent): boolean {
+  const url = e.senderFrame?.url ?? ''
+  if (e.senderFrame !== e.sender.mainFrame) return false
+  return isEditorPageUrl(url)
+}
+
+/**
+ * Only the terminal page (app://terminal/terminal.html), embedded directly in
+ * the editor page, may call the terminal and clipboard handlers.
+ */
+function fromTerminalFrame(e: IpcMainInvokeEvent): boolean {
+  const frame = e.senderFrame
+  const main = e.sender?.mainFrame
+  if (!frame || !main || frame === main) return false
+  if (!isTerminalFrameUrl(frame.url)) return false
+  if (frame.parent !== main) return false
+  return isEditorPageUrl(main.url)
+}
+
+function guarded(channel: string, allowed: (e: IpcMainInvokeEvent) => boolean, fn: Handler): void {
   ipcMain.handle(channel, async (e, ...args) => {
-    if (!fromMainPage(e)) throw new Error('Refused')
+    if (!allowed(e)) throw new Error('Refused')
     try {
       return await fn(e, ...args)
     } catch (err) {
@@ -40,6 +58,16 @@ export function handle(channel: string, fn: Handler): void {
       throw new Error(msg)
     }
   })
+}
+
+/** Terminal and clipboard calls: accepted only from the terminal frame. */
+function handleTerminal(channel: string, fn: Handler): void {
+  guarded(channel, fromTerminalFrame, fn)
+}
+
+/** Editor calls: accepted only from the main frame of the editor page. */
+export function handle(channel: string, fn: Handler): void {
+  guarded(channel, fromMainPage, fn)
 }
 
 export function registerIpc(getWindow: () => BrowserWindow | null): void {
@@ -254,22 +282,23 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
 
   handle('build:run', (e) => runBuild(e.sender))
 
-  handle('clipboard:writeText', (_e, text) => clipboard.writeText(str(text, 'text', 1024 * 1024)))
-  handle('clipboard:readText', async () => String(await clipboard.readText()).slice(0, 1024 * 1024))
-  handle('terminal:profiles', () => ({ profiles: terminal.profiles(), gitHint: terminal.gitHint() }))
-  handle('terminal:create', (e, profile, rel, cols, rows) =>
+  // Terminal and clipboard: only the terminal frame (app://terminal) may call these.
+  handleTerminal('clipboard:writeText', (_e, text) => clipboard.writeText(str(text, 'text', 1024 * 1024)))
+  handleTerminal('clipboard:readText', async () => String(await clipboard.readText()).slice(0, 1024 * 1024))
+  handleTerminal('terminal:profiles', () => ({ profiles: terminal.profiles(), gitHint: terminal.gitHint() }))
+  handleTerminal('terminal:create', (e, profile, rel, cols, rows) =>
     terminal.createTerminal(
-      e.sender,
+      e.senderFrame!,
       oneOf(profile, 'profile', ['powershell', 'cmd', 'toolchain'] as const),
       rel === null || rel === undefined || rel === '' ? null : relPath(rel, 'path'),
       int(cols, 'cols', 2, 1000),
       int(rows, 'rows', 2, 500)
     )
   )
-  handle('terminal:write', (_e, id, data) => terminal.writeTerminal(str(id, 'id', 64), str(data, 'data', 1024 * 1024)))
-  handle('terminal:resize', (_e, id, cols, rows) =>
+  handleTerminal('terminal:write', (_e, id, data) => terminal.writeTerminal(str(id, 'id', 64), str(data, 'data', 1024 * 1024)))
+  handleTerminal('terminal:resize', (_e, id, cols, rows) =>
     terminal.resizeTerminal(str(id, 'id', 64), int(cols, 'cols', 2, 1000), int(rows, 'rows', 2, 500))
   )
-  handle('terminal:kill', (_e, id) => terminal.killTerminal(str(id, 'id', 64)))
+  handleTerminal('terminal:kill', (_e, id) => terminal.killTerminal(str(id, 'id', 64)))
   handle('build:defaultCommand', () => defaultBuildArgs().join(' '))
 }

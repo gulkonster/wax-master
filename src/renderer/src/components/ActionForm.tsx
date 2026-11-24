@@ -6,6 +6,7 @@ import type { InspectedTransaction } from '../../../shared/trace-types'
 import { emit } from '../lib/bus'
 import type { AuthLevel, ContractAbiView, ContractAction, ContractField, ContractHistoryEntry, NetworkInfo, PackResult } from '../../../shared/chain-types'
 import { errorText, toast } from '../lib/toast'
+import { copyText } from '../lib/clipboard'
 import { IconChevronDown, IconChevronRight, IconClock, IconCopy, IconHeart, IconPlay, IconClose } from './Icons'
 
 // ---------------------------------------------------------------- shared dropdown
@@ -381,7 +382,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
 
   const copy = async (text: string): Promise<void> => {
     try {
-      await window.wax.clipboard.writeText(text)
+      await copyText(text)
       toast('Copied', '', 'success')
       void commitHistory()
     } catch (e) {

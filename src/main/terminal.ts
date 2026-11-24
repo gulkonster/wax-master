@@ -2,7 +2,7 @@
 // Processes run in the helper process with a clean environment. Terminal
 // content is never logged.
 
-import type { WebContents } from 'electron'
+import type { WebFrameMain } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
@@ -14,7 +14,17 @@ import { toolchainState } from './toolchain'
 
 interface Term {
   id: string
-  sender: WebContents
+  /** The terminal frame that opened it; data and exit events go only there. */
+  frame: WebFrameMain
+}
+
+function sendToFrame(frame: WebFrameMain, channel: string, ...args: unknown[]): void {
+  try {
+    if (frame.isDestroyed() || frame.detached) return
+    frame.send(channel, ...args)
+  } catch {
+    // the frame is gone (panel reloaded or window closed)
+  }
 }
 
 const terms = new Map<string, Term>()
@@ -66,16 +76,16 @@ function wire(): void {
   wired = true
   onPtyMessage((m) => {
     const t = terms.get(m.id)
-    if (!t || t.sender.isDestroyed()) return
-    if (m.type === 'pty-data') t.sender.send('terminal-data', m.id, m.data)
+    if (!t) return
+    if (m.type === 'pty-data') sendToFrame(t.frame, 'terminal-data', m.id, m.data)
     else if (m.type === 'pty-exit') {
       terms.delete(m.id)
-      t.sender.send('terminal-exit', m.id, m.code ?? 0, m.error ?? '')
+      sendToFrame(t.frame, 'terminal-exit', m.id, m.code ?? 0, m.error ?? '')
     }
   })
 }
 
-export function createTerminal(sender: WebContents, profile: TerminalProfile, rel: string | null, cols: number, rows: number): string {
+export function createTerminal(frame: WebFrameMain, profile: TerminalProfile, rel: string | null, cols: number, rows: number): string {
   wire()
   const project = currentProject()
   let cwd = homedir()
@@ -97,7 +107,7 @@ export function createTerminal(sender: WebContents, profile: TerminalProfile, re
     args = ['-d', tc.distro, '--cd', cwd, '--exec', 'bash', '-l']
   }
   const id = randomUUID()
-  terms.set(id, { id, sender })
+  terms.set(id, { id, frame })
   ptyStart(id, file, args, cwd, cols, rows, { WSL_UTF8: '1' })
   return id
 }

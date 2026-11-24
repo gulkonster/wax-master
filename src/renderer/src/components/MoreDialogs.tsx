@@ -3,6 +3,7 @@ import type { InspectedTransaction } from '../../../shared/trace-types'
 import { Modal } from './Modal'
 import { InspectorBody } from './Inspector'
 import { errorText, toast } from '../lib/toast'
+import { copyText } from '../lib/clipboard'
 import { networkStore } from '../lib/networks'
 import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
@@ -136,7 +137,10 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
           {pub && (
             <div className="chip" style={{ marginTop: 6, userSelect: 'text' }}>
               {pub}{' '}
-              <button className="btn ghost" onClick={() => void window.wax.clipboard.writeText(pub).then(() => toast('Public key copied'))}>
+              <button className="btn ghost" onClick={() => void copyText(pub).then(
+                  () => toast('Public key copied'),
+                  (e) => toast('Copy failed', errorText(e), 'error')
+                )}>
                 Copy
               </button>
             </div>

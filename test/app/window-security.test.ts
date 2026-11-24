@@ -22,7 +22,8 @@ describe('window creation options', () => {
   it('keeps node integration and webviews off', () => {
     expect(prefs.nodeIntegration).toBe(false)
     expect(prefs.nodeIntegrationInWorker).toBe(false)
-    expect(prefs.nodeIntegrationInSubFrames).toBe(false)
+    // The sandboxed preload also runs in the terminal frame.
+    expect(prefs.nodeIntegrationInSubFrames).toBe(true)
     expect(prefs.webviewTag).toBe(false)
   })
   it('turns developer tools off in a packaged build', () => {
