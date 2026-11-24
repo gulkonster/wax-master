@@ -1,12 +1,13 @@
 // Right half of the Contract page: table picker, query fields and the data table.
 // Rows come from the chain and are shown as text only.
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ContractAbiView, ContractField, ContractHistoryEntry } from '../../../shared/chain-types'
 import { errorText, toast } from '../lib/toast'
 import { IconCheck, IconChevronDown, IconTable } from './Icons'
 import { PickMenu, SavedMenus } from './ActionForm'
 import { rememberTypedScope, scopeForTable, type TypedScopes } from '../lib/table-scope'
+import { createLatestGate } from '../lib/latest-query'
 
 const KEY_TYPES = ['i64', 'i128', 'i256', 'float64', 'float128', 'sha256', 'ripemd160', 'name']
 const MAX_ROWS = 10_000
@@ -61,6 +62,8 @@ export function TableView({ account, view }: { account: string; view: ContractAb
   const [history, setHistory] = useState<ContractHistoryEntry[]>([])
   // Scopes the user typed per table in this tab (memory only).
   const [typedScopes, setTypedScopes] = useState<TypedScopes>({})
+  // Only the answer of the latest query started in this view is shown.
+  const queries = useRef(createLatestGate())
 
   const info = view.tables.find((t) => t.name === table)
   const columns: ContractField[] =
@@ -80,8 +83,11 @@ export function TableView({ account, view }: { account: string; view: ContractAb
 
   const run = async (tbl: string, f: QueryFields, append: boolean): Promise<void> => {
     if (!tbl) return
+    // Every call is the latest query: answers of older queries still on the way are dropped.
+    const ticket = queries.current.start()
     const limit = f.limit.trim() === '' ? 10 : Number(f.limit)
     if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
+      setLoading(false)
       setError('Limit: enter a whole number from 1 to 1000')
       return
     }
@@ -99,6 +105,7 @@ export function TableView({ account, view }: { account: string; view: ContractAb
         keyType: f.keyType,
         reverse: f.reverse
       })
+      if (!queries.current.isLatest(ticket)) return
       setRows((old) => (append ? [...old, ...r.rows] : r.rows))
       setMore(r.more)
       setNextKey(r.nextKey)
@@ -111,13 +118,14 @@ export function TableView({ account, view }: { account: string; view: ContractAb
         }
       }
     } catch (e) {
+      if (!queries.current.isLatest(ticket)) return
       if (!append) {
         setRows([])
         setMore(false)
       }
       setError(errorText(e))
     } finally {
-      setLoading(false)
+      if (queries.current.isLatest(ticket)) setLoading(false)
     }
   }
 
