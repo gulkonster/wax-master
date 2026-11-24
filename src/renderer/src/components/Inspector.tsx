@@ -3,7 +3,7 @@
 // is labelled, never guessed.
 
 import { useState } from 'react'
-import type { InspectedTransaction, TraceNode } from '../../../shared/trace-types'
+import type { InspectedTransaction, ResourceKind, ResourceProblem, TraceNode } from '../../../shared/trace-types'
 import { Modal } from './Modal'
 
 const NOT_RETURNED = 'not returned by this endpoint'
@@ -66,6 +66,43 @@ function Node({ node, depth }: { node: TraceNode; depth: number }): React.JSX.El
   )
 }
 
+function fmtUs(us: number): string {
+  if (us < 0) return 'unlimited'
+  return us >= 1000 ? `${(us / 1000).toFixed(2)} ms` : `${us} µs`
+}
+function fmtBytes(b: number): string {
+  if (b < 0) return 'unlimited'
+  if (b >= 1024 * 1024) return `${(b / 1024 / 1024).toFixed(2)} MB`
+  if (b >= 1024) return `${(b / 1024).toFixed(2)} KB`
+  return `${b} bytes`
+}
+
+/** CPU / NET / RAM of the first authorizer after a resource refusal. */
+function ResourceState({ r, endpoint }: { r: ResourceProblem; endpoint: string }): React.JSX.Element {
+  const st = r.state
+  const mark = (k: ResourceKind): React.CSSProperties => (k === r.kind ? { color: 'var(--red)', fontWeight: 600 } : {})
+  return (
+    <div style={{ margin: '8px 0' }}>
+      <div className="tr-label">
+        Resources of {r.account || '(unknown account)'} now, from {endpoint}
+      </div>
+      {!st ? (
+        <div className="hint">The account's resources could not be read.</div>
+      ) : (
+        <div className="tr-grid">
+          <span style={mark('cpu')}>CPU</span>
+          <span>{st.cpu ? `${fmtUs(st.cpu.used)} used · ${fmtUs(st.cpu.available)} available · ${fmtUs(st.cpu.max)} max` : `(${NOT_RETURNED})`}</span>
+          <span style={mark('net')}>NET</span>
+          <span>{st.net ? `${fmtBytes(st.net.used)} used · ${fmtBytes(st.net.available)} available · ${fmtBytes(st.net.max)} max` : `(${NOT_RETURNED})`}</span>
+          <span style={mark('ram')}>RAM</span>
+          <span>{st.ram ? `${fmtBytes(st.ram.used)} used of ${fmtBytes(st.ram.quota)} · ${st.ram.quota < 0 ? 'unlimited' : `${fmtBytes(Math.max(0, st.ram.quota - st.ram.used))} available`}` : `(${NOT_RETURNED})`}</span>
+        </div>
+      )}
+      <div className="hint">Node error: {r.errorName}</div>
+    </div>
+  )
+}
+
 export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Element {
   const [stack, setStack] = useState(false)
   return (
@@ -88,6 +125,7 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
         </span>
       </div>
       {t.errorMessage && <div className="tr-big-error">{t.errorMessage}</div>}
+      {t.resource && <ResourceState r={t.resource} endpoint={t.endpoint} />}
       {t.errorStack && (
         <>
           <button className="btn ghost" onClick={() => setStack((v) => !v)}>

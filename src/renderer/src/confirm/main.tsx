@@ -3,27 +3,43 @@ import { createRoot } from 'react-dom/client'
 import '../styles.css'
 import './confirm.css'
 
+interface Blob {
+  field: 'code' | 'abi'
+  size: number
+  sha256: string
+}
+
 interface Approval {
   id: string
-  purpose: string
+  title: string
   network: { id: string; name: string; kind: string; chainId: string }
   endpoint: string
   expiresAt: number
   expiration: string
   transactionId: string
   packedSha256: string
-  actions: { account: string; name: string; authorization: { actor: string; permission: string }[]; data: unknown; hex: string }[]
+  actions: { account: string; name: string; authorization: { actor: string; permission: string }[]; data: unknown; hex: string; blob?: Blob }[]
   signers: { actor: string; permission: string; publicKey: string; label: string }[]
-  artifacts?: { wasmSha256?: string; wasmSize?: number; abiSha256?: string; abiSize?: number; currentCodeHash?: string }
+  artifacts?: {
+    account: string
+    wasmSha256?: string
+    wasmSize?: number
+    abiSha256?: string
+    abiSize?: number
+    currentCodeHash: string | null
+    clear: boolean
+  }
   typedName?: string
   blocked?: string
+  /** Approve is accepted this long after the window is shown and focused. */
+  approveDelayMs: number
 }
 
 declare global {
   interface Window {
     confirmation: {
       load(): Promise<Approval>
-      approve(id: string, typedName?: string): Promise<{ ok: boolean; transactionId?: string; error?: string }>
+      approve(id: string, typedName?: string): Promise<{ ok: boolean; transactionId?: string; error?: string; notReady?: boolean }>
       cancel(id: string): Promise<boolean>
       revealLoad(): Promise<{ label: string; publicKey: string }>
       revealShow(password: string): Promise<string>
@@ -41,6 +57,42 @@ function Row({ label, children, mono }: { label: string; children: React.ReactNo
   )
 }
 
+function blobText(b: { size: number; sha256: string }): string {
+  return b.size === 0 ? '0 bytes (empty: removes it)' : `${b.size.toLocaleString()} bytes, SHA-256 ${b.sha256}`
+}
+
+/** Action data for display: code and ABI bytes as size and hash (the hex is behind "Show packed data"). */
+function shownData(act: Approval['actions'][number]): unknown {
+  if (!act.blob || !act.data || typeof act.data !== 'object') return act.data
+  return { ...(act.data as Record<string, unknown>), [act.blob.field]: blobText(act.blob) }
+}
+
+/**
+ * True once the window has been visible and focused for `delay` ms; any blur
+ * starts it over. The main process applies the same rule to Approve.
+ */
+function useArmed(delay: number): { armed: boolean; waitMs: number } {
+  const [since, setSince] = useState<number | null>(() => (document.hasFocus() && document.visibilityState === 'visible' ? Date.now() : null))
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const on = (): void => setSince(Date.now())
+    const off = (): void => setSince(null)
+    const vis = (): void => (document.visibilityState === 'visible' && document.hasFocus() ? on() : off())
+    window.addEventListener('focus', on)
+    window.addEventListener('blur', off)
+    document.addEventListener('visibilitychange', vis)
+    const t = setInterval(() => setNow(Date.now()), 100)
+    return () => {
+      window.removeEventListener('focus', on)
+      window.removeEventListener('blur', off)
+      document.removeEventListener('visibilitychange', vis)
+      clearInterval(t)
+    }
+  }, [])
+  const waitMs = since === null ? delay : Math.max(0, since + delay - now)
+  return { armed: since !== null && waitMs === 0, waitMs }
+}
+
 function Confirm(): React.JSX.Element {
   const [a, setA] = useState<Approval | null>(null)
   const [error, setError] = useState('')
@@ -48,6 +100,8 @@ function Confirm(): React.JSX.Element {
   const [left, setLeft] = useState(0)
   const [state, setState] = useState<'ready' | 'sending' | 'done' | 'failed'>('ready')
   const [showHex, setShowHex] = useState(false)
+  const [note, setNote] = useState('')
+  const { armed, waitMs } = useArmed(a?.approveDelayMs ?? 1500)
 
   useEffect(() => {
     window.confirmation
@@ -69,13 +123,18 @@ function Confirm(): React.JSX.Element {
 
   const mainnet = a.network.kind !== 'testnet' && a.network.kind !== 'local'
   const expired = left <= 0
-  const canApprove = state === 'ready' && !expired && !a.blocked && (!a.typedName || typed === a.typedName)
+  const canApprove = state === 'ready' && armed && !expired && !a.blocked && (!a.typedName || typed === a.typedName)
 
   const approve = async (): Promise<void> => {
     setState('sending')
+    setNote('')
     const r = await window.confirmation.approve(a.id, a.typedName ? typed : undefined)
     if (r.ok) setState('done')
-    else {
+    else if (r.notReady) {
+      // Too early: nothing was used up; the button works again in a moment.
+      setState('ready')
+      setNote(r.error ?? '')
+    } else {
       setState('failed')
       setError(r.error ?? 'Failed')
     }
@@ -83,8 +142,8 @@ function Confirm(): React.JSX.Element {
 
   return (
     <div className="c-page">
-      <div className={`c-header${mainnet ? ' mainnet' : ''}`}>
-        <div className="c-title">{a.purpose}</div>
+      <div className={`c-header${mainnet ? ' mainnet' : ' test'}`}>
+        <div className="c-title">{a.title}</div>
         <div>
           {a.network.name} · {mainnet ? 'MAINNET (real value)' : a.network.kind}
         </div>
@@ -105,21 +164,22 @@ function Confirm(): React.JSX.Element {
         </Row>
         {a.artifacts && (
           <div className="c-artifacts">
-            {a.artifacts.wasmSha256 && (
-              <Row label="WASM SHA-256" mono>
-                {a.artifacts.wasmSha256} ({a.artifacts.wasmSize?.toLocaleString()} bytes)
+            <Row label={a.artifacts.clear ? 'Clears contract of' : 'Contract account'}>
+              <b>{a.artifacts.account}</b>
+            </Row>
+            {a.artifacts.wasmSha256 !== undefined && (
+              <Row label="WASM (in this transaction)" mono>
+                {blobText({ size: a.artifacts.wasmSize ?? 0, sha256: a.artifacts.wasmSha256 })}
               </Row>
             )}
-            {a.artifacts.abiSha256 && (
-              <Row label="ABI SHA-256" mono>
-                {a.artifacts.abiSha256} ({a.artifacts.abiSize?.toLocaleString()} bytes)
+            {a.artifacts.abiSha256 !== undefined && (
+              <Row label="ABI (in this transaction)" mono>
+                {blobText({ size: a.artifacts.abiSize ?? 0, sha256: a.artifacts.abiSha256 })}
               </Row>
             )}
-            {a.artifacts.currentCodeHash !== undefined && (
-              <Row label="Code now on account" mono>
-                {a.artifacts.currentCodeHash || '(none)'}
-              </Row>
-            )}
+            <Row label="Code now on account" mono>
+              {a.artifacts.currentCodeHash === null ? `(could not be read from ${a.endpoint})` : a.artifacts.currentCodeHash || '(none)'}
+            </Row>
           </div>
         )}
         <div className="c-section">Actions ({a.actions.length})</div>
@@ -132,7 +192,7 @@ function Confirm(): React.JSX.Element {
               </span>{' '}
               <span className="hint">{act.authorization.map((x) => `${x.actor}@${x.permission}`).join(', ')}</span>
             </div>
-            <pre className="c-json">{JSON.stringify(act.data, null, 2)}</pre>
+            <pre className="c-json">{JSON.stringify(shownData(act), null, 2)}</pre>
             {showHex && <pre className="c-json">{act.hex}</pre>}
           </div>
         ))}
@@ -152,6 +212,7 @@ function Confirm(): React.JSX.Element {
             <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} spellCheck={false} />
           </div>
         )}
+        {note && <div className="hint">{note}</div>}
         {error && <div className="error-text">{error}</div>}
         {state === 'done' && <div className="c-done">Sent.</div>}
       </div>
@@ -166,7 +227,11 @@ function Confirm(): React.JSX.Element {
               Cancel
             </button>
             <button className={`btn ${mainnet ? 'red' : 'green'}`} disabled={!canApprove} onClick={() => void approve()}>
-              {state === 'sending' ? 'Signing and sending...' : 'Approve and send'}
+              {state === 'sending'
+                ? 'Signing and sending...'
+                : !armed && !expired && !a.blocked
+                  ? `Approve and send (in ${(waitMs / 1000).toFixed(1)} s)`
+                  : 'Approve and send'}
             </button>
           </>
         )}
@@ -247,7 +312,14 @@ function Reveal(): React.JSX.Element {
         {error && <div className="error-text">{error}</div>}
       </div>
       <div className="c-foot">
-        <button className="btn" onClick={() => window.close()}>
+        <button
+          className="btn"
+          onClick={() => {
+            setShown('')
+            setPw('')
+            window.close()
+          }}
+        >
           Close
         </button>
         <button className="btn" disabled={!pw} onClick={() => void copy()}>

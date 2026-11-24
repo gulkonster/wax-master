@@ -12,6 +12,7 @@ import { FLAG_SETUP, filterDiagnostics, type FlagSetup, type LspDiagnostic, type
 import { applyTextEdits, type LspTextEdit } from '../../../../shared/lsp-text'
 import { LspClient, isCancelled, type RpcMessage } from './client'
 import * as conv from './convert'
+import { sortTextFor } from './sort'
 import { disposeBackgroundModels, ensureModels, markBackgroundSaved, relOf } from './models'
 import { setEngineView } from './status'
 
@@ -430,7 +431,7 @@ function completionItem(item: LspCompletionItem, defaultRange: monaco.IRange): m
     kind: conv.toCompletionKind(item.kind),
     detail: item.detail,
     documentation: conv.toDocumentation(item.documentation),
-    sortText: item.sortText,
+    sortText: sortTextFor(item),
     filterText: item.filterText,
     insertText,
     insertTextRules: item.insertTextFormat === 2 ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet : undefined,

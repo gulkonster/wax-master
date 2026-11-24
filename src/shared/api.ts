@@ -297,7 +297,17 @@ export interface WaxApi {
   networks: {
     list(): Promise<{ networks: NetworkInfo[]; current: string }>
     select(id: string): Promise<NetworkInfo>
-    probe(url: string): Promise<{ endpoint: string; chainId: string; symbol: string; precision: number; version: string }>
+    probe(url: string): Promise<{
+      endpoint: string
+      chainId: string
+      symbol: string
+      precision: number
+      version: string
+      /** Set when the chain is a known main network: the kind is fixed to mainnet. */
+      kindNote: string | null
+      /** True when the endpoint is on this computer (kind "local" possible). */
+      localAllowed: boolean
+    }>
     add(n: { name: string; kind: NetworkKind; endpoint: string; chainId: string; symbol: string; precision: number; history?: string }): Promise<NetworkInfo>
     update(id: string, patch: { name?: string; kind?: NetworkKind; endpoints?: string[]; history?: string | null }): Promise<NetworkInfo>
     remove(id: string): Promise<void>
@@ -337,7 +347,8 @@ export interface WaxApi {
     importVault(password: string): Promise<number | null>
   }
   tx: {
-    run(actions: TxAction[], purpose: string): Promise<TxOutcome>
+    /** The confirmation's title is made by the main process from the decoded actions. */
+    run(actions: TxAction[]): Promise<TxOutcome>
     simulate(actions: TxAction[]): Promise<InspectedTransaction>
     simulationSupport(): Promise<'available' | 'unsupported' | 'unknown'>
     open(id: string): Promise<InspectedTransaction>
@@ -346,6 +357,11 @@ export interface WaxApi {
     plan(input: { networkId: string; account: string; permission: string; target: 'both' | 'wasm' | 'abi' }): Promise<DeployPlan>
     simulate(planId: string): Promise<InspectedTransaction>
     run(planId: string): Promise<TxOutcome>
+  }
+  faucet: {
+    create(name: string): Promise<{ ok: boolean; message: string; account?: string; ownerPublic?: string; activePublic?: string }>
+    tokens(name: string): Promise<{ ok: boolean; message: string }>
+    suggestName(): Promise<string>
   }
   accounts: {
     create(input: {
@@ -359,15 +375,8 @@ export interface WaxApi {
       stakeNet: string
       transfer: boolean
     }): Promise<TxOutcome>
-    changeKey(input: {
-      account: string
-      permission: string
-      parent: string
-      signWith: string
-      newKey: string
-      keepAccounts: { permission: { actor: string; permission: string }; weight: number }[]
-      keepWaits: { wait_sec: number; weight: number }[]
-    }): Promise<TxOutcome>
+    /** Replaces one key; the main process reads the permission and keeps the rest of its authority. */
+    changeKey(input: { account: string; permission: string; oldKey: string; newKey: string; signWith: string }): Promise<TxOutcome>
     clearCode(account: string, permission: string): Promise<TxOutcome>
   }
   toolchains: {

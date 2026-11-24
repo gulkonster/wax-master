@@ -1,7 +1,8 @@
 // Deploy: reads the built WASM and ABI once, compares them with the account,
 // checks host functions against the chain's active features, and prepares
 // setcode/setabi with exactly those bytes. The hashes shown on the confirmation
-// are computed from the same in-memory bytes; the files are not read again.
+// are computed by the signer from the code and ABI inside the packed
+// transaction; the files are not read again.
 
 import { createHash, randomUUID } from 'node:crypto'
 import { promises as fsp } from 'node:fs'
@@ -12,7 +13,7 @@ import { currentProject, resolveInProject } from './projects'
 import { currentNetwork, endpointOf, getNetwork, readCall } from './networks'
 import { chain } from './rpc'
 import { wasmInfo } from './wasm-info'
-import type { ActionRequest, DeployArtifacts } from './signer'
+import type { ActionRequest } from './signer'
 
 const MAX_WASM = 8 * 1024 * 1024
 const MAX_ABI_JSON = 2 * 1024 * 1024
@@ -157,7 +158,7 @@ export async function planDeploy(input: { networkId?: string; account: string; p
 }
 
 /** Builds setcode/setabi for a plan with the exact bytes read when the plan was made. */
-export function deployActions(planId: string, opts: { clear?: boolean; keep?: boolean } = {}): { networkId: string; actions: ActionRequest[]; artifacts: DeployArtifacts } {
+export function deployActions(planId: string, opts: { clear?: boolean; keep?: boolean } = {}): { networkId: string; actions: ActionRequest[] } {
   const p = plans.get(planId)
   if (!p) throw new Error('The deploy plan expired. Open Deploy again.')
   if (!opts.keep) plans.delete(planId)
@@ -166,7 +167,8 @@ export function deployActions(planId: string, opts: { clear?: boolean; keep?: bo
   if (p.wasm) actions.push({ account: 'eosio', name: 'setcode', authorization: auth, data: { account: p.account, vmtype: 0, vmversion: 0, code: bytesToHex(p.wasm) } })
   if (p.abi) actions.push({ account: 'eosio', name: 'setabi', authorization: auth, data: { account: p.account, abi: bytesToHex(p.abi) } })
   if (actions.length === 0 && !opts.clear) throw new Error('Nothing to deploy: the account already has this WASM and ABI.')
-  return { networkId: p.networkId, actions, artifacts: { wasm: p.wasm, abi: p.abi, currentCodeHash: p.currentCodeHash } }
+  // The signer computes the shown hashes and sizes from these bytes as packed in the transaction.
+  return { networkId: p.networkId, actions }
 }
 
 /** Clear Contract Code: empty setcode and setabi. */

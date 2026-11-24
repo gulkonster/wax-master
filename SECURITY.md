@@ -22,7 +22,8 @@ Include what you found, the steps to reproduce it, the version (Help > About) an
 - The vault locks when Windows sleeps, when Windows is locked, after inactivity, and when the app closes.
 - Every signature goes through a separate confirmation window. The signer signs exactly the bytes that were decoded for that window and sends them only to the endpoint shown there. An approval is used once and expires with the transaction.
 - Editor windows run sandboxed with context isolation and a strict content security policy. They have no file system or network access of their own.
-- The app sends nothing anywhere except to the chain endpoints you choose, the GitHub release check (can be turned off), and pages you open yourself.
+- Showing a private key asks for the vault password again, in its own window, hides the key after 30 seconds, and never unlocks the vault.
+- The app sends nothing anywhere except to the chain endpoints you choose, the GitHub release check (can be turned off), the WAX Testnet faucet (https://faucet.waxsweden.org) when you press Create Testnet Account, and pages you open yourself.
 
 ## Known limits
 

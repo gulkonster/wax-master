@@ -8,19 +8,22 @@ import { arr, chainName, obj, oneOf, optStr, str } from '../shared/validate'
 import { handle } from './ipc'
 import { signer, vault } from './keys-service'
 import { getSettings } from './store'
-import { openConfirmation } from './confirm-window'
+import { focusOpenConfirmation, hasOpenConfirmation, openConfirmation } from './confirm-window'
 import { simulate, probeSimulation } from './simulate'
-import { fromHistory, fromNodeAnswer, fromNodeError } from './trace'
+import { fromHistory, fromNodeAnswer, fromNodeError, withResourceState } from './trace'
 import { currentNetwork, endpointOf, getNetwork } from './networks'
-import { history } from './rpc'
+import { chain, history } from './rpc'
 import { clearCodeActions, deployActions, planDeploy } from './deploy'
-import type { ActionRequest, DeployArtifacts } from './signer'
+import { BUSY_MESSAGE, LOCKED_MESSAGE, type ActionRequest, type PrepareKind } from './signer'
 import { changeKeyActions, createAccountActions } from './accounts'
-import { arr as list, bool, int } from '../shared/validate'
+import { createTestnetAccount, randomTestnetName, requestTokens } from './faucet'
+import { bool, int } from '../shared/validate'
 
 const ACTION_NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
+/** Same limit as contract:pack. */
+export const MAX_ACTION_DATA = 1024 * 1024
 
-function parseActions(raw: unknown): ActionRequest[] {
+export function parseActions(raw: unknown): ActionRequest[] {
   return arr(raw, 'actions', 20).map((a, i) => {
     const o = obj(a, `actions[${i}]`)
     const name = str(o.name, `actions[${i}].name`, 13)
@@ -30,6 +33,13 @@ function parseActions(raw: unknown): ActionRequest[] {
       return { actor: chainName(p.actor, 'actor'), permission: chainName(p.permission, 'permission') }
     })
     if (authorization.length === 0) throw new Error('Authorization is required')
+    let size: number
+    try {
+      size = JSON.stringify(o.data ?? null).length
+    } catch {
+      throw new Error(`actions[${i}].data: not valid JSON data`)
+    }
+    if (size > MAX_ACTION_DATA) throw new Error(`actions[${i}].data: too large`)
     return { account: chainName(o.account, `actions[${i}].account`), name, authorization, data: o.data }
   })
 }
@@ -39,33 +49,59 @@ export type TxOutcome =
   | { status: 'failed'; trace: InspectedTransaction | null; error: string }
   | { status: 'cancelled' }
 
-async function signAndSend(
-  win: BrowserWindow | null,
-  networkId: string,
-  actions: ActionRequest[],
-  purpose: string,
-  artifacts?: DeployArtifacts
-): Promise<TxOutcome> {
-  const { record, secret } = await signer().prepare({ networkId, actions, purpose, artifacts })
+/**
+ * Stops before any window: a locked vault (the editor opens the keys dialog
+ * to unlock it) or a confirmation that is already open (it comes to the front).
+ */
+export function preflight(win: BrowserWindow | null): void {
+  if (!vault().isUnlocked()) {
+    if (win && !win.isDestroyed()) win.webContents.send('menu', 'manage-keypairs')
+    throw new Error(LOCKED_MESSAGE)
+  }
+  if (hasOpenConfirmation() || signer().busy()) {
+    focusOpenConfirmation()
+    throw new Error(BUSY_MESSAGE)
+  }
+}
+
+/** Account and endpoint whose resources explain a CPU / NET / RAM refusal. */
+function firstAuthorizer(actions: ActionRequest[]): string {
+  return actions[0]?.authorization[0]?.actor ?? ''
+}
+
+async function addResources(t: InspectedTransaction, account: string, endpoint: string): Promise<InspectedTransaction> {
+  return withResourceState(t, account, (a) => chain.getAccount(endpoint, a))
+}
+
+async function signAndSend(win: BrowserWindow | null, networkId: string, actions: ActionRequest[], kind: PrepareKind): Promise<TxOutcome> {
+  preflight(win)
+  const { record, secret } = await signer().prepare({ networkId, actions, kind })
   const outcome = await openConfirmation(win, record, secret)
   if (outcome.approved && getSettings().lockAfterSignature) vault().lock()
   const ctx = { source: 'sent' as const, network: record.network.name, endpoint: record.endpoint }
   if (outcome.approved) return { status: 'sent', trace: fromNodeAnswer(outcome.result.response, ctx) }
   if (outcome.reason === 'error') {
+    const trace = outcome.details
+      ? await addResources(fromNodeError(outcome.details, ctx, record.transactionId), record.actions[0]?.authorization[0]?.actor ?? '', record.endpoint)
+      : null
     return {
       status: 'failed',
-      error: outcome.error ?? 'Failed',
-      trace: outcome.details ? fromNodeError(outcome.details, ctx, record.transactionId) : null
+      // A CPU / NET / RAM refusal is said plainly; anything else keeps the node's message.
+      error: trace?.resource ? (trace.errorMessage ?? outcome.error ?? 'Failed') : (outcome.error ?? 'Failed'),
+      trace
     }
   }
   return { status: 'cancelled' }
 }
 
 export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
-  handle('tx:run', (_e, actions, purpose) =>
-    signAndSend(getWindow(), currentNetwork().id, parseActions(actions), str(purpose, 'purpose', 120))
-  )
-  handle('tx:simulate', (_e, actions) => simulate(parseActions(actions)))
+  // The confirmation's title is made by the signer from the decoded actions; the editor sends only the actions.
+  handle('tx:run', (_e, actions) => signAndSend(getWindow(), currentNetwork().id, parseActions(actions), 'run'))
+  handle('tx:simulate', async (_e, actions) => {
+    const acts = parseActions(actions)
+    const t = await simulate(acts)
+    return addResources(t, firstAuthorizer(acts), t.endpoint)
+  })
   handle('tx:simulationSupport', () => probeSimulation(endpointOf(currentNetwork())))
   handle('tx:open', async (_e, id) => {
     const trxId = str(id, 'id', 64)
@@ -92,16 +128,20 @@ export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
     // Simulation uses a copy of the plan's actions; the plan stays usable for Deploy.
     const id = str(planId, 'plan', 64)
     const { networkId, actions } = deployActions(id, { keep: true })
-    return simulate(actions, networkId)
+    const t = await simulate(actions, networkId)
+    return addResources(t, firstAuthorizer(actions), t.endpoint)
   })
   handle('deploy:run', (_e, planId) => {
-    const { networkId, actions, artifacts } = deployActions(str(planId, 'plan', 64))
-    return signAndSend(getWindow(), networkId, actions, `Deploy to ${actions[0]?.authorization[0]?.actor ?? ''}`, artifacts)
+    const id = str(planId, 'plan', 64)
+    // Checked before the plan is used up, so Deploy works again after unlocking.
+    preflight(getWindow())
+    const { networkId, actions } = deployActions(id)
+    return signAndSend(getWindow(), networkId, actions, 'deploy')
   })
   handle('accounts:clearCode', (_e, account, permission) => {
     const acc = chainName(account, 'account')
     const n = getNetwork(currentNetwork().id)
-    return signAndSend(getWindow(), n.id, clearCodeActions(acc, chainName(permission, 'permission')), `Clear contract code of ${acc}`)
+    return signAndSend(getWindow(), n.id, clearCodeActions(acc, chainName(permission, 'permission')), 'clearCode')
   })
   handle('accounts:create', (_e, raw) => {
     const o = obj(raw, 'account')
@@ -116,26 +156,32 @@ export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
       stakeNet: str(o.stakeNet, 'stakeNet', 40),
       transfer: bool(o.transfer, 'transfer')
     }
-    return signAndSend(getWindow(), currentNetwork().id, createAccountActions(input), `Create account ${input.name}`)
+    return signAndSend(getWindow(), currentNetwork().id, createAccountActions(input), 'createAccount')
   })
-  handle('accounts:changeKey', (_e, raw) => {
+  handle('accounts:changeKey', async (_e, raw) => {
     const o = obj(raw, 'change')
     const input = {
       account: chainName(o.account, 'account'),
       permission: chainName(o.permission, 'permission'),
-      parent: o.parent === '' ? '' : chainName(o.parent, 'parent'),
-      signWith: chainName(o.signWith, 'signWith'),
+      oldKey: str(o.oldKey, 'oldKey', 120),
       newKey: str(o.newKey, 'newKey', 120),
-      keepAccounts: list(o.keepAccounts, 'keepAccounts', 20).map((x, i) => {
-        const a = obj(x, `keepAccounts[${i}]`)
-        const perm = obj(a.permission, 'permission')
-        return { permission: { actor: chainName(perm.actor, 'actor'), permission: chainName(perm.permission, 'permission') }, weight: int(a.weight, 'weight', 0, 65535) }
-      }),
-      keepWaits: list(o.keepWaits, 'keepWaits', 20).map((x, i) => {
-        const w = obj(x, `keepWaits[${i}]`)
-        return { wait_sec: int(w.wait_sec, 'wait_sec', 0, 2 ** 31), weight: int(w.weight, 'weight', 0, 65535) }
-      })
+      signWith: chainName(o.signWith, 'signWith')
     }
-    return signAndSend(getWindow(), currentNetwork().id, changeKeyActions(input), `Change key of ${input.account}@${input.permission}`)
+    preflight(getWindow())
+    // The permission is read here, from the endpoint the signer will use; only one key changes.
+    const n = currentNetwork()
+    const account = await chain.getAccount(endpointOf(n), input.account)
+    return signAndSend(getWindow(), n.id, changeKeyActions(input, account), 'changeKey')
   })
+
+  // WAX Testnet faucet (only on the WAX Testnet preset; keys go into the vault in this process).
+  handle('faucet:create', async (_e, name) => {
+    if (currentNetwork().id !== 'wax-testnet') throw new Error('Switch to WAX Testnet first.')
+    return createTestnetAccount(str(name, 'name', 12), vault())
+  })
+  handle('faucet:tokens', async (_e, name) => {
+    if (currentNetwork().id !== 'wax-testnet') throw new Error('Switch to WAX Testnet first.')
+    return requestTokens(chainName(name, 'name'))
+  })
+  handle('faucet:suggestName', () => randomTestnetName())
 }

@@ -13,6 +13,10 @@ export interface NetworkInfo {
   history?: string
   preset: boolean
   currentEndpoint: number
+  /** Set by the main process when the kind cannot be chosen (a known main network); shown next to the kind. */
+  kindNote?: string
+  /** Set by the main process after its own dialog confirmed marking this chain as a test network. */
+  testnetConfirmed?: boolean
 }
 
 export interface PermissionView {

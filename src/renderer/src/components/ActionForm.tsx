@@ -249,9 +249,20 @@ export function ActionForm({ account, view, network }: { account: string; view: 
   const [authText, setAuthText] = useState(`${account}@active`)
   const [pack, setPack] = useState<PackResult | null>(null)
   const [error, setError] = useState('')
+  // Field errors show once a field was edited or Run / Simulate / Command was pressed.
+  const [touched, setTouched] = useState(false)
   const [favorites, setFavorites] = useState<ContractHistoryEntry[]>([])
   const [history, setHistory] = useState<ContractHistoryEntry[]>([])
   const seq = useRef(0)
+  const [simSupport, setSimSupport] = useState<'available' | 'unsupported' | 'unknown' | null>(null)
+  useEffect(() => {
+    let live = true
+    setSimSupport(null)
+    window.wax.tx.simulationSupport().then((r) => live && setSimSupport(r), () => live && setSimSupport('unknown'))
+    return () => {
+      live = false
+    }
+  }, [account, network.id])
 
   const fields = action?.fields ?? []
 
@@ -329,6 +340,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
 
   const pickAction = (name: string): void => {
     void commitHistory()
+    setTouched(false)
     setActionName(name)
     setValues({})
     setRaw(false)
@@ -341,6 +353,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
       toast('Action not found', `${e.name} is not in the ABI of ${account} any more.`, 'error')
       return
     }
+    setTouched(true)
     setActionName(a.name)
     setValues(valuesFromData(a.fields, e.payload.data))
     setRaw(false)
@@ -360,6 +373,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
   }
 
   const toggleRaw = (): void => {
+    setTouched(true)
     if (!raw) {
       const cur = (() => {
         try {
@@ -395,6 +409,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
   const [running, setRunning] = useState<null | 'run' | 'simulate'>(null)
 
   const txActions = (): { account: string; name: string; authorization: AuthLevel[]; data: unknown }[] | null => {
+    setTouched(true)
     const cur = current()
     const auth = parseAuth(authText)
     if (!action || !cur.data || auth.error || auth.levels.length === 0) {
@@ -411,7 +426,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
     setResultNote('')
     try {
       void commitHistory()
-      const r = await window.wax.tx.run(acts, `Run ${account}::${acts[0].name}`)
+      const r = await window.wax.tx.run(acts)
       if (r.status === 'sent') {
         setResult(r.trace)
         setResultNote('')
@@ -476,7 +491,18 @@ export function ActionForm({ account, view, network }: { account: string; view: 
         <button className="icon-btn" style={{ height: 34, width: 40 }} disabled={!action || !!running} title="Run (sign and send after confirmation)" onClick={() => void run()}>
           <IconPlay />
         </button>
-        <button className="btn ghost" style={{ borderRadius: 0 }} disabled={!action || !!running} title="Simulate without sending (unsigned)" onClick={() => void sim()}>
+        <button
+          className="btn ghost"
+          style={{ borderRadius: 0 }}
+          disabled={!action || !!running || simSupport === 'unsupported'}
+          title={
+            simSupport === 'unsupported'
+              ? 'This endpoint does not offer simulation'
+              : simSupport === 'unknown'
+                ? 'Simulate without sending (unsigned). Not verified for this endpoint.'
+                : 'Simulate without sending (unsigned)'
+          }
+          onClick={() => void sim()}>
           {running === 'simulate' ? 'Simulating...' : 'Simulate'}
         </button>
         <div className="spacer" />
@@ -508,6 +534,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                     className={`pill${command ? ' on' : ''}`}
                     onClick={(e) => {
                       e.stopPropagation()
+                      setTouched(true)
                       setCommand((c) => !c)
                     }}
                   >
@@ -546,7 +573,10 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                     style={{ minHeight: 140 }}
                     spellCheck={false}
                     value={rawText}
-                    onChange={(e) => setRawText(e.target.value)}
+                    onChange={(e) => {
+                      setTouched(true)
+                      setRawText(e.target.value)
+                    }}
                   />
                 </>
               ) : fields.length === 0 ? (
@@ -558,11 +588,14 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                     field={f}
                     net={network}
                     value={values[f.name]}
-                    onChange={(v) => setValues((s) => ({ ...s, [f.name]: v }))}
+                    onChange={(v) => {
+                      setTouched(true)
+                      setValues((s) => ({ ...s, [f.name]: v }))
+                    }}
                   />
                 ))
               )}
-              {error ? <div className="error-text" style={{ marginTop: 10, userSelect: 'text' }}>{error}</div> : pack && <div className="hint">Valid: {pack.hex.length / 2} bytes packed.</div>}
+              {error && touched ? <div className="error-text" style={{ marginTop: 10, userSelect: 'text' }}>{error}</div> : pack && !error && <div className="hint">Valid: {pack.hex.length / 2} bytes packed.</div>}
             </Section>
             <Section title="Authorization" badge={<span className="badge purple">{authBadge || 'none'}</span>}>
               <div className="field-label">account@permission</div>
@@ -571,7 +604,10 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                 spellCheck={false}
                 value={authText}
                 placeholder={`${account}@active`}
-                onChange={(e) => setAuthText(e.target.value)}
+                onChange={(e) => {
+                  setTouched(true)
+                  setAuthText(e.target.value)
+                }}
               />
               <div className="hint">Separate several with commas. Nothing is signed from this page yet.</div>
             </Section>
@@ -579,6 +615,8 @@ export function ActionForm({ account, view, network }: { account: string; view: 
               <div className="ricardian">{action.ricardian || '(none)'}</div>
             </Section>
             <Section title="Result" defaultOpen>
+              {simSupport === 'unknown' && <div className="hint">Simulate: not verified for this endpoint.</div>}
+              {simSupport === 'unsupported' && <div className="hint">Simulate: this endpoint does not offer it.</div>}
               {running === 'run' && <div>Waiting for the confirmation window...</div>}
               {resultNote && <div className="error-text">{resultNote}</div>}
               {!result && !resultNote && !running && <div>(None)</div>}

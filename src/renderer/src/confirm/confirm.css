@@ -1,16 +1,22 @@
 .c-page {
+  /* Accent line under the test-network header. */
+  --confirm-accent: var(--accent);
   display: flex;
   flex-direction: column;
   height: 100%;
   user-select: text;
 }
+/* Test and local networks: dark panel with an orange line. Mainnet: filled red. */
 .c-header {
   padding: 14px 20px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--bg-2);
+  color: var(--text);
+  border-bottom: 3px solid var(--confirm-accent);
 }
 .c-header.mainnet {
   background: var(--red);
+  color: #fff;
+  border-bottom-color: var(--red);
 }
 .c-title {
   font-size: 20px;

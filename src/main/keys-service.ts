@@ -56,18 +56,18 @@ function status(): VaultStatus {
 
 /** Locks on suspend, workstation lock (both always on), inactivity and quit. */
 function startAutoLock(): void {
-  powerMonitor.on('suspend', () => vault().lock())
-  powerMonitor.on('lock-screen', () => vault().lock())
+  powerMonitor.on('suspend', () => lockAll())
+  powerMonitor.on('lock-screen', () => lockAll())
   setInterval(() => {
     const v = vault()
     if (!v.isUnlocked()) return
     const minutes = getSettings().autoLockMinutes
     if (powerMonitor.getSystemIdleTime() >= minutes * 60) {
       log.info('Vault locked after inactivity')
-      v.lock()
+      lockAll()
     }
   }, 30_000).unref()
-  app.on('before-quit', () => vault().lock())
+  app.on('before-quit', () => lockAll())
 }
 
 // Clipboard: a copied private key is cleared after 30 seconds if it is still there.
@@ -79,7 +79,35 @@ function copySecretBriefly(text: string): void {
 }
 
 // Reveal: the password prompt and the key are shown only in a separate window.
-const revealWindows = new Map<number, string>()
+const revealWindows = new Map<number, { keyId: string; win: BrowserWindow }>()
+
+function closeRevealWindows(): void {
+  for (const { win } of [...revealWindows.values()]) {
+    if (!win.isDestroyed()) win.close()
+  }
+}
+
+/** Locks the vault and closes every reveal window (a shown key goes with the window). */
+function lockAll(): void {
+  vault().lock()
+  closeRevealWindows()
+}
+
+/** A native confirmation from the main process; Cancel is the default and the answer to Escape. */
+export async function confirmNative(win: BrowserWindow | null, message: string, detail: string, action: string): Promise<boolean> {
+  const opts = {
+    type: 'warning' as const,
+    buttons: ['Cancel', action],
+    defaultId: 0,
+    cancelId: 0,
+    noLink: true,
+    title: 'WAX Master',
+    message,
+    detail
+  }
+  const r = win && !win.isDestroyed() ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)
+  return r.response === 1
+}
 
 function openRevealWindow(parent: BrowserWindow | null, keyId: string): void {
   const win = new BrowserWindow({
@@ -94,8 +122,9 @@ function openRevealWindow(parent: BrowserWindow | null, keyId: string): void {
     webPreferences: secureWebPreferences(join(__dirname, '../preload/confirm.js'))
   })
   win.setMenu(null)
-  revealWindows.set(win.webContents.id, keyId)
-  win.on('closed', () => revealWindows.delete(win.webContents.id))
+  const wcId = win.webContents.id
+  revealWindows.set(wcId, { keyId, win })
+  win.on('closed', () => revealWindows.delete(wcId))
   win.once('ready-to-show', () => win.show())
   const devUrl = process.env.ELECTRON_RENDERER_URL
   const base = !app.isPackaged && devUrl ? `${devUrl.replace(/\/$/, '')}/confirm.html` : `${APP_ORIGIN}/confirm.html`
@@ -103,7 +132,7 @@ function openRevealWindow(parent: BrowserWindow | null, keyId: string): void {
 }
 
 function fromRevealWindow(e: IpcMainInvokeEvent): string | null {
-  const id = revealWindows.get(e.sender.id)
+  const id = revealWindows.get(e.sender.id)?.keyId
   const url = e.senderFrame?.url ?? ''
   if (!id || e.senderFrame !== e.sender.mainFrame || !isAllowedOrigin(url)) return null
   if (!new URL(url).pathname.endsWith('/confirm.html')) return null
@@ -116,6 +145,9 @@ export function registerKeys(getWindow: () => BrowserWindow | null): void {
   vault().onChange(() => {
     const w = getWindow()
     if (w && !w.isDestroyed()) w.webContents.send('vault-changed', status())
+  })
+  vault().onChange((unlocked) => {
+    if (!unlocked) closeRevealWindows()
   })
 
   handle('keys:status', () => status())
@@ -131,7 +163,7 @@ export function registerKeys(getWindow: () => BrowserWindow | null): void {
     return status()
   })
   handle('keys:lock', () => {
-    vault().lock()
+    lockAll()
     return status()
   })
   handle('keys:list', () => vault().list())
@@ -140,7 +172,23 @@ export function registerKeys(getWindow: () => BrowserWindow | null): void {
   handle('keys:discardPending', () => vault().discardPendingKey())
   handle('keys:import', (_e, key, label) => vault().addKey(str(key, 'privateKey', 200), str(label, 'label', 64)))
   handle('keys:setLabel', (_e, id, label) => vault().setLabel(str(id, 'id', 64), str(label, 'label', 64)))
-  handle('keys:remove', (_e, id) => vault().removeKey(str(id, 'id', 64)))
+  handle('keys:remove', async (_e, id) => {
+    const keyId = str(id, 'id', 64)
+    const k = vault().list().find((x) => x.id === keyId)
+    if (!k) throw new Error('Unknown key')
+    const ok = await confirmNative(
+      getWindow(),
+      'Delete this key from the vault?',
+      `Label: ${k.label || '(no label)'}
+Public key: ${k.publicKey}
+
+The private key is removed. Without a backup it cannot be recovered.`,
+      'Delete key'
+    )
+    if (!ok) return
+    vault().removeKey(keyId)
+    for (const { keyId: rk, win } of [...revealWindows.values()]) if (rk === keyId && !win.isDestroyed()) win.close()
+  })
   handle('keys:reveal', (_e, id) => {
     const keyId = str(id, 'id', 64)
     if (!vault().list().some((k) => k.id === keyId)) throw new Error('Unknown key')

@@ -35,4 +35,26 @@ export interface InspectedTransaction {
   errorStack: string | null
   actions: TraceNode[]
   notes: string[]
+  /** Set when the node refused the transaction for CPU, NET or RAM (never for a timeout or network error). */
+  resource?: ResourceProblem
+}
+
+export type ResourceKind = 'cpu' | 'net' | 'ram'
+
+/** CPU in microseconds, NET in bytes, RAM in bytes; -1 = unlimited. */
+export interface AccountResources {
+  account: string
+  cpu: { used: number; available: number; max: number } | null
+  net: { used: number; available: number; max: number } | null
+  ram: { used: number; quota: number } | null
+}
+
+export interface ResourceProblem {
+  kind: ResourceKind
+  /** Node error name, e.g. tx_cpu_usage_exceeded. */
+  errorName: string
+  /** The first authorizer of the transaction (whose resources are shown). */
+  account: string
+  /** Read with get_account from the same endpoint; null if that read failed. */
+  state: AccountResources | null
 }

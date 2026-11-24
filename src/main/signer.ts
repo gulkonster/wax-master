@@ -11,13 +11,16 @@
 //                     cannot approve.
 //   cancel(id)        drops an approval.
 //
-// There is no call that signs a digest or arbitrary bytes.
+// There is no call that signs a digest or arbitrary bytes. Everything the
+// confirmation shows (title, typed name, code and ABI hashes) is derived here
+// from the packed bytes, never taken from the caller.
 
 import { randomBytes, randomUUID, timingSafeEqual, createHash } from 'node:crypto'
 import {
   bytesToHex,
   decodeAction,
   encodeAction,
+  EOSIO_ABI,
   headerFromChainInfo,
   hexToBytes,
   packTransaction,
@@ -35,14 +38,18 @@ import {
 } from '../chain-core'
 import type { NetworkInfo } from '../shared/chain-types'
 import { MAINNET_SIGNING } from './build-info'
-import { getNetwork, endpointOf } from './networks'
+import { getNetwork, endpointOf, effectiveKind } from './networks'
 import { chain, request, RpcError, nodeErrorMessage } from './rpc'
 import type { Vault } from './vault'
 import { log } from './log'
 
 export const APPROVAL_SECONDS = 120
 
+/** System actions that need the typed account name on mainnet-like networks. */
 const SENSITIVE = new Set(['setcode', 'setabi', 'updateauth', 'deleteauth', 'linkauth', 'unlinkauth'])
+
+export const LOCKED_MESSAGE = 'Unlock the vault first'
+export const BUSY_MESSAGE = 'Another confirmation is open. Approve or cancel it first.'
 
 export interface ActionRequest {
   account: string
@@ -51,19 +58,16 @@ export interface ActionRequest {
   data: unknown
 }
 
-export interface DeployArtifacts {
-  /** Bytes read once by the caller; the same bytes go into setcode/setabi and their hashes are shown. */
-  wasm?: Uint8Array
-  abi?: Uint8Array
-  currentCodeHash?: string
-}
+/**
+ * What the main process started; picks the fixed title of the confirmation.
+ * Set by main-process code only (never taken from the editor window).
+ */
+export type PrepareKind = 'run' | 'deploy' | 'clearCode' | 'createAccount' | 'changeKey'
 
 export interface PrepareRequest {
   networkId: string
   actions: ActionRequest[]
-  /** What the user started, shown as the title of the confirmation. */
-  purpose: string
-  artifacts?: DeployArtifacts
+  kind?: PrepareKind
 }
 
 export interface ApprovalAction {
@@ -72,11 +76,14 @@ export interface ApprovalAction {
   authorization: PermissionLevel[]
   data: unknown
   hex: string
+  /** For setcode / setabi: size and SHA-256 of the code or ABI bytes inside this action. */
+  blob?: { field: 'code' | 'abi'; size: number; sha256: string }
 }
 
 export interface ApprovalRecord {
   id: string
-  purpose: string
+  /** Headline of the confirmation, made here from the decoded actions. */
+  title: string
   network: { id: string; name: string; kind: string; chainId: string }
   endpoint: string
   expiresAt: number
@@ -85,8 +92,19 @@ export interface ApprovalRecord {
   packedSha256: string
   actions: ApprovalAction[]
   signers: { actor: string; permission: string; publicKey: string; label: string }[]
-  artifacts?: { wasmSha256?: string; wasmSize?: number; abiSha256?: string; abiSize?: number; currentCodeHash?: string }
-  /** Account name the user must type (mainnet-like network and a sensitive action). */
+  /** Contract code and ABI in this transaction, from the packed bytes; code on the account read in prepare. */
+  artifacts?: {
+    account: string
+    wasmSha256?: string
+    wasmSize?: number
+    abiSha256?: string
+    abiSize?: number
+    /** '' = no code on the account; null = could not be read from the endpoint. */
+    currentCodeHash: string | null
+    /** The transaction removes the contract (empty setcode). */
+    clear: boolean
+  }
+  /** Account name the user must type in the confirmation window. */
   typedName?: string
   /** Signing on this network is switched off in this build. */
   blocked?: string
@@ -120,8 +138,9 @@ function sha256Hex(b: Uint8Array): string {
   return createHash('sha256').update(b).digest('hex')
 }
 
-function isMainnetLike(n: NetworkInfo): boolean {
-  return n.kind !== 'testnet' && n.kind !== 'local'
+/** Mainnet, or any network the kind rule (networks.effectiveKind) does not treat as test or local. */
+export function isMainnetLike(n: NetworkInfo): boolean {
+  return effectiveKind(n) === 'mainnet'
 }
 
 export interface SignerDeps {
@@ -130,6 +149,8 @@ export interface SignerDeps {
   getInfo: (ep: string) => Promise<{ chain_id: string; head_block_id: string; head_block_time: string; last_irreversible_block_id: string }>
   getAbi: (ep: string, account: string) => Promise<AbiDef>
   getAccount: (ep: string, account: string) => Promise<Record<string, unknown>>
+  /** Hash of the code now on the account ('' or zeros when there is none). */
+  getCodeHash: (ep: string, account: string) => Promise<string>
   send: (ep: string, body: unknown) => Promise<unknown>
   network: (id: string) => NetworkInfo
   now: () => number
@@ -146,6 +167,7 @@ export function defaultDeps(vault: Vault): SignerDeps {
       return parseAbi(r.abi)
     },
     getAccount: (ep, account) => chain.getAccount(ep, account),
+    getCodeHash: async (ep, account) => (await chain.getCodeHash(ep, account)).code_hash,
     send: (ep, body) => request(ep, '/v1/chain/send_transaction', { body, timeoutMs: 30_000 }),
     network: (id) => getNetwork(id),
     now: () => Date.now(),
@@ -153,13 +175,59 @@ export function defaultDeps(vault: Vault): SignerDeps {
   }
 }
 
+interface Decoded {
+  account: string
+  name: string
+  authorization: PermissionLevel[]
+  data: string
+}
+
+/** Decodes a system action with the built-in eosio ABI (independent of what the endpoint serves). */
+function systemData(a: Decoded): Record<string, unknown> {
+  try {
+    return decodeAction(EOSIO_ABI, a.name, hexToBytes(a.data)) as Record<string, unknown>
+  } catch (e) {
+    throw new SignerError(`The ${a.account}::${a.name} action could not be read: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
+function isSystem(a: Decoded, name: string): boolean {
+  return a.account === 'eosio' && a.name === name
+}
+
+/** Fixed headline for what the main process started, from the decoded actions. */
+function titleFor(kind: PrepareKind, actions: Decoded[], guarded: string | null): string {
+  const find = (name: string): Decoded | undefined => actions.find((a) => isSystem(a, name))
+  if (kind === 'deploy' && guarded && (find('setcode') || find('setabi'))) return `Deploy contract to ${guarded}`
+  if (kind === 'clearCode' && guarded && find('setcode')) return `Clear contract code of ${guarded}`
+  if (kind === 'createAccount') {
+    const n = find('newaccount')
+    if (n) return `Create account ${String(systemData(n).name)}`
+  }
+  if (kind === 'changeKey') {
+    const u = find('updateauth')
+    if (u) {
+      const d = systemData(u)
+      return `Change key of ${String(d.account)}@${String(d.permission)}`
+    }
+  }
+  if (actions.length === 1) return `Run ${actions[0].account}::${actions[0].name}`
+  return `${actions.length} actions`
+}
+
 export class Signer {
   private approvals = new Map<string, Stored>()
+  private preparing = false
 
   constructor(private readonly deps: SignerDeps) {
     deps.vault.onChange((unlocked) => {
       if (!unlocked) this.cancelAll()
     })
+  }
+
+  /** True while an approval exists (its confirmation window is open) or one is being prepared. */
+  busy(): boolean {
+    return this.preparing || this.approvals.size > 0
   }
 
   /** Picks vault keys that satisfy actor@permission on the given endpoint. */
@@ -193,6 +261,17 @@ export class Signer {
   }
 
   async prepare(req: PrepareRequest): Promise<{ record: ApprovalRecord; secret: Buffer }> {
+    if (!this.deps.vault.isUnlocked()) throw new SignerError(LOCKED_MESSAGE)
+    if (this.busy()) throw new SignerError(BUSY_MESSAGE)
+    this.preparing = true
+    try {
+      return await this.build(req)
+    } finally {
+      this.preparing = false
+    }
+  }
+
+  private async build(req: PrepareRequest): Promise<{ record: ApprovalRecord; secret: Buffer }> {
     const network = this.deps.network(req.networkId)
     const endpoint = endpointOf(network)
     if (req.actions.length === 0) throw new SignerError('Nothing to sign')
@@ -220,23 +299,42 @@ export class Signer {
     }
     const header = headerFromChainInfo(info, APPROVAL_SECONDS)
     const packed = packTransaction({ ...header, actions })
-    // The confirmation shows what the bytes say, decoded back.
-    const decoded = unpackTransaction(packed)
+    // Everything below is read from the bytes, decoded back.
+    const decoded = unpackTransaction(packed).actions as Decoded[]
     const shown: ApprovalAction[] = []
-    for (const a of decoded.actions) {
+    for (const a of decoded) {
       const abi = await abiFor(a.account)
-      shown.push({
+      const item: ApprovalAction = {
         account: a.account,
         name: a.name,
         authorization: a.authorization,
         data: decodeAction(abi, a.name, hexToBytes(a.data)),
         hex: a.data
-      })
+      }
+      if (isSystem(a, 'setcode') || isSystem(a, 'setabi')) {
+        const field = a.name === 'setcode' ? 'code' : 'abi'
+        const bytes = hexToBytes(String(systemData(a)[field] ?? ''))
+        item.blob = { field, size: bytes.length, sha256: sha256Hex(bytes) }
+      }
+      shown.push(item)
     }
+
+    // Guarded system actions: the account they change is the `account` field of their data.
+    const guardedActions = decoded.filter((a) => a.account === 'eosio' && SENSITIVE.has(a.name))
+    const guardedAccounts = [...new Set(guardedActions.map((a) => String(systemData(a).account ?? '')))]
+    if (guardedAccounts.some((x) => !x)) throw new SignerError('A guarded system action has no account; nothing was prepared.')
+    if (guardedAccounts.length > 1) {
+      throw new SignerError(
+        `This transaction changes more than one account (${guardedAccounts.join(', ')}) with deploy or permission actions. Send one transaction per account.`
+      )
+    }
+    const guarded = guardedAccounts[0] ?? null
+    const clear = decoded.some((a) => isSystem(a, 'setcode') && String(systemData(a).code ?? '') === '')
+
     // Keys for every distinct authorization.
     const signers: ApprovalRecord['signers'] = []
     const seen = new Set<string>()
-    for (const a of decoded.actions) {
+    for (const a of decoded) {
       for (const level of a.authorization) {
         const key = `${level.actor}@${level.permission}`
         if (seen.has(key)) continue
@@ -246,14 +344,37 @@ export class Signer {
         }
       }
     }
-    const art = req.artifacts
-    const sensitive = decoded.actions.find((a) => SENSITIVE.has(a.name) && a.account === 'eosio')
+
+    // Contract code and ABI, from the bytes in this transaction; the code on the account from this endpoint, now.
+    let artifacts: ApprovalRecord['artifacts']
+    const code = shown.find((a) => a.blob?.field === 'code')?.blob
+    const abiBlob = shown.find((a) => a.blob?.field === 'abi')?.blob
+    if (guarded && (code || abiBlob)) {
+      let currentCodeHash: string | null
+      try {
+        const h = await this.deps.getCodeHash(endpoint, guarded)
+        currentCodeHash = /^0*$/.test(h) ? '' : h
+      } catch {
+        currentCodeHash = null
+      }
+      artifacts = {
+        account: guarded,
+        wasmSha256: code?.sha256,
+        wasmSize: code?.size,
+        abiSha256: abiBlob?.sha256,
+        abiSize: abiBlob?.size,
+        currentCodeHash,
+        clear
+      }
+    }
+
+    const mainnetLike = isMainnetLike(network)
     const now = this.deps.now()
     const expiresAt = Math.min(now + APPROVAL_SECONDS * 1000, Date.parse(`${header.expiration}Z`)) - 5000
     const record: ApprovalRecord = {
       id: randomUUID(),
-      purpose: req.purpose,
-      network: { id: network.id, name: network.name, kind: network.kind, chainId: network.chainId },
+      title: titleFor(req.kind ?? 'run', decoded, guarded),
+      network: { id: network.id, name: network.name, kind: effectiveKind(network), chainId: network.chainId },
       endpoint,
       expiresAt,
       expiration: header.expiration,
@@ -261,21 +382,15 @@ export class Signer {
       packedSha256: sha256Hex(packed),
       actions: shown,
       signers,
-      artifacts: art
-        ? {
-            wasmSha256: art.wasm ? sha256Hex(art.wasm) : undefined,
-            wasmSize: art.wasm?.length,
-            abiSha256: art.abi ? sha256Hex(art.abi) : undefined,
-            abiSize: art.abi?.length,
-            currentCodeHash: art.currentCodeHash
-          }
-        : undefined,
-      typedName: isMainnetLike(network) && sensitive ? (sensitive.authorization[0]?.actor ?? sensitive.account) : undefined,
+      artifacts,
+      // Mainnet-like: every guarded action. Clear Contract Code: on every network.
+      typedName: guarded && (mainnetLike || clear) ? guarded : undefined,
       blocked:
-        isMainnetLike(network) && !this.deps.mainnetSigning
+        mainnetLike && !this.deps.mainnetSigning
           ? 'Mainnet signing unlocks in the release build. This build signs on testnet and local networks only.'
           : undefined
     }
+    if (this.approvals.size > 0) throw new SignerError(BUSY_MESSAGE)
     const secret = randomBytes(32)
     this.approvals.set(record.id, {
       record,
@@ -336,4 +451,3 @@ export class Signer {
     }
   }
 }
-

@@ -67,6 +67,7 @@ function deps(over: Partial<SignerDeps> = {}): SignerDeps {
       sent.push({ ep, body: body as never })
       return { transaction_id: 'x', processed: {} }
     },
+    getCodeHash: async () => '0'.repeat(64),
     network: () => network,
     now: () => now,
     mainnetSigning: false,
@@ -96,7 +97,7 @@ beforeEach(async () => {
 describe('signer approval integrity', () => {
   it('signs exactly the prepared bytes and sends them to the stored endpoint', async () => {
     const s = new Signer(deps())
-    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer], purpose: 'Run' })
+    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer] })
     expect(record.actions[0].data).toEqual(transfer.data)
     // The network's current endpoint changes after prepare.
     network = { ...network, currentEndpoint: 1 }
@@ -111,14 +112,14 @@ describe('signer approval integrity', () => {
 
   it('refuses a wrong secret (approval not from the confirmation window)', async () => {
     const s = new Signer(deps())
-    const { record } = await s.prepare({ networkId: 'n1', actions: [transfer], purpose: 'Run' })
+    const { record } = await s.prepare({ networkId: 'n1', actions: [transfer] })
     await expect(s.approve(record.id, Buffer.alloc(32, 7))).rejects.toThrow(/refused/)
     expect(sent).toHaveLength(0)
   })
 
   it('an approval is single-use', async () => {
     const s = new Signer(deps())
-    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer], purpose: 'Run' })
+    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer] })
     await s.approve(record.id, secret)
     await expect(s.approve(record.id, secret)).rejects.toThrow(/no longer valid/)
     expect(sent).toHaveLength(1)
@@ -126,7 +127,7 @@ describe('signer approval integrity', () => {
 
   it('an expired approval is refused', async () => {
     const s = new Signer(deps())
-    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer], purpose: 'Run' })
+    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer] })
     now += 121_000
     await expect(s.approve(record.id, secret)).rejects.toThrow(/expired/)
     expect(sent).toHaveLength(0)
@@ -134,13 +135,13 @@ describe('signer approval integrity', () => {
 
   it('a chain id mismatch stops prepare', async () => {
     const s = new Signer(deps({ getInfo: async () => ({ chain_id: 'aa'.repeat(32), head_block_id: '00'.repeat(32), head_block_time: '2026-01-01T00:00:00', last_irreversible_block_id: '00'.repeat(32) }) }))
-    await expect(s.prepare({ networkId: 'n1', actions: [transfer], purpose: 'Run' })).rejects.toThrow(/chain id/)
+    await expect(s.prepare({ networkId: 'n1', actions: [transfer] })).rejects.toThrow(/chain id/)
   })
 
   it('mainnet signing is refused in this build', async () => {
     network = net('mainnet')
     const s = new Signer(deps())
-    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer], purpose: 'Run' })
+    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer] })
     expect(record.blocked).toMatch(/release build/)
     await expect(s.approve(record.id, secret)).rejects.toThrow(/release build/)
     expect(sent).toHaveLength(0)
@@ -148,7 +149,7 @@ describe('signer approval integrity', () => {
 
   it('locking the vault cancels open approvals', async () => {
     const s = new Signer(deps())
-    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer], purpose: 'Run' })
+    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer] })
     vault.lock()
     await expect(s.approve(record.id, secret)).rejects.toThrow(/no longer valid/)
   })
@@ -161,7 +162,7 @@ describe('signer approval integrity', () => {
         })
       })
     )
-    await expect(s.prepare({ networkId: 'n1', actions: [transfer], purpose: 'Run' })).rejects.toThrow(/no key/)
+    await expect(s.prepare({ networkId: 'n1', actions: [transfer] })).rejects.toThrow(/no key/)
   })
 
   it('deploys exactly the bytes whose hashes are shown', async () => {
@@ -173,12 +174,11 @@ describe('signer approval integrity', () => {
     const auth = [{ actor: 'alice', permission: 'active' }]
     const { record, secret } = await s.prepare({
       networkId: 'n1',
-      purpose: 'Deploy',
+      kind: 'deploy',
       actions: [
         { account: 'eosio', name: 'setcode', authorization: auth, data: { account: 'alice', vmtype: 0, vmversion: 0, code: hex(wasm) } },
         { account: 'eosio', name: 'setabi', authorization: auth, data: { account: 'alice', abi: hex(abiBytes) } }
-      ],
-      artifacts: { wasm, abi: abiBytes, currentCodeHash: '' }
+      ]
     })
     expect(record.artifacts?.wasmSha256).toBe(sha(wasm))
     expect(record.artifacts?.abiSha256).toBe(sha(abiBytes))

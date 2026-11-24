@@ -7,8 +7,9 @@
   --text: #d4d4d4;
   --text-dim: #9a9ba0;
   --text-faint: #6c6d72;
-  --accent: #8a3ffc;
-  --accent-2: #a46bff;
+  --accent: #f78e1e; /* WAX orange (logo of docs.wax.io) */
+  --accent-2: #ffa94d;
+  --on-accent: #1e1f21; /* text on orange: 6.95:1 */
   --green: #2ea84a;
   --green-2: #36c157;
   --red: #e0474c;
@@ -130,12 +131,16 @@ button {
 .tb-button.active {
   background: var(--accent);
 }
+.tb-button.active .tb-main,
+.tb-button.active .tb-value {
+  color: var(--on-accent);
+}
 .tb-button.active .tb-label {
-  color: #e6d8ff;
+  color: var(--on-accent);
 }
 .tb-button.active .tb-arrow {
   border-left-color: transparent;
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* Dropdown menus */
@@ -171,7 +176,7 @@ button {
 }
 .dd-item.selected {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .dd-item.mono {
   font-family: var(--mono);
@@ -237,7 +242,7 @@ button {
 }
 .tab-btn.active {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn-group {
   display: flex;
@@ -271,7 +276,7 @@ button {
 }
 .btn.purple {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn.red {
   background: var(--red);
@@ -637,7 +642,7 @@ button {
 }
 .context-menu .cm-item:hover {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .context-menu .cm-sep {
   height: 1px;
@@ -1122,7 +1127,7 @@ button.sb-item:hover {
 }
 .badge-pair span:last-child {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .mainnet-text {
   color: var(--red);
@@ -1174,7 +1179,7 @@ button.sb-item:hover {
   gap: 8px;
   background: var(--accent);
   border: none;
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 700;
   font-size: 14px;
   padding: 0 12px;
@@ -1233,7 +1238,7 @@ button.sb-item:hover {
 }
 .section-head .badge.purple {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 11px;
 }
 .pill {
@@ -1251,7 +1256,7 @@ button.sb-item:hover {
 }
 .pill.on {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 .section-body {
   padding: 8px 14px 12px;

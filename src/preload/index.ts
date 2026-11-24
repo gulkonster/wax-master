@@ -159,6 +159,11 @@ const api: WaxApi = {
     simulate: call('deploy:simulate'),
     run: call('deploy:run')
   },
+  faucet: {
+    create: call('faucet:create'),
+    tokens: call('faucet:tokens'),
+    suggestName: call('faucet:suggestName')
+  },
   accounts: {
     create: call('accounts:create'),
     changeKey: call('accounts:changeKey'),

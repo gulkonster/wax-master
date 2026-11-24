@@ -8,7 +8,7 @@ import { handle } from './ipc'
 import { dataDir } from './paths'
 import { checkForUpdates, dailyCheck } from './updates'
 import { installedToolchains, remove as removeToolchain } from './toolchain'
-import { vault } from './keys-service'
+import { confirmNative, vault } from './keys-service'
 import { log } from './log'
 
 export const VAULT_DELETE_WORDS = 'delete my keys'
@@ -24,7 +24,33 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
     if (withVault && str(typed, 'typed', 100) !== VAULT_DELETE_WORDS) {
       throw new Error(`Type "${VAULT_DELETE_WORDS}" to delete the vault too`)
     }
-    for (const t of installedToolchains()) {
+    // Both questions are asked here, in the main process; the window cannot answer them.
+    const toolchains = installedToolchains()
+    const list = toolchains.length ? toolchains.map((t) => `  ${t.id}`).join('\n') : '  (none installed)'
+    const win = getWindow()
+    const first = await confirmNative(
+      win,
+      'Clear all app data?',
+      `This removes:\n- settings, networks and saved history\n- the log files\n- the installed toolchains:\n${list}\n\nProjects are not touched. WAX Master restarts afterwards.`,
+      'Clear data'
+    )
+    if (!first) return
+    if (withVault) {
+      let count = 0
+      try {
+        count = vault().list().length
+      } catch {
+        count = 0
+      }
+      const second = await confirmNative(
+        win,
+        'Delete the key vault too?',
+        `File: ${join(dataDir(), 'vault.json')}\nKeys in it: ${count}\n\nThe private keys are lost unless you have an exported copy.`,
+        'Delete vault'
+      )
+      if (!second) return
+    }
+    for (const t of toolchains) {
       try {
         await removeToolchain(t.id)
       } catch (err) {
@@ -35,6 +61,7 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
     for (const f of ['settings.json', 'networks.json', 'contract-history.json']) rmSync(join(dataDir(), f), { force: true })
     if (withVault) rmSync(join(dataDir(), 'vault.json'), { force: true })
     log.info(`App data cleared${withVault ? ' including the vault' : ''}`)
+    rmSync(join(dataDir(), 'logs'), { recursive: true, force: true })
     app.relaunch()
     app.exit(0)
   })

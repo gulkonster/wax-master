@@ -5,10 +5,49 @@ import { errorText, toast } from '../lib/toast'
 import { networkStore, refreshNetworks, selectNetwork } from '../lib/networks'
 import { useStore } from '../lib/stores'
 
+function isLocalUrl(u: string): boolean {
+  try {
+    const h = new URL(u).hostname
+    return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h.endsWith('.localhost')
+  } catch {
+    return false
+  }
+}
+
+/** Kind picker. The main process decides the kind in the end (known main chains are always mainnet). */
+function KindField({
+  kind,
+  setKind,
+  note,
+  localAllowed
+}: {
+  kind: NetworkKind
+  setKind: (k: NetworkKind) => void
+  note: string | null | undefined
+  localAllowed: boolean
+}): React.JSX.Element {
+  return (
+    <div className="field">
+      <label>Kind</label>
+      <select className="select" value={note ? 'mainnet' : kind} disabled={!!note} onChange={(e) => setKind(e.target.value as NetworkKind)}>
+        <option value="mainnet">Mainnet (real value; extra confirmations)</option>
+        <option value="testnet">Testnet</option>
+        <option value="local" disabled={!localAllowed}>
+          Local{localAllowed ? '' : ' (only for endpoints on this computer)'}
+        </option>
+      </select>
+      <div className="hint">
+        {note ??
+          'A network counts as mainnet until it is marked as a test network; for a chain the app does not know, WAX Master asks you to confirm that in its own dialog.'}
+      </div>
+    </div>
+  )
+}
+
 /** "Connect to Custom Network": one URL field, then chain id, symbol, name and kind. */
 export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
   const [url, setUrl] = useState('')
-  const [probe, setProbe] = useState<null | { endpoint: string; chainId: string; symbol: string; precision: number; version: string }>(null)
+  const [probe, setProbe] = useState<null | Awaited<ReturnType<typeof window.wax.networks.probe>>>(null)
   const [name, setName] = useState('')
   const [kind, setKind] = useState<NetworkKind>('mainnet')
   const [symbol, setSymbol] = useState('')
@@ -27,7 +66,7 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
       setPrecision(r.symbol ? r.precision : 4)
       const known = networkStore.get().list.find((n) => n.chainId === r.chainId)
       setName(known ? `${known.name} (${new URL(r.endpoint).host})` : new URL(r.endpoint).host)
-      setKind(known?.kind === 'testnet' ? 'testnet' : 'mainnet')
+      setKind(!r.kindNote && known?.kind === 'testnet' ? 'testnet' : 'mainnet')
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -94,14 +133,7 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
             <label>Name</label>
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
-          <div className="field">
-            <label>Kind</label>
-            <select className="select" value={kind} onChange={(e) => setKind(e.target.value as NetworkKind)}>
-              <option value="mainnet">Mainnet (real value; extra confirmations)</option>
-              <option value="testnet">Testnet</option>
-              <option value="local">Local</option>
-            </select>
-          </div>
+          <KindField kind={kind} setKind={setKind} note={probe.kindNote} localAllowed={probe.localAllowed} />
           <div className="field" style={{ display: 'flex', gap: 8 }}>
             <div style={{ flex: 1 }}>
               <label>Token symbol</label>
@@ -237,14 +269,7 @@ function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; onClose
         <label>Name</label>
         <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
       </div>
-      <div className="field">
-        <label>Kind</label>
-        <select className="select" value={kind} onChange={(e) => setKind(e.target.value as NetworkKind)}>
-          <option value="mainnet">Mainnet</option>
-          <option value="testnet">Testnet</option>
-          <option value="local">Local</option>
-        </select>
-      </div>
+      <KindField kind={kind} setKind={setKind} note={network.kindNote} localAllowed={endpoints.split(/\s+/).filter(Boolean).every(isLocalUrl)} />
       <div className="field">
         <label>Endpoints (one per line; same chain id)</label>
         <textarea className="textarea" value={endpoints} onChange={(e) => setEndpoints(e.target.value)} />

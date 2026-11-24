@@ -57,30 +57,66 @@ export function createAccountActions(i: CreateAccountInput): ActionRequest[] {
 export interface ChangeKeyInput {
   account: string
   permission: string
-  parent: string
-  /** The permission that signs the change (usually the same or its parent). */
-  signWith: string
+  /** The key to replace (one of the permission's keys). */
+  oldKey: string
   newKey: string
-  /** Keep the current accounts and waits of the permission. */
-  keepAccounts: { permission: { actor: string; permission: string }; weight: number }[]
-  keepWaits: { wait_sec: number; weight: number }[]
+  /** The permission that signs the change: the permission itself or one of its parents. */
+  signWith: string
 }
 
-export function changeKeyActions(i: ChangeKeyInput): ActionRequest[] {
+type R = Record<string, unknown>
+
+/**
+ * Change key: replaces one key of a permission and keeps the rest of its
+ * authority (threshold, other keys and weights, accounts, waits, parent), read
+ * from the chain's get_account answer for the account.
+ */
+export function changeKeyActions(i: ChangeKeyInput, accountData: R): ActionRequest[] {
   checkName(i.account, 'account')
   checkName(i.permission, 'permission')
-  const auth: AuthorityInput = {
-    threshold: 1,
-    keys: [{ key: normalizeKey(i.newKey), weight: 1 }],
-    accounts: i.keepAccounts,
-    waits: i.keepWaits
+  checkName(i.signWith, 'signWith')
+  const perms = Array.isArray(accountData.permissions) ? (accountData.permissions as R[]) : []
+  const perm = perms.find((p) => p.perm_name === i.permission)
+  if (!perm) throw new Error(`The account ${i.account} has no permission "${i.permission}"`)
+  const parent = typeof perm.parent === 'string' ? perm.parent : ''
+  // The permission itself or one of its parents may sign.
+  const chain: string[] = [i.permission]
+  for (let p: R | undefined = perm; p && typeof p.parent === 'string' && p.parent && chain.length < 32; ) {
+    const name: string = p.parent as string
+    if (chain.includes(name)) break
+    chain.push(name)
+    p = perms.find((x) => x.perm_name === name)
   }
+  if (!chain.includes(i.signWith)) throw new Error(`Sign with ${i.permission} or one of its parents (${chain.slice(1).join(', ') || 'none'}).`)
+
+  const auth = (perm.required_auth ?? {}) as R
+  const threshold = Number(auth.threshold ?? 0)
+  const keys = (Array.isArray(auth.keys) ? (auth.keys as R[]) : []).map((k) => ({ key: normalizeKey(String(k.key)), weight: Number(k.weight) }))
+  const accounts = (Array.isArray(auth.accounts) ? (auth.accounts as R[]) : []).map((a) => {
+    const lvl = (a.permission ?? {}) as R
+    return { permission: { actor: String(lvl.actor), permission: String(lvl.permission) }, weight: Number(a.weight) }
+  })
+  const waits = (Array.isArray(auth.waits) ? (auth.waits as R[]) : []).map((w) => ({ wait_sec: Number(w.wait_sec), weight: Number(w.weight) }))
+
+  const oldKey = normalizeKey(i.oldKey)
+  const newKey = normalizeKey(i.newKey)
+  const at = keys.findIndex((k) => k.key === oldKey)
+  if (at < 0) throw new Error(`The key to replace is not a key of ${i.account}@${i.permission}.`)
+  if (oldKey === newKey) throw new Error('The new key is the same as the old key.')
+  if (keys.some((k) => k.key === newKey)) throw new Error(`The new key is already a key of ${i.account}@${i.permission}.`)
+  keys[at] = { key: newKey, weight: keys[at].weight }
+
+  const total = [...keys, ...accounts, ...waits].reduce((s, x) => s + x.weight, 0)
+  if (!(threshold >= 1) || total < threshold) {
+    throw new Error(`The new authority could not reach its threshold ${threshold} (total weight ${total}); nothing was prepared.`)
+  }
+  const next: AuthorityInput = { threshold, keys, accounts, waits }
   return [
     {
       account: 'eosio',
       name: 'updateauth',
       authorization: [{ actor: i.account, permission: i.signWith }],
-      data: { account: i.account, permission: i.permission, parent: i.parent, auth: normalizeAuthority(auth) }
+      data: { account: i.account, permission: i.permission, parent, auth: normalizeAuthority(next) }
     }
   ]
 }

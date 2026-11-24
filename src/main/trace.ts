@@ -2,7 +2,7 @@
 // API transactions into the inspector's tree. Everything is untrusted text;
 // missing data stays null and is labelled in the window.
 
-import type { InspectedTransaction, TraceNode } from '../shared/trace-types'
+import type { AccountResources, InspectedTransaction, ResourceKind, ResourceProblem, TraceNode } from '../shared/trace-types'
 
 type R = Record<string, unknown>
 
@@ -120,6 +120,7 @@ export function fromNodeAnswer(answer: unknown, ctx: { source: 'simulation' | 's
   const actions = buildTree(traces)
   const ex = exceptMessage(p.except)
   const failedNode = findError(actions)
+  const resource = p.except && typeof p.except === 'object' ? resourceKindOf(p.except as R) : null
   return {
     source: ctx.source,
     network: ctx.network,
@@ -130,11 +131,123 @@ export function fromNodeAnswer(answer: unknown, ctx: { source: 'simulation' | 's
     status: ex.message || failedNode ? 'failed' : s(receipt.status) || 'executed',
     cpuUs: n(receipt.cpu_usage_us),
     netBytes: (n(receipt.net_usage_words) ?? 0) * 8 || n(p.net_usage),
-    errorMessage: ex.message ?? failedNode,
+    errorMessage: resource ? describeResource(resource.kind, '', null, resource.subject) : (ex.message ?? failedNode),
     errorStack: ex.stack,
     actions,
-    notes: notesFor(actions)
+    notes: notesFor(actions),
+    ...(resource ? { resource: { kind: resource.kind, errorName: resource.name, account: '', state: null } } : {})
   }
+}
+
+// ---- CPU / NET / RAM refusals ----
+
+const CPU_ERRORS = new Set(['tx_cpu_usage_exceeded', 'leeway_deadline_exception', 'greylist_cpu_usage_exceeded'])
+const NET_ERRORS = new Set(['tx_net_usage_exceeded', 'greylist_net_usage_exceeded'])
+const RAM_ERRORS = new Set(['ram_usage_exceeded'])
+
+/**
+ * Which resource a node error (error object of a send_transaction answer, or
+ * the except of a trace) names. Only the node's own error names count; a
+ * timeout or a network error never reaches here as a resource problem.
+ */
+export function resourceKindOf(err: R): { kind: ResourceKind; name: string; subject: string | null } | null {
+  const name = s(err.name)
+  let text = ''
+  try {
+    text = JSON.stringify(err).slice(0, 20_000)
+  } catch {
+    text = ''
+  }
+  let kind: ResourceKind | null = null
+  if (CPU_ERRORS.has(name)) kind = 'cpu'
+  else if (NET_ERRORS.has(name)) kind = 'net'
+  else if (RAM_ERRORS.has(name)) kind = 'ram'
+  // deadline_exception counts only when it comes from CPU billing.
+  else if (name === 'deadline_exception' && /billing_timer|deadline exceeded/i.test(text)) kind = 'cpu'
+  if (!kind) return null
+  const subject = kind === 'ram' ? (/account (\S+?) has insufficient ram/i.exec(text)?.[1] ?? null) : null
+  return { kind, name, subject }
+}
+
+/** CPU, NET and RAM of an account from a get_account answer. */
+export function resourcesFromAccount(account: string, a: R): AccountResources {
+  const lim = (v: unknown): AccountResources['cpu'] => {
+    if (!v || typeof v !== 'object') return null
+    const o = v as R
+    const used = n(o.used)
+    const available = n(o.available)
+    const max = n(o.max)
+    return used === null || available === null || max === null ? null : { used, available, max }
+  }
+  const ramUsed = n(a.ram_usage)
+  const ramQuota = n(a.ram_quota)
+  return {
+    account,
+    cpu: lim(a.cpu_limit),
+    net: lim(a.net_limit),
+    ram: ramUsed === null || ramQuota === null ? null : { used: ramUsed, quota: ramQuota }
+  }
+}
+
+function fmtUs(us: number): string {
+  if (us < 0) return 'unlimited'
+  return us >= 1000 ? `${(us / 1000).toFixed(2)} ms` : `${us} µs`
+}
+function fmtBytes(b: number): string {
+  if (b < 0) return 'unlimited'
+  if (b >= 1024 * 1024) return `${(b / 1024 / 1024).toFixed(2)} MB`
+  if (b >= 1024) return `${(b / 1024).toFixed(2)} KB`
+  return `${b} bytes`
+}
+
+/** One short summary of an account's resources, the resource in question first. */
+export function resourceSummary(kind: ResourceKind, st: AccountResources): string {
+  const parts: Record<ResourceKind, string | null> = {
+    cpu: st.cpu ? `CPU ${fmtUs(st.cpu.used)} used, ${fmtUs(st.cpu.available)} available` : null,
+    net: st.net ? `NET ${fmtBytes(st.net.used)} used, ${fmtBytes(st.net.available)} available` : null,
+    ram: st.ram ? `RAM ${fmtBytes(st.ram.used)} used of ${fmtBytes(st.ram.quota)}` : null
+  }
+  const order: ResourceKind[] = [kind, ...(['cpu', 'net', 'ram'] as ResourceKind[]).filter((k) => k !== kind)]
+  return order
+    .map((k) => parts[k])
+    .filter(Boolean)
+    .join('; ')
+}
+
+const WHAT: Record<ResourceKind, string> = {
+  cpu: 'enough CPU time',
+  net: 'enough network bandwidth (NET)',
+  ram: 'enough RAM'
+}
+
+/** The plain sentence for a CPU / NET / RAM refusal, with the account's state when it is known. */
+export function describeResource(kind: ResourceKind, account: string, state: AccountResources | null | 'unreadable', subject: string | null = null): string {
+  const who = subject || account || 'the account'
+  const head = `Rejected for ${kind.toUpperCase()}: ${who} does not have ${WHAT[kind]} for this transaction`
+  if (state === 'unreadable') return `${head} (the resources of ${account} could not be read).`
+  if (!state) return `${head}.`
+  const sum = resourceSummary(kind, state)
+  return sum ? `${head} (${account}: ${sum}).` : `${head}.`
+}
+
+/**
+ * For a CPU / NET / RAM refusal: reads the first authorizer's resources (from
+ * the same endpoint, through `read`) and puts them into the trace and its
+ * error sentence. Other traces are returned unchanged.
+ */
+export async function withResourceState(t: InspectedTransaction, account: string, read: (account: string) => Promise<R>): Promise<InspectedTransaction> {
+  if (!t.resource) return t
+  const subject = t.resource.kind === 'ram' && t.errorStack ? (/account (\S+?) has insufficient ram/i.exec(t.errorStack)?.[1] ?? null) : null
+  let state: AccountResources | null = null
+  if (account) {
+    try {
+      state = resourcesFromAccount(account, await read(account))
+    } catch {
+      state = null
+    }
+  }
+  const resource: ResourceProblem = { ...t.resource, account, state }
+  return { ...t, resource, errorMessage: describeResource(resource.kind, account, account ? (state ?? 'unreadable') : null, subject) }
 }
 
 /** Error answer of a node (HTTP 500 body), e.g. a failed check in a contract. */
@@ -144,7 +257,9 @@ export function fromNodeError(body: unknown, ctx: { source: 'simulation' | 'sent
   const details = Array.isArray(err.details) ? (err.details as R[]) : []
   const assertion = details.map((d) => /assertion failure with message: (.*)/s.exec(s(d.message))?.[1]).find(Boolean)
   const message = assertion ?? details.map((d) => s(d.message)).filter(Boolean)[0] ?? s(err.what) ?? s(b.message) ?? 'The node refused the transaction'
+  const resource = resourceKindOf(err)
   return {
+    ...(resource ? { resource: { kind: resource.kind, errorName: resource.name, account: '', state: null } } : {}),
     source: ctx.source,
     network: ctx.network,
     endpoint: ctx.endpoint,
@@ -154,7 +269,7 @@ export function fromNodeError(body: unknown, ctx: { source: 'simulation' | 'sent
     status: 'failed',
     cpuUs: null,
     netBytes: null,
-    errorMessage: message,
+    errorMessage: resource ? describeResource(resource.kind, '', null, resource.subject) : message,
     errorStack: json(body),
     actions: [],
     notes: ['The node returned an error before any action trace.']

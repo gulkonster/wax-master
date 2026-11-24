@@ -11,6 +11,72 @@ import { log } from './log'
 export const WAX_MAINNET_ID = 'wax-mainnet'
 export const WAX_TESTNET_ID = 'wax-testnet'
 
+/**
+ * Chain ids of main networks (each read from the chain's own get_info). A
+ * network on one of these chains is mainnet whatever was saved or sent.
+ */
+export const MAINNET_CHAINS: Readonly<Record<string, string>> = {
+  '1064487b3cd1a897ce03ae5b6a865651747e2e152090f99c1d19d44e01aea5a4': 'WAX Mainnet',
+  aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906: 'EOS (Vaulta)',
+  '4667b205c6838ef70ff7988f6e8257e8be0e1284a2f59699054a018f743b1d11': 'Telos'
+}
+
+export const WAX_TESTNET_CHAIN = 'f16b1833c747c43682f4386fca9cbb327929334a762755ebec17f6f23c9b8a12'
+
+const KINDS: readonly NetworkKind[] = ['mainnet', 'testnet', 'local']
+
+export function isLocalEndpoint(url: string): boolean {
+  try {
+    const h = new URL(url).hostname
+    return h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h.endsWith('.localhost')
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The kind the signer and the confirmation use. Chain id first (a known main
+ * network is always mainnet); `local` only when every endpoint is on this
+ * computer; anything not marked `testnet` or `local` counts as mainnet.
+ */
+export function effectiveKind(n: { chainId: string; kind: unknown; endpoints: readonly string[]; testnetConfirmed?: unknown }): NetworkKind {
+  if (MAINNET_CHAINS[n.chainId]) return 'mainnet'
+  if (n.kind === 'local') return n.endpoints.length > 0 && n.endpoints.every(isLocalEndpoint) ? 'local' : 'mainnet'
+  // A test network is the WAX Testnet chain or one confirmed in the main-process dialog.
+  if (n.kind === 'testnet' && (n.chainId === WAX_TESTNET_CHAIN || n.testnetConfirmed === true)) return 'testnet'
+  return 'mainnet'
+}
+
+/** Why the kind of a chain cannot be chosen (shown next to the kind), or null. */
+export function fixedKindNote(chainId: string): string | null {
+  const known = MAINNET_CHAINS[chainId]
+  return known ? `This is the ${known} chain, so the kind is always mainnet (red confirmation, typed account names).` : null
+}
+
+/** Asked before a chain outside the known lists is marked as a test network. */
+export type ConfirmTestnet = (n: { name: string; chainId: string; endpoint: string }) => Promise<boolean>
+
+async function decideKind(
+  requested: NetworkKind,
+  n: { name: string; chainId: string; endpoints: string[] },
+  previous: NetworkKind | null,
+  confirmTestnet: ConfirmTestnet
+): Promise<{ kind: NetworkKind; testnetConfirmed: boolean }> {
+  if (MAINNET_CHAINS[n.chainId]) return { kind: 'mainnet', testnetConfirmed: false }
+  if (requested === 'local') {
+    if (!n.endpoints.every(isLocalEndpoint)) throw new Error('"Local" is only for networks whose endpoints are all on this computer.')
+    return { kind: 'local', testnetConfirmed: false }
+  }
+  if (requested === 'testnet') {
+    if (n.chainId === WAX_TESTNET_CHAIN) return { kind: 'testnet', testnetConfirmed: false }
+    if (previous === 'testnet') return { kind: 'testnet', testnetConfirmed: true }
+    const ok = await confirmTestnet({ name: n.name, chainId: n.chainId, endpoint: n.endpoints[0] ?? '' })
+    if (!ok) throw new Error('Not saved: the network was not marked as a test network.')
+    return { kind: 'testnet', testnetConfirmed: true }
+  }
+  return { kind: 'mainnet', testnetConfirmed: false }
+}
+
 const PRESETS: NetworkInfo[] = [
   {
     id: WAX_MAINNET_ID,
@@ -59,7 +125,15 @@ function load(): NetFile {
   cache = {
     version: 1,
     current: typeof raw.current === 'string' ? raw.current : WAX_TESTNET_ID,
-    custom: Array.isArray(raw.custom) ? raw.custom.filter((n) => n && typeof n.id === 'string') : [],
+    custom: Array.isArray(raw.custom)
+      ? raw.custom
+          .filter((n) => n && typeof n.id === 'string' && typeof n.chainId === 'string' && Array.isArray(n.endpoints))
+          .map((n) => {
+            const { kindNote: _note, testnetConfirmed, ...rest } = n
+            void _note
+            return { ...rest, kind: KINDS.includes(n.kind) ? n.kind : 'mainnet', ...(testnetConfirmed === true ? { testnetConfirmed: true } : {}) }
+          })
+      : [],
     presetEndpoints: typeof raw.presetEndpoints === 'object' && raw.presetEndpoints ? raw.presetEndpoints : {},
     stars: typeof raw.stars === 'object' && raw.stars ? raw.stars : {}
   }
@@ -87,7 +161,10 @@ export function listNetworks(): NetworkInfo[] {
     ...p,
     currentEndpoint: Math.min(f.presetEndpoints[p.id] ?? 0, p.endpoints.length - 1)
   }))
-  return [...presets, ...f.custom]
+  return [...presets, ...f.custom].map((n) => {
+    const note = fixedKindNote(n.chainId)
+    return { ...n, kind: effectiveKind(n), ...(note ? { kindNote: note } : {}) }
+  })
 }
 
 export function getNetwork(id: string): NetworkInfo {
@@ -164,7 +241,15 @@ export async function readCall<T>(fn: (endpoint: string) => Promise<T>, network 
 }
 
 /** Reads chain id and core symbol of an endpoint (Add Network). */
-export async function probeEndpoint(url: string): Promise<{ endpoint: string; chainId: string; symbol: string; precision: number; version: string }> {
+export async function probeEndpoint(url: string): Promise<{
+  endpoint: string
+  chainId: string
+  symbol: string
+  precision: number
+  version: string
+  kindNote: string | null
+  localAllowed: boolean
+}> {
   const endpoint = normalizeEndpoint(url)
   const info = await chain.getInfo(endpoint)
   if (!/^[0-9a-f]{64}$/.test(info.chain_id)) throw new Error('The endpoint did not return a valid chain id')
@@ -181,62 +266,91 @@ export async function probeEndpoint(url: string): Promise<{ endpoint: string; ch
   } catch {
     // Not every chain has the system contract's RAM market; the user enters the symbol.
   }
-  return { endpoint, chainId: info.chain_id, symbol, precision, version: info.server_version_string ?? '' }
+  return {
+    endpoint,
+    chainId: info.chain_id,
+    symbol,
+    precision,
+    version: info.server_version_string ?? '',
+    kindNote: fixedKindNote(info.chain_id),
+    localAllowed: isLocalEndpoint(endpoint)
+  }
 }
 
-export function addNetwork(input: {
-  name: string
-  kind: NetworkKind
-  endpoint: string
-  chainId: string
-  symbol: string
-  precision: number
-  history?: string
-}): NetworkInfo {
-  const f = load()
+export async function addNetwork(
+  input: {
+    name: string
+    kind: NetworkKind
+    endpoint: string
+    chainId: string
+    symbol: string
+    precision: number
+    history?: string
+  },
+  confirmTestnet: ConfirmTestnet
+): Promise<NetworkInfo> {
   const name = input.name.trim()
   if (!name) throw new Error('Name is required')
   if (listNetworks().some((n) => n.name.toLowerCase() === name.toLowerCase())) throw new Error('A network with this name exists')
   if (!/^[0-9a-f]{64}$/.test(input.chainId)) throw new Error('Chain id must be 64 hex characters')
   if (!/^[A-Z]{1,7}$/.test(input.symbol)) throw new Error('Symbol must be 1-7 capital letters')
+  const endpoints = [normalizeEndpoint(input.endpoint)]
+  const { kind, testnetConfirmed } = await decideKind(input.kind, { name, chainId: input.chainId, endpoints }, null, confirmTestnet)
+  const f = load()
+  if (listNetworks().some((n) => n.name.toLowerCase() === name.toLowerCase())) throw new Error('A network with this name exists')
   const n: NetworkInfo = {
     id: `custom-${Date.now().toString(36)}`,
     name,
-    kind: input.kind,
+    kind,
+    ...(testnetConfirmed ? { testnetConfirmed: true } : {}),
     chainId: input.chainId,
     symbol: input.symbol,
     precision: input.precision,
-    endpoints: [normalizeEndpoint(input.endpoint)],
+    endpoints,
     history: input.history ? normalizeEndpoint(input.history) : undefined,
     preset: false,
     currentEndpoint: 0
   }
   f.custom.push(n)
   save()
-  return n
+  return getNetwork(n.id)
 }
 
-export function updateNetwork(id: string, patch: { name?: string; kind?: NetworkKind; endpoints?: string[]; history?: string | null }): NetworkInfo {
-  const f = load()
+export async function updateNetwork(
+  id: string,
+  patch: { name?: string; kind?: NetworkKind; endpoints?: string[]; history?: string | null },
+  confirmTestnet: ConfirmTestnet
+): Promise<NetworkInfo> {
   const preset = PRESETS.find((p) => p.id === id)
   if (preset) throw new Error('The WAX presets cannot be changed; add a custom network instead')
-  const c = f.custom.find((x) => x.id === id)
-  if (!c) throw new Error('Unknown network')
+  const found = load().custom.find((x) => x.id === id)
+  if (!found) throw new Error('Unknown network')
+  let name = found.name
   if (patch.name !== undefined) {
-    const name = patch.name.trim()
+    name = patch.name.trim()
     if (!name) throw new Error('Name is required')
-    c.name = name
   }
-  if (patch.kind) c.kind = patch.kind
+  let endpoints = found.endpoints
   if (patch.endpoints) {
-    const eps = patch.endpoints.map(normalizeEndpoint)
+    const eps = [...new Set(patch.endpoints.map(normalizeEndpoint))]
     if (eps.length === 0) throw new Error('At least one endpoint is required')
-    c.endpoints = [...new Set(eps)]
-    c.currentEndpoint = Math.min(c.currentEndpoint, c.endpoints.length - 1)
+    endpoints = eps
   }
-  if (patch.history !== undefined) c.history = patch.history ? normalizeEndpoint(patch.history) : undefined
+  const history = patch.history === undefined ? found.history : patch.history ? normalizeEndpoint(patch.history) : undefined
+  const previous = effectiveKind(found)
+  const { kind, testnetConfirmed } = await decideKind(patch.kind ?? previous, { name, chainId: found.chainId, endpoints }, previous, confirmTestnet)
+  // Apply all at once, after the question (the list may have changed meanwhile).
+  const c = load().custom.find((x) => x.id === id)
+  if (!c) throw new Error('Unknown network')
+  c.name = name
+  c.kind = kind
+  if (testnetConfirmed) c.testnetConfirmed = true
+  else delete c.testnetConfirmed
+  c.endpoints = endpoints
+  c.currentEndpoint = Math.min(c.currentEndpoint, endpoints.length - 1)
+  c.history = history
   save()
-  return c
+  return getNetwork(id)
 }
 
 export function removeNetwork(id: string): void {

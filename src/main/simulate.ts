@@ -20,17 +20,31 @@ export type SimulationSupport = 'available' | 'unsupported' | 'unknown'
 
 const probes = new Map<string, { support: SimulationSupport; at: number }>()
 const PROBE_TTL_MS = 30 * 60 * 1000
+const UNKNOWN_TTL_MS = 60 * 1000
 
-/** Checks that the endpoint serves compute_transaction (a missing handler answers 404). */
+/** Is this a body the node itself writes (a trace, or an error object with the node's own fields)? */
+function isNodeBody(body: unknown, ok: boolean): boolean {
+  if (typeof body !== 'object' || body === null) return false
+  const b = body as { processed?: { id?: unknown } | null; transaction_id?: unknown; error?: { code?: unknown; what?: unknown } | null }
+  if (ok) return typeof b.processed === 'object' && b.processed !== null && (typeof b.processed.id === 'string' || typeof b.transaction_id === 'string')
+  return typeof b.error === 'object' && b.error !== null && typeof b.error.code === 'number' && typeof b.error.what === 'string'
+}
+
+/**
+ * Checks that the endpoint serves compute_transaction. Only a node's own answer
+ * counts as available: a trace, or a JSON error carrying the node's error code.
+ * A missing handler answers 404; any other answer (a proxy page, a 403, a 502,
+ * a timeout) leaves it unknown.
+ */
 export async function probeSimulation(endpoint: string): Promise<SimulationSupport> {
   const cached = probes.get(endpoint)
-  if (cached && Date.now() - cached.at < PROBE_TTL_MS) return cached.support
+  if (cached && Date.now() - cached.at < (cached.support === 'unknown' ? UNKNOWN_TTL_MS : PROBE_TTL_MS)) return cached.support
   let support: SimulationSupport = 'unknown'
   try {
-    await request(endpoint, '/v1/chain/compute_transaction', { body: {}, timeoutMs: 8000 })
-    support = 'available'
+    const answer = await request<unknown>(endpoint, '/v1/chain/compute_transaction', { body: {}, timeoutMs: 8000 })
+    support = isNodeBody(answer, true) ? 'available' : 'unknown'
   } catch (e) {
-    if (e instanceof RpcError) support = e.status === 404 ? 'unsupported' : e.status === 0 ? 'unknown' : 'available'
+    if (e instanceof RpcError) support = e.status === 404 ? 'unsupported' : isNodeBody(e.details, false) ? 'available' : 'unknown'
   }
   probes.set(endpoint, { support, at: Date.now() })
   return support

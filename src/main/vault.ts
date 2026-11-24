@@ -63,6 +63,45 @@ export interface PublicKeyEntry {
 
 const CHECK_TEXT = 'wax-master-vault-check'
 export const DEFAULT_KDF = { N: 2 ** 17, r: 8, p: 1 }
+/** Smallest and largest scrypt cost accepted from a vault file. */
+export const MIN_KDF_N = 2 ** 15
+export const MAX_KDF_N = 2 ** 20
+const MAX_KEYS = 1000
+const DAMAGED = 'is damaged or from an unknown version'
+
+const B64 = /^[A-Za-z0-9+/]*={0,2}$/
+
+function isSealed(s: unknown, ivLen: number, tagLen: number): s is Sealed {
+  if (!s || typeof s !== 'object') return false
+  const { iv, tag, data } = s as Record<string, unknown>
+  if (typeof iv !== 'string' || typeof tag !== 'string' || typeof data !== 'string') return false
+  if (!B64.test(iv) || !B64.test(tag) || !B64.test(data)) return false
+  return Buffer.from(iv, 'base64').length === ivLen && Buffer.from(tag, 'base64').length === tagLen
+}
+
+/** Checks every value of a vault file before it is used (the file may come from outside). */
+export function validateVaultFile(v: unknown, minN: number): v is VaultFile {
+  if (!v || typeof v !== 'object') return false
+  const f = v as Record<string, unknown>
+  if (f.format !== 'wax-master-vault' || f.version !== 1) return false
+  const k = f.kdf as Record<string, unknown> | undefined
+  if (!k || typeof k !== 'object' || k.name !== 'scrypt') return false
+  const n = k.N
+  if (typeof n !== 'number' || !Number.isInteger(n) || n < minN || n > MAX_KDF_N || (n & (n - 1)) !== 0) return false
+  if (k.r !== 8 || k.p !== 1) return false
+  if (typeof k.salt !== 'string' || !B64.test(k.salt)) return false
+  const saltLen = Buffer.from(k.salt, 'base64').length
+  if (saltLen < 16 || saltLen > 64) return false
+  if (!isSealed(f.check, 12, 16)) return false
+  if (!Array.isArray(f.keys) || f.keys.length > MAX_KEYS) return false
+  for (const e of f.keys as unknown[]) {
+    if (!e || typeof e !== 'object') return false
+    const x = e as Record<string, unknown>
+    if (typeof x.id !== 'string' || typeof x.label !== 'string' || typeof x.publicKey !== 'string') return false
+    if (typeof x.created !== 'number' || !isSealed(x.enc, 12, 16)) return false
+  }
+  return true
+}
 
 function b64(b: Uint8Array): string {
   return Buffer.from(b).toString('base64')
@@ -113,9 +152,15 @@ export class Vault {
   private data: VaultFile | null = null
   private listeners = new Set<(unlocked: boolean) => void>()
 
+  /**
+   * minN is the smallest scrypt N accepted from a file. Production uses the default;
+   * a test that creates vaults with a small N passes a lower value (it defaults to
+   * the given kdf's own N when a custom kdf is given).
+   */
   constructor(
     private readonly file: string,
-    private readonly kdf = DEFAULT_KDF
+    private readonly kdf = DEFAULT_KDF,
+    private readonly minN = kdf === DEFAULT_KDF ? MIN_KDF_N : Math.min(MIN_KDF_N, kdf.N)
   ) {}
 
   static inDir(dir: string): Vault {
@@ -135,8 +180,8 @@ export class Vault {
     if (this.data) return this.data
     if (!existsSync(this.file)) return null
     const v = readJson<VaultFile | null>(this.file, null)
-    if (!v || v.format !== 'wax-master-vault' || v.version !== 1 || !Array.isArray(v.keys)) {
-      throw new Error('vault.json is damaged or from an unknown version')
+    if (!validateVaultFile(v, this.minN)) {
+      throw new Error(`vault.json ${DAMAGED}`)
     }
     this.data = v
     return v
@@ -341,11 +386,20 @@ export class Vault {
 
   /** Reveal flow: the password is asked again; returns the key text for a short display. */
   async revealPrivateKey(id: string, password: string): Promise<string> {
-    await this.checkPassword(password)
-    const k = this.list().find((x) => x.id === id)
-    if (!k) throw new Error('Unknown key')
-    if (!this.isUnlocked()) await this.unlock(password)
-    return this.withPrivateKey(k.publicKey, (priv) => privateKeyToString(priv, 'new'))
+    // A temporary key is derived and wiped; the lock state of the vault does not change.
+    const temp = await this.verifyPassword(password)
+    try {
+      const k = this.load()?.keys.find((x) => x.id === id)
+      if (!k) throw new Error('Unknown key')
+      const data = open(temp, k.enc, keyAad(k.id, k.publicKey))
+      try {
+        return privateKeyToString({ type: 'K1', data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength) }, 'new')
+      } finally {
+        data.fill(0)
+      }
+    } finally {
+      temp.fill(0)
+    }
   }
 
   /** The vault file as it is on disk (already encrypted), for Export. */
@@ -361,8 +415,8 @@ export class Vault {
    */
   async importFile(other: VaultFile, otherPassword: string): Promise<number> {
     const key = this.requireUnlocked()
-    if (other?.format !== 'wax-master-vault' || other.version !== 1 || !Array.isArray(other.keys)) {
-      throw new Error('This is not a WAX Master vault file')
+    if (!validateVaultFile(other, this.minN)) {
+      throw new Error(`This vault file ${DAMAGED}`)
     }
     const otherKey = await deriveKey(otherPassword, other.kdf)
     try {

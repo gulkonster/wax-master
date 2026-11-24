@@ -3,6 +3,7 @@
 
 import { Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron'
 import type { MenuCommand } from '../shared/api'
+import { isEditorKey } from '../shared/keys'
 
 const REPO = 'https://github.com/gulkonster/wax-master'
 
@@ -25,6 +26,8 @@ export function buildMenu(
   const item = (label: string, cmd: MenuCommand, accelerator?: string): MenuItemConstructorOptions => ({
     label,
     accelerator,
+    // Editor keys are handled by the editor itself; the menu only shows them.
+    registerAccelerator: accelerator === undefined || !isEditorKey(accelerator),
     click: send(cmd)
   })
 

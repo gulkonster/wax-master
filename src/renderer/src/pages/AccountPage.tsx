@@ -216,16 +216,25 @@ function AccountBody({ name }: { name: string }): React.JSX.Element {
                 {p.keys.some((k) => vaultKeys.includes(k.k1)) && (
                   <button
                     className="btn ghost"
-                    onClick={() =>
+                    onClick={() => {
+                      // The permission itself, then its parents (it may sign with any of them).
+                      const signOptions = [p.name]
+                      for (let cur = p; cur.parent && !signOptions.includes(cur.parent); ) {
+                        signOptions.push(cur.parent)
+                        const next = view.permissions.find((x) => x.name === cur.parent)
+                        if (!next) break
+                        cur = next
+                      }
                       emit('change-key', {
                         account: view.name,
                         permission: p.name,
-                        parent: p.parent,
                         currentKeys: p.keys.map((k) => k.k1 || k.key),
-                        accounts: p.accounts,
-                        waits: p.waits
+                        vaultKeys: p.keys.filter((k) => vaultKeys.includes(k.k1)).map((k) => k.k1),
+                        signOptions,
+                        threshold: p.threshold,
+                        others: [...p.accounts.map((a) => `${a.actor}@${a.permission}`), ...p.waits.map((w) => `wait ${w.waitSec} s`)]
                       })
-                    }
+                    }}
                   >
                     Change key...
                   </button>

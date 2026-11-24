@@ -1,6 +1,10 @@
 // The confirmation window: a separate sandboxed page that shows one approval
 // record and offers exactly two calls, approve and cancel. Only this window can
 // approve; the editor window never sees the approval secret.
+//
+// Approve is accepted only APPROVE_DELAY_MS after the window was shown and
+// focused (a window that appears under a click cannot be approved by that
+// click), and only one confirmation is open at a time.
 
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
@@ -8,12 +12,16 @@ import type { ApprovalRecord, SendResult, Signer } from './signer'
 import { APP_ORIGIN, isAllowedOrigin, secureWebPreferences } from './security'
 import { log } from './log'
 
+export const APPROVE_DELAY_MS = 1500
+
 interface Pending {
   record: ApprovalRecord
   secret: Buffer
   win: BrowserWindow
   settle: (r: ConfirmOutcome) => void
   busy: boolean
+  /** When the window was last shown and focused; null while hidden or not focused. */
+  armedAt: number | null
 }
 
 export type ConfirmOutcome =
@@ -33,6 +41,21 @@ function fromConfirmWindow(e: IpcMainInvokeEvent): Pending | null {
   return p
 }
 
+/** True while a confirmation window is open. */
+export function hasOpenConfirmation(): boolean {
+  return pendingByWindow.size > 0
+}
+
+/** Brings the open confirmation window to the front (a second request was refused). */
+export function focusOpenConfirmation(): void {
+  for (const p of pendingByWindow.values()) {
+    if (!p.win.isDestroyed()) {
+      if (p.win.isMinimized()) p.win.restore()
+      p.win.focus()
+    }
+  }
+}
+
 export function registerConfirmWindow(signer: Signer): void {
   signerRef = signer
   if (registered) return
@@ -40,13 +63,17 @@ export function registerConfirmWindow(signer: Signer): void {
   ipcMain.handle('confirm:load', (e) => {
     const p = fromConfirmWindow(e)
     if (!p) throw new Error('Refused')
-    return p.record
+    return { ...p.record, approveDelayMs: APPROVE_DELAY_MS }
   })
   ipcMain.handle('confirm:approve', async (e, id: unknown, typedName: unknown) => {
     const p = fromConfirmWindow(e)
     if (!p || typeof id !== 'string' || id !== p.record.id) throw new Error('Refused')
-    if (typedName !== undefined && typeof typedName !== 'string') throw new Error('Refused')
+    if (typedName !== undefined && (typeof typedName !== 'string' || typedName.length > 13)) throw new Error('Refused')
     if (p.busy) throw new Error('Already sending')
+    // Too early after showing or focusing: refused without using up the approval.
+    if (p.armedAt === null || Date.now() - p.armedAt < APPROVE_DELAY_MS) {
+      return { ok: false, notReady: true, error: 'Approve works 1.5 seconds after this window is shown and focused. Press it again.' }
+    }
     p.busy = true
     try {
       const result = await signerRef!.approve(p.record.id, p.secret, typedName as string | undefined)
@@ -94,14 +121,30 @@ export function openConfirmation(parent: BrowserWindow | null, record: ApprovalR
       minWidth: 600,
       minHeight: 500,
       show: false,
-      title: record.blocked || record.network.kind !== 'testnet' ? `Confirm on ${record.network.name}` : 'Confirm transaction',
+      title: record.network.kind === 'mainnet' ? `Confirm on ${record.network.name}` : 'Confirm transaction',
       backgroundColor: '#1e1f21',
       autoHideMenuBar: true,
       webPreferences: secureWebPreferences(join(__dirname, '../preload/confirm.js'))
     })
     win.setMenu(null)
-    pendingByWindow.set(win.webContents.id, { record, secret, win, settle, busy: false })
-    win.once('ready-to-show', () => win.show())
+    const pending: Pending = { record, secret, win, settle, busy: false, armedAt: null }
+    pendingByWindow.set(win.webContents.id, pending)
+    const arm = (): void => {
+      pending.armedAt = win.isVisible() && win.isFocused() ? Date.now() : null
+    }
+    const disarm = (): void => {
+      pending.armedAt = null
+    }
+    win.on('show', arm)
+    win.on('focus', arm)
+    win.on('blur', disarm)
+    win.on('hide', disarm)
+    win.on('minimize', disarm)
+    win.once('ready-to-show', () => {
+      win.show()
+      win.focus()
+      arm()
+    })
     win.on('closed', () => {
       const p = [...pendingByWindow.entries()].find(([, v]) => v.win === win)
       if (p) {
@@ -113,6 +156,9 @@ export function openConfirmation(parent: BrowserWindow | null, record: ApprovalR
     })
     const devUrl = process.env.ELECTRON_RENDERER_URL
     const url = !app.isPackaged && devUrl ? `${devUrl.replace(/\/$/, '')}/confirm.html` : `${APP_ORIGIN}/confirm.html`
-    win.loadURL(url).catch((e) => log.error('Confirmation window failed to load', e))
+    win.loadURL(url).catch((e) => {
+      log.error('Confirmation window failed to load', e)
+      if (!win.isDestroyed()) win.destroy()
+    })
   })
 }

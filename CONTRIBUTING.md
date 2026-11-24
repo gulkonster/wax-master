@@ -5,12 +5,13 @@ Thanks for helping. Bug reports, feature requests and pull requests are welcome.
 ## Getting started
 
 ```powershell
-npm ci
+npm ci                                   # package install scripts are off (.npmrc)
+node node_modules/electron/install.js    # downloads the Electron binary
 node scripts/fetch-toolchain-parts.mjs   # downloads and verifies the toolchain parts (about 235 MB)
 npm run dev
 ```
 
-No C++ compiler is needed: the only native module (`node-pty`) ships prebuilt binaries.
+No C++ compiler is needed: the only native module (`node-pty`) ships prebuilt binaries, so its install script is not needed.
 
 ## Layout
 

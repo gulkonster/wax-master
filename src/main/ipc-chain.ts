@@ -1,6 +1,6 @@
 // IPC handlers for networks and chain reads.
 
-import type { BrowserWindow } from 'electron'
+import { dialog, type BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import { arr, bool, int, obj, oneOf, optStr, str, chainName } from '../shared/validate'
 import { handle } from './ipc'
@@ -50,26 +50,49 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
   handle('networks:list', () => ({ networks: networks.listNetworks(), current: networks.currentNetwork().id }))
   handle('networks:select', (_e, id) => networks.selectNetwork(str(id, 'id', 64)))
   handle('networks:probe', (_e, url) => networks.probeEndpoint(str(url, 'url', 512)))
+  // Marking a chain outside the known lists as a test network is asked here, in the main process.
+  const confirmTestnet: networks.ConfirmTestnet = async (n) => {
+    const opts: Electron.MessageBoxOptions = {
+      type: 'warning',
+      buttons: ['Treat as a test network', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+      title: 'Test network',
+      message: 'Treat this network as a test network? Signing there skips the mainnet steps.',
+      detail: `Name: ${n.name}\nChain id: ${n.chainId}\nEndpoint: ${n.endpoint}\n\nThe mainnet steps are the red confirmation and typing the account name before deploys and permission changes.`
+    }
+    const win = getWindow()
+    const r = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)
+    return r.response === 0
+  }
   handle('networks:add', (_e, raw) => {
     const o = obj(raw, 'network')
-    return networks.addNetwork({
-      name: str(o.name, 'name', 64),
-      kind: oneOf(o.kind, 'kind', KINDS),
-      endpoint: str(o.endpoint, 'endpoint', 512),
-      chainId: str(o.chainId, 'chainId', 64),
-      symbol: str(o.symbol, 'symbol', 7),
-      precision: int(o.precision, 'precision', 0, 18),
-      history: optStr(o.history, 'history', 512)
-    })
+    return networks.addNetwork(
+      {
+        name: str(o.name, 'name', 64),
+        kind: oneOf(o.kind, 'kind', KINDS),
+        endpoint: str(o.endpoint, 'endpoint', 512),
+        chainId: str(o.chainId, 'chainId', 64),
+        symbol: str(o.symbol, 'symbol', 7),
+        precision: int(o.precision, 'precision', 0, 18),
+        history: optStr(o.history, 'history', 512)
+      },
+      confirmTestnet
+    )
   })
   handle('networks:update', (_e, id, raw) => {
     const o = obj(raw, 'patch')
-    return networks.updateNetwork(str(id, 'id', 64), {
-      name: o.name === undefined ? undefined : str(o.name, 'name', 64),
-      kind: o.kind === undefined ? undefined : oneOf(o.kind, 'kind', KINDS),
-      endpoints: o.endpoints === undefined ? undefined : arr(o.endpoints, 'endpoints', 20).map((e, i) => str(e, `endpoints[${i}]`, 512)),
-      history: o.history === null ? null : o.history === undefined ? undefined : str(o.history, 'history', 512)
-    })
+    return networks.updateNetwork(
+      str(id, 'id', 64),
+      {
+        name: o.name === undefined ? undefined : str(o.name, 'name', 64),
+        kind: o.kind === undefined ? undefined : oneOf(o.kind, 'kind', KINDS),
+        endpoints: o.endpoints === undefined ? undefined : arr(o.endpoints, 'endpoints', 20).map((e, i) => str(e, `endpoints[${i}]`, 512)),
+        history: o.history === null ? null : o.history === undefined ? undefined : str(o.history, 'history', 512)
+      },
+      confirmTestnet
+    )
   })
   handle('networks:remove', (_e, id) => networks.removeNetwork(str(id, 'id', 64)))
   handle('networks:chooseEndpoint', (_e, id, index) => networks.chooseEndpoint(str(id, 'id', 64), int(index, 'index', 0, 19)))

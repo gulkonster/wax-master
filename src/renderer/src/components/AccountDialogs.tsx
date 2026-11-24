@@ -161,23 +161,31 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
 export function ChangeKeyDialog({
   account,
   permission,
-  parent,
   currentKeys,
-  accounts,
-  waits,
+  vaultKeys,
+  signOptions,
+  threshold,
+  others,
   onClose
 }: {
   account: string
   permission: string
-  parent: string
+  /** The permission's keys (PUB_K1_ form). */
   currentKeys: string[]
-  accounts: { actor: string; permission: string; weight: number }[]
-  waits: { waitSec: number; weight: number }[]
+  /** Those of currentKeys that are in the vault. */
+  vaultKeys: string[]
+  /** The permission itself first, then its parents. */
+  signOptions: string[]
+  threshold: number
+  /** Short text of the linked accounts and waits (kept as they are). */
+  others: string[]
   onClose: () => void
 }): React.JSX.Element {
   const keys = useVaultKeys()
+  const [oldKey, setOldKey] = useState(vaultKeys[0] ?? currentKeys[0] ?? '')
   const [newKey, setNewKey] = useState('')
-  const [signWith, setSignWith] = useState(permission === 'owner' ? 'owner' : parent || permission)
+  // B15: the permission itself signs by default when the vault has its key; a parent is a choice.
+  const [signWith, setSignWith] = useState(vaultKeys.length > 0 ? permission : (signOptions[1] ?? permission))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
@@ -185,15 +193,7 @@ export function ChangeKeyDialog({
     setBusy(true)
     setError('')
     try {
-      const r = await window.wax.accounts.changeKey({
-        account,
-        permission,
-        parent,
-        signWith,
-        newKey,
-        keepAccounts: accounts.map((a) => ({ permission: { actor: a.actor, permission: a.permission }, weight: a.weight })),
-        keepWaits: waits.map((w) => ({ wait_sec: w.waitSec, weight: w.weight }))
-      })
+      const r = await window.wax.accounts.changeKey({ account, permission, oldKey, newKey, signWith })
       if (r.status === 'sent') {
         setTrace(r.trace)
         toast('Key changed', `${account}@${permission}`, 'success')
@@ -217,17 +217,28 @@ export function ChangeKeyDialog({
           <button className="btn" disabled={busy} onClick={onClose}>
             Close
           </button>
-          <button className="btn red" disabled={!newKey || busy} onClick={() => void change()}>
+          <button className="btn red" disabled={!newKey || !oldKey || busy} onClick={() => void change()}>
             {busy ? 'Waiting for confirmation...' : 'Change key'}
           </button>
         </>
       }
     >
       <p style={{ marginTop: 0 }}>
-        The permission <b>{permission}</b> will be controlled by the new key only (threshold 1). Current keys:{' '}
-        <span className="mono-small">{currentKeys.join(', ') || '(none)'}</span>
-        {accounts.length > 0 && ' Linked accounts and waits are kept.'}
+        One key of <b>{permission}</b> is replaced by the new key with the same weight. The threshold ({threshold}), the other keys
+        {others.length > 0 ? `, the linked accounts and waits (${others.join(', ')})` : ''} stay as they are. The current permission is read again
+        from the chain before the confirmation.
       </p>
+      <div className="field">
+        <label>Key to replace</label>
+        <select className="select" value={oldKey} onChange={(e) => setOldKey(e.target.value)}>
+          {currentKeys.map((k) => (
+            <option key={k} value={k}>
+              {k}
+              {vaultKeys.includes(k) ? ' (in the vault)' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="field">
         <label>New key</label>
         <KeyPicker value={newKey} onChange={setNewKey} keys={keys} />
@@ -235,7 +246,14 @@ export function ChangeKeyDialog({
       </div>
       <div className="field">
         <label>Sign the change with permission</label>
-        <input className="input" value={signWith} onChange={(e) => setSignWith(e.target.value.trim().toLowerCase())} />
+        <select className="select" value={signWith} onChange={(e) => setSignWith(e.target.value)}>
+          {signOptions.map((p, i) => (
+            <option key={p} value={p}>
+              {p}
+              {i === 0 ? ' (this permission)' : ' (parent)'}
+            </option>
+          ))}
+        </select>
       </div>
       {error && <div className="error-text">{error}</div>}
       {trace && <InspectorBody t={trace} />}

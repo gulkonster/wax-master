@@ -28,7 +28,7 @@ export function StatusBar(): React.JSX.Element {
         <IconKey size={14} />
       </button>
       <button className="sb-item" style={{ color: 'var(--text-dim)' }} onClick={() => emit('open-keys', null)}>
-        {!vault.exists ? 'Vault not set up' : vault.unlocked ? `Vault unlocked (${vault.keys} keys)` : 'Vault locked'}
+        {!vault.exists ? 'Vault not set up' : vault.unlocked ? `Vault unlocked (${vault.keys} ${vault.keys === 1 ? 'key' : 'keys'})` : 'Vault locked'}
       </button>
       <div className="spacer" />
       <button
