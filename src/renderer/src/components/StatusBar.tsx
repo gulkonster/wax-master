@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useApp } from '../state'
+import { useToolchains } from './ToolchainManager'
 import { problemsStore, toolchainStore, useStore } from '../lib/stores'
 import { networkStore } from '../lib/networks'
 import { vaultStore } from '../lib/vault'
@@ -36,9 +38,7 @@ export function StatusBar(): React.JSX.Element {
       >
         {net ? `${net.name} · ${net.endpoints[net.currentEndpoint] ?? ''}` : '(No Network)'}
       </button>
-      <button className="sb-item" title={tc.ready ? 'Toolchain' : 'Open Setup'} onClick={() => actions.setView('setup')}>
-        <IconHammer size={12} /> {tc.label}
-      </button>
+      <ToolchainPicker ready={tc.ready} label={tc.label} />
       {state.project && state.view === 'project' && (
         <button
           className={`sb-item sb-engine ${engine.state}`}
@@ -70,4 +70,56 @@ const ENGINE_LABEL: Record<string, string> = {
   indexing: 'C++: indexing',
   ready: 'C++: ready',
   error: 'C++: error'
+}
+
+/** Status-bar toolchain picker: installed toolchains for the current project, and "Manage toolchains...". */
+function ToolchainPicker({ ready, label }: { ready: boolean; label: string }): React.JSX.Element {
+  const { state, actions } = useApp()
+  const [open, setOpen] = useState(false)
+  const { list } = useToolchains()
+  const project = state.project
+  const chosen = project?.config.cdt || list.find((t) => t.isDefault)?.id || ''
+  const current = list.find((t) => t.id === chosen)
+  const pick = async (id: string): Promise<void> => {
+    setOpen(false)
+    if (!project) return
+    const isDefault = list.find((t) => t.id === id)?.isDefault
+    const p = await window.wax.projects.saveConfig({ ...project.config, cdt: isDefault ? '' : id })
+    actions.projectOpened(p)
+  }
+  if (!ready) {
+    return (
+      <button className="sb-item" title="Open Setup" onClick={() => actions.setView('setup')}>
+        <IconHammer size={12} /> {label}
+      </button>
+    )
+  }
+  return (
+    <div style={{ position: 'relative', height: '100%' }}>
+      <button className="sb-item" title="Toolchain of the current project" onClick={() => setOpen((o) => !o)}>
+        <IconHammer size={12} /> {project ? (current?.label ?? label) : label}
+      </button>
+      {open && (
+        <div className="dropdown right" style={{ top: 'auto', bottom: '100%' }} onMouseLeave={() => setOpen(false)}>
+          <div className="dd-section" style={{ borderTop: 'none', marginTop: 0 }}>LOCAL TOOLCHAINS</div>
+          {list.map((t) => (
+            <div key={t.id} className={`dd-item${t.id === chosen ? ' selected' : ''}`} onClick={() => void pick(t.id)}>
+              {t.label}
+            </div>
+          ))}
+          {!project && <div className="dd-note">Open a project to choose its toolchain</div>}
+          <div className="dd-section" />
+          <div
+            className="dd-item"
+            onClick={() => {
+              setOpen(false)
+              actions.setView('setup')
+            }}
+          >
+            Manage toolchains...
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
