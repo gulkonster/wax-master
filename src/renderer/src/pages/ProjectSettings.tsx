@@ -7,6 +7,8 @@ import { useApp } from '../state'
 import { errorText, toast } from '../lib/toast'
 import { IconFolder } from '../components/Icons'
 import { useToolchains } from '../components/ToolchainManager'
+import { AccountPicker, PermissionPicker } from '../components/AccountPicker'
+import { emit } from '../lib/bus'
 
 /** Saves the settings; resolves to null on success or to the reason it failed. */
 export type SettingsSaver = () => Promise<string | null>
@@ -143,8 +145,18 @@ export function ProjectSettings({
             <div className="field" key={n.id}>
               <label className={n.kind === 'mainnet' ? 'mainnet-text' : undefined}>Deploy to ({n.name}):</label>
               <div className="field-pair">
-                <input className="input mono w-account" placeholder="account" value={d.account} onChange={(e) => put({ account: e.target.value.trim().toLowerCase() })} />
-                <input className="input mono w-perm" placeholder="permission (default: active)" value={d.permission} onChange={(e) => put({ permission: e.target.value.trim().toLowerCase() })} />
+                <div className="w-account">
+                  <AccountPicker
+                    mode="starred"
+                    networkId={n.id}
+                    value={d.account}
+                    onChange={(account) => put({ account })}
+                    onFind={() => emit('find-account', { label: 'Project Settings', command: 'project-settings' })}
+                  />
+                </div>
+                <div className="w-perm">
+                  <PermissionPicker networkId={n.id} account={d.account} value={d.permission || 'active'} onChange={(permission) => put({ permission })} />
+                </div>
               </div>
             </div>
           )

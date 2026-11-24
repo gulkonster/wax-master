@@ -13,7 +13,7 @@ vi.mock('electron', () => ({
 }))
 
 import { buildMenu, menuKeyDetector, type MenuKeyInput } from '../../src/main/menu'
-import { MENU_MODEL, shortcutText, type MenuModelItem } from '../../src/shared/menu-model'
+import { MENU_MODEL, VAULT_ITEM_LABELS, itemLabel, shortcutText, vaultMenuState, type MenuModelItem } from '../../src/shared/menu-model'
 
 interface Item {
   label?: string
@@ -255,6 +255,50 @@ describe('menu model (one source for the application menu and the drawn menu bar
     const app = readFileSync(join(__dirname, '../../src/renderer/src/App.tsx'), 'utf8')
     expect(app).toContain(`window.wax.on('menu', runMenuCommand)`)
     expect(app).toContain('<TitleBar run={runMenuCommand} exit={() => void exitApp()} />')
+  })
+})
+
+describe('Accounts menu: one vault item that follows the vault state', () => {
+  const accounts = (vault: 'none' | 'locked' | 'unlocked'): Item[] => {
+    buildMenu(() => null, () => undefined, () => undefined, [], () => undefined, vault)
+    return (built.template as Item[]).find((i) => i.label === 'Accounts')!.submenu!
+  }
+
+  it('reads Create Vault..., Unlock Vault... or Lock Vault, with no accelerator, at the same place', () => {
+    for (const [state, label] of [
+      ['none', 'Create Vault...'],
+      ['locked', 'Unlock Vault...'],
+      ['unlocked', 'Lock Vault']
+    ] as const) {
+      const items = accounts(state)
+      expect(items[4].label, state).toBe(label)
+      expect(items[4].accelerator).toBeUndefined()
+      expect(items.filter((i) => /Vault/.test(i.label ?? ''))).toHaveLength(1)
+    }
+  })
+
+  it('every label sends the same command; the editor decides by the state', () => {
+    const sent: string[] = []
+    for (const state of ['none', 'locked', 'unlocked'] as const) {
+      buildMenu(() => ({ webContents: { send: (_c: string, cmd: string) => sent.push(cmd) } }) as never, () => undefined, () => undefined, [], () => undefined, state)
+      ;(built.template as Item[]).find((i) => i.label === 'Accounts')!.submenu![4].click!()
+    }
+    expect(sent).toEqual(['vault', 'vault', 'vault'])
+  })
+
+  it('the drawn menu uses the same labels and state rule', () => {
+    const item = MENU_MODEL.find((m) => m.label === 'Accounts')!.items.find((i) => i.kind === 'command' && i.command === 'vault')!
+    expect(itemLabel(item, vaultMenuState({ exists: false, unlocked: false }))).toBe(VAULT_ITEM_LABELS.none)
+    expect(itemLabel(item, vaultMenuState({ exists: true, unlocked: false }))).toBe('Unlock Vault...')
+    expect(itemLabel(item, vaultMenuState({ exists: true, unlocked: true }))).toBe('Lock Vault')
+    const titleBar = readFileSync(join(__dirname, '../../src/renderer/src/components/TitleBar.tsx'), 'utf8')
+    expect(titleBar).toContain('itemLabel(item, vaultState)')
+    expect(titleBar).toContain('vaultMenuState(useStore(vaultStore))')
+  })
+
+  it('the main process rebuilds the menu when the vault changes', () => {
+    const index = readFileSync(join(__dirname, '../../src/main/index.ts'), 'utf8')
+    expect(index).toContain('vault().onChange(() => refreshMenu())')
   })
 })
 

@@ -16,7 +16,8 @@ import { CreateAccountDialog, ChangeKeyDialog } from './components/AccountDialog
 import { ClearCodeDialog } from './components/MoreDialogs'
 import { TestnetAccountDialog } from './components/TestnetAccountDialog'
 import { InputDialog } from './components/Modal'
-import { refreshVault, watchVault } from './lib/vault'
+import { askUnlock, refreshVault, vaultStore, watchVault } from './lib/vault'
+import { UnlockPromptHost } from './components/UnlockPrompt'
 import { appendOutput } from './lib/stores'
 import type { InspectedTransaction } from '../../shared/trace-types'
 import { ContractPage } from './pages/ContractPage'
@@ -85,6 +86,12 @@ export function App(): React.JSX.Element {
       on('open-account-page', (n) => {
         setState((st) => ({ ...st, view: 'account' }))
         setTimeout(() => emit('open-account', n), 0)
+      }),
+      // "Find an account" of an empty starred list: the Account page with its search focused,
+      // and a way back to the dialog once an account is starred.
+      on('find-account', (back) => {
+        setState((st) => ({ ...st, view: 'account' }))
+        setTimeout(() => emit('account-search', back), 0)
       })
     ]
     return () => offs.forEach((o) => o())
@@ -273,9 +280,13 @@ export function App(): React.JSX.Element {
         case 'manage-keypairs':
           setKeysOpen({ filter: null })
           break
-        case 'lock-vault':
-          void window.wax.keys.lock().then(() => toast('Vault locked'))
+        case 'vault': {
+          // One item by state: Create Vault, Unlock Vault (both in place) or Lock Vault.
+          const v = vaultStore.get()
+          if (v.unlocked) void window.wax.keys.lock().then(() => toast('Vault locked'))
+          else void askUnlock()
           break
+        }
         case 'deploy':
         case 'simulate-deploy':
         case 'deploy-to-account':
@@ -459,6 +470,7 @@ export function App(): React.JSX.Element {
           WAX Master {update.latest} is available (you have {update.current}). Download it from the release page and verify it as the README describes.
         </Modal>
       )}
+      <UnlockPromptHost />
       <Toasts />
     </AppContext.Provider>
   )

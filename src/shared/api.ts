@@ -147,7 +147,23 @@ export interface Problem {
   column: number
   severity: 'error' | 'warning' | 'info'
   message: string
-  source: 'build' | 'editor'
+  source: 'build' | 'editor' | 'abi'
+}
+
+/** Stored result of a build: compiled and deployable, failed, or compiled with an ABI the chain refuses. */
+export type BuildOutcome = 'ok' | 'failed' | 'abi-not-deployable'
+
+/** One inconsistency of the compiled ABI. */
+export interface AbiFinding {
+  kind: 'table-type' | 'action-type' | 'field-type' | 'base-type' | 'variant-type' | 'alias-type' | 'result-type' | 'duplicate' | 'invalid'
+  /** The table, action, struct, variant or alias the finding is about. */
+  subject: string
+  /** The type that is missing (empty when not about a type). */
+  type: string
+  /** The full explanation; the first line starts with "ABI check:". */
+  text: string
+  /** Where to look: the source place when found, otherwise the entry in the ABI file. Project-relative. */
+  place: { file: string; line: number; column: number } | null
 }
 
 export interface BuildResult {
@@ -159,6 +175,26 @@ export interface BuildResult {
   /** Set when a custom build command must be approved first. */
   needsApproval?: boolean
   command?: string
+  /** Stored result of this build (absent when it did not run). */
+  outcome?: BuildOutcome
+  /** When the build finished (ms since epoch). */
+  builtAt?: number
+  /** ABI check findings; empty when the ABI is consistent or the compile failed. */
+  abiFindings?: AbiFinding[]
+}
+
+/** Answer of "build if needed" and "rebuild". */
+export interface BuildCheck {
+  /** True when nothing was compiled because the stored build matches the project. */
+  upToDate: boolean
+  /** Time of the build the answer is about (null when no build ran, e.g. not approved). */
+  builtAt: number | null
+  result: BuildOutcome | null
+  abiFindings: AbiFinding[]
+  /** Problems of the ABI check (source "abi"), for the Problems tab. */
+  abiProblems: Problem[]
+  /** The build that ran now; null when the stored build was up to date. */
+  build: BuildResult | null
 }
 
 export interface ToolchainInfo {
@@ -205,6 +241,23 @@ export interface TerminalProfileInfo {
   note?: string
 }
 
+/** One account offered by the account picker. */
+export interface AccountPickEntry {
+  account: string
+  starred: boolean
+  /** Found for a public key of the vault. */
+  fromVault: boolean
+  /** Permissions the vault's keys can sign for (empty: view only). */
+  signable: string[]
+}
+
+export interface AccountPickList {
+  networkId: string
+  entries: AccountPickEntry[]
+  /** False when the endpoint could not look up the vault's keys (starred accounts are still listed). */
+  vaultChecked: boolean
+}
+
 export type MenuCommand =
   | 'new-project'
   | 'template-empty'
@@ -243,7 +296,8 @@ export type MenuCommand =
   | 'create-account'
   | 'create-testnet-account'
   | 'manage-keypairs'
-  | 'lock-vault'
+  /** Accounts menu vault item: Create Vault, Unlock Vault or Lock Vault, by the vault's state. */
+  | 'vault'
   | 'clear-code'
   | 'add-network'
   | 'manage-networks'
@@ -340,6 +394,8 @@ export interface WaxApi {
   }
   chain: {
     account(name: string): Promise<AccountView>
+    /** False when the node says the account does not exist; a failed request rejects. */
+    accountExists(name: string): Promise<boolean>
     actions(name: string, skip: number): Promise<AccountActionsPage>
   }
   contract: {
@@ -400,6 +456,8 @@ export interface WaxApi {
     /** Replaces one key; the main process reads the permission and keeps the rest of its authority. */
     changeKey(input: { account: string; permission: string; oldKey: string; newKey: string; signWith: string }): Promise<TxOutcome>
     clearCode(account: string, permission: string): Promise<TxOutcome>
+    /** Starred accounts and accounts of the vault's keys on a network (default: the current one). */
+    pickList(networkId?: string): Promise<AccountPickList>
   }
   toolchains: {
     list(): Promise<{ defaultId: string; defaultLabel: string; installed: (ToolchainInfo & { isDefault: boolean })[] }>
@@ -408,7 +466,12 @@ export interface WaxApi {
     remove(id: string): Promise<ToolchainInfo[]>
   }
   build: {
+    /** Always compiles (Contract > Build, Ctrl+B). */
     run(): Promise<BuildResult>
+    /** Compiles only when the project changed since the stored build or its outputs are missing. */
+    ensure(): Promise<BuildCheck>
+    /** Always compiles; answers in the same form as ensure(). */
+    rebuild(): Promise<BuildCheck>
     defaultCommand(): Promise<string>
   }
   on(event: 'menu', cb: (cmd: MenuCommand) => void): () => void

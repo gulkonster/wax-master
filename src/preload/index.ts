@@ -143,6 +143,7 @@ const api: WaxApi = {
   },
   chain: {
     account: call('chain:account'),
+    accountExists: call('chain:accountExists'),
     actions: call('chain:actions')
   },
   contract: {
@@ -190,7 +191,8 @@ const api: WaxApi = {
   accounts: {
     create: call('accounts:create'),
     changeKey: call('accounts:changeKey'),
-    clearCode: call('accounts:clearCode')
+    clearCode: call('accounts:clearCode'),
+    pickList: call('accounts:pickList')
   },
   toolchains: {
     list: call('toolchains:list'),
@@ -200,6 +202,8 @@ const api: WaxApi = {
   },
   build: {
     run: call('build:run'),
+    ensure: call('build:ensure'),
+    rebuild: call('build:rebuild'),
     defaultCommand: call('build:defaultCommand')
   },
   on(event: string, cb: (...args: never[]) => void): () => void {

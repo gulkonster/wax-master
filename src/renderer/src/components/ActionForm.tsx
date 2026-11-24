@@ -7,7 +7,10 @@ import { emit } from '../lib/bus'
 import type { AuthLevel, ContractAbiView, ContractAction, ContractField, ContractHistoryEntry, NetworkInfo, PackResult } from '../../../shared/chain-types'
 import { errorText, toast } from '../lib/toast'
 import { copyText } from '../lib/clipboard'
-import { IconCheck, IconChevronDown, IconChevronRight, IconClock, IconCopy, IconFunction, IconHeart, IconPlay, IconClose } from './Icons'
+import { IconCheck, IconChevronDown, IconChevronRight, IconClock, IconCopy, IconFunction, IconHeart, IconPlay, IconClose, IconPlus } from './Icons'
+import { withVault } from '../lib/vault'
+import { isUnlockCancelled } from '../../../shared/vault-locked'
+import { AccountPicker, PermissionPicker } from './AccountPicker'
 
 // ---------------------------------------------------------------- shared dropdown
 
@@ -222,6 +225,18 @@ function parseAuth(text: string): { levels: AuthLevel[]; error: string } {
   return { levels, error: '' }
 }
 
+/** Parameters of type `name` that name the receiving party; checked to exist before the confirmation. */
+const RECIPIENT_FIELDS = new Set(['to', 'receiver', 'recipient'])
+
+export function recipientNames(fields: ContractField[], data: Record<string, unknown>): string[] {
+  const out: string[] = []
+  for (const f of fields) {
+    const v = data[f.name]
+    if (f.resolved === 'name' && RECIPIENT_FIELDS.has(f.name) && typeof v === 'string' && v.trim()) out.push(v.trim())
+  }
+  return [...new Set(out)]
+}
+
 function preview(e: ContractHistoryEntry): string {
   const d = e.payload.data
   let t = ''
@@ -242,7 +257,13 @@ export function ActionForm({ account, view, network }: { account: string; view: 
   const [raw, setRaw] = useState(false)
   const [rawText, setRawText] = useState('{}')
   const [command, setCommand] = useState(false)
-  const [authText, setAuthText] = useState(`${account}@active`)
+  // Who signs: one or more account@permission levels, chosen with the account and permission pickers.
+  const [auth, setAuth] = useState<AuthLevel[]>([{ actor: account, permission: 'active' }])
+  const authText = auth.map((l) => `${l.actor}@${l.permission}`).join(', ')
+  const setLevel = (i: number, patch: Partial<AuthLevel>): void => {
+    setTouched(true)
+    setAuth((list) => list.map((l, j) => (j === i ? { ...l, ...patch } : l)))
+  }
   const [pack, setPack] = useState<PackResult | null>(null)
   const [error, setError] = useState('')
   // Field errors show once a field was edited or Run / Simulate / Command was pressed.
@@ -354,7 +375,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
     setValues(valuesFromData(a.fields, e.payload.data))
     setRaw(false)
     const auth = Array.isArray(e.payload.authorization) ? (e.payload.authorization as AuthLevel[]) : []
-    if (auth.length) setAuthText(auth.map((l) => `${l.actor}@${l.permission}`).join(', '))
+    if (auth.length) setAuth(auth.map((l) => ({ actor: String(l.actor ?? ''), permission: String(l.permission ?? 'active') })))
   }
 
   const saveFavorite = async (): Promise<void> => {
@@ -421,8 +442,16 @@ export function ActionForm({ account, view, network }: { account: string; view: 
     setRunning('run')
     setResultNote('')
     try {
+      // A recipient that does not exist stops the action before the confirmation.
+      for (const name of recipientNames(fields, acts[0].data as Record<string, unknown>)) {
+        if (!(await window.wax.chain.accountExists(name))) {
+          setResult(null)
+          setResultNote(`This account does not exist on ${network.name}: ${name}. Nothing was signed.`)
+          return
+        }
+      }
       void commitHistory()
-      const r = await window.wax.tx.run(acts)
+      const r = await withVault(() => window.wax.tx.run(acts))
       if (r.status === 'sent') {
         setResult(r.trace)
         setResultNote('')
@@ -433,7 +462,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
         setResultNote(r.error)
       } else setResultNote('Cancelled; nothing was signed.')
     } catch (e) {
-      setResultNote(errorText(e))
+      setResultNote(isUnlockCancelled(e) ? 'Cancelled; nothing was signed.' : errorText(e))
       setResult(null)
     } finally {
       setRunning(null)
@@ -599,18 +628,36 @@ export function ActionForm({ account, view, network }: { account: string; view: 
               {error && touched ? <div className="error-text" style={{ marginTop: 'var(--sp-2h)', userSelect: 'text' }}>{error}</div> : pack && !error && <div className="hint">Valid: {pack.hex.length / 2} bytes packed.</div>}
             </Section>
             <Section title="Authorization" badge={<span className="badge mono">{authBadge || 'none'}</span>}>
-              <div className="field-label">account@permission</div>
-              <input
-                className="field-input"
-                spellCheck={false}
-                value={authText}
-                placeholder={`${account}@active`}
-                onChange={(e) => {
-                  setTouched(true)
-                  setAuthText(e.target.value)
-                }}
-              />
-              <div className="hint">Separate several with commas. Nothing is signed from this page yet.</div>
+              <div className="field-label">Account and permission</div>
+              {auth.map((l, i) => (
+                <div className="signer-row" key={i}>
+                  <div className="grow">
+                    <AccountPicker mode="signer" inputClass="field-input" value={l.actor} onChange={(actor) => setLevel(i, { actor })} />
+                  </div>
+                  <div className="perm">
+                    <PermissionPicker account={l.actor} value={l.permission} onChange={(permission) => setLevel(i, { permission })} />
+                  </div>
+                  {auth.length > 1 && (
+                    <button
+                      className="icon-btn"
+                      title="Remove this signer"
+                      onClick={() => {
+                        setTouched(true)
+                        setAuth((list) => list.filter((_, j) => j !== i))
+                      }}
+                    >
+                      <IconClose />
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                className="btn subtle sm"
+                disabled={auth.length >= 10}
+                onClick={() => setAuth((list) => [...list, { actor: '', permission: 'active' }])}
+              >
+                <IconPlus /> Add signer
+              </button>
             </Section>
             <Section title="Ricardian">
               <div className="ricardian">{action.ricardian || '(none)'}</div>
@@ -663,6 +710,8 @@ function FieldInput(props: { field: ContractField; net: NetworkInfo; value: stri
           value={typeof props.value === 'string' ? props.value : ''}
           onChange={(e) => props.onChange(e.target.value)}
         />
+      ) : f.resolved === 'name' ? (
+        <AccountPicker mode="other" inputClass="field-input" value={typeof props.value === 'string' ? props.value : ''} onChange={(v) => props.onChange(v)} placeholder={f.type} />
       ) : (
         <input
           className="field-input"

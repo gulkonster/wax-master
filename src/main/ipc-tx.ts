@@ -50,14 +50,12 @@ export type TxOutcome =
   | { status: 'cancelled' }
 
 /**
- * Stops before any window: a locked vault (the editor opens the keys dialog
- * to unlock it) or a confirmation that is already open (it comes to the front).
+ * Stops before any window: a locked vault (the typed `vault-locked` error; the
+ * editor asks for the password in place and repeats the request) or a
+ * confirmation that is already open (it comes to the front).
  */
-export function preflight(win: BrowserWindow | null): void {
-  if (!vault().isUnlocked()) {
-    if (win && !win.isDestroyed()) win.webContents.send('menu', 'manage-keypairs')
-    throw new Error(LOCKED_MESSAGE)
-  }
+export function preflight(_win: BrowserWindow | null): void {
+  if (!vault().isUnlocked()) throw new Error(LOCKED_MESSAGE)
   if (hasOpenConfirmation() || signer().busy()) {
     focusOpenConfirmation()
     throw new Error(BUSY_MESSAGE)
@@ -183,7 +181,10 @@ export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
   // WAX Testnet faucet (only on the WAX Testnet preset; keys go into the vault in this process).
   handle('faucet:create', async (_e, name) => {
     requireWaxTestnet()
-    return createTestnetAccount(str(name, 'name', 12), vault())
+    const n = str(name, 'name', 12)
+    // The keys go into the vault: a locked vault is asked for before the faucet is called.
+    if (!vault().isUnlocked()) throw new Error(LOCKED_MESSAGE)
+    return createTestnetAccount(n, vault())
   })
   handle('faucet:tokens', async (_e, name) => {
     requireWaxTestnet()

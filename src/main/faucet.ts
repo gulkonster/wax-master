@@ -106,7 +106,7 @@ export function extractKeys(json: unknown): FaucetKeys | null {
 /** Creates the account and imports both keys into the (unlocked) vault. */
 export async function createTestnetAccount(name: string, vault: Vault, fetcher: Fetcher = defaultFetcher): Promise<FaucetResult> {
   if (!NAME.test(name)) return { ok: false, message: 'The name must be 12 characters: a-z and 1-5.' }
-  if (!vault.isUnlocked()) return { ok: false, message: 'Unlock the vault first.' }
+  if (!vault.isUnlocked()) return { ok: false, message: 'The vault is locked; nothing was requested from the faucet.' }
   let res: { status: number; text: string }
   try {
     res = await fetcher(`${FAUCET_HOST}/create_account?${name}`)

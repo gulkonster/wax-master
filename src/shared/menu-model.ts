@@ -10,8 +10,29 @@ export const REPO_URL = 'https://github.com/gulkonster/wax-master'
 /** Edit roles handled by the system menu for the keyboard and by the page for the mouse. */
 export type MenuRole = 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'delete' | 'selectAll'
 
+/** State of the key vault as the Accounts menu shows it. */
+export type VaultMenuState = 'none' | 'locked' | 'unlocked'
+
+/** The one state-dependent label of the menu: the vault item of the Accounts menu (no accelerator). */
+export const VAULT_ITEM_LABELS: Readonly<Record<VaultMenuState, string>> = {
+  none: 'Create Vault...',
+  locked: 'Unlock Vault...',
+  unlocked: 'Lock Vault'
+}
+
+export function vaultMenuState(s: { exists: boolean; unlocked: boolean }): VaultMenuState {
+  return !s.exists ? 'none' : s.unlocked ? 'unlocked' : 'locked'
+}
+
 export type MenuModelItem =
-  | { kind: 'command'; label: string; command: MenuCommand; accelerator?: string }
+  | {
+      kind: 'command'
+      label: string
+      command: MenuCommand
+      accelerator?: string
+      /** Labels by vault state; `label` is the one for an unlocked vault. */
+      vaultLabels?: Readonly<Record<VaultMenuState, string>>
+    }
   | { kind: 'role'; label: string; role: MenuRole; shortcut?: string }
   | { kind: 'link'; label: string; url: string }
   | { kind: 'exit'; label: string }
@@ -114,7 +135,7 @@ export const MENU_MODEL: readonly MenuModelMenu[] = [
       cmd('Create Testnet Account...', 'create-testnet-account'),
       sep,
       cmd('Manage Keypairs...', 'manage-keypairs'),
-      cmd('Lock Vault', 'lock-vault'),
+      { kind: 'command', label: VAULT_ITEM_LABELS.unlocked, command: 'vault', vaultLabels: VAULT_ITEM_LABELS },
       sep,
       cmd('Clear Contract Code...', 'clear-code')
     ]
@@ -146,6 +167,13 @@ export const MENU_MODEL: readonly MenuModelMenu[] = [
     ]
   }
 ]
+
+/** Label of an item for the vault's state (only the vault item depends on it). */
+export function itemLabel(item: MenuModelItem, vault: VaultMenuState): string {
+  if (item.kind === 'separator') return ''
+  if (item.kind === 'command' && item.vaultLabels) return item.vaultLabels[vault]
+  return item.label
+}
 
 /** Shortcut text as shown in a drawn menu (Ctrl on Windows). */
 export function shortcutText(accelerator: string): string {

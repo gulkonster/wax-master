@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useApp } from '../state'
 import { useToolchains } from './ToolchainManager'
 import { problemsStore, toolchainStore, useStore } from '../lib/stores'
+import { countProblems } from '../../../shared/output-lines'
 import { networkStore } from '../lib/networks'
-import { vaultStore } from '../lib/vault'
+import { askUnlock, vaultStore } from '../lib/vault'
 import { emit } from '../lib/bus'
 import { restartEditorEngine } from '../lib/lsp/engine'
 import { useEngineView } from '../lib/lsp/status'
@@ -15,12 +16,16 @@ export function StatusBar(): React.JSX.Element {
   const vault = useStore(vaultStore)
   const net = useStore(networkStore).current
   const problems = useStore(problemsStore)
-  const errors = problems.filter((p) => p.severity === 'error').length
-  const warnings = problems.filter((p) => p.severity === 'warning').length
+  // Same counting as the Problems tab (shared/output-lines.ts).
+  const { errors, warnings } = countProblems(problems)
   const engine = useEngineView()
   return (
     <div className="statusbar">
-      <button className={`sb-item${vault.unlocked ? ' ok' : ''}`} title="Key vault: click to open Manage Keypairs" onClick={() => emit('open-keys', null)}>
+      <button
+        className={`sb-item${vault.unlocked ? ' ok' : ''}`}
+        title={vault.unlocked ? 'Key vault: click to open Manage Keypairs' : vault.exists ? 'Key vault: click to unlock' : 'Key vault: click to create it'}
+        onClick={() => (vault.unlocked ? emit('open-keys', null) : void askUnlock())}
+      >
         <IconKey size="sm" />
         {!vault.exists ? 'Vault not set up' : vault.unlocked ? `Vault unlocked (${vault.keys} ${vault.keys === 1 ? 'key' : 'keys'})` : 'Vault locked'}
       </button>

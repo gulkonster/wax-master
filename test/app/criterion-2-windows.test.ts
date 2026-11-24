@@ -120,6 +120,7 @@ import { APPROVE_DELAY_MS, hasOpenConfirmation, openConfirmation, registerConfir
 import { registerKeys, vault } from '../../src/main/keys-service'
 import { preflight } from '../../src/main/ipc-tx'
 import { BUSY_MESSAGE, LOCKED_MESSAGE, type ApprovalRecord, type Signer } from '../../src/main/signer'
+import { UnlockCancelled, isVaultLocked, retryAfterUnlock } from '../../src/shared/vault-locked'
 
 const PW = 'correct horse battery staple'
 const EDITOR_ID = 1
@@ -289,14 +290,79 @@ describe('task 5b and 5c: one confirmation at a time; a locked vault stops befor
     expect(() => preflight(null)).not.toThrow()
   })
 
-  it('locked vault: "Unlock the vault first", the editor is told to open the keys dialog, no window', async () => {
+  it('locked vault: one typed vault-locked error, the editor is not sent to another dialog, no window', async () => {
     vault().lock()
     h.sent.length = 0
     const before = h.windows.length
     const editorWin = { isDestroyed: () => false, webContents: { send: (channel: string, ...args: unknown[]) => h.sent.push({ channel, args }) } }
     expect(() => preflight(editorWin as never)).toThrow(LOCKED_MESSAGE)
-    expect(h.sent).toEqual([{ channel: 'menu', args: ['manage-keypairs'] }])
+    let err: unknown
+    try {
+      preflight(editorWin as never)
+    } catch (e) {
+      err = e
+    }
+    expect(isVaultLocked(err)).toBe(true)
+    // Electron prefixes the message on its way to the editor; it is still recognized there.
+    expect(isVaultLocked(new Error(`Error invoking remote method 'tx:run': Error: ${LOCKED_MESSAGE}`))).toBe(true)
+    expect(h.sent).toEqual([])
     expect(h.windows.length).toBe(before)
+    await call('keys:unlock', editor(), PW)
+  })
+
+  it('unlock then continue: the request stops before any window, the password is asked in place, the request runs once more and opens one window', async () => {
+    vault().lock()
+    const before = h.windows.length
+    let runs = 0
+    let asked = 0
+    const request = async (): Promise<{ done: Promise<unknown> }> => {
+      runs++
+      preflight(null)
+      return { done: openConfirmation(null, record('appr-retry'), Buffer.alloc(32, 1)) }
+    }
+    const r = await retryAfterUnlock(request, async () => {
+      asked++
+      // While the prompt is open no confirmation window exists.
+      expect(h.windows.length).toBe(before)
+      expect(hasOpenConfirmation()).toBe(false)
+      await call('keys:unlock', editor(), PW)
+      return true
+    })
+    expect(asked).toBe(1)
+    expect(runs).toBe(2)
+    expect(h.windows.length).toBe(before + 1)
+    expect(hasOpenConfirmation()).toBe(true)
+    ;(h.windows[h.windows.length - 1] as unknown as { close(): void }).close()
+    await expect(r.done).resolves.toMatchObject({ approved: false })
+  })
+
+  it('unlock cancelled: the request ends quietly, nothing opens, the vault stays locked', async () => {
+    vault().lock()
+    const before = h.windows.length
+    let runs = 0
+    const request = async (): Promise<void> => {
+      runs++
+      preflight(null)
+      await openConfirmation(null, record('appr-cancel'), Buffer.alloc(32, 1))
+    }
+    await expect(retryAfterUnlock(request, async () => false)).rejects.toBeInstanceOf(UnlockCancelled)
+    expect(runs).toBe(1)
+    expect(h.windows.length).toBe(before)
+    expect(vault().isUnlocked()).toBe(false)
+    // Another error than the locked vault is not answered with the prompt.
+    let asked = 0
+    await expect(
+      retryAfterUnlock(
+        async () => {
+          throw new Error(BUSY_MESSAGE)
+        },
+        async () => {
+          asked++
+          return true
+        }
+      )
+    ).rejects.toThrow(BUSY_MESSAGE)
+    expect(asked).toBe(0)
     await call('keys:unlock', editor(), PW)
   })
 })

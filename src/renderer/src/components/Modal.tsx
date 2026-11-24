@@ -46,7 +46,11 @@ export function Modal({
   useEffect(() => {
     if (!onClose) return
     const h = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      // Only the dialog on top closes (the unlock prompt over a form, a dialog over another).
+      const all = document.querySelectorAll('.modal')
+      if (all.length > 0 && all[all.length - 1] !== boxRef.current) return
+      onClose()
     }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)

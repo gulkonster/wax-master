@@ -9,6 +9,7 @@ import { accountActions, accountView } from './account-view'
 import { ContractHistory, getContractAbi, getContractDef, KEY_TYPES, packAction, queryRows } from './contract-view'
 import { dataDir } from './paths'
 import { chain } from './rpc'
+import { isUnknownAccount } from './account-pick'
 import type { AuthLevel, ContractHistoryKind, ContractHistoryList } from '../shared/chain-types'
 
 const KINDS = ['mainnet', 'testnet', 'local'] as const
@@ -108,6 +109,17 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
   )
 
   handle('chain:account', (_e, name) => accountView(chainName(name, 'account')))
+  // Existence of an account (recipient check, "name is free"); a failed request is an error, not "missing".
+  handle('chain:accountExists', async (_e, name) => {
+    const acc = chainName(name, 'account')
+    try {
+      await networks.readCall((ep) => chain.getAccount(ep, acc))
+      return true
+    } catch (e) {
+      if (isUnknownAccount(e)) return false
+      throw e
+    }
+  })
   handle('chain:actions', (_e, name, skip) => accountActions(chainName(name, 'account'), int(skip, 'skip', 0, 1_000_000)))
 
   handle('contract:abi', (_e, account, refresh) =>

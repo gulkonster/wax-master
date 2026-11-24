@@ -98,10 +98,10 @@ beforeEach(() => {
 
 const CHANNELS = [
   'tx:run', 'deploy:plan', 'deploy:simulate', 'deploy:run',
-  'accounts:create', 'accounts:changeKey', 'accounts:clearCode',
+  'accounts:create', 'accounts:changeKey', 'accounts:clearCode', 'accounts:pickList',
   'faucet:create', 'faucet:tokens', 'faucet:suggestName',
   'toolchains:chooseFile', 'keys:exportVault', 'keys:newPending', 'keys:discardPending', 'keys:remove',
-  'build:run', 'files:wasmInfo', 'app:setDirty'
+  'build:run', 'build:ensure', 'build:rebuild', 'files:wasmInfo', 'app:setDirty'
 ]
 
 describe('sender checks', () => {
@@ -170,6 +170,12 @@ describe('malformed input', () => {
     ['accounts:clearCode', ['alice', 7]],
     ['accounts:clearCode', ['BAD', 'active']],
     ['accounts:clearCode', ['alice', 'BAD NAME']],
+    ['accounts:pickList', [7]],
+    ['accounts:pickList', ['x'.repeat(65)]],
+    ['accounts:pickList', ['no-such-network']],
+    // No project is open here: the build calls refuse.
+    ['build:ensure', []],
+    ['build:rebuild', []],
     ['files:wasmInfo', [7]],
     ['files:wasmInfo', ['notes.txt']],
     ['files:wasmInfo', ['../x.wasm']],
@@ -207,6 +213,15 @@ describe('malformed input', () => {
   it('a signing call with a good shape stops at the locked vault before any window', async () => {
     await expect(call('tx:run', [action])).rejects.toThrow(/unlock/i)
     await expect(call('accounts:clearCode', 'alice', 'active')).rejects.toThrow(/unlock/i)
+    // One typed error for every key and signing request on a locked vault.
+    await expect(call('tx:run', [action])).rejects.toThrow(/^vault-locked:/)
+    await expect(call('deploy:run', 'some-plan')).rejects.toThrow(/^vault-locked:/)
+    await expect(call('accounts:clearCode', 'alice', 'active')).rejects.toThrow(/^vault-locked:/)
+    await expect(call('accounts:create', newAccount)).rejects.toThrow(/^vault-locked:/)
+    await expect(call('accounts:changeKey', { account: 'alice', permission: 'active', oldKey: KEY, newKey: KEY, signWith: 'active' })).rejects.toThrow(/^vault-locked:/)
+    await expect(call('keys:newPending')).rejects.toThrow(/^vault-locked:/)
+    await expect(call('keys:importVault', 'other password')).rejects.toThrow(/^vault-locked:/)
+    expect(h.dialogCalls).toBe(0)
     await expect(call('accounts:create', newAccount)).rejects.toThrow(/unlock/i)
   })
 })
@@ -234,8 +249,8 @@ describe('faucet: WAX Testnet only, by preset id and chain id', () => {
     await expect(call('faucet:tokens', 7)).rejects.toThrow()
     await expect(call('faucet:tokens', 'abcdefghijk1')).resolves.toMatchObject({ ok: true })
     expect(h.tokenCalls).toEqual(['abcdefghijk1'])
-    // No vault yet: nothing is requested from the service.
-    await expect(call('faucet:create', 'abcdefghijk1')).resolves.toMatchObject({ ok: false })
+    // No vault yet: the typed locked-vault error (the editor asks in place); nothing is requested from the service.
+    await expect(call('faucet:create', 'abcdefghijk1')).rejects.toThrow(/^vault-locked:/)
   })
   it('suggests a valid name on any network', async () => {
     expect(await call('faucet:suggestName')).toMatch(/^[a-z1-5]{12}$/)

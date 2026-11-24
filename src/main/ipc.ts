@@ -17,7 +17,7 @@ import * as toolchain from './toolchain'
 import * as terminal from './terminal'
 import { wasmInfo } from './wasm-info'
 import { openNotices } from './project-notices'
-import { runBuild, defaultBuildArgs } from './build'
+import { runBuild, defaultBuildArgs, ensureBuilt, rebuild } from './build'
 import { optStr } from '../shared/validate'
 import { run as runHelper } from './helper'
 import { join, resolve } from 'node:path'
@@ -306,6 +306,9 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   })
 
   handle('build:run', (e) => runBuild(e.sender))
+  // No arguments: both act on the open project only.
+  handle('build:ensure', (e) => ensureBuilt(e.sender))
+  handle('build:rebuild', (e) => rebuild(e.sender))
 
   // Terminal and clipboard: only the terminal frame (app://terminal) may call these.
   handleTerminal('clipboard:writeText', (_e, text) => clipboard.writeText(str(text, 'text', 1024 * 1024)))

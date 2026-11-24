@@ -6,6 +6,8 @@ import { errorText, toast } from '../lib/toast'
 import { networkStore } from '../lib/networks'
 import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
+import { withVault } from '../lib/vault'
+import { AccountPicker, PermissionPicker } from './AccountPicker'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
@@ -57,6 +59,20 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
+  // The new name is checked to be free when the field is left.
+  const [free, setFree] = useState<null | 'checking' | 'free' | 'taken' | { error: string }>(null)
+  const checkFree = async (n: string): Promise<void> => {
+    if (!NAME.test(n)) {
+      setFree(null)
+      return
+    }
+    setFree('checking')
+    try {
+      setFree((await window.wax.chain.accountExists(n)) ? 'taken' : 'free')
+    } catch (e) {
+      setFree({ error: errorText(e) })
+    }
+  }
 
   useEffect(() => {
     if (keys.length && !ownerKey) {
@@ -65,23 +81,25 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
     }
   }, [keys, ownerKey])
 
-  const ok = NAME.test(creator) && NAME.test(name) && NAME.test(creatorPerm) && !!ownerKey && !!activeKey
+  const ok = NAME.test(creator) && NAME.test(name) && NAME.test(creatorPerm) && !!ownerKey && !!activeKey && free !== 'taken'
 
   const create = async (): Promise<void> => {
     setBusy(true)
     setError('')
     try {
-      const r = await window.wax.accounts.create({
-        creator,
-        creatorPermission: creatorPerm,
-        name,
-        ownerKey,
-        activeKey,
-        ramBytes: ram,
-        stakeCpu: cpu,
-        stakeNet: netStake,
-        transfer
-      })
+      const r = await withVault(() =>
+        window.wax.accounts.create({
+          creator,
+          creatorPermission: creatorPerm,
+          name,
+          ownerKey,
+          activeKey,
+          ramBytes: ram,
+          stakeCpu: cpu,
+          stakeNet: netStake,
+          transfer
+        })
+      )
       if (r.status === 'sent') {
         setTrace(r.trace)
         toast('Account created', name, 'success')
@@ -117,16 +135,28 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
       <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 2 }}>
           <label>Creator (pays; its key must be in the vault)</label>
-          <input className="input mono" value={creator} onChange={(e) => setCreator(e.target.value.trim().toLowerCase())} />
+          <AccountPicker mode="signer" value={creator} onChange={setCreator} />
         </div>
         <div style={{ flex: 1 }}>
           <label>Permission</label>
-          <input className="input mono" value={creatorPerm} onChange={(e) => setCreatorPerm(e.target.value.trim().toLowerCase())} />
+          <PermissionPicker account={creator} value={creatorPerm} onChange={setCreatorPerm} />
         </div>
       </div>
       <div className="field">
         <label>New account name (12 characters a-z, 1-5; shorter names are premium)</label>
-        <input className="input mono" value={name} onChange={(e) => setName(e.target.value.trim().toLowerCase())} />
+        <input
+          className="input mono"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value.trim().toLowerCase())
+            setFree(null)
+          }}
+          onBlur={() => void checkFree(name)}
+        />
+        {free === 'checking' && <div className="acct-note">Checking the name...</div>}
+        {free === 'free' && <div className="acct-note good">The name is free on {net?.name}.</div>}
+        {free === 'taken' && <div className="acct-note bad">This name is taken on {net?.name}.</div>}
+        {free && typeof free === 'object' && <div className="acct-note">Could not check the name: {free.error}</div>}
       </div>
       <div className="field">
         <label>Owner key</label>
@@ -194,7 +224,7 @@ export function ChangeKeyDialog({
     setBusy(true)
     setError('')
     try {
-      const r = await window.wax.accounts.changeKey({ account, permission, oldKey, newKey, signWith })
+      const r = await withVault(() => window.wax.accounts.changeKey({ account, permission, oldKey, newKey, signWith }))
       if (r.status === 'sent') {
         setTrace(r.trace)
         toast('Key changed', `${account}@${permission}`, 'success')

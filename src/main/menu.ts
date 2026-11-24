@@ -6,7 +6,7 @@
 import { Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron'
 import type { MenuCommand } from '../shared/api'
 import { isEditorKey } from '../shared/keys'
-import { MENU_MODEL, type MenuModelItem } from '../shared/menu-model'
+import { MENU_MODEL, itemLabel, type MenuModelItem, type VaultMenuState } from '../shared/menu-model'
 
 export interface MenuNetwork {
   id: string
@@ -19,7 +19,9 @@ export function buildMenu(
   openLink: (url: string) => void,
   quit: () => void,
   networks: MenuNetwork[] = [],
-  selectNetwork: (id: string) => void = () => {}
+  selectNetwork: (id: string) => void = () => {},
+  /** The vault item's label follows this state; the menu is rebuilt when the vault changes. */
+  vault: VaultMenuState = 'unlocked'
 ): Menu {
   const send = (cmd: MenuCommand) => (): void => {
     getWindow()?.webContents.send('menu', cmd)
@@ -28,7 +30,7 @@ export function buildMenu(
     switch (i.kind) {
       case 'command':
         return {
-          label: i.label,
+          label: itemLabel(i, vault),
           accelerator: i.accelerator,
           // Editor keys are handled by the editor itself; the menu only shows them.
           registerAccelerator: i.accelerator === undefined || !isEditorKey(i.accelerator),

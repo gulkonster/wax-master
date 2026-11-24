@@ -1604,9 +1604,35 @@ input[type='radio'] {
   font-size: var(--fs-output);
   line-height: var(--lh-output);
 }
-.output-text .diag {
+/* Output and Problems colours (one classifier, src/shared/output-lines.ts):
+   errors red, warnings yellow, notes and the app's neutral lines grey. */
+.out-error {
+  color: var(--red-text);
+}
+.out-warning {
+  color: var(--warn-text);
+}
+.out-note {
+  color: var(--text-2);
+}
+.out-plain {
+  color: var(--text);
+}
+/* Only the file:line:column part of a line is a link. */
+.out-link {
   cursor: pointer;
-  text-decoration: underline dotted;
+}
+.out-link:hover {
+  text-decoration: underline;
+}
+.problem-row.no-place {
+  cursor: default;
+}
+.problem-message {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  user-select: text;
 }
 .problem-row {
   display: flex;
@@ -2905,4 +2931,122 @@ button.sb-item.mainnet:hover {
   padding: 0 var(--sp-2);
   border-radius: var(--radius);
   background: var(--bg-inset);
+}
+
+/* ------------------------------------------------------------------ account picker (B36) */
+
+.acct-pick {
+  position: relative;
+  display: flex;
+  gap: var(--gap-row);
+  min-width: 0;
+  width: 100%;
+}
+.acct-pick .input,
+.acct-pick .field-input {
+  flex: 1;
+  min-width: 0;
+}
+.acct-pick-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.acct-pick-btn .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+.acct-pick-btn .name.empty {
+  font-family: var(--font-ui);
+  color: var(--text-3);
+}
+.acct-pick-btn .icon {
+  color: var(--text-2);
+}
+.acct-pick-btn:disabled {
+  background: var(--bg-surface);
+  color: var(--text-disabled);
+  cursor: default;
+}
+.dropdown.acct-menu {
+  position: fixed;
+  z-index: 300;
+  min-width: 0;
+}
+.acct-menu .acct-filter {
+  margin-bottom: var(--sp-1);
+}
+.acct-mark {
+  margin-left: auto;
+  padding: 0 var(--sp-1h);
+  border-radius: var(--radius);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--text-3);
+  background: var(--bg-surface-3);
+}
+.acct-mark.vault {
+  color: var(--green-text);
+  background: var(--green-tint);
+}
+.acct-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-row);
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius);
+  background: var(--bg-surface-2);
+  color: var(--text-2);
+  font-size: var(--fs-body);
+}
+.acct-empty .grow {
+  flex: 1;
+  min-width: 0;
+}
+.acct-note {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--text-3);
+}
+.acct-note.bad {
+  color: var(--red-text);
+}
+.acct-note.good {
+  color: var(--green-text);
+}
+.acct-note .btn {
+  margin-left: var(--sp-2);
+}
+.signer-row {
+  display: flex;
+  gap: var(--gap-row);
+  align-items: flex-start;
+  margin-bottom: var(--sp-2);
+}
+.signer-row > .grow {
+  flex: 2;
+  min-width: 0;
+}
+.signer-row > .perm {
+  flex: 1;
+  min-width: 0;
+}
+.back-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-row);
+  margin: var(--sp-2) var(--sp-3) 0;
+}
+.back-banner .grow {
+  flex: 1;
 }

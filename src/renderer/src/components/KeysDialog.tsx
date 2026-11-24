@@ -5,7 +5,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Modal } from './Modal'
 import { errorText, toast } from '../lib/toast'
-import { vaultStore, refreshVault } from '../lib/vault'
+import { vaultStore, refreshVault, withVault } from '../lib/vault'
+import { passwordStrength } from './UnlockPrompt'
 import { useStore } from '../lib/stores'
 
 interface KeyEntry {
@@ -28,6 +29,7 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
   const [mode, setMode] = useState<null | 'create' | 'import' | 'import-vault'>(null)
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState<KeyEntry | null>(null)
+  const [newPub, setNewPub] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -61,17 +63,30 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
       footer={
         <>
           <div className="left">
-            <button className="btn primary" disabled={!vs.unlocked} onClick={() => setMode('create')}>
+            <button
+              className="btn primary"
+              onClick={() => {
+                setError('')
+                // A locked vault is asked for in place; the dialog opens with the new key.
+                withVault(() => window.wax.keys.newPending()).then(
+                  (pub) => {
+                    setNewPub(pub)
+                    setMode('create')
+                  },
+                  (e) => setError(errorText(e))
+                )
+              }}
+            >
               Create
             </button>
-            <button className="btn" disabled={!vs.unlocked} onClick={() => setMode('import')}>
+            <button className="btn" onClick={() => setMode('import')}>
               Import
             </button>
           </div>
           <button className="btn" onClick={() => void window.wax.keys.exportVault().then((ok) => ok && toast('Vault exported', 'The file is encrypted with your vault password.', 'success'))}>
             Export vault
           </button>
-          <button className="btn" disabled={!vs.unlocked} onClick={() => setMode('import-vault')}>
+          <button className="btn" onClick={() => setMode('import-vault')}>
             Import vault
           </button>
           <button className="btn subtle" onClick={onClose}>
@@ -153,7 +168,7 @@ export function KeysDialog({ onClose, filterAccount }: { onClose: () => void; fi
       </table>
       {keys.length === 0 && <div className="hint">No keys yet. Create a new key or import the private key of a testnet account.</div>}
       {error && <div className="error-text">{error}</div>}
-      {mode === 'create' && <CreateKey onClose={() => (setMode(null), void load())} />}
+      {mode === 'create' && <CreateKey initial={newPub} onClose={() => (setMode(null), void load())} />}
       {mode === 'import' && <ImportKey onClose={() => (setMode(null), void load())} />}
       {mode === 'import-vault' && <ImportVault onClose={() => (setMode(null), void load())} />}
       {deleting && <DeleteKey entry={deleting} onClose={() => (setDeleting(null), void load())} />}
@@ -203,7 +218,7 @@ function CreateVault({ onClose }: { onClose: () => void }): React.JSX.Element {
       <div className="field">
         <label>Password</label>
         <input className="input" type="password" autoFocus value={a} onChange={(e) => setA(e.target.value)} />
-        <div className="hint">{strength(a)}</div>
+        <div className="hint">{passwordStrength(a)}</div>
       </div>
       <div className="field">
         <label>Password again</label>
@@ -213,15 +228,6 @@ function CreateVault({ onClose }: { onClose: () => void }): React.JSX.Element {
       {error && <div className="error-text">{error}</div>}
     </Modal>
   )
-}
-
-function strength(pw: string): string {
-  if (!pw) return ''
-  if (pw.length < 10) return `Too short (${pw.length}/10)`
-  const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(pw)).length
-  if (pw.length >= 16 && kinds >= 3) return 'Strong'
-  if (pw.length >= 12 && kinds >= 2) return 'Fair; longer is better'
-  return 'Weak; use a longer password or a few unrelated words'
 }
 
 export function UnlockInline({ onDone }: { onDone?: () => void }): React.JSX.Element {
@@ -263,20 +269,17 @@ export function UnlockInline({ onDone }: { onDone?: () => void }): React.JSX.Ele
   )
 }
 
-function CreateKey({ onClose }: { onClose: () => void }): React.JSX.Element {
-  const [pub, setPub] = useState('')
+function CreateKey({ initial, onClose }: { initial: string; onClose: () => void }): React.JSX.Element {
+  const [pub, setPub] = useState(initial)
   const [label, setLabel] = useState('')
   const [error, setError] = useState('')
   const regen = useCallback(async () => {
     try {
-      setPub(await window.wax.keys.newPending())
+      setPub(await withVault(() => window.wax.keys.newPending()))
     } catch (e) {
       setError(errorText(e))
     }
   }, [])
-  useEffect(() => {
-    void regen()
-  }, [regen])
   const close = (): void => {
     void window.wax.keys.discardPending()
     onClose()
@@ -302,7 +305,7 @@ function CreateKey({ onClose }: { onClose: () => void }): React.JSX.Element {
             disabled={!pub}
             onClick={async () => {
               try {
-                await window.wax.keys.savePending(label)
+                await withVault(() => window.wax.keys.savePending(label))
                 toast('Key saved', pub, 'success')
                 onClose()
               } catch (e) {
@@ -352,7 +355,7 @@ function ImportKey({ onClose }: { onClose: () => void }): React.JSX.Element {
             disabled={!key.trim()}
             onClick={async () => {
               try {
-                const e = await window.wax.keys.import(key, label)
+                const e = await withVault(() => window.wax.keys.import(key, label))
                 setKey('')
                 toast('Key imported', `${e.publicKey}\nClear your clipboard if you pasted the key.`, 'success')
                 onClose()
@@ -398,7 +401,7 @@ function ImportVault({ onClose }: { onClose: () => void }): React.JSX.Element {
             disabled={!pw}
             onClick={async () => {
               try {
-                const n = await window.wax.keys.importVault(pw)
+                const n = await withVault(() => window.wax.keys.importVault(pw))
                 if (n === null) return
                 toast('Vault imported', `${n} key(s) added.`, 'success')
                 onClose()

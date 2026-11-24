@@ -5,7 +5,8 @@ import { hasBlockedSwitch } from './switches'
 import { registerIpc } from './ipc'
 import { guardWindow, registerCloseGuard } from './close-guard'
 import { registerChainIpc } from './ipc-chain'
-import { registerKeys } from './keys-service'
+import { registerKeys, vault } from './keys-service'
+import { vaultMenuState } from '../shared/menu-model'
 import { registerTxIpc } from './ipc-tx'
 import { registerAppIpc } from './ipc-app'
 import { registerToolchainIpc } from './ipc-toolchains'
@@ -133,12 +134,15 @@ app.whenReady().then(() => {
           const n = selectNetwork(id)
           mainWindow?.webContents.send('network-changed', n, `Switched to ${n.name} at ${endpointOf(n)}.`)
           refreshMenu()
-        }
+        },
+        vaultMenuState({ exists: vault().exists(), unlocked: vault().isUnlocked() })
       )
     )
   }
   refreshMenu()
   onNetworksChanged(refreshMenu)
+  // The vault item of the Accounts menu reads Create, Unlock or Lock by the vault's state.
+  vault().onChange(() => refreshMenu())
   createMainWindow()
   log.info(`WAX Master ${app.getVersion()} started`)
 })

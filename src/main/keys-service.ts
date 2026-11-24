@@ -3,7 +3,7 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, powerMonitor, type IpcMainInvokeEvent } from 'electron'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { arr, str } from '../shared/validate'
+import { arr, optStr, str } from '../shared/validate'
 import { handle } from './ipc'
 import { dataDir } from './paths'
 import { Vault, MIN_PASSWORD_LENGTH, type VaultFile } from './vault'
@@ -11,7 +11,9 @@ import { Signer, defaultDeps } from './signer'
 import { closeOpenConfirmations, registerConfirmWindow } from './confirm-window'
 import { getSettings } from './store'
 import { chain } from './rpc'
-import { currentNetwork, readCall } from './networks'
+import { currentNetwork, getNetwork, readCall, stars } from './networks'
+import { pickList } from './account-pick'
+import { LOCKED_MESSAGE } from '../shared/vault-locked'
 import { APP_ORIGIN, isAllowedOrigin, secureWebPreferences } from './security'
 import { followTheme, themeArgs, windowBackground } from './theme'
 import { log } from './log'
@@ -214,6 +216,21 @@ The private key is removed. Without a backup it cannot be recovered.`,
       network: currentNetwork().id
     }))
   })
+  // Account picker: starred accounts and accounts of the vault's public keys on one network.
+  handle('accounts:pickList', async (_e, networkId) => {
+    const n = getNetwork(optStr(networkId, 'networkId', 64) || currentNetwork().id)
+    let keys: string[] = []
+    try {
+      keys = vault().list().map((k) => k.publicKey)
+    } catch {
+      keys = []
+    }
+    return pickList(n.id, {
+      stars: stars(n.id),
+      vaultKeys: keys.slice(0, 200),
+      lookup: async (list) => (await readCall((ep) => chain.getAccountsByAuthorizers(ep, list), n)).accounts ?? []
+    })
+  })
   handle('keys:exportVault', async () => {
     const win = getWindow()
     const opts = { title: 'Export vault', defaultPath: 'wax-master-vault.json', filters: [{ name: 'Vault', extensions: ['json'] }] }
@@ -224,6 +241,8 @@ The private key is removed. Without a backup it cannot be recovered.`,
   })
   handle('keys:importVault', async (_e, otherPassword) => {
     const pw = str(otherPassword, 'password', 1024)
+    // Asked before the file dialog: the imported keys are stored with this vault's key.
+    if (!vault().isUnlocked()) throw new Error(LOCKED_MESSAGE)
     const win = getWindow()
     const opts: Electron.OpenDialogOptions = { title: 'Import vault', properties: ['openFile'], filters: [{ name: 'Vault', extensions: ['json'] }] }
     const r = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts)

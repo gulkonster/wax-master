@@ -4,14 +4,13 @@ import { useApp, type PanelTab } from '../state'
 import { emit } from '../lib/bus'
 import { appendOutput, clearOutput, outputStore, problemsStore, useStore } from '../lib/stores'
 import { IconClose, IconError, IconInfo, IconWarning } from './Icons'
+import { classifyLine, cleanLine, countProblems, type ClassifiedLine } from '../../../shared/output-lines'
 
 const TABS: { id: PanelTab; label: string }[] = [
   { id: 'terminal', label: 'Terminal' },
   { id: 'output', label: 'Output' },
   { id: 'problems', label: 'Problems' }
 ]
-
-const DIAG = /^(.*?):(\d+):(\d+):\s+(fatal error|error|warning|note):/
 
 export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React.JSX.Element | null {
   const { state, actions } = useApp()
@@ -53,8 +52,7 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
     emit('reveal', p)
   }
 
-  const errors = problems.filter((p) => p.severity === 'error').length
-  const warnings = problems.filter((p) => p.severity === 'warning').length
+  const { errors, warnings } = countProblems(problems)
 
   return (
     <div className="panel" style={{ height, display: state.panelOpen ? 'flex' : 'none' }}>
@@ -86,15 +84,23 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
         {state.panelTab === 'output' &&
           (output ? (
             <pre className="output-text">
-              {output.split('\n').map((line, i) => {
-                const m = DIAG.exec(line)
+              {output.split('\n').map((raw, i) => {
+                // The line is shown as it came (colour codes removed); only the file:line:column part is a link.
+                const line = cleanLine(raw)
+                const c = classifyLine(line)
+                const loc = c.loc
                 return (
-                  <div
-                    key={i}
-                    className={m ? `diag ${m[4] === 'warning' ? 'sev-warning' : m[4] === 'note' ? 'sev-info' : 'sev-error'}` : undefined}
-                    onClick={m ? () => reveal(toProblemLocation(m, problems)) : undefined}
-                  >
-                    {line || ' '}
+                  <div key={i} className={`out-line out-${c.severity}`}>
+                    {loc ? (
+                      <>
+                        <span className="out-link" title="Open this place" onClick={() => reveal(toProblemLocation(loc, problems))}>
+                          {line.slice(loc.start, loc.end)}
+                        </span>
+                        {line.slice(loc.end)}
+                      </>
+                    ) : (
+                      line || ' '
+                    )}
                   </div>
                 )
               })}
@@ -111,14 +117,16 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
                 {errors} error(s), {warnings} warning(s)
               </div>
               {problems.map((p, i) => (
-                <div key={i} className="problem-row" onClick={() => reveal(p)}>
-                  <span className={`sev-${p.severity}`}>
+                <div key={i} className={`problem-row${p.file ? '' : ' no-place'}`} onClick={p.file ? () => reveal(p) : undefined}>
+                  <span className={`out-${p.severity === 'info' ? 'note' : p.severity}`}>
                     {p.severity === 'error' ? <IconError size="sm" /> : p.severity === 'warning' ? <IconWarning size="sm" /> : <IconInfo size="sm" />}
                   </span>
-                  <span style={{ userSelect: 'text' }}>{p.message}</span>
-                  <span className="loc">
-                    {p.file}:{p.line}:{p.column}
-                  </span>
+                  <span className="problem-message">{p.message}</span>
+                  {p.file && (
+                    <span className="loc">
+                      {p.file}:{p.line}:{p.column}
+                    </span>
+                  )}
                 </div>
               ))}
             </>
@@ -131,10 +139,9 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
   )
 }
 
-/** Maps a raw output line to the parsed problem with the same position (paths are normalized there). */
-function toProblemLocation(m: RegExpExecArray, problems: Problem[]): Pick<Problem, 'file' | 'line' | 'column'> {
-  const line = Number(m[2])
-  const column = Number(m[3])
-  const found = problems.find((p) => p.line === line && p.column === column && m[1].replace(/\\/g, '/').endsWith(p.file))
-  return found ?? { file: m[1].replace(/^\.\//, ''), line, column }
+/** Maps the place of an output line to the parsed problem with the same position (paths are normalized there). */
+function toProblemLocation(loc: NonNullable<ClassifiedLine['loc']>, problems: Problem[]): Pick<Problem, 'file' | 'line' | 'column'> {
+  const { line, column } = loc
+  const found = problems.find((p) => p.file && p.line === line && p.column === column && loc.file.replace(/\\/g, '/').endsWith(p.file))
+  return found ?? { file: loc.file.replace(/^\.\//, ''), line, column }
 }

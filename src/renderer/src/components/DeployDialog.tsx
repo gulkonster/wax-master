@@ -8,6 +8,10 @@ import { errorText, toast } from '../lib/toast'
 import { networkStore } from '../lib/networks'
 import { useStore } from '../lib/stores'
 import { startBuild } from '../lib/build'
+import { withVault } from '../lib/vault'
+import { emit } from '../lib/bus'
+import { isUnlockCancelled } from '../../../shared/vault-locked'
+import { ACCOUNT_NAME, AccountPicker, PermissionPicker, usePickList } from './AccountPicker'
 
 function short(h: string | null): string {
   return h ? `${h.slice(0, 16)}…${h.slice(-8)}` : '(none)'
@@ -33,7 +37,15 @@ export function DeployDialog({
   const [error, setError] = useState('')
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
 
-  const valid = /^[a-z1-5.]{1,12}[a-j1-5]?$/.test(account) && /^[a-z1-5.]{1,12}[a-j1-5]?$/.test(permission)
+  const valid = ACCOUNT_NAME.test(account) && ACCOUNT_NAME.test(permission)
+  const { list } = usePickList()
+  const entry = list?.entries.find((e) => e.account === account)
+  // A starred account without a vault key can be picked (Simulate works); Deploy needs the key.
+  const keyMissing = !!list && list.vaultChecked && valid && !(entry?.signable ?? []).includes(permission)
+  const findAccount = (): void => {
+    emit('find-account', { label: askAccount ? 'Deploy to Account' : 'Deploy', command: askAccount ? 'deploy-to-account' : 'deploy' })
+    onClose()
+  }
 
   const check = async (): Promise<void> => {
     if (!net) return
@@ -83,7 +95,8 @@ export function DeployDialog({
     setBusy('deploy')
     setError('')
     try {
-      const r = await window.wax.deploy.run(plan.id)
+      // A locked vault is asked for here; the same plan is sent after the unlock.
+      const r = await withVault(() => window.wax.deploy.run(plan.id))
       setPlan(null)
       if (r.status === 'sent') {
         setTrace(r.trace)
@@ -93,7 +106,7 @@ export function DeployDialog({
         if (r.trace) setTrace(r.trace)
       } else setError('Cancelled. Press Check again to prepare a new deployment.')
     } catch (e) {
-      setError(errorText(e))
+      if (!isUnlockCancelled(e)) setError(errorText(e))
     } finally {
       setBusy(null)
     }
@@ -134,13 +147,21 @@ export function DeployDialog({
       <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 2 }}>
           <label>Account</label>
-          <input className="input mono" value={account} onChange={(e) => (setAccount(e.target.value.trim().toLowerCase()), setPlan(null))} placeholder="contract account" />
+          <AccountPicker mode="starred" value={account} onChange={(a) => (setAccount(a), setPlan(null))} onFind={findAccount} />
         </div>
         <div style={{ flex: 1 }}>
           <label>Permission</label>
-          <input className="input mono" value={permission} onChange={(e) => (setPermission(e.target.value.trim().toLowerCase()), setPlan(null))} />
+          <PermissionPicker account={account} value={permission} onChange={(p) => (setPermission(p), setPlan(null))} />
         </div>
       </div>
+      {keyMissing && (
+        <div className="acct-note">
+          The vault has no key for {account}@{permission}. Simulate works; Deploy needs the key.
+          <button className="btn subtle sm" onClick={() => emit('open-keys', account)}>
+            Import key
+          </button>
+        </div>
+      )}
       <div className="hint">Deploys {project.config.deploy.target === 'both' ? 'WASM and ABI' : project.config.deploy.target === 'wasm' ? 'WASM only' : 'ABI only'} (Project Settings). The project is built first if needed.</div>
       {plan && (
         <div className="deploy-plan">

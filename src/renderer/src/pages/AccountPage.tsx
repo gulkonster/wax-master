@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type { MenuCommand } from '../../../shared/api'
 import type { AccountActionRow, AccountView } from '../../../shared/chain-types'
 import { on, emit } from '../lib/bus'
 import { networkStore, toggleStar } from '../lib/networks'
@@ -50,6 +51,21 @@ export function AccountPage(): React.JSX.Element {
 
   useEffect(() => on('open-account', (n) => open(n as string)), [open])
 
+  // Arrived from "Find an account": the search field has the focus, and once an account is
+  // starred the page offers the way back to the dialog that asked.
+  const searchRef = useRef<HTMLInputElement | null>(null)
+  const [back, setBack] = useState<null | { label: string; command: MenuCommand }>(null)
+  useEffect(
+    () =>
+      on('account-search', (b) => {
+        setBack((b as { label: string; command: MenuCommand } | undefined) ?? null)
+        setActive(null)
+        setInput('')
+        setTimeout(() => searchRef.current?.focus(), 0)
+      }),
+    []
+  )
+
   const close = (name: string): void => {
     const next = tabs.filter((t) => t !== name)
     setTabs(next)
@@ -89,6 +105,7 @@ export function AccountPage(): React.JSX.Element {
         <div className="address-input">
           <IconUser size="sm" />
           <input
+            ref={searchRef}
             value={input}
             placeholder="Account name"
             spellCheck={false}
@@ -106,6 +123,24 @@ export function AccountPage(): React.JSX.Element {
           <IconKey />
         </button>
       </div>
+      {back && active && starred && (
+        <div className="banner green back-banner">
+          <span className="grow">{active} is starred.</span>
+          <button
+            className="btn primary"
+            onClick={() => {
+              const cmd = back.command
+              setBack(null)
+              emit('menu-run', cmd)
+            }}
+          >
+            Back to {back.label}
+          </button>
+          <button className="icon-btn" title="Close" onClick={() => setBack(null)}>
+            <IconClose />
+          </button>
+        </div>
+      )}
       {active && net.current ? (
         <AccountBody key={`${net.current.id}:${active}`} name={active} />
       ) : (

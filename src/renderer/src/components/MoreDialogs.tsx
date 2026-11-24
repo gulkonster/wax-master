@@ -7,6 +7,8 @@ import { copyText } from '../lib/clipboard'
 import { networkStore } from '../lib/networks'
 import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
+import { withVault } from '../lib/vault'
+import { AccountPicker, PermissionPicker } from './AccountPicker'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
@@ -25,7 +27,7 @@ export function ClearCodeDialog({ onClose }: { onClose: () => void }): React.JSX
     setBusy(true)
     setError('')
     try {
-      const r = await window.wax.accounts.clearCode(account, permission)
+      const r = await withVault(() => window.wax.accounts.clearCode(account, permission))
       if (r.status === 'sent') {
         setTrace(r.trace)
         toast('Contract code cleared', account, 'success')
@@ -63,11 +65,19 @@ export function ClearCodeDialog({ onClose }: { onClose: () => void }): React.JSX
       <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 2 }}>
           <label>Account</label>
-          <input className="input mono" value={account} onChange={(e) => setAccount(e.target.value.trim().toLowerCase())} />
+          <AccountPicker
+            mode="starred"
+            value={account}
+            onChange={setAccount}
+            onFind={() => {
+              emit('find-account', { label: 'Clear Contract Code', command: 'clear-code' })
+              onClose()
+            }}
+          />
         </div>
         <div style={{ flex: 1 }}>
           <label>Permission</label>
-          <input className="input mono" value={permission} onChange={(e) => setPermission(e.target.value.trim().toLowerCase())} />
+          <PermissionPicker account={account} value={permission} onChange={setPermission} />
         </div>
       </div>
       {error && <div className="error-text">{error}</div>}

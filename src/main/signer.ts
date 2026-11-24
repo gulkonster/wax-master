@@ -42,13 +42,15 @@ import { getNetwork, endpointOf, effectiveKind } from './networks'
 import { chain, request, RpcError, nodeErrorMessage } from './rpc'
 import type { Vault } from './vault'
 import { log } from './log'
+import { LOCKED_MESSAGE } from '../shared/vault-locked'
 
 export const APPROVAL_SECONDS = 120
 
 /** System actions that need the typed account name on mainnet-like networks. */
 const SENSITIVE = new Set(['setcode', 'setabi', 'updateauth', 'deleteauth', 'linkauth', 'unlinkauth'])
 
-export const LOCKED_MESSAGE = 'Unlock the vault first'
+/** The typed locked-vault error: the editor asks for the password in place and repeats the request. */
+export { LOCKED_MESSAGE }
 export const BUSY_MESSAGE = 'Another confirmation is open. Approve or cancel it first.'
 
 export interface ActionRequest {

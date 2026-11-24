@@ -47,7 +47,7 @@ beforeAll(() => {
 const CHANNELS = [
   'networks:list', 'networks:select', 'networks:probe', 'networks:add', 'networks:update', 'networks:remove',
   'networks:chooseEndpoint', 'networks:stars', 'networks:setStar', 'networks:setStarOrder',
-  'chain:account', 'chain:actions',
+  'chain:account', 'chain:accountExists', 'chain:actions',
   'contract:abi', 'contract:pack', 'contract:rows', 'contract:scopes', 'contract:historyList', 'contract:historyAdd', 'contract:historyRemove',
   'editor:start', 'editor:status', 'editor:send', 'editor:readToolchainFile', 'files:search',
   'tx:simulate', 'tx:simulationSupport', 'tx:open'
@@ -102,6 +102,9 @@ describe('malformed input for chain, contract, editor and simulation channels', 
     ['chain:account', [7]],
     ['chain:account', ['UPPER']],
     ['chain:account', ['waytoolongaccountname']],
+    ['chain:accountExists', [7]],
+    ['chain:accountExists', ['UPPER']],
+    ['chain:accountExists', ['waytoolongaccountname']],
     ['chain:actions', ['alice', -1]],
     ['chain:actions', ['alice', 1.5]],
     ['chain:actions', ['alice', 2_000_000]],

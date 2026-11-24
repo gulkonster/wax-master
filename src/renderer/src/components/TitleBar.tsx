@@ -5,7 +5,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MenuCommand } from '../../../shared/api'
-import { MENU_MODEL, shortcutText, type MenuModelItem, type MenuRole } from '../../../shared/menu-model'
+import { MENU_MODEL, itemLabel, shortcutText, vaultMenuState, type MenuModelItem, type MenuRole } from '../../../shared/menu-model'
+import { vaultStore } from '../lib/vault'
 import { monaco } from '../lib/monaco'
 import { on } from '../lib/bus'
 import { networkStore, selectNetwork } from '../lib/networks'
@@ -80,6 +81,7 @@ const isItem = (v: VItem): boolean => !v.sep && !v.disabled
 export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit: () => void }): React.JSX.Element {
   const { state } = useApp()
   const nets = useStore(networkStore)
+  const vaultState = vaultMenuState(useStore(vaultStore))
   /** Index of the open menu, or null. */
   const [open, setOpen] = useState<number | null>(null)
   /** True while the menu bar has the keyboard (F10, Alt, or a menu opened). */
@@ -106,7 +108,7 @@ export function TitleBar({ run, exit }: { run: (cmd: MenuCommand) => void; exit:
       case 'separator':
         return { label: '', sep: true }
       case 'command':
-        return { label: item.label, shortcut: item.accelerator && shortcutText(item.accelerator), run: () => run(item.command) }
+        return { label: itemLabel(item, vaultState), shortcut: item.accelerator && shortcutText(item.accelerator), run: () => run(item.command) }
       case 'role':
         return {
           label: item.label,

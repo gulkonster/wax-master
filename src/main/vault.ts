@@ -21,6 +21,7 @@ import {
 } from '../chain-core'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { readJson, writeJson } from './jsonfile'
+import { LOCKED_MESSAGE } from '../shared/vault-locked'
 
 export const MIN_PASSWORD_LENGTH = 10
 
@@ -266,7 +267,7 @@ export class Vault {
   }
 
   private requireUnlocked(): Buffer {
-    if (!this.derived) throw new Error('The vault is locked')
+    if (!this.derived) throw new Error(LOCKED_MESSAGE)
     return this.derived
   }
 

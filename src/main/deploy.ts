@@ -10,6 +10,7 @@ import { abiToBinary, bytesToHex } from '../chain-core'
 import { effectiveOutput, type DeployTarget } from '../shared/project'
 import type { DeployPlan } from '../shared/chain-types'
 import { currentProject, resolveInProject } from './projects'
+import { abiRefusal } from './build'
 import { currentNetwork, endpointOf, getNetwork, readCall } from './networks'
 import { chain } from './rpc'
 import { wasmInfo } from './wasm-info'
@@ -89,6 +90,9 @@ export async function planDeploy(input: { networkId?: string; account: string; p
     const text = await fsp.readFile(resolveInProject(abiRel), 'utf8').catch(() => null)
     if (text === null) throw new Error(`${abiRel} was not found. Build the contract first.`)
     if (text.length > MAX_ABI_JSON) throw new Error(`${abiRel} is too large`)
+    // An ABI the chain refuses stops Deploy and Simulate Deploy with the build's explanation.
+    const refusal = await abiRefusal(p.root, abiRel, text)
+    if (refusal) throw new Error(refusal)
     try {
       abi = abiToBinary(text)
     } catch (e) {

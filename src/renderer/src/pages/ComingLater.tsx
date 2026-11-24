@@ -13,7 +13,7 @@ const LABELS: Record<string, string> = {
   'create-account': 'Create Account',
   'create-testnet-account': 'Create Testnet Account',
   'manage-keypairs': 'Manage Keypairs',
-  'lock-vault': 'Lock Vault',
+  vault: 'Lock Vault',
   'clear-code': 'Clear Contract Code',
   'add-network': 'Add Network',
   'manage-networks': 'Manage Networks',
