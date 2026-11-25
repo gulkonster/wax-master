@@ -259,6 +259,9 @@ export const history = {
     ),
   getTransaction: (hist: string, id: string) =>
     request<Record<string, unknown>>(hist, `/v2/history/get_transaction?id=${encodeURIComponent(id)}`),
+  /** Every trace on its own, with its RAM changes; the block number is sent too (some services refuse the id alone). */
+  getTransactionV1: (hist: string, id: string, blockNumHint: number) =>
+    request<Record<string, unknown>>(hist, '/v1/history/get_transaction', { body: { id, block_num_hint: blockNumHint } }),
   getTokens: (hist: string, account: string, limit: number) =>
     request<Record<string, unknown>>(hist, `/v2/state/get_tokens?account=${encodeURIComponent(account)}&limit=${limit}`),
   getLinks: (hist: string, account: string) =>

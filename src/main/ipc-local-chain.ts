@@ -24,6 +24,7 @@ import { afterCodeWindows, codeWindowOpen } from './key-windows'
 import { failedSendError, fromNodeError } from './trace'
 import type { ActionRequest } from './signer'
 import { log } from './log'
+import { sentStore } from './sent-store'
 
 const CHAIN_ID_FORM = /^[0-9a-f]{64}$/
 
@@ -58,6 +59,15 @@ function syncNetwork(s: LocalChainStatus): LocalChainStatus {
   return s
 }
 
+/** The kept answers of the local chain go with its data (B120 point 1). */
+function forgetKept(): void {
+  try {
+    sentStore().clear(LOCAL_CHAIN_NETWORK_ID)
+  } catch (e) {
+    log.warn(`Kept answers of the local chain not removed: ${e instanceof Error ? e.message : 'unknown error'}`)
+  }
+}
+
 function dropNetwork(s: LocalChainStatus): LocalChainStatus {
   try {
     if (networks.listNetworks().some((n) => n.id === LOCAL_CHAIN_NETWORK_ID)) networks.removeNetwork(LOCAL_CHAIN_NETWORK_ID)
@@ -82,9 +92,14 @@ export function registerLocalChainIpc(getWindow: () => BrowserWindow | null): vo
   handle('localChain:reset', async () => {
     const s = await chain.reset()
     networks.clearLocalChainMemory()
+    forgetKept()
     return syncNetwork(s)
   })
-  handle('localChain:remove', async () => dropNetwork(await chain.remove()))
+  handle('localChain:remove', async () => {
+    const s = await chain.remove()
+    forgetKept()
+    return dropNetwork(s)
+  })
   handle('localChain:usePort', async (_e, port) => syncNetwork(await chain.usePort(int(port, 'port', LOCAL_CHAIN_PORT_MIN, LOCAL_CHAIN_PORT_MAX))))
   handle('localChain:setOptions', async (_e, options) => {
     const o = obj(options, 'options')

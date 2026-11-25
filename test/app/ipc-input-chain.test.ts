@@ -53,7 +53,7 @@ const CHANNELS = [
   'wallet:system', 'wallet:voting', 'wallet:proxyInfo', 'wallet:powerup', 'wallet:nameBid', 'wallet:nameAuctions',
   'contract:abi', 'contract:pack', 'contract:rows', 'contract:scopes', 'contract:historyList', 'contract:historyAdd', 'contract:historyRemove',
   'editor:start', 'editor:status', 'editor:send', 'editor:readToolchainFile', 'files:search',
-  'tx:simulate', 'tx:simulationSupport', 'tx:open'
+  'tx:simulate', 'tx:simulationSupport', 'tx:open', 'tx:kept'
 ]
 
 describe('sender checks for chain, contract, editor and simulation channels', () => {
@@ -232,7 +232,8 @@ describe('malformed input for chain, contract, editor and simulation channels', 
     ['tx:open', [7]],
     ['tx:open', ['abc']],
     ['tx:open', ['g'.repeat(64)]],
-    ['tx:open', ['a'.repeat(65)]]
+    ['tx:open', ['a'.repeat(65)]],
+    ['tx:open', ['a'.repeat(64), 'elsewhere']]
   ]
   for (const [channel, args] of cases) {
     it(`${channel} refuses ${JSON.stringify(args).slice(0, 90)}`, async () => {

@@ -87,9 +87,11 @@ function v1Traces(v1: unknown): R[] {
 /**
  * The tree of a history answer. `v1` (optional) is the same transaction's
  * v1 get_transaction answer or its `traces`: each node then gets the RAM
- * changes of the v1 trace with the same global sequence.
+ * changes of the v1 trace with the same global sequence. `signedActions`
+ * (optional) is the number of actions of the signed transaction
+ * (context-free actions and actions, from the transaction in its block).
  */
-export function historyTree(answer: unknown, v1?: unknown): HistoryTree {
+export function historyTree(answer: unknown, v1?: unknown, signedActions?: number): HistoryTree {
   const a = (answer ?? {}) as R
   const entries = Array.isArray(a.actions) ? (a.actions as R[]) : []
   const items: Item[] = []
@@ -175,13 +177,39 @@ export function historyTree(answer: unknown, v1?: unknown): HistoryTree {
     if (deltas && firstExec) firstExec.node.ramDeltas = deltas
   })
 
+  let placedByOrder = 0
+
+  // Executions of entries with creator 0 are the actions of the transaction: the
+  // chain runs them first and in their signed order, each one whole, so the k-th
+  // by global sequence has the ordinal k. A joined copy (no ordinal of its own)
+  // gets that ordinal when the numbers agree; else it stays at the top unranked.
+  const tops = items.filter((x) => !x.isNotification && x.entryCreator === 0).sort(compareItems)
+  const settled = new Set<Item>()
+  if (tops.some((x) => x.ordinal === null)) {
+    const ranked =
+      tops.every((x, i) => x.ordinal === null || x.ordinal === i + 1) &&
+      !items.some((x) => x.entryCreator !== null && x.entryCreator > 0 && x.ordinal !== null && x.ordinal <= tops.length) &&
+      (signedActions === undefined || signedActions === tops.length)
+    tops.forEach((x, i) => {
+      if (x.ordinal !== null) return
+      settled.add(x)
+      x.parent = null
+      if (ranked) {
+        x.ordinal = i + 1
+        x.node.ordinal = i + 1
+        x.creator = 0
+        x.node.placed = signedActions !== undefined ? 'top' : 'order'
+      } else x.node.placed = 'order'
+      if (x.node.placed === 'order') placedByOrder++
+    })
+  }
+
   const byOrdinal = new Map<number, Item>()
   for (const x of items) if (x.ordinal !== null && x.ordinal > 0 && !byOrdinal.has(x.ordinal)) byOrdinal.set(x.ordinal, x)
 
-  let placedByOrder = 0
   const sorted = [...items].sort(compareItems)
   for (const x of items) {
-    if (x.parent) continue
+    if (x.parent || settled.has(x)) continue
     if (!x.isNotification && x.creator === 0) {
       x.node.placed = 'top'
       continue

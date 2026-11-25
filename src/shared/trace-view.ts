@@ -17,7 +17,9 @@ export const NO_RAM_CHANGE = 'No RAM change was reported for this transaction.'
 export const RAM_NOT_RETURNED = 'RAM changes were not returned by this endpoint.'
 export const PLACED_BY_ORDER = 'placed by order'
 export const PLACED_BY_ORDER_TIP = 'The history service did not say which action caused this one. It is shown under the nearest earlier action that could have sent it.'
-export const HISTORY_CONSOLE = '(not kept by the history service)'
+/** Tooltip of the mark on a joined copy of an action of the transaction (kind `action`). */
+export const PLACED_AT_TOP_TIP = 'The history service joined this action with an identical one and gave it no link. It is shown as an action of the transaction, in the order it ran.'
+export const HISTORY_CONSOLE ='(not kept by the history service)'
 export const RAM_JOINED_NOTE = 'The history service joined identical actions; their RAM changes may be listed once.'
 
 export type TabId = 'actions' | 'traces' | 'ram' | 'raw'

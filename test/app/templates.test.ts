@@ -314,7 +314,8 @@ describe('example projects', () => {
       'random-number',
       'nft-staking',
       'nft-blend',
-      'payments'
+      'payments',
+      'reward-log'
     ])
     for (const e of EXAMPLES) expect(e.name, e.id).toMatch(/^[a-z1-5.]{1,12}$/)
   })
@@ -495,7 +496,7 @@ describe('style file', () => {
   ].join('\n')
   const base = join(__dirname, '../../resources/templates')
 
-  it('is the same seven lines in all twelve template folders', () => {
+  it('is the same seven lines in all thirteen template folders', () => {
     const folders = [
       'project/empty',
       'project/hello',
@@ -503,7 +504,7 @@ describe('style file', () => {
       'hello',
       ...readdirSync(join(base, 'examples')).map((e) => `examples/${e}`)
     ]
-    expect(folders.length).toBe(12)
+    expect(folders.length).toBe(13)
     for (const d of folders) expect(readFileSync(join(base, d, '.clang-format'), 'utf8'), d).toBe(STYLE)
   })
 

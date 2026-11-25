@@ -549,6 +549,7 @@ const DIALOG_HELP: Record<string, keyof typeof HELP_TOPICS | null> = {
   'remove-network': 'manageNetworks',
   'manage-networks': 'manageNetworks',
   'edit-network': 'editNetwork',
+  'open-transaction': 'openTransaction',
   'local-chain': 'localChain',
   'local-account': 'localChain',
   'copy-contract': 'localChain',

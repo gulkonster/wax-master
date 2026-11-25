@@ -233,7 +233,8 @@ const api: WaxApi = {
     run: call('tx:run'),
     simulate: call('tx:simulate'),
     simulationSupport: call('tx:simulationSupport'),
-    open: call('tx:open')
+    open: call('tx:open'),
+    kept: call('tx:kept')
   },
   deploy: {
     plan: call('deploy:plan'),

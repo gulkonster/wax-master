@@ -180,7 +180,7 @@ function notesFor(nodes: TraceNode[]): string[] {
 }
 
 /** Answer of send_transaction or compute_transaction. */
-export function fromNodeAnswer(answer: unknown, ctx: { source: 'simulation' | 'sent'; network: string; endpoint: string }): InspectedTransaction {
+export function fromNodeAnswer(answer: unknown, ctx: { source: 'simulation' | 'sent' | 'kept'; network: string; endpoint: string }): InspectedTransaction {
   const a = (answer ?? {}) as R
   const p = (a.processed ?? {}) as R
   const receipt = (p.receipt ?? {}) as R
@@ -422,11 +422,22 @@ function firstEntry(list: R[]): R {
   return best ?? list[0] ?? {}
 }
 
-/** Hyperion v2 get_transaction answer. */
-export function fromHistory(answer: unknown, ctx: { network: string; endpoint: string }): InspectedTransaction {
+/** The traces of a v1 history answer that carry a global sequence (none: the read gave nothing usable). */
+function v1Usable(v1: unknown): boolean {
+  const traces = v1 && typeof v1 === 'object' && Array.isArray((v1 as R).traces) ? ((v1 as R).traces as R[]) : []
+  return traces.some((t) => seqText(((t?.receipt ?? {}) as R).global_sequence) !== null)
+}
+
+/**
+ * Hyperion v2 get_transaction answer. `extra.v1`: the same transaction's v1
+ * answer (RAM changes per trace, joined by global sequence); `extra.signedActions`:
+ * the number of actions of the signed transaction, from its block.
+ */
+export function fromHistory(answer: unknown, ctx: { network: string; endpoint: string }, extra: { v1?: unknown; signedActions?: number } = {}): InspectedTransaction {
   const a = (answer ?? {}) as R
   const list = Array.isArray(a.actions) ? (a.actions as R[]) : []
-  const tree = historyTree(answer)
+  const withV1 = extra.v1 !== undefined && v1Usable(extra.v1)
+  const tree = historyTree(answer, withV1 ? extra.v1 : undefined, extra.signedActions)
   const actions = tree.roots
   const first = firstEntry(list)
   // CPU and NET stand on the first action; another entry is read only when it has none there.
@@ -436,9 +447,11 @@ export function fromHistory(answer: unknown, ctx: { network: string; endpoint: s
   const notes: string[] = []
   if (actions.length && hasNullData(actions)) notes.push('Decoded input was not returned for some actions; the raw data is shown.')
   notes.push('Read from the history service. It does not keep console output.')
-  if (tree.placedByOrder > 0)
+  if (tree.placedByOrder === 1) notes.push('1 entry is placed by the order of execution, not by a link from the history service (marked "placed by order").')
+  else if (tree.placedByOrder > 1)
     notes.push(`${tree.placedByOrder} entries are placed by the order of execution, not by a link from the history service (marked "placed by order").`)
-  if (tree.joined) notes.push('The history service joined identical actions; their RAM changes may be listed once.')
+  // With the v1 answer every trace has its own RAM changes; the note is for the case without it.
+  if (tree.joined && !withV1) notes.push('The history service joined identical actions; their RAM changes may be listed once.')
   return {
     source: 'history',
     network: ctx.network,
@@ -469,4 +482,50 @@ function findError(nodes: TraceNode[]): string | null {
     if (c) return c
   }
   return null
+}
+
+// ---- Opened later: the kept answer, and the transaction in its block ----
+
+/** A kept node answer (see sent-store.ts), shown with `source: 'kept'`. */
+export function fromKept(file: { sentAt: string; network: string; endpoint: string; answer: unknown }): InspectedTransaction {
+  return { ...fromNodeAnswer(file.answer, { source: 'kept', network: file.network, endpoint: file.endpoint }), keptAt: file.sentAt }
+}
+
+export const BLOCK_RAW_TITLE = 'Transaction in its block'
+const NOT_RETURNED_TEXT = '(not returned by this endpoint)'
+
+/** The entry of a get_block answer whose transaction has this id; null when the block does not hold it. */
+export function blockTransaction(block: unknown, id: string): R | null {
+  const list = block && typeof block === 'object' && Array.isArray((block as R).transactions) ? ((block as R).transactions as R[]) : []
+  const want = id.toLowerCase()
+  for (const x of list) {
+    const trx = x?.trx
+    if (trx && typeof trx === 'object' && s((trx as R).id).toLowerCase() === want) return x
+  }
+  return null
+}
+
+/** Context-free actions and actions of the signed transaction in a block entry; undefined when it is not decoded there. */
+export function signedActionCount(entry: R | null): number | undefined {
+  const t = entry && typeof entry.trx === 'object' && entry.trx ? ((entry.trx as R).transaction as R | undefined) : undefined
+  if (!t || typeof t !== 'object' || !Array.isArray(t.actions)) return undefined
+  return (Array.isArray(t.context_free_actions) ? t.context_free_actions.length : 0) + t.actions.length
+}
+
+/**
+ * Adds the Raw block `Transaction in its block` (the entry of the block read, or
+ * the "not returned" text when the read failed or the block did not hold it) and
+ * fills CPU, NET and status when the history answer had none.
+ */
+export function withBlock(t: InspectedTransaction, entry: R | null): InspectedTransaction {
+  const raw = [...t.raw, { title: BLOCK_RAW_TITLE, text: entry ? rawText(entry) : NOT_RETURNED_TEXT }]
+  if (!entry) return { ...t, raw }
+  const net = n(entry.net_usage_words)
+  return {
+    ...t,
+    raw,
+    cpuUs: t.cpuUs ?? n(entry.cpu_usage_us),
+    netBytes: t.netBytes ?? (net !== null ? net * 8 : null),
+    status: t.status || s(entry.status) || t.status
+  }
 }

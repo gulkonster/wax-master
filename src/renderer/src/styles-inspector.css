@@ -191,3 +191,49 @@
 .txv-raw-block + .txv-raw-block {
   margin-top: var(--sp-3);
 }
+
+/* Open Transaction by Id: the list of kept transactions, the two buttons of the source line */
+.txv-kept {
+  margin-top: var(--sp-4);
+}
+.txv-kept-list {
+  display: flex;
+  flex-direction: column;
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius);
+}
+.txv-kept-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  min-height: var(--ctl-lg);
+  padding: 0 var(--sp-3);
+  background: none;
+  border: none;
+  border-bottom: var(--bw) solid var(--border);
+  color: var(--text);
+  font-size: var(--fs-body);
+  text-align: left;
+  cursor: pointer;
+}
+.txv-kept-row:last-child {
+  border-bottom: none;
+}
+.txv-kept-row:hover:not(:disabled) {
+  background: var(--hover);
+}
+.txv-kept-row:disabled {
+  cursor: default;
+  color: var(--text-2);
+}
+.txv-kept-time {
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.txv-kept-id {
+  margin-left: auto;
+  color: var(--text-2);
+}
+.txv-source-switch {
+  margin-left: var(--sp-3);
+}

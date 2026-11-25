@@ -12,6 +12,7 @@ import { KeysDialog } from './components/KeysDialog'
 import { SettingsPage } from './pages/SettingsPage'
 import type { UpdateResult } from '../../shared/api'
 import { InspectorDialog } from './components/Inspector'
+import { OpenTransactionDialog } from './components/OpenTransactionDialog'
 import { DeployDialog } from './components/DeployDialog'
 import { CreateAccountDialog, ChangeKeyDialog } from './components/AccountDialogs'
 import { ClearCodeDialog } from './components/MoreDialogs'
@@ -477,7 +478,7 @@ export function App(): React.JSX.Element {
       {dialog === 'local-chain' && <LocalChainDialog onClose={() => setDialog(null)} />}
       {dialog === 'starred' && <StarredManager onClose={() => setDialog(null)} />}
       {keysOpen && <KeysDialog filterAccount={keysOpen.filter} onClose={() => setKeysOpen(null)} />}
-      {inspect && <InspectorDialog t={inspect} onClose={() => setInspect(null)} />}
+      {inspect && <InspectorDialog t={inspect} onClose={() => setInspect(null)} onReplace={setInspect} />}
       {deployOpen && state.project && (
         <DeployDialog project={state.project} askAccount={deployOpen.askAccount} forAccount={deployOpen.account} showPanel={(t) => actions.showPanel(t)} onClose={() => setDeployOpen(null)} />
       )}
@@ -486,17 +487,7 @@ export function App(): React.JSX.Element {
       {chainDialog === 'clear-code' && <ClearCodeDialog onClose={() => setChainDialog(null)} />}
       {clearCodeFor !== null && <ClearCodeDialog initialAccount={clearCodeFor} onClose={() => setClearCodeFor(null)} />}
       {chainDialog === 'open-transaction' && (
-        <InputDialog
-          title="Open Transaction by Id"
-          help="openTransaction"
-          label="Transaction id (64 hex characters)"
-          initial=""
-          okLabel="Open"
-          onOk={async (v) => {
-            setInspect(await window.wax.tx.open(v.trim()))
-          }}
-          onClose={() => setChainDialog(null)}
-        />
+        <OpenTransactionDialog onOpen={setInspect} onClose={() => setChainDialog(null)} />
       )}
       {changeKey && <ChangeKeyDialog {...changeKey} onClose={() => setChangeKey(null)} />}
       {update && (

@@ -8,6 +8,7 @@ import {
   HISTORY_CONSOLE,
   NOT_RETURNED,
   PLACED_BY_ORDER,
+  PLACED_AT_TOP_TIP,
   PLACED_BY_ORDER_TIP,
   TREE_LINE,
   dataLine,
@@ -109,7 +110,7 @@ function Node({ node, state, history }: { node: TraceNode; state: TreeState; his
           <span>{node.name}</span>
         </span>
         {node.placed === 'order' && (
-          <span className="badge warn" title={PLACED_BY_ORDER_TIP}>
+          <span className="badge warn" title={node.kind === 'action' ? PLACED_AT_TOP_TIP : PLACED_BY_ORDER_TIP}>
             {PLACED_BY_ORDER}
           </span>
         )}

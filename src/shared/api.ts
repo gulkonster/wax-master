@@ -273,6 +273,17 @@ export interface TxAction {
   data: unknown
 }
 
+/** A transaction sent from WAX Master whose node answer is kept on this computer. */
+export interface KeptTransaction {
+  id: string
+  /** ISO time of the send. */
+  time: string
+  /** `contract::action` of the first action. */
+  first: string
+  /** Number of actions in the transaction. */
+  count: number
+}
+
 export type TxOutcome =
   | { status: 'sent'; trace: InspectedTransaction }
   | { status: 'failed'; trace: InspectedTransaction | null; error: string }
@@ -549,7 +560,10 @@ export interface WaxApi {
     run(actions: TxAction[]): Promise<TxOutcome>
     simulate(actions: TxAction[]): Promise<InspectedTransaction>
     simulationSupport(): Promise<'available' | 'unsupported' | 'unknown'>
-    open(id: string): Promise<InspectedTransaction>
+    /** Kept answer first, then the history service; `from` forces one of them. */
+    open(id: string, from?: 'kept' | 'history'): Promise<InspectedTransaction>
+    /** The latest 20 transactions sent from WAX Master on the current network, newest first. */
+    kept(): Promise<KeptTransaction[]>
   }
   deploy: {
     plan(input: { networkId: string; account: string; permission: string; target: 'both' | 'wasm' | 'abi' }): Promise<DeployPlan>

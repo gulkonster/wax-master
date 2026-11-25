@@ -11,7 +11,8 @@ import { getSettings } from './store'
 import { focusOpenConfirmation, hasOpenConfirmation, openConfirmation } from './confirm-window'
 import { afterCodeWindows, codeWindowOpen } from './key-windows'
 import { simulate, probeSimulation } from './simulate'
-import { failedSendError, fromHistory, fromNodeAnswer, fromNodeError, withResourceState } from './trace'
+import { blockTransaction, failedSendError, fromHistory, fromKept, fromNodeAnswer, fromNodeError, signedActionCount, withBlock, withResourceState } from './trace'
+import { sentStore, type KeptFile } from './sent-store'
 import { WAX_TESTNET_CHAIN, currentNetwork, endpointOf, getNetwork } from './networks'
 import { chain, history } from './rpc'
 import { clearCodeActions, deployActions, planDeploy } from './deploy'
@@ -89,7 +90,22 @@ async function signAndSend(win: BrowserWindow | null, networkId: string, actions
   const outcome = await openConfirmation(win, record, secret)
   if (outcome.approved && getSettings().lockAfterSignature) vault().lock()
   const ctx = { source: 'sent' as const, network: record.network.name, endpoint: record.endpoint }
-  if (outcome.approved) return { status: 'sent', trace: fromNodeAnswer(outcome.result.response, ctx) }
+  if (outcome.approved) {
+    // B120 point 1: the accepted answer is kept; a failed write never fails the send.
+    const kept = sentStore().keep(
+      networkId,
+      record.transactionId,
+      {
+        network: record.network.name,
+        endpoint: record.endpoint,
+        first: record.actions[0] ? `${record.actions[0].account}::${record.actions[0].name}` : '',
+        count: record.actions.length
+      },
+      outcome.result.response
+    )
+    const trace = fromNodeAnswer(outcome.result.response, ctx)
+    return { status: 'sent', trace: { ...trace, hasKept: kept, hasHistory: hasHistoryService(networkId) } }
+  }
   if (outcome.reason === 'error') {
     const trace = outcome.details
       ? await addResources(fromNodeError(outcome.details, ctx, record.transactionId), record.actions[0]?.authorization[0]?.actor ?? '', record.endpoint)
@@ -105,7 +121,65 @@ async function signAndSend(win: BrowserWindow | null, networkId: string, actions
   return { status: 'cancelled' }
 }
 
-/** The faucet is for WAX Testnet only: keyed on its chain id, so any entry for that chain has it. */
+function hasHistoryService(networkId: string): boolean {
+  try {
+    return !!getNetwork(networkId).history
+  } catch {
+    return false
+  }
+}
+
+/** What `tx:open` reads from; injected in tests. */
+export interface OpenSources {
+  network: NetworkInfo
+  kept: (networkId: string, id: string) => KeptFile | null
+  historyV2: (hist: string, id: string) => Promise<Record<string, unknown>>
+  historyV1: (hist: string, id: string, blockNumHint: number) => Promise<Record<string, unknown>>
+  block: (endpoint: string, blockNum: number) => Promise<Record<string, unknown>>
+}
+
+export const NOT_KNOWN_MESSAGE = 'The history service does not know this transaction. One sent a moment ago can take some seconds to appear.'
+export function noSourceMessage(network: string): string {
+  return `${network} has no history service, and this transaction was not sent from WAX Master on this computer. Add a history service in Network > Manage Networks.`
+}
+
+/**
+ * B120 points 2-4: the kept answer of the current network first, then the history
+ * service; `from` forces one source. From history, the v1 read (RAM per trace) and
+ * the block read (the signed transaction) run at once and may fail.
+ */
+export async function openTransaction(id: string, from: 'kept' | 'history' | undefined, src: OpenSources): Promise<InspectedTransaction> {
+  const trxId = id.toLowerCase()
+  const n = src.network
+  let kept: KeptFile | null = null
+  try {
+    kept = src.kept(n.id, trxId)
+  } catch {
+    kept = null
+  }
+  const hasHistory = !!n.history
+  if (from !== 'history' && kept) return { ...fromKept(kept), hasKept: true, hasHistory }
+  if (from === 'kept') throw new Error(`No kept answer of this transaction on ${n.name}.`)
+  if (!n.history) throw new Error(from === 'history' ? `${n.name} has no history service. Add one in Network > Manage Networks.` : noSourceMessage(n.name))
+  const hist = n.history
+  const r = await src.historyV2(hist, trxId)
+  const list = (r as { actions?: unknown }).actions
+  if (!Array.isArray(list) || list.length === 0) throw new Error(NOT_KNOWN_MESSAGE)
+  const blockNum = list
+    .map((a) => Number((a as { block_num?: unknown } | null)?.block_num))
+    .find((b) => Number.isInteger(b) && b > 0)
+  let v1: unknown
+  let entry: Record<string, unknown> | null = null
+  if (blockNum !== undefined) {
+    const [a, b] = await Promise.allSettled([src.historyV1(hist, trxId, blockNum), src.block(endpointOf(n), blockNum)])
+    if (a.status === 'fulfilled') v1 = a.value
+    if (b.status === 'fulfilled') entry = blockTransaction(b.value, trxId)
+  }
+  const t = fromHistory(r, { network: n.name, endpoint: hist }, { v1, signedActions: signedActionCount(entry) })
+  return { ...withBlock(t, entry), hasKept: !!kept, hasHistory: true }
+}
+
+/** The faucet is for WAX Testnet only:keyed on its chain id, so any entry for that chain has it. */
 function requireWaxTestnet(): void {
   const n = currentNetwork()
   if (n.chainId !== WAX_TESTNET_CHAIN) throw new Error('Switch to WAX Testnet first.')
@@ -168,16 +242,24 @@ export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
     return addResources(t, firstAuthorizer(acts), t.endpoint)
   })
   handle('tx:simulationSupport', () => probeSimulation(endpointOf(currentNetwork())))
-  handle('tx:open', async (_e, id) => {
+  handle('tx:open', async (_e, id, from) => {
     const trxId = str(id, 'id', 64)
     if (!/^[0-9a-f]{64}$/i.test(trxId)) throw new Error('A transaction id is 64 hex characters')
-    const n = currentNetwork()
-    if (!n.history) throw new Error(`${n.name} has no history service configured (Network > Manage Networks).`)
-    const r = await history.getTransaction(n.history, trxId)
-    if (!Array.isArray((r as { actions?: unknown[] }).actions) || ((r as { actions: unknown[] }).actions.length === 0)) {
-      throw new Error('The history service does not know this transaction.')
+    const source = from === undefined || from === null ? undefined : oneOf(from, 'from', ['kept', 'history'] as const)
+    return openTransaction(trxId, source, {
+      network: currentNetwork(),
+      kept: (networkId, tx) => sentStore().read(networkId, tx),
+      historyV2: history.getTransaction,
+      historyV1: history.getTransactionV1,
+      block: (ep, num) => chain.getBlock(ep, num)
+    })
+  })
+  handle('tx:kept', () => {
+    try {
+      return sentStore().list(currentNetwork().id, 20)
+    } catch {
+      return []
     }
-    return fromHistory(r, { network: n.name, endpoint: n.history })
   })
 
   handle('deploy:plan', (_e, input) => {

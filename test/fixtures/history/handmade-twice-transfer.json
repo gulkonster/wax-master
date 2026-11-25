@@ -1,0 +1,44 @@
+{
+  "executed": true,
+  "trx_id": "2222222222222222222222222222222222222222222222222222222222222222",
+  "lib": 3000,
+  "actions": [
+    {
+      "action_ordinal": 7,
+      "creator_action_ordinal": 2,
+      "act": {
+        "account": "bobgamecontr",
+        "name": "logpay",
+        "authorization": [{ "actor": "bobgamecontr", "permission": "active" }],
+        "data": { "from": "alicewallet1", "quantity": "1.00000000 WAX" }
+      },
+      "receipts": [{ "receiver": "bobgamecontr", "global_sequence": 107, "recv_sequence": 12, "auth_sequence": [] }],
+      "block_num": 2990,
+      "@timestamp": "2026-11-25T11:00:00.000",
+      "global_sequence": 107
+    },
+    {
+      "action_ordinal": 1,
+      "creator_action_ordinal": 0,
+      "act": {
+        "account": "eosio.token",
+        "name": "transfer",
+        "authorization": [{ "actor": "alicewallet1", "permission": "active" }],
+        "data": { "from": "alicewallet1", "to": "bobgamecontr", "quantity": "1.00000000 WAX", "memo": "twice" }
+      },
+      "receipts": [
+        { "receiver": "eosio.token", "global_sequence": 101, "recv_sequence": 20, "auth_sequence": [] },
+        { "receiver": "alicewallet1", "global_sequence": 102, "recv_sequence": 5, "auth_sequence": [] },
+        { "receiver": "bobgamecontr", "global_sequence": 103, "recv_sequence": 10, "auth_sequence": [] },
+        { "receiver": "eosio.token", "global_sequence": 104, "recv_sequence": 21, "auth_sequence": [] },
+        { "receiver": "alicewallet1", "global_sequence": 105, "recv_sequence": 6, "auth_sequence": [] },
+        { "receiver": "bobgamecontr", "global_sequence": 106, "recv_sequence": 11, "auth_sequence": [] }
+      ],
+      "block_num": 2990,
+      "@timestamp": "2026-11-25T11:00:00.000",
+      "global_sequence": 101,
+      "cpu_usage_us": 250,
+      "net_usage_words": 16
+    }
+  ]
+}

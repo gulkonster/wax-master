@@ -34,7 +34,7 @@ export function TransactionsSection({ name, refresh = 0 }: { name: string; refre
       try {
         const r = await window.wax.chain.actions(name, p * ACTIONS_PAGE, filter)
         if (!r.historyAvailable) {
-          setHistoryNote('This network has no history service configured. Add one in Network > Manage Networks.')
+          setHistoryNote('This network has no history service. Transactions you sent from WAX Master are in Network > Open Transaction by Id.')
           setRows([])
         } else {
           setHistoryNote('')

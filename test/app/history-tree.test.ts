@@ -3,7 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { historyTree } from '../../src/shared/history-tree'
 import { fromHistory } from '../../src/main/trace'
-import type { TraceNode } from '../../src/shared/trace-types'
+import type { InspectedTransaction, TraceNode } from '../../src/shared/trace-types'
+import { createElement, type FunctionComponent } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { PLACED_AT_TOP_TIP, PLACED_BY_ORDER_TIP } from '../../src/shared/trace-view'
 
 const dir = join(__dirname, '../fixtures/history')
 const load = (name: string): unknown => JSON.parse(readFileSync(join(dir, name), 'utf8'))
@@ -150,5 +153,79 @@ describe('fromHistory', () => {
     const t = fromHistory(transfer, ctx)
     expect(t.notes).toEqual(['Read from the history service. It does not keep console output.'])
     expect(t.cpuUs).toBe(219)
+  })
+})
+
+// B127: a joined copy of an action of the transaction is an action of the transaction.
+const twice = load('handmade-twice-transfer.json')
+// A path in a variable: the test build has no JSX settings; vitest loads the component.
+const INSPECTOR = '../../src/renderer/src/components/Inspector'
+
+describe('two identical actions of the transaction (B127)', () => {
+  const tops = (t: ReturnType<typeof historyTree>): TraceNode[] => t.roots
+
+  it('without the signed count: both at the top in order, the second with ordinal 2 and placed by order', () => {
+    const t = historyTree(twice)
+    expect(tops(t).map((x) => [label(x), x.sequence, x.ordinal, x.placed, x.kind])).toEqual([
+      ['eosio.token::transfer', '101', 1, 'top', 'action'],
+      ['eosio.token::transfer', '104', 2, 'order', 'action']
+    ])
+    const [first, second] = tops(t)
+    expect(first.children.map((c) => [c.receiver, c.kind, c.placed])).toEqual([
+      ['alicewallet1', 'notification', 'link'],
+      ['bobgamecontr', 'notification', 'link']
+    ])
+    expect(second.children.map((c) => [c.receiver, c.kind, c.placed])).toEqual([
+      ['alicewallet1', 'notification', 'link'],
+      ['bobgamecontr', 'notification', 'link'],
+      ['bobgamecontr', 'inline', 'link']
+    ])
+    expect(second.children[2].name).toBe('logpay')
+    expect(t.placedByOrder).toBe(1)
+  })
+
+  it('with the signed count 2: the second is placed at the top by a count, not by order', () => {
+    const t = historyTree(twice, undefined, 2)
+    expect(tops(t).map((x) => [x.ordinal, x.placed])).toEqual([
+      [1, 'top'],
+      [2, 'top']
+    ])
+    expect(tops(t)[1].children.map((c) => c.name)).toContain('logpay')
+    expect(t.placedByOrder).toBe(0)
+  })
+
+  it('with the signed count 1: the second stays at the top, without an ordinal, placed by order', () => {
+    const t = historyTree(twice, undefined, 1)
+    const second = tops(t).find((x) => x.sequence === '104')!
+    expect(second).toBeDefined()
+    expect(second.ordinal).toBe(0)
+    expect(second.placed).toBe('order')
+    expect(second.kind).toBe('action')
+  })
+
+  it('leaves the mainnet sample as it is with the signed count from its block', () => {
+    const t = historyTree(mainnet, undefined, 1)
+    expect(t.roots).toHaveLength(1)
+    expect(t.placedByOrder).toBe(3)
+  })
+
+  it('says one order-placed entry in the singular, more in the plural', () => {
+    const ctx = { network: 'N', endpoint: 'https://h' }
+    expect(fromHistory(twice, ctx).notes).toContain('1 entry is placed by the order of execution, not by a link from the history service (marked "placed by order").')
+    expect(fromHistory(mainnet, ctx).notes).toContain(
+      '3 entries are placed by the order of execution, not by a link from the history service (marked "placed by order").'
+    )
+    expect(fromHistory(twice, ctx, { signedActions: 2 }).notes.some((x) => x.includes('placed by the order of execution'))).toBe(false)
+  })
+
+  it('gives an order-placed action of the transaction its own tooltip', async () => {
+    const { InspectorBody } = (await import(/* @vite-ignore */ INSPECTOR)) as {
+      InspectorBody: FunctionComponent<{ t: InspectedTransaction }>
+    }
+    const html = renderToStaticMarkup(createElement(InspectorBody, { t: fromHistory(twice, { network: 'N', endpoint: 'https://h' }) }))
+    expect(html).toContain(`title="${PLACED_AT_TOP_TIP}"`)
+    const inline = renderToStaticMarkup(createElement(InspectorBody, { t: fromHistory(handmade, { network: 'N', endpoint: 'https://h' }) }))
+    expect(inline).toContain(`title="${PLACED_BY_ORDER_TIP}"`)
+    expect(inline).not.toContain(PLACED_AT_TOP_TIP)
   })
 })

@@ -2,6 +2,7 @@
 // (Actions, Traces, RAM Deltas, Raw). Missing data is labelled, never guessed.
 
 import { useCallback, useId, useMemo, useState } from 'react'
+import { errorText, toast } from '../lib/toast'
 import type { InspectedTransaction, ResourceKind, ResourceProblem, TraceNode } from '../../../shared/trace-types'
 import { NOT_RETURNED, TAB_ORDER, detailsOpenAtStart, finalityText, flatten, nextTab, sourceLine, splitNotes, tabLabel, type TabId } from '../../../shared/trace-view'
 import { Modal } from './Modal'
@@ -55,7 +56,8 @@ function ResourceState({ r, endpoint }: { r: ResourceProblem; endpoint: string }
   )
 }
 
-export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Element {
+export function InspectorBody({ t, onShow }: { t: InspectedTransaction; onShow?: (t: InspectedTransaction) => void }): React.JSX.Element {
+  const [reading, setReading] = useState(false)
   const uid = useId()
   const [stack, setStack] = useState(false)
   const [tab, setTabState] = useState<TabId>(lastTab)
@@ -89,6 +91,18 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
     e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')[TAB_ORDER.indexOf(next)]?.focus()
   }
   const source = sourceLine(t, fmtTime)
+  // The two buttons of the source line: the other copy of the same transaction.
+  const other = onShow && t.id ? (t.source === 'kept' && t.hasHistory ? 'history' : t.source === 'history' && t.hasKept ? 'kept' : null) : null
+  const switchSource = async (from: 'kept' | 'history'): Promise<void> => {
+    setReading(true)
+    try {
+      onShow?.(await window.wax.tx.open(t.id, from))
+    } catch (e) {
+      toast('Could not open the transaction', errorText(e), 'error')
+    } finally {
+      setReading(false)
+    }
+  }
   return (
     <div className="inspector">
       {t.source === 'simulation' && <div className="sim-banner">Simulation - nothing was sent to the chain. Signatures are not checked and the result reflects the current state of {t.endpoint}.</div>}
@@ -123,7 +137,16 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
           </>
         )}
       </div>
-      {source && <div className="hint txv-source">{source}</div>}
+      {source && (
+        <div className="hint txv-source">
+          {source}
+          {other && (
+            <button type="button" className="btn subtle sm txv-source-switch" disabled={reading} aria-busy={reading} onClick={() => void switchSource(other)}>
+              {other === 'history' ? 'Read from the history service' : "Show the node's answer"}
+            </button>
+          )}
+        </div>
+      )}
       {t.errorMessage && (
         <div className="tr-big-error">
           {t.errorMessage} {!t.resource && <ReadMore place="txRefusal" />}
@@ -170,7 +193,7 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
   )
 }
 
-export function InspectorDialog({ t, onClose }: { t: InspectedTransaction; onClose: () => void }): React.JSX.Element {
+export function InspectorDialog({ t, onClose, onReplace }: { t: InspectedTransaction; onClose: () => void; onReplace?: (t: InspectedTransaction) => void }): React.JSX.Element {
   return (
     <Modal
       size="l"
@@ -184,7 +207,7 @@ export function InspectorDialog({ t, onClose }: { t: InspectedTransaction; onClo
         </button>
       }
     >
-      <InspectorBody t={t} />
+      <InspectorBody t={t} onShow={onReplace} />
     </Modal>
   )
 }

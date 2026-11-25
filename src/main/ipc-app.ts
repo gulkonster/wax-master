@@ -46,7 +46,7 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
     const first = await confirmNative(
       win,
       'Clear all app data?',
-      `This removes:\n- settings, networks, stars, added tokens, saved queries and the build record\n- the log files\n- the installed toolchains:\n${list}${localChain ? '\n- the local chain (accounts and contracts on it)' : ''}\n\nProjects are not touched. WAX Master restarts afterwards.`,
+      `This removes:\n- settings, networks, stars, added tokens, saved queries, the build record and the kept answers of sent transactions\n- the log files\n- the installed toolchains:\n${list}${localChain ? '\n- the local chain (accounts and contracts on it)' : ''}\n\nProjects are not touched. WAX Master restarts afterwards.`,
       'Clear data'
     )
     if (!first) return
@@ -83,6 +83,8 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
     if (withVault) for (const f of vaultFiles(dataDir())) rmSync(join(dataDir(), f), { force: true })
     log.info(`App data cleared${withVault ? ' including the vault' : ''}`)
     rmSync(join(dataDir(), 'logs'), { recursive: true, force: true })
+    // The kept answers of sent transactions (B120 point 1).
+    rmSync(join(dataDir(), 'sent'), { recursive: true, force: true })
     app.relaunch()
     app.exit(0)
   })
