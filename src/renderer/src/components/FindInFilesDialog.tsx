@@ -12,6 +12,7 @@ export function FindInFilesDialog({ onClose }: { onClose: () => void }): React.J
   const [result, setResult] = useState<SearchResult | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [searched, setSearched] = useState('')
   const seq = useRef(0)
 
   const search = async (): Promise<void> => {
@@ -26,7 +27,10 @@ export function FindInFilesDialog({ onClose }: { onClose: () => void }): React.J
     setError('')
     try {
       const r = await window.wax.files.search(q, matchCase, wholeWord)
-      if (n === seq.current) setResult(r)
+      if (n === seq.current) {
+        setResult(r)
+        setSearched(q)
+      }
     } catch (e) {
       if (n === seq.current) setError(errorText(e))
     } finally {
@@ -72,6 +76,10 @@ export function FindInFilesDialog({ onClose }: { onClose: () => void }): React.J
           </div>
         )}
         <div className="find-files-results">
+          {!error && result === null && (
+            <div className="find-files-empty">Type the text and press Enter. The search covers the project's text files.</div>
+          )}
+          {result && result.matches.length === 0 && <div className="find-files-empty">Nothing found for "{searched}".</div>}
           {[...files.entries()].map(([file, matches]) => (
             <div key={file} className="find-files-file">
               <div className="find-files-name">{file}</div>

@@ -33,5 +33,6 @@ You add a private test chain at `https://test.example.org`. The app reads its ch
 
 ## What is needed
 
+- A node of your own on this computer: see [Your own local node](doc:local-node).
 - WAX Testnet for learning and testing. See [Create a testnet account](doc:create-testnet-account).
 - Care on mainnet: read [The mainnet confirmation](doc:mainnet-confirmation).

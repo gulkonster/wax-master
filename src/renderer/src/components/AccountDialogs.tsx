@@ -76,6 +76,7 @@ export function useCreateAccountForm(initialCreator = '', initialName = ''): {
   const [cpu, setCpu] = useState(zero)
   const [netStake, setNetStake] = useState(zero)
   const [transfer, setTransfer] = useState(false)
+  const [created, setCreated] = useState('')
   const [busy, setBusy] = useState(false)
   const [line, setLine] = useState<FormLine | null>(null)
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
@@ -107,7 +108,7 @@ export function useCreateAccountForm(initialCreator = '', initialName = ''): {
   const cpuProblem = stakeProblem(cpu, prec, sym)
   const netProblem = stakeProblem(netStake, prec, sym)
   const ok =
-    NAME.test(creator) && NAME.test(name) && NAME.test(creatorPerm) && !!ownerKey && !!activeKey && free !== 'taken' && !!cpuQuantity && !!netQuantity
+    NAME.test(creator) && NAME.test(name) && NAME.test(creatorPerm) && !!ownerKey && !!activeKey && free !== 'taken' && name !== created && !!cpuQuantity && !!netQuantity
   // The same list the pickers use: the permissions of the creator the vault can sign for.
   const { list } = usePickList()
   const creatorEntry = list?.entries.find((e) => e.account === creator)
@@ -138,6 +139,8 @@ export function useCreateAccountForm(initialCreator = '', initialName = ''): {
       )
       if (r.status === 'sent') {
         setTrace(r.trace)
+        setCreated(name)
+        setFree('taken')
         toast('Account created', name, 'success')
         // The node may not have the new account yet: its page reads it again a few times.
         markNewAccount(name)
@@ -181,6 +184,9 @@ export function useCreateAccountForm(initialCreator = '', initialName = ''): {
         {free === 'checking' && <div className="acct-note">Checking the name...</div>}
         {free === 'free' && <div className="acct-note good">The name is free on {net?.name}.</div>}
         {free === 'taken' && <div className="acct-note bad">This name is taken on {net?.name}.</div>}
+        {name !== '' && name === created && (
+          <div className="acct-note good">{name} was created. Enter another name to create one more.</div>
+        )}
         {free && typeof free === 'object' && <div className="acct-note">Could not check the name: {free.error}</div>}
       </div>
       <div className="field">
@@ -215,7 +221,7 @@ export function useCreateAccountForm(initialCreator = '', initialName = ''): {
           {netProblem && <div className="acct-note bad">{netProblem}</div>}
         </div>
       </div>
-      <label style={{ display: 'flex', gap: 'var(--sp-2)', alignItems: 'center' }}>
+      <label className="field" style={{ display: 'flex', gap: 'var(--sp-2)', alignItems: 'center' }}>
         <input type="checkbox" checked={transfer} onChange={(e) => setTransfer(e.target.checked)} /> Transfer the staked tokens to the new account
       </label>
       {line && <div className={formLineClass(line)}>{line.text}</div>}

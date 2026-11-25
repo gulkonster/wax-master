@@ -67,6 +67,7 @@
       "topics": [
         { "id": "mainnet-and-testnet", "title": "Mainnet and testnet", "keywords": ["mainnet", "testnet", "local", "kind", "chain id"] },
         { "id": "add-remove-networks", "title": "Add and remove networks", "keywords": ["add network", "remove network", "restore", "manage networks"] },
+        { "id": "local-node", "title": "Your own local node", "keywords": ["local node", "nodeos", "127.0.0.1", "localhost", "own chain", "private chain", "docker", "kind local"] },
         { "id": "network-page", "title": "The Network page", "keywords": ["network page", "blocks", "ram price", "producer", "chain state"] },
         { "id": "network-status", "title": "The status mark", "keywords": ["status", "green", "orange", "red", "dot", "not reachable"] },
         { "id": "endpoints", "title": "Endpoints", "keywords": ["endpoint", "api", "history service", "hyperion", "url"] }

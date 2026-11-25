@@ -84,12 +84,7 @@ export function pct(used: number, max: number): number {
   return Math.max(0, Math.min(100, (used / max) * 100))
 }
 
-/** A chain time (UTC without a zone) or an ISO time, in the user's local form. */
-export function fmtTime(t: string): string {
-  if (!t) return ''
-  const d = new Date(/[zZ]|[+-]\d\d:\d\d$/.test(t) ? t : `${t}Z`)
-  return Number.isNaN(d.getTime()) ? t : d.toLocaleString()
-}
+export { fmtTime } from '../../lib/time'
 
 export function Gauge({ label, text, value }: { label: string; text: string; value: number }): React.JSX.Element {
   // Blue while there is room, yellow from 75 %, red from 90 %.

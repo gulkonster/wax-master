@@ -26,6 +26,6 @@ You paste the address of a WAX Mainnet API node that you found on a block produc
 
 ## What is needed
 
-- An `https://` API endpoint of the chain (or `http://` on this computer).
+- An `https://` API endpoint of the chain (or `http://` on this computer; see [Your own local node](doc:local-node)).
 - For a chain the app does not know, your decision on its kind. See [Mainnet and testnet](doc:mainnet-and-testnet).
 - For account history, a Hyperion history service address. See [Endpoints](doc:endpoints).

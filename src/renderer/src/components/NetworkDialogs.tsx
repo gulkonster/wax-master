@@ -41,7 +41,9 @@ function KindField({
       </select>
       <div className="hint">
         {note ??
-          'A network counts as mainnet until it is marked as a test network; for a chain the app does not know, WAX Master asks you to confirm that in its own dialog.'}
+          (kind === 'local'
+            ? 'A chain on this computer: normal confirmation, no typed names.'
+            : 'A network counts as mainnet until it is marked as a test network; for a chain the app does not know, WAX Master asks you to confirm that in its own dialog.')}
       </div>
     </div>
   )
@@ -81,7 +83,7 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
       const list = networkStore.get().list
       const known = list.find((n) => n.chainId === r.chainId)
       setName(suggestNetworkName(r, list))
-      setKind(!r.kindNote && (known?.kind === 'testnet' || r.knownName === 'WAX Testnet') ? 'testnet' : 'mainnet')
+      setKind(!r.kindNote && (known?.kind === 'testnet' || r.knownName === 'WAX Testnet') ? 'testnet' : !r.kindNote && r.localAllowed ? 'local' : 'mainnet')
     } catch (e) {
       setError(errorText(e))
     } finally {

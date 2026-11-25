@@ -2897,6 +2897,17 @@ button.sb-item.mainnet:hover {
   border: var(--bw) solid var(--border);
   border-radius: var(--radius);
 }
+.find-files-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: var(--find-min);
+  padding: var(--sp-3);
+  text-align: center;
+  font-size: var(--fs-body);
+  color: var(--text-2);
+}
 .find-files-name {
   position: sticky;
   top: 0;

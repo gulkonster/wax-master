@@ -7,6 +7,7 @@ import type { InspectedTransaction, ResourceKind, ResourceProblem, TraceNode } f
 import { Modal } from './Modal'
 import { IconChevronDown, IconChevronRight } from './Icons'
 import { ReadMore } from './HelpButton'
+import { fmtTime } from '../lib/time'
 
 const NOT_RETURNED = 'not returned by this endpoint'
 
@@ -122,7 +123,9 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
           {t.network} · {t.endpoint}
         </span>
         <span>Block / time</span>
-        <span>{t.block ?? `(${NOT_RETURNED})`} {t.time ? `· ${t.time}` : ''}</span>
+        <span title={t.time ? `${t.time} UTC` : undefined}>
+          {t.block ?? `(${NOT_RETURNED})`} {t.time ? `· ${fmtTime(t.time)}` : ''}
+        </span>
         <span>CPU / NET</span>
         <span>
           {t.cpuUs !== null ? `${t.cpuUs} µs` : `(${NOT_RETURNED})`} / {t.netBytes !== null ? `${t.netBytes} bytes` : `(${NOT_RETURNED})`}

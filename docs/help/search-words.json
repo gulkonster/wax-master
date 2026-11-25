@@ -25,6 +25,7 @@
     ["permission", "authority", "auth"],
     ["multisig", "multi signature", "msig", "multiple signatures"],
     ["testnet", "test network", "test net"],
+    ["local node", "own node", "nodeos", "local chain", "private chain", "own chain"],
     ["mainnet", "main network", "main net", "production"],
     ["faucet", "free tokens", "free wax", "test tokens"],
     ["table", "multi_index", "database", "db"],

@@ -30,12 +30,14 @@ export function SymbolSearchDialog({
   const [query, setQuery] = useState('')
   const [items, setItems] = useState<WorkspaceSymbol[]>([])
   const [selected, setSelected] = useState(0)
+  const [answered, setAnswered] = useState('')
   const seq = useRef(0)
   const ready = engineReady()
 
   useEffect(() => {
     if (!ready || !query.trim()) {
       setItems([])
+      setAnswered('')
       return
     }
     const n = ++seq.current
@@ -46,6 +48,7 @@ export function SymbolSearchDialog({
         r.sort((a, b) => Number(a.uri.startsWith('toolchain:')) - Number(b.uri.startsWith('toolchain:')))
         setItems(r.slice(0, 200))
         setSelected(0)
+        setAnswered(query.trim())
       })
     }, 150)
     return () => clearTimeout(t)
@@ -73,6 +76,11 @@ export function SymbolSearchDialog({
           }}
         />
         <div className="find-files-results">
+          {!ready && <div className="find-files-empty">Code intelligence is not ready (see the status bar)</div>}
+          {ready && !query.trim() && <div className="find-files-empty">Type a name: a function, a class, a table.</div>}
+          {ready && query.trim() && items.length === 0 && answered === query.trim() && (
+            <div className="find-files-empty">No symbol found for "{answered}".</div>
+          )}
           {items.map((s, i) => (
             <div
               key={`${s.uri}:${s.range.startLineNumber}:${i}`}
