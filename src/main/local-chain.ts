@@ -3,7 +3,7 @@
 // What is sent to the node once it answers is in `local-chain-boot.ts`.
 
 import { app, shell } from 'electron'
-import { appendFileSync, existsSync, mkdirSync, promises as fsp, readFileSync, statSync, statfsSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdirSync, promises as fsp, readdirSync, readFileSync, rmdirSync, statSync, statfsSync, writeFileSync } from 'node:fs'
 import { createConnection, createServer } from 'node:net'
 import { join } from 'node:path'
 import manifest from '../../toolchain/parts.json'
@@ -288,6 +288,33 @@ let reason: string | undefined
 let repair: LocalChainRepair | undefined
 let dataMb: number | undefined
 let dataMbAt = 0
+/** When the last Remove began its delete (B134); 0 when there was none in this session. */
+let removeStartedAt = 0
+
+/** Removes `dir` only when it exists and is empty; never recursive, never throws (B134). */
+export function dropEmptyDir(dir: string): { removed: boolean; madeAt: number } {
+  try {
+    if (!existsSync(dir) || readdirSync(dir).length > 0) return { removed: false, madeAt: 0 }
+    const madeAt = statSync(dir).birthtimeMs
+    rmdirSync(dir)
+    return { removed: true, madeAt }
+  } catch {
+    return { removed: false, madeAt: 0 }
+  }
+}
+
+/** Removes an empty chain folder and writes down when it was made (B134). */
+function tidyEmptyFolder(): void {
+  const r = dropEmptyDir(chainDir())
+  if (!r.removed) return
+  const when =
+    removeStartedAt === 0
+      ? 'no Remove in this session'
+      : r.madeAt < removeStartedAt
+        ? 'it is older than the Remove, so the delete had left it'
+        : `made ${((r.madeAt - removeStartedAt) / 1000).toFixed(1)} s after the Remove`
+  log.warn('Local chain: an empty folder was found and removed (' + when + ')')
+}
 /** The system key while the chain runs (B109 point 2). Never logged, never sent to a window. */
 let systemKey: string | null = null
 
@@ -349,6 +376,7 @@ async function determinePhase(): Promise<LocalChainPhase> {
 
 export async function getStatus(): Promise<LocalChainStatus> {
   const p = await determinePhase()
+  if (phase === 'not-set-up') tidyEmptyFolder()
   const state = readState()
   const port = state?.port ?? LOCAL_CHAIN_DEFAULT_PORT
   let head: number | undefined
@@ -753,6 +781,7 @@ export function remove(): Promise<LocalChainStatus> {
         const r = await wsl(['--unregister', LOCAL_CHAIN_DISTRO], { timeoutMs: 120_000 })
         if (r.code !== 0) throw new Error(`WSL could not remove the local chain's distro: ${clean(r.output).trim().slice(0, 200)}`)
       }
+      removeStartedAt = Date.now()
       await fsp.rm(chainDir(), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
       if (existsSync(chainDir())) log.warn('Local chain removed, but its folder is still there')
       dataMb = undefined

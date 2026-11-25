@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 vi.mock('electron', () => ({
@@ -11,6 +12,7 @@ vi.mock('electron', () => ({
 import {
   DAMAGED_TEXT,
   DIRTY_TEXT,
+  dropEmptyDir,
   endedText,
   ENDED_TEXT,
   UNAVAILABLE_TEXT,
@@ -216,5 +218,26 @@ describe('stop keeps the last transactions (stage 37 fix)', () => {
     const fresh = src.slice(src.indexOf('async function freshChain'), src.indexOf('async function startChain'))
     expect(fresh.indexOf('bootstrapped: true')).toBeGreaterThan(fresh.indexOf('settleBlocks('))
     expect(src).toContain('const IRREVERSIBLE_WAIT_MS = 10_000')
+  })
+})
+
+describe('empty chain folder (B134)', () => {
+  it('removes an empty folder only, and gives its creation time', () => {
+    const root = mkdtempSync(join(tmpdir(), 'lc-tidy-'))
+    try {
+      const empty = join(root, 'empty')
+      mkdirSync(empty)
+      const made = statSync(empty).birthtimeMs
+      expect(dropEmptyDir(empty)).toEqual({ removed: true, madeAt: made })
+      expect(existsSync(empty)).toBe(false)
+      const full = join(root, 'full')
+      mkdirSync(full)
+      writeFileSync(join(full, 'a.txt'), 'x')
+      expect(dropEmptyDir(full)).toEqual({ removed: false, madeAt: 0 })
+      expect(existsSync(join(full, 'a.txt'))).toBe(true)
+      expect(dropEmptyDir(join(root, 'missing'))).toEqual({ removed: false, madeAt: 0 })
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })

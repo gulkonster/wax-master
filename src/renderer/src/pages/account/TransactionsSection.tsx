@@ -6,6 +6,8 @@ import { useCallback, useEffect, useState } from 'react'
 import type { AccountActionRow, AccountActionsFilter } from '../../../../shared/chain-types'
 import { ACTIONS_PAGE, filterOf, pageCount } from '../../../../shared/history-filter'
 import { emit, on } from '../../lib/bus'
+import { networkStore } from '../../lib/networks'
+import { useStore } from '../../lib/stores'
 import { errorText } from '../../lib/toast'
 import { HelpButton } from '../../components/HelpButton'
 import { IconRefresh } from '../../components/Icons'
@@ -27,6 +29,7 @@ export function TransactionsSection({ name, refresh = 0 }: { name: string; refre
   const [to, setTo] = useState('')
   const [filter, setFilter] = useState<AccountActionsFilter>({})
   const [problem, setProblem] = useState('')
+  const history = useStore(networkStore).current?.history ?? ''
 
   const loadPage = useCallback(
     async (p: number) => {
@@ -56,7 +59,7 @@ export function TransactionsSection({ name, refresh = 0 }: { name: string; refre
 
   useEffect(() => {
     void loadPage(0)
-  }, [loadPage, refresh])
+  }, [loadPage, refresh, history])
 
   useEffect(
     () =>

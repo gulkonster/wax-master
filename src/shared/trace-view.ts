@@ -178,7 +178,7 @@ export function hostOf(endpoint: string): string {
 
 /** The line under the head that says where an opened transaction comes from; null for a simulation or a send. */
 export function sourceLine(t: InspectedTransaction, localTime: (s: string) => string): string | null {
-  if (t.source === 'kept') return `From the answer the node gave when WAX Master sent it (${t.keptAt ? localTime(t.keptAt) : NOT_RETURNED}). It has the console output and every link between the actions.`
+  if (t.source === 'kept') return `From the answer the node gave when WAX Master sent it (${t.keptAt ? localTime(t.keptAt) : NOT_RETURNED}). It has every link between the actions, and the console output when the node returned it.`
   if (t.source === 'history') return `Read from the history service ${hostOf(t.endpoint)}.`
   return null
 }

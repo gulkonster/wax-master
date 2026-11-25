@@ -181,7 +181,7 @@ describe('trace-view helpers', () => {
     expect(sourceLine(t, (s) => s)).toBeNull()
     expect(sourceLine(fromHistory(), (s) => s)).toBe('Read from the history service history.example.org.')
     expect(sourceLine({ ...t, source: 'kept', keptAt: 'T' }, (s) => `<${s}>`)).toBe(
-      'From the answer the node gave when WAX Master sent it (<T>). It has the console output and every link between the actions.'
+      'From the answer the node gave when WAX Master sent it (<T>). It has every link between the actions, and the console output when the node returned it.'
     )
     const split = splitNotes(fromHistory().notes)
     expect(split.tree).toHaveLength(1)
