@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -116,6 +116,16 @@ describe('kept answers', () => {
     expect(s.list('wax-testnet', 20)).toHaveLength(1)
     s.clearAll()
     expect(existsSync(join(dir, 'sent'))).toBe(false)
+  })
+
+  it('clear deletes the folder of an id that is not a saved network and refuses an id outside the pattern', () => {
+    const s = store()
+    mkdirSync(join(dir, 'sent', 'removed-net'), { recursive: true })
+    writeFileSync(join(dir, 'sent', 'removed-net', `${id(1)}.json`), '{}')
+    s.clear('removed-net')
+    expect(existsSync(join(dir, 'sent', 'removed-net'))).toBe(false)
+    expect(() => s.clear('..')).toThrow(/Unknown network/)
+    expect(() => s.clear('a/b')).toThrow(/Unknown network/)
   })
 
   it('a kept answer is shown with source kept, its send time, the console and every link', () => {
@@ -249,7 +259,7 @@ describe('tx:open', () => {
 
   it('a forced kept read without a kept answer reads nothing else', async () => {
     const src = sources()
-    await expect(openTransaction(MAINNET_ID, 'kept', src)).rejects.toThrow()
+    await expect(openTransaction(MAINNET_ID, 'kept', src)).rejects.toThrow(/no longer has the node's answer of this transaction/)
     expect(src.calls).toEqual([])
   })
 

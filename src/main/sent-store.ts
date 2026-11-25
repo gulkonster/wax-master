@@ -150,7 +150,9 @@ export function createSentStore(root: string, knownNetwork: (id: string) => bool
       return out
     },
     clear(networkId) {
-      rmSync(folder(networkId), { recursive: true, force: true })
+      // The network is no longer saved when this is called, so only the id pattern is checked.
+      if (!NETWORK_ID.test(networkId)) throw new Error('Unknown network')
+      rmSync(join(root, networkId), { recursive: true, force: true })
     },
     clearAll() {
       rmSync(root, { recursive: true, force: true })

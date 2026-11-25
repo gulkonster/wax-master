@@ -12,7 +12,7 @@ import { focusOpenConfirmation, hasOpenConfirmation, openConfirmation } from './
 import { afterCodeWindows, codeWindowOpen } from './key-windows'
 import { simulate, probeSimulation } from './simulate'
 import { blockTransaction, failedSendError, fromHistory, fromKept, fromNodeAnswer, fromNodeError, signedActionCount, withBlock, withResourceState } from './trace'
-import { sentStore, type KeptFile } from './sent-store'
+import { KEPT_PER_NETWORK, sentStore, type KeptFile } from './sent-store'
 import { WAX_TESTNET_CHAIN, currentNetwork, endpointOf, getNetwork } from './networks'
 import { chain, history } from './rpc'
 import { clearCodeActions, deployActions, planDeploy } from './deploy'
@@ -159,7 +159,7 @@ export async function openTransaction(id: string, from: 'kept' | 'history' | und
   }
   const hasHistory = !!n.history
   if (from !== 'history' && kept) return { ...fromKept(kept), hasKept: true, hasHistory }
-  if (from === 'kept') throw new Error(`No kept answer of this transaction on ${n.name}.`)
+  if (from === 'kept') throw new Error(`WAX Master no longer has the node's answer of this transaction on ${n.name}. It keeps the latest ${KEPT_PER_NETWORK} it sent on each network.`)
   if (!n.history) throw new Error(from === 'history' ? `${n.name} has no history service. Add one in Network > Manage Networks.` : noSourceMessage(n.name))
   const hist = n.history
   const r = await src.historyV2(hist, trxId)

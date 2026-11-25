@@ -31,6 +31,7 @@ function vaultPublicKeys(): string[] {
 }
 import { NetworkStatusPoller, networkStatus } from './network-status'
 import { log } from './log'
+import { sentStore } from './sent-store'
 import { isUnknownAccount, plainAccountError } from './account-pick'
 import { ramPriceError, readRamPrice } from './ram-price'
 import { RAM_MAX_BUY } from '../shared/ram-market'
@@ -145,7 +146,16 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
       confirmTestnet
     )
   })
-  handle('networks:remove', (_e, id) => networks.removeNetwork(str(id, 'id', 64)))
+  handle('networks:remove', (_e, id) => {
+    const netId = str(id, 'id', 64)
+    const removed = networks.removeNetwork(netId)
+    try {
+      sentStore().clear(netId)
+    } catch (e) {
+      log.warn(`Network removed; its kept answers could not be deleted: ${e instanceof Error ? e.message : 'unknown error'}`)
+    }
+    return removed
+  })
   handle('networks:removedDefaults', () => networks.removedDefaults())
   handle('networks:restoreDefaults', () => networks.restoreDefaults())
   handle('networks:chooseEndpoint', (_e, id, index) => networks.chooseEndpoint(str(id, 'id', 64), int(index, 'index', 0, 19)))
