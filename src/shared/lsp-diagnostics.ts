@@ -24,8 +24,17 @@ export interface LspDiagnostic {
   message: string
   relatedInformation?: { location: { uri: string; range: LspRange }; message: string }[]
   tags?: number[]
-  /** Fixes the engine sends with the diagnostic (`codeActionsInline`). */
-  codeActions?: { title: string; edit?: { changes?: Record<string, { range: LspRange; newText: string }[]> } }[]
+  /**
+   * Fixes the engine sends with the diagnostic (`codeActionsInline`). A client that announces
+   * `workspaceEdit.documentChanges`, as the window does, gets the edits in `documentChanges`.
+   */
+  codeActions?: {
+    title: string
+    edit?: {
+      changes?: Record<string, { range: LspRange; newText: string }[]>
+      documentChanges?: { textDocument: { uri: string }; edits: { range: LspRange; newText: string }[] }[]
+    }
+  }[]
 }
 
 /** The toolchain version whose attribute list is known (B99 point 4). */

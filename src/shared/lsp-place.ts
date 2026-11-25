@@ -4,11 +4,7 @@
 
 import type { LspDiagnostic, LspPosition, LspRange } from './lsp-diagnostics'
 
-interface CodeAction {
-  title: string
-  edit?: { changes?: Record<string, { range: LspRange; newText: string }[]> }
-}
-type Placed = LspDiagnostic & { codeActions?: CodeAction[] }
+type Placed = LspDiagnostic
 
 function before(a: LspPosition, b: LspPosition): boolean {
   return a.line < b.line || (a.line === b.line && a.character < b.character)
@@ -22,11 +18,11 @@ function isEmpty(r: LspRange): boolean {
 function soleInsertion(d: Placed, docUri: string): LspPosition | null {
   const actions = d.codeActions
   if (!actions || actions.length !== 1) return null
-  const changes = actions[0].edit?.changes
-  if (!changes) return null
-  const keys = Object.keys(changes)
-  if (keys.length !== 1 || keys[0] !== docUri) return null
-  const edits = changes[docUri]
+  const edit = actions[0].edit
+  // The edits come in `changes`, or in `documentChanges` for a client that announces them (the window does).
+  const docs = edit?.documentChanges ?? Object.entries(edit?.changes ?? {}).map(([uri, edits]) => ({ textDocument: { uri }, edits }))
+  if (docs.length !== 1 || docs[0].textDocument.uri !== docUri) return null
+  const edits = docs[0].edits
   if (edits.length !== 1) return null
   const e = edits[0]
   if (!isEmpty(e.range) || e.newText.length === 0) return null

@@ -45,8 +45,9 @@ export const EXAMPLE_FILES = ['src/contract.cpp', 'include/contract.hpp', 'resou
 
 const EXAMPLE_TEXTS = {
   ...import.meta.glob('../../resources/templates/examples/*/**/*', { query: '?raw', import: 'default', eager: true }),
-  // A pattern that names the dot file is needed: the first one does not match it.
-  ...import.meta.glob('../../resources/templates/examples/*/.clang-format', { query: '?raw', import: 'default', eager: true })
+  // A pattern that names the dot file is needed: the first one does not match it. The build
+  // matches a dot file only with `exhaustive`.
+  ...import.meta.glob('../../resources/templates/examples/*/.clang-format', { query: '?raw', import: 'default', eager: true, exhaustive: true })
 }
 
 /** The files of every example folder, by folder name and path inside the folder. */

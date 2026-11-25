@@ -44,6 +44,19 @@ describe('placeDiagnostics: a missing token', () => {
     expect((out as { codeActions?: unknown }).codeActions).toEqual((d as { codeActions?: unknown }).codeActions)
   })
 
+  it('semi-1 with the fix in documentChanges (the form the window gets): moved the same way', () => {
+    const d: LspDiagnostic = {
+      range: r(5, 2, 5, 6),
+      severity: 1,
+      code: 'expected_semi_after_expr',
+      message: "Expected ';' after expression (fix available)",
+      codeActions: [{ title: "insert ';'", edit: { documentChanges: [{ textDocument: { uri: DOC }, edits: [{ range: r(3, 26, 3, 26), newText: ';' }] }] } }],
+    }
+    expect(placeDiagnostics([d], SRC, DOC, pathOf)[0].range).toEqual(r(3, 25, 3, 26))
+    const other: LspDiagnostic = { ...d, codeActions: [{ title: 't', edit: { documentChanges: [{ textDocument: { uri: HEADER }, edits: [{ range: r(3, 26, 3, 26), newText: ';' }] }] } }] }
+    expect(placeDiagnostics([other], SRC, DOC, pathOf)[0].range).toEqual(d.range)
+  })
+
   it('semi-2: a declaration without its semicolon', () => {
     const lines = ['', '', '', '', '', '  auto sym = maximum_supply.symbol', '  check(sym.is_valid());']
     const d = withFix({ range: r(6, 2, 6, 7), severity: 1, code: 'expected_semi_declaration', message: "Expected ';' at end of declaration" }, [

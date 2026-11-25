@@ -6,5 +6,5 @@ declare module '*?raw' {
 
 // Vite's glob import, as used for the example folders.
 interface ImportMeta {
-  glob(pattern: string, options: { query: '?raw'; import: 'default'; eager: true }): Record<string, string>
+  glob(pattern: string, options: { query: '?raw'; import: 'default'; eager: true; exhaustive?: boolean }): Record<string, string>
 }

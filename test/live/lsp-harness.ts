@@ -160,6 +160,8 @@ export class EngineClient {
       rootUri: `file://${this.project.rootWsl}`,
       capabilities: {
         general: { positionEncodings: ['utf-16'] },
+        // As the window announces it: the engine then sends inline fixes in `documentChanges`.
+        workspace: { workspaceEdit: { documentChanges: true } },
         textDocument: {
           synchronization: { didSave: true },
           completion: { contextSupport: true, completionItem: { snippetSupport: true, documentationFormat: ['markdown', 'plaintext'] } },

@@ -651,8 +651,16 @@ function withKeyedFixes(d: LspDiagnostic): LspDiagnostic {
     ...d,
     codeActions: d.codeActions.map((a) => {
       const changes = a.edit?.changes
-      if (!changes) return a
-      return { ...a, edit: { ...a.edit, changes: Object.fromEntries(Object.entries(changes).map(([u, e]) => [key(u), e])) } }
+      const documentChanges = a.edit?.documentChanges
+      if (!changes && !documentChanges) return a
+      return {
+        ...a,
+        edit: {
+          ...a.edit,
+          ...(changes ? { changes: Object.fromEntries(Object.entries(changes).map(([u, e]) => [key(u), e])) } : {}),
+          ...(documentChanges ? { documentChanges: documentChanges.map((dc) => ({ ...dc, textDocument: { ...dc.textDocument, uri: key(dc.textDocument.uri) } })) } : {})
+        }
+      }
     })
   }
 }

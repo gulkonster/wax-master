@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../state'
 import { useToolchains } from './ToolchainManager'
-import { problemsStore, toolchainStore, useStore } from '../lib/stores'
+import { mergedProblemsStore, toolchainStore, useStore } from '../lib/stores'
 import { countProblems } from '../../../shared/output-lines'
 import { networkStore } from '../lib/networks'
 import { networkStatusStore, statusFor } from '../lib/network-status'
@@ -19,7 +19,7 @@ export function StatusBar(): React.JSX.Element {
   const vault = useStore(vaultStore)
   const net = useStore(networkStore).current
   const netStatus = statusFor(useStore(networkStatusStore), net?.id)
-  const problems = useStore(problemsStore)
+  const problems = useStore(mergedProblemsStore)
   // Same counting as the Problems tab (shared/output-lines.ts).
   const { errors, warnings } = countProblems(problems)
   const engine = useEngineView()
