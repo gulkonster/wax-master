@@ -90,8 +90,8 @@
         { "id": "deploy", "title": "Deploy", "keywords": ["deploy", "setcode", "setabi", "hash", "ram", "buy ram"] },
         { "id": "run-actions", "title": "Run actions", "keywords": ["action", "run", "contract page", "eosio.code", "linkauth", "unlinkauth", "updateauth", "permission"] },
         { "id": "read-tables", "title": "Read tables", "keywords": ["table", "rows", "scope", "query", "get_table_rows"] },
-        { "id": "simulate-inspector", "title": "Simulate and the transaction inspector", "keywords": ["simulate", "inspector", "trace", "console", "refused", "cpu", "net"] },
-        { "id": "transaction-history", "title": "Transaction history", "keywords": ["history", "transactions", "transaction id", "hyperion"] }
+        { "id": "simulate-inspector", "title": "The transaction view: Actions, Traces, RAM Deltas, Raw", "keywords": ["simulate", "inspector", "trace", "traces", "ram deltas", "raw", "inline", "notification", "logmint", "explorer", "tree", "console", "refused", "cpu", "net"] },
+        { "id": "transaction-history", "title": "Transaction history", "keywords": ["history", "transactions", "transaction id", "hyperion", "open transaction", "sent from wax master", "kept answer"] }
       ]
     },
     {
@@ -156,7 +156,7 @@
       "title": "Safety",
       "topics": [
         { "id": "mainnet-confirmation", "title": "The mainnet confirmation", "keywords": ["confirmation", "mainnet", "approve", "sign", "typed name"] },
-        { "id": "what-the-app-contacts", "title": "What the app contacts", "keywords": ["privacy", "network", "faucet", "updates", "addresses"] },
+        { "id": "what-the-app-contacts", "title": "What the app contacts", "keywords": ["privacy", "network", "faucet", "updates", "addresses", "kept answers", "sent transactions"] },
         { "id": "verify-download", "title": "Verify your download", "keywords": ["verify", "sha256", "hash", "attestation", "installer"] }
       ]
     }

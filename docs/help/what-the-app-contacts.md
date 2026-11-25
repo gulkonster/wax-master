@@ -8,7 +8,8 @@ WAX Master sends nothing anywhere on its own except to the addresses below. It h
 |---|---|---|
 | The current endpoint of the selected network (another endpoint of the same network when it does not answer) | Reading accounts, contracts, tables, the network state; sending your approved transactions; the status check every 10 seconds while the window is visible (every 2 seconds while the Network page is open) | Choose another network or endpoint |
 | The current endpoint of every saved network | While Project Settings is open: the "Deploy to" list of each network asks that network which accounts the public keys of your vault control | Remove the networks you do not use |
-| The network's history service | The Transactions list and the token list of the Account page, linked actions when the node does not report them, Open Transaction by Id | Leave the history service empty |
+| The network's history service | The Transactions list and the token list of the Account page, linked actions when the node does not report them, Open Transaction by Id. A transaction read from it also asks the same service once more for the RAM change of each trace | Leave the history service empty |
+| The current endpoint of the selected network, for one block | Open Transaction by Id, after the history service answered: the block that holds the transaction is read from the network's node | Leave the history service empty |
 | An address you type in Add Network | When you press Connect | - |
 | GitHub (`api.github.com`) | The update check, once a day | File > Settings > Updates |
 | The WAX Testnet faucet (`faucet.waxsweden.org`) | Only when you press Create account in Create Testnet Account, or Request tokens, Request test tokens or Request testnet tokens | Do not press them |
@@ -27,6 +28,7 @@ The two built-in networks start with these addresses; you can change them (see [
 - Settings, networks and stars: `%APPDATA%\WAX Master`.
 - The vault with your keys: `%APPDATA%\WAX Master\vault.json`, encrypted.
 - The toolchain: `%LOCALAPPDATA%\WAX Master`.
+- The answers the node gave to the transactions you sent (`%APPDATA%WAX Mastersent`, one small file for each, at most 200 per network): they hold what the node says to anyone who sends that transaction, no key. They are what Open Transaction by Id reads first. A Reset or Remove of the local chain deletes those of the local chain; Clear All App Data removes all.
 - The local chain, if you set it up: its private Linux and the chain's data, in `%LOCALAPPDATA%\WAX Master\local-chain`. Clear All App Data removes it too. See [The local chain](doc:local-chain).
 
 Building and editing work without any network. The toolchain installs offline from the installer.

@@ -30,17 +30,17 @@ The words of WAX and of this program, in alphabetical order, each with the page 
 | First authorizer | The first account in the authorization of a transaction. When the network bills only the first authorizer, it pays the CPU and NET of the whole transaction | [Who pays: RAM and CPU for your users](doc:contract-who-pays) |
 | First receiver | The contract an action was sent to; in a notification handler `get_first_receiver()` names it, so a token handler can check which contract issued the token | [Accepting tokens safely](doc:contract-accept-tokens) |
 | History service | A service that indexes old transactions and token balances | [Transaction history](doc:transaction-history) |
-| Inline action | An action a contract sends while it runs, in the same transaction | [Inline actions](doc:contract-inline-actions) |
+| Inline action | An action a contract sends while it runs, in the same transaction. In the transaction view it stands under the action that sent it, with the badge `inline` | [Inline actions](doc:contract-inline-actions), [The transaction view](doc:simulate-inspector) |
 | `linkauth` | Lets a custom permission sign one action of a contract | [Linked actions (linkauth)](doc:linked-actions) |
 | Local chain | A private WAX chain that WAX Master runs on this computer: your own accounts, tokens and contracts, no faucet, reset at will | [The local chain](doc:local-chain) |
-| Log action | An action of `atomicassets` that only tells the collection's notify accounts what happened, such as `logmint` and `logtransfer` | [AtomicAssets notifications](doc:nft-notifications) |
+| Log action | An action that does nothing but announce what happened: a contract sends it to itself as an inline action and notifies the accounts that should hear of it. `atomicassets` does this with `logmint` and `logtransfer`; the Reward log example does it with `logreward`. A website or game reads it from the transaction | [Example: Reward log](doc:example-reward-log), [AtomicAssets notifications](doc:nft-notifications) |
 | Look-alike token | A token with the same symbol as a real one, issued by another contract | [Accepting tokens safely](doc:contract-accept-tokens) |
 | Mainnet | The real chain, where tokens have value | [Mainnet and testnet](doc:mainnet-and-testnet) |
 | `multi_index` | The table type of contracts | [Tables, scopes and payers](doc:contract-tables) |
 | Mutable data | The attribute values of an AtomicAssets asset or template that an authorized account can change later | [AtomicAssets in short](doc:nft-atomicassets) |
 | Name bid | An offer of WAX for a short account name, placed with `bidname` | [Name bids](doc:name-bids) |
 | NET | The bytes of transactions an account may send, from staking or PowerUp | [CPU and NET](doc:resources-cpu-net) |
-| Notification | A copy of an action sent to another account with `require_recipient`; handled with `on_notify` | [Notifications](doc:contract-notifications) |
+| Notification | A copy of an action sent to another account with `require_recipient`; handled with `on_notify`. In the transaction view it is an entry with the badge `notification to <account>` under the action it copies | [Notifications](doc:contract-notifications), [The transaction view](doc:simulate-inspector) |
 | Notify account | An account that is told of every movement of a collection's assets, with `logmint`, `logtransfer` and the other log actions | [AtomicAssets notifications](doc:nft-notifications) |
 | Odds | In a pack roll, the weight of an outcome; its chance is its odds divided by the total odds of the roll | [Packs (atomicpacksx)](doc:nft-packs) |
 | Offer | A proposed trade of AtomicAssets assets between two accounts, accepted or declined by the recipient | [AtomicAssets in short](doc:nft-atomicassets) |
@@ -55,6 +55,7 @@ The words of WAX and of this program, in alphabetical order, each with the page 
 | Private key, public key | The secret that signs, and the part that the chain stores in a permission | [The vault](doc:vault) |
 | RAM | Storage on the chain for code and rows, bought and sold | [RAM](doc:resources-ram) |
 | Recipe | In a blend, the ingredient templates that must be sent and the template that is minted for them | [Example: NFT blend](doc:example-nft-blend) |
+| RAM delta | The change of an account's RAM in one action: `+219 bytes` when the account now holds more, `-219 bytes` when RAM was freed. The RAM Deltas part of the transaction view lists them | [The transaction view](doc:simulate-inspector), [RAM](doc:resources-ram) |
 | Ricardian contract | The plain-language text of an action, shown by wallets | [Ricardian contracts](doc:ricardian) |
 | Roll | One outcome of a pack with its odds; in the Random number example, one request for a number | [Packs (atomicpacksx)](doc:nft-packs), [Example: Random number (ORNG)](doc:example-random-number) |
 | Schema | The list of attribute names and types for the assets of an AtomicAssets collection | [AtomicAssets in short](doc:nft-atomicassets) |
@@ -70,6 +71,7 @@ The words of WAX and of this program, in alphabetical order, each with the page 
 | Threshold, weight | How many signatures (by weight) a permission needs | [Thresholds and weights](doc:multisig-threshold) |
 | Time point | A time in a contract, taken from the block | [Time](doc:contract-time) |
 | Toolchain | The compiler and editor engine in the program's own WSL environment | [First start and the toolchain](doc:first-start) |
+| Trace | What the node recorded of one execution of an action: its data, console output, RAM changes and the actions and notifications it caused. The Traces part of the transaction view shows them as a tree | [The transaction view](doc:simulate-inspector) |
 | Transaction | One or more actions signed and sent together; all succeed or none | [Run actions](doc:run-actions) |
 | Vault | The encrypted file of this program that holds your keys | [The vault](doc:vault) |
 | WASM | The compiled code of a contract | [Build, Output and Problems](doc:build-output-problems) |

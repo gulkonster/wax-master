@@ -12,7 +12,7 @@ The local chain is a private WAX chain that WAX Master runs for you on this comp
 What it does not have:
 
 - Other people's contracts. A fresh chain holds only the system contracts. A contract such as `atomicassets` is not there unless you copy it (see the end of this page).
-- A history service. The Transactions section of an account says so; the inspector still shows every transaction you send.
+- A history service. The Transactions section of an account says so; the inspector still shows every transaction you send, and a transaction sent on the local chain can be opened again from Network > Open Transaction by Id.
 - Real resource prices. RAM, CPU and NET follow the rules of WAX, but nobody competes for them.
 - Real tokens. The WAX on this chain is yours alone and has no value anywhere else.
 

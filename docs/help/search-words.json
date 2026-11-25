@@ -105,7 +105,9 @@
     ["notify account", "notify accounts", "hook", "listener"],
     ["mutable data", "setassetdata", "asset data"],
     ["offer", "trade"],
-    ["log action", "logmint", "logtransfer"],
+    ["log action", "logmint", "logtransfer", "logreward", "event", "announce"],
+    ["trace", "traces", "explorer", "transaction view", "execution tree", "inline tree"],
+    ["notify", "notification", "require recipient", "tell another account"],
     ["recipe", "blend recipe"]
   ]
 }
