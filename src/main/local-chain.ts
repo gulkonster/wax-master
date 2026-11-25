@@ -91,7 +91,7 @@ export function logTail(text: string, keep = LOG_KEEP_BYTES): string {
 
 /** The node's words when its state needs a replay of its own blocks (seen after a replay that was stopped). */
 const REPLAY_HINT = /restore from a compatible snapshot or replay/i
-const DAMAGED_PATTERN =/block_log_exception|fork_database_exception|database_exception|bad database version/i
+const DAMAGED_PATTERN = /block_log_exception|fork_database_exception|database_exception|bad database version/i
 
 export type ExitOutcome = { kind: 'replay' } | { kind: 'failed'; reason: string; repair: LocalChainRepair; portTaken?: boolean }
 
