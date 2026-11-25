@@ -1,23 +1,31 @@
 // Code intelligence for C++ files: a language-server client on Monaco's
 // provider API. The engine (clangd) runs in the toolchain distro; this module
 // keeps open documents in sync, shows its diagnostics as markers (owner
-// "clangd") and answers Monaco's completion, hover, navigation, rename,
+// "clangd", placed and worded by the shared modules), runs the naming checks
+// (owner "checks") and answers Monaco's completion, hover, navigation, rename,
 // outline, formatting and quick-fix requests.
 
 import { monaco } from '../monaco'
 import { emit } from '../bus'
 import { toast } from '../toast'
 import type { EditorStatus } from '../../../../shared/api'
-import { FLAG_SETUP, filterDiagnostics, type FlagSetup, type LspDiagnostic, type LspRange } from '../../../../shared/lsp-diagnostics'
+import { FLAG_SETUP, keepDiagnostic, rewriteDiagnostic, type FlagSetup, type LspDiagnostic, type LspRange } from '../../../../shared/lsp-diagnostics'
+import { contractChecks, replacedByCheck, type Check } from '../../../../shared/contract-checks'
+import { placeDiagnostics } from '../../../../shared/lsp-place'
+import { cleanDoc, cleanMessage, prettyNames } from '../../../../shared/lsp-messages'
 import { applyTextEdits, type LspTextEdit } from '../../../../shared/lsp-text'
 import { LspClient, isCancelled, type RpcMessage } from './client'
 import * as conv from './convert'
 import { sortTextFor } from './sort'
 import { disposeBackgroundModels, ensureModels, markBackgroundSaved, relOf } from './models'
 import { setEngineView } from './status'
+import { clearLiveDiagnostics, placeNameOf, replacedInHeader, setLiveDocument, type ShownDiagnostic } from './problems'
 
 const LANGUAGE = 'cpp'
 const OWNER = 'clangd'
+const CHECKS_OWNER = 'checks'
+const CHECKS_SOURCE = 'WAX Master'
+const CHECK_DELAY_MS = 300
 const COMMAND_ID = 'wax.engine.command'
 
 interface ServerCaps {
@@ -107,7 +115,11 @@ let providers: monaco.IDisposable[] = []
 let indexing: { title: string; percentage?: number } | null = null
 const fileStatus = new Map<string, string>()
 const docs = new Map<string, SyncedDoc>()
-const diagnostics = new Map<string, LspDiagnostic[]>()
+/** As the engine published them (fix addresses in the document key form). */
+const engineDiagnostics = new Map<string, LspDiagnostic[]>()
+/** As the editor shows them, each with the engine's form (code action requests send the engine's ranges). */
+const shownDiagnostics = new Map<string, ShownDiagnostic[]>()
+const checkTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 const CLIENT_CAPABILITIES = {
   general: { positionEncodings: ['utf-16'] },
@@ -154,7 +166,7 @@ const CLIENT_CAPABILITIES = {
         codeActionKind: { valueSet: ['', 'quickfix', 'refactor', 'refactor.extract', 'refactor.inline', 'refactor.rewrite', 'source'] }
       }
     },
-    publishDiagnostics: { relatedInformation: true, tagSupport: { valueSet: [1, 2] }, codeDescriptionSupport: true }
+    publishDiagnostics: { codeActionsInline: true, relatedInformation: true, tagSupport: { valueSet: [1, 2] }, codeDescriptionSupport: true }
   }
 }
 
@@ -231,6 +243,7 @@ export function openDocument(model: monaco.editor.ITextModel): void {
     model,
     opened: false,
     sub: model.onDidChangeContent((e) => {
+      scheduleChecks(k)
       const c = activeClient()
       if (!c || !d.opened) return
       const changes =
@@ -242,6 +255,7 @@ export function openDocument(model: monaco.editor.ITextModel): void {
   }
   docs.set(k, d)
   sendOpen(d)
+  refreshDocument(k)
 }
 
 export function closeDocument(model: monaco.editor.ITextModel): void {
@@ -251,6 +265,16 @@ export function closeDocument(model: monaco.editor.ITextModel): void {
   d.sub.dispose()
   docs.delete(k)
   fileStatus.delete(k)
+  const t = checkTimers.get(k)
+  if (t) clearTimeout(t)
+  checkTimers.delete(k)
+  engineDiagnostics.delete(k)
+  shownDiagnostics.delete(k)
+  setLiveDocument(k, null)
+  if (!model.isDisposed()) {
+    monaco.editor.setModelMarkers(model, OWNER, [])
+    monaco.editor.setModelMarkers(model, CHECKS_OWNER, [])
+  }
   if (d.opened) activeClient()?.notify('textDocument/didClose', { textDocument: { uri: k } })
   updateView()
 }
@@ -265,23 +289,139 @@ monaco.editor.onWillDisposeModel((m) => closeDocument(m))
 // ---- diagnostics ---------------------------------------------------------
 
 function applyStoredMarkers(model: monaco.editor.ITextModel): void {
-  const list = diagnostics.get(model.uri.toString()) ?? []
-  monaco.editor.setModelMarkers(model, OWNER, list.map(conv.toMarker))
+  const list = shownDiagnostics.get(model.uri.toString()) ?? []
+  monaco.editor.setModelMarkers(model, OWNER, list.map((s) => conv.toMarker(s.shown)))
+}
+
+/** Project C++ documents get the naming checks; toolchain headers do not. */
+function checked(k: string): boolean {
+  return docs.has(k) && k.startsWith('project:')
+}
+
+function checkMarker(c: Check): monaco.editor.IMarkerData {
+  return {
+    ...conv.toRange(c.range),
+    severity: c.severity === 1 ? monaco.MarkerSeverity.Error : monaco.MarkerSeverity.Warning,
+    message: c.message,
+    source: CHECKS_SOURCE,
+    code: c.code
+  }
+}
+
+/** The text a range covers. */
+function textIn(lines: string[], r: LspRange): string {
+  if (r.start.line === r.end.line) return (lines[r.start.line] ?? '').slice(r.start.character, r.end.character)
+  const parts = [(lines[r.start.line] ?? '').slice(r.start.character)]
+  for (let l = r.start.line + 1; l < r.end.line; l++) parts.push(lines[l] ?? '')
+  parts.push((lines[r.end.line] ?? '').slice(0, r.end.character))
+  return parts.join('\n')
+}
+
+function cleanDiagnostic(d: LspDiagnostic): LspDiagnostic {
+  return {
+    ...d,
+    message: cleanMessage(d.message),
+    relatedInformation: d.relatedInformation?.map((ri) => ({ ...ri, message: cleanMessage(ri.message) }))
+  }
+}
+
+/**
+ * Runs one document through the window's pipeline: the filter (with the
+ * underlined text and the toolchain version), the rewrite, the diagnostics a
+ * naming check replaces, the place, the words. Sets both marker owners and
+ * the document's live problems.
+ */
+function refreshDocument(k: string): void {
+  const found = monaco.editor.getModel(monaco.Uri.parse(k))
+  const model = found && !found.isDisposed() ? found : null
+  const lines = model ? model.getLinesContent() : []
+  const checks = model && checked(k) ? contractChecks(model.getValue()) : []
+  const cdtVersion = mainStatus?.cdtVersion ?? ''
+  const headerChecks = new Map<string, Check[] | null>()
+  const checksOfOpen = (uri: string): Check[] | null => {
+    const h = key(uri)
+    if (!headerChecks.has(h)) {
+      const m = checked(h) ? monaco.editor.getModel(monaco.Uri.parse(h)) : null
+      headerChecks.set(h, m && !m.isDisposed() ? contractChecks(m.getValue()) : null)
+    }
+    return headerChecks.get(h) ?? null
+  }
+  const kept: ShownDiagnostic[] = []
+  for (const raw of engineDiagnostics.get(k) ?? []) {
+    const ctx = { cdtVersion, underlined: textIn(lines, raw.range) }
+    if (!keepDiagnostic(raw, k, setup, ctx)) continue
+    const d = rewriteDiagnostic(raw, ctx)
+    if (replacedByCheck(d, checks) || replacedInHeader(d, checksOfOpen)) continue
+    kept.push({ shown: d, raw })
+  }
+  const placed = placeDiagnostics(
+    kept.map((s) => s.shown),
+    lines,
+    k,
+    placeNameOf
+  )
+  const shown = placed.map((d, i) => ({ shown: cleanDiagnostic(d), raw: kept[i].raw }))
+  shownDiagnostics.set(k, shown)
+  if (model) {
+    monaco.editor.setModelMarkers(model, OWNER, shown.map((s) => conv.toMarker(s.shown)))
+    monaco.editor.setModelMarkers(model, CHECKS_OWNER, checks.map(checkMarker))
+  }
+  if (docs.has(k)) setLiveDocument(k, { diagnostics: shown, checks })
+}
+
+/** The checks run 300 ms after the last change of a document. */
+function scheduleChecks(k: string): void {
+  const t = checkTimers.get(k)
+  if (t) clearTimeout(t)
+  checkTimers.set(
+    k,
+    setTimeout(() => {
+      checkTimers.delete(k)
+      if (docs.has(k)) refreshDocument(k)
+    }, CHECK_DELAY_MS)
+  )
+}
+
+/** The addresses in a diagnostic's fixes in the same form as the document keys. */
+function withKeyedFixes(d: LspDiagnostic): LspDiagnostic {
+  if (!d.codeActions) return d
+  return {
+    ...d,
+    codeActions: d.codeActions.map((a) => {
+      const changes = a.edit?.changes
+      if (!changes) return a
+      return { ...a, edit: { ...a.edit, changes: Object.fromEntries(Object.entries(changes).map(([u, e]) => [key(u), e])) } }
+    })
+  }
 }
 
 function onDiagnostics(params: unknown): void {
   const p = params as { uri: string; diagnostics: LspDiagnostic[] }
   if (!p || typeof p.uri !== 'string' || !Array.isArray(p.diagnostics)) return
   const k = key(p.uri)
-  const kept = filterDiagnostics(p.diagnostics, k, setup)
-  diagnostics.set(k, kept)
-  const model = monaco.editor.getModel(monaco.Uri.parse(k))
-  if (model) applyStoredMarkers(model)
+  engineDiagnostics.set(k, p.diagnostics.map(withKeyedFixes))
+  refreshDocument(k)
 }
 
 function clearMarkers(): void {
-  diagnostics.clear()
+  engineDiagnostics.clear()
+  shownDiagnostics.clear()
   for (const m of monaco.editor.getModels()) monaco.editor.setModelMarkers(m, OWNER, [])
+  clearLiveDiagnostics()
+}
+
+/** A diagnostic as the engine sent it, without the inline fixes, for a code action request. */
+function engineForm(d: LspDiagnostic): LspDiagnostic {
+  const rest = { ...d }
+  delete rest.codeActions
+  return rest
+}
+
+/** Documentation from the toolchain headers without comment marks and with names in source form. */
+function cleanDocumentation(v: string | monaco.IMarkdownString | undefined): string | monaco.IMarkdownString | undefined {
+  if (v === undefined) return undefined
+  if (typeof v === 'string') return cleanDoc(prettyNames(v))
+  return { ...v, value: cleanDoc(prettyNames(v.value)) }
 }
 
 // ---- edits ---------------------------------------------------------------
@@ -430,7 +570,7 @@ function completionItem(item: LspCompletionItem, defaultRange: monaco.IRange): m
     label: item.label.trim(),
     kind: conv.toCompletionKind(item.kind),
     detail: item.detail,
-    documentation: conv.toDocumentation(item.documentation),
+    documentation: cleanDocumentation(conv.toDocumentation(item.documentation)),
     sortText: sortTextFor(item),
     filterText: item.filterText,
     insertText,
@@ -503,7 +643,7 @@ function registerProviders(): void {
               if (!original) return item
               const r = await request<LspCompletionItem>('completionItem/resolve', original, token)
               if (!r) return item
-              return { ...item, detail: r.detail ?? item.detail, documentation: conv.toDocumentation(r.documentation) ?? item.documentation }
+              return { ...item, detail: r.detail ?? item.detail, documentation: cleanDocumentation(conv.toDocumentation(r.documentation)) ?? item.documentation }
             }
           : undefined
       })
@@ -521,7 +661,8 @@ function registerProviders(): void {
             token
           )
           if (!r) return null
-          return { contents: conv.toMarkdown(r.contents), range: r.range ? conv.toRange(r.range) : undefined }
+          const contents = conv.toMarkdown(r.contents).map((m) => ({ ...m, value: cleanDoc(prettyNames(m.value)) }))
+          return { contents, range: r.range ? conv.toRange(r.range) : undefined }
         }
       })
     )
@@ -553,8 +694,8 @@ function registerProviders(): void {
             value: {
               signatures: r.signatures.map((s) => ({
                 label: s.label,
-                documentation: conv.toDocumentation(s.documentation),
-                parameters: (s.parameters ?? []).map((p) => ({ label: p.label, documentation: conv.toDocumentation(p.documentation) })),
+                documentation: cleanDocumentation(conv.toDocumentation(s.documentation)),
+                parameters: (s.parameters ?? []).map((p) => ({ label: p.label, documentation: cleanDocumentation(conv.toDocumentation(p.documentation)) })),
                 activeParameter: s.activeParameter
               })),
               activeSignature: r.activeSignature ?? 0,
@@ -691,7 +832,10 @@ function registerProviders(): void {
           async provideCodeActions(model, range, context, token) {
             const uri = docUri(model)
             if (!uri) return { actions: [], dispose: () => undefined }
-            const related = (diagnostics.get(uri) ?? []).filter((d) => conv.rangesOverlap(conv.toRange(d.range), range))
+            // The request names the engine's own diagnostics (its ranges and words), so it finds their fixes.
+            const related = (shownDiagnostics.get(uri) ?? [])
+              .filter((s) => conv.rangesOverlap(conv.toRange(s.shown.range), range) || conv.rangesOverlap(conv.toRange(s.raw.range), range))
+              .map((s) => engineForm(s.raw))
             const r = await request<(LspCodeAction | LspCommand)[]>(
               'textDocument/codeAction',
               {
@@ -830,7 +974,7 @@ export function startEditorEngine(): () => void {
       .start()
       .then(onStatus)
       .catch((err) => {
-        mainStatus = { state: 'error', detail: err instanceof Error ? err.message : String(err), session: 0, setup }
+        mainStatus = { state: 'error', detail: err instanceof Error ? err.message : String(err), session: 0, setup, cdtVersion: '' }
         updateView()
       })
   }

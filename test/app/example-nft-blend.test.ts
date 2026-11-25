@@ -33,14 +33,14 @@ describe('NFT blend example', () => {
     expect(e).toBeDefined()
     expect(e!.name).toBe('blender')
     expect(e!.topic).toBe('example-nft-blend')
-    expect(Object.keys(f).sort()).toEqual(['README.md', 'include/blender.hpp', 'resource/blender.clauses.md', 'resource/blender.contracts.md', 'src/blender.cpp'])
+    expect(Object.keys(f).sort()).toEqual(['.clang-format', 'README.md', 'include/blender.hpp', 'resource/blender.clauses.md', 'resource/blender.contracts.md', 'src/blender.cpp'])
     expect((f['src/blender.cpp'] + f['include/blender.hpp']).split('\n').length).toBeLessThan(150)
   })
 
   it('has setrecipe and delrecipe, both signed by the contract account', () => {
     expect(actionsOf(f['include/blender.hpp'])).toEqual(['setrecipe', 'delrecipe'])
     expect(hpp).toContain(
-      'void setrecipe(uint64_t id, name collection, std::vector<int32_t> ingredients, name result_schema,\n                 int32_t result_template);'
+      'void setrecipe(uint64_t id, name collection, std::vector<int32_t> ingredients, name result_schema, int32_t result_template);'
     )
     expect(hpp).toContain('void delrecipe(uint64_t id);')
     const setrecipe = cpp.slice(cpp.indexOf('::setrecipe('), cpp.indexOf('::delrecipe('))

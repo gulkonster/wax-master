@@ -95,6 +95,48 @@ public:
 };
 ```
 
+## Row variable: `auto&` or the row type
+
+Inside `[&](auto& row)` the editor completes the row's fields after `row.`, but it checks them only at Build (Ctrl+B): an unknown field or a wrong type is not underlined while you type. Writing the row type instead of `auto`, as in `[&](note& row)`, gives live checks there too. Both forms compile the same.
+
+```cpp
+#include <eosio/eosio.hpp>
+using namespace eosio;
+
+class [[eosio::contract("namedrow")]] namedrow : public contract {
+public:
+  using contract::contract;
+
+  struct [[eosio::table]] entry {
+    uint64_t id;
+    name     owner;
+    uint32_t points;
+
+    uint64_t primary_key() const { return id; }
+  };
+  typedef multi_index<"entries"_n, entry> entries_table;
+
+  [[eosio::action]]
+  void add(name owner) {
+    require_auth(owner);
+    entries_table entries(get_self(), get_self().value);
+    entries.emplace(owner, [&](entry& row) {   // the row type instead of auto
+      row.id = entries.available_primary_key();
+      row.owner = owner;
+      row.points = 0;
+    });
+  }
+
+  [[eosio::action]]
+  void addpoints(uint64_t id, uint32_t points) {
+    entries_table entries(get_self(), get_self().value);
+    auto it = entries.require_find(id, "no entry with this id");
+    require_auth(it->owner);
+    entries.modify(it, same_payer, [&](entry& row) { row.points += points; });
+  }
+};
+```
+
 ## How to do it here
 
 1. Write the table and build (Ctrl+B). The ABI check makes sure the table's struct is in the ABI; see [ABI check messages](doc:abi-check).

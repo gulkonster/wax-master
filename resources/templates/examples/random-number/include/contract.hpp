@@ -31,9 +31,9 @@ public:
 
   // One row per roll; result is 0 until the answer arrives, then 1 to 6.
   struct [[eosio::table]] roll_row {
-    uint64_t    id;
-    name        player;
-    uint8_t     result = 0;
+    uint64_t id;
+    name player;
+    uint8_t result = 0;
     checksum256 random_value;
     uint64_t primary_key() const { return id; }
   };

@@ -53,7 +53,7 @@ check(row.owner == owner, "this asset was staked by another account");
 stakes.erase(row); // the row and its RAM go back to the contract
 action(permission_level{get_self(), "active"_n}, ATOMICASSETS, "transfer"_n,
        std::make_tuple(get_self(), owner, asset_ids, std::string("unstake")))
-  .send();
+    .send();
 ```
 
 ## Why this handler may fail, and a logtransfer handler may not

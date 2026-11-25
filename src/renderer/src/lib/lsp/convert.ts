@@ -127,13 +127,15 @@ export function toMarker(d: LspDiagnostic): monaco.editor.IMarkerData {
   const r = { ...toRange(d.range) } as { -readonly [K in keyof monaco.IRange]: number }
   // Zero-width ranges are invisible; underline at least one character.
   if (r.startLineNumber === r.endLineNumber && r.startColumn === r.endColumn) r.endColumn = r.startColumn + 1
+  // A hint with the "unnecessary" tag (an unused include) is drawn faded, without an underline.
+  const unnecessary = d.severity === 4 && !!d.tags?.includes(1)
   return {
     ...r,
-    severity: toSeverity(d.severity),
+    severity: unnecessary ? monaco.MarkerSeverity.Hint : toSeverity(d.severity),
     message: d.message,
     source: d.source ?? 'clangd',
     code: d.code === undefined ? undefined : String(d.code),
-    tags: d.tags?.filter((t) => t === 1 || t === 2) as monaco.MarkerTag[] | undefined,
+    tags: unnecessary ? [monaco.MarkerTag.Unnecessary] : (d.tags?.filter((t) => t === 1 || t === 2) as monaco.MarkerTag[] | undefined),
     relatedInformation: d.relatedInformation?.map((ri) => ({
       resource: monaco.Uri.parse(ri.location.uri),
       message: ri.message,

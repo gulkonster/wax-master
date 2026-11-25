@@ -42,5 +42,5 @@ void %CLASS%::withdraw(name owner, asset quantity) {
   // The contract signs with its own active permission: eosio.code.
   action(permission_level{get_self(), "active"_n}, "eosio.token"_n, "transfer"_n,
          std::make_tuple(get_self(), owner, quantity, std::string("withdraw")))
-    .send();
+      .send();
 }

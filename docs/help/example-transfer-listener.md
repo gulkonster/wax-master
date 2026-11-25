@@ -26,7 +26,7 @@ void on_transfer(name from, name to, asset quantity, std::string memo);
 ```cpp
 action(permission_level{get_self(), "active"_n}, "eosio.token"_n, "transfer"_n,
        std::make_tuple(get_self(), owner, quantity, std::string("withdraw")))
-  .send();
+    .send();
 ```
 
 The contract signs this transfer with its own `active` permission. That works only when `active` lists `<contract>@eosio.code`; see [The eosio.code permission](doc:eosio-code) and [Inline actions](doc:contract-inline-actions).

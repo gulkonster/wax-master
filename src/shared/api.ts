@@ -150,6 +150,8 @@ export interface EditorStatus {
   session: number
   /** Target setup of the generated compile flags. */
   setup: 'x32' | 'i386'
+  /** CDT version of the toolchain the engine runs on; empty when there is no toolchain. */
+  cdtVersion: string
 }
 
 export interface SearchMatch {

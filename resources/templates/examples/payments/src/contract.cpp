@@ -38,8 +38,7 @@ void %CLASS%::on_transfer(name from, name to, asset quantity, std::string memo) 
   // included. A WAX of any contract but eosio.token stops here.
   tokens_table tokens(get_self(), get_self().value);
   auto t = tokens.find(quantity.symbol.code().raw());
-  check(t != tokens.end() &&
-          extended_symbol(t->sym, t->token_contract) == extended_symbol(quantity.symbol, get_first_receiver()),
+  check(t != tokens.end() && extended_symbol(t->sym, t->token_contract) == extended_symbol(quantity.symbol, get_first_receiver()),
         "this token is not accepted here");
   // The token contract checks these too; the balances here do not rely on it.
   check(quantity.is_valid(), "invalid quantity");
@@ -80,5 +79,5 @@ void %CLASS%::withdraw(name owner, asset quantity) {
   // The contract signs with its own active permission: eosio.code.
   action(permission_level{get_self(), "active"_n}, token_contract, "transfer"_n,
          std::make_tuple(get_self(), owner, quantity, std::string("withdraw")))
-    .send();
+      .send();
 }

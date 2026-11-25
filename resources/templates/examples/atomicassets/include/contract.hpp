@@ -34,11 +34,11 @@ public:
 
   // One row: what to mint, and the assets of the collection received so far.
   struct [[eosio::table]] config {
-    name     collection;
-    name     schema;
-    int32_t  template_id = 0;
+    name collection;
+    name schema;
+    int32_t template_id = 0;
     uint64_t received = 0;
-    name     last_sender;
+    name last_sender;
   };
   typedef singleton<"config"_n, config> config_table;
 

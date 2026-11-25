@@ -56,5 +56,5 @@ void %CLASS%::claim(name owner) {
   }
   action(permission_level{get_self(), "active"_n}, "eosio.token"_n, "transfer"_n,
          std::make_tuple(get_self(), owner, payout, std::string("claim")))
-    .send();
+      .send();
 }

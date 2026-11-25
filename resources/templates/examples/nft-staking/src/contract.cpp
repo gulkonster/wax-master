@@ -56,5 +56,5 @@ void %CLASS%::unstake(name owner, std::vector<uint64_t> asset_ids) {
   // because `from` is the contract.
   action(permission_level{get_self(), "active"_n}, ATOMICASSETS, "transfer"_n,
          std::make_tuple(get_self(), owner, asset_ids, std::string("unstake")))
-    .send();
+      .send();
 }

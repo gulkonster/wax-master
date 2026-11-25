@@ -27,8 +27,7 @@ void on_transfer(name from, name to, asset quantity, std::string memo);
 - The handler compares the pair, contract and symbol with its precision, with the list. When it is not there, `check` refuses the whole transfer, so the tokens stay with the sender:
 
 ```cpp
-check(t != tokens.end() &&
-        extended_symbol(t->sym, t->token_contract) == extended_symbol(quantity.symbol, get_first_receiver()),
+check(t != tokens.end() && extended_symbol(t->sym, t->token_contract) == extended_symbol(quantity.symbol, get_first_receiver()),
       "this token is not accepted here");
 ```
 
@@ -41,7 +40,7 @@ check(t != tokens.end() &&
 ```cpp
 action(permission_level{get_self(), "active"_n}, token_contract, "transfer"_n,
        std::make_tuple(get_self(), owner, quantity, std::string("withdraw")))
-  .send();
+    .send();
 ```
 
 The contract signs this transfer with its own `active` permission, so `active` needs `<contract>@eosio.code`; see [The eosio.code permission](doc:eosio-code).

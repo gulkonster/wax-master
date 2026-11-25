@@ -25,9 +25,9 @@ check(minted.find(owner.value) == minted.end(), "this account has already minted
 minted.emplace(owner, [&](auto& row) { row.owner = owner; });
 
 action(permission_level{get_self(), "active"_n}, ATOMICASSETS, "mintasset"_n,
-       std::make_tuple(get_self(), c.collection, c.schema, c.template_id, owner,
-                       empty_attributes{}, empty_attributes{}, std::vector<asset>{}))
-  .send();
+       std::make_tuple(get_self(), c.collection, c.schema, c.template_id, owner, empty_attributes{}, empty_attributes{},
+                       std::vector<asset>{}))
+    .send();
 ```
 
 - The first field of `mintasset` is the `authorized_minter`: the contract account. It must be an authorized account of the collection, and it signs with its own `active` permission, so it needs `eosio.code`; see [The eosio.code permission](doc:eosio-code) and [Inline actions](doc:contract-inline-actions).

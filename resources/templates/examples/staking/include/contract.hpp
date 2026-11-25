@@ -31,9 +31,9 @@ public:
 
   // One row per staker.
   struct [[eosio::table]] stake_row {
-    name           owner;
-    asset          staked;
-    asset          unstaking;
+    name owner;
+    asset staked;
+    asset unstaking;
     time_point_sec claim_after; // when the unstaking amount can be claimed
     uint64_t primary_key() const { return owner.value; }
   };

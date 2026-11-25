@@ -33,13 +33,12 @@ void %CLASS%::mint(name owner) {
   // The contract is an authorized account of the collection and signs with
   // its own active permission: eosio.code.
   action(permission_level{get_self(), "active"_n}, ATOMICASSETS, "mintasset"_n,
-         std::make_tuple(get_self(), c.collection, c.schema, c.template_id, owner,
-                         empty_attributes{}, empty_attributes{}, std::vector<asset>{}))
-    .send();
+         std::make_tuple(get_self(), c.collection, c.schema, c.template_id, owner, empty_attributes{}, empty_attributes{},
+                         std::vector<asset>{}))
+      .send();
 }
 
-void %CLASS%::on_logtransfer(name collection_name, name from, name to, std::vector<uint64_t> asset_ids,
-                             std::string memo) {
+void %CLASS%::on_logtransfer(name collection_name, name from, name to, std::vector<uint64_t> asset_ids, std::string memo) {
   // No check() in this handler: it returns for everything it does not count.
   if (to != get_self()) return;
   config_table cfg(get_self(), get_self().value);

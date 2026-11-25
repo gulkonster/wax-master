@@ -49,6 +49,7 @@ describe('project templates', () => {
 
       it('writes source, header and both Ricardian files with the names filled in', () => {
         expect(Object.keys(f).sort()).toEqual([
+          '.clang-format',
           'include/my.tok.hpp',
           'resource/my.tok.clauses.md',
           'resource/my.tok.contracts.md',
@@ -120,9 +121,7 @@ public:
     const empty = templateFiles('empty', 'my.tok')
     expect(empty['src/my.tok.cpp']).toBe(`#include <my.tok.hpp>
 
-void my_tok::doit(name user) {
-  require_auth(user);
-}
+void my_tok::doit(name user) { require_auth(user); }
 `)
     expect(empty['include/my.tok.hpp']).toBe(`#pragma once
 
@@ -329,7 +328,7 @@ describe('example projects', () => {
       const f = c.files()
 
       it('writes source, header, both Ricardian files and the README with the names filled in', () => {
-        expect(Object.keys(f).sort()).toEqual(['README.md', 'include/my.ex.hpp', 'resource/my.ex.clauses.md', 'resource/my.ex.contracts.md', 'src/my.ex.cpp'])
+        expect(Object.keys(f).sort()).toEqual(['.clang-format', 'README.md', 'include/my.ex.hpp', 'resource/my.ex.clauses.md', 'resource/my.ex.contracts.md', 'src/my.ex.cpp'])
         for (const text of Object.values(f)) {
           expect(text).not.toMatch(/%CONTRACT%|%CLASS%|\r/)
           expect(text.endsWith('\n')).toBe(true)
@@ -480,5 +479,35 @@ describe('example projects', () => {
     const yml = readFileSync(join(__dirname, '../../electron-builder.yml'), 'utf8')
     expect(yml).toMatch(/- from: resources\n\s+to: resources\n\s+filter:\n\s+- 'templates\/\*\*'\n/)
     expect(yml).not.toContain('examples-pending')
+  })
+})
+
+describe('style file', () => {
+  const STYLE = [
+    'BasedOnStyle: LLVM',
+    'ColumnLimit: 140',
+    'AllowShortFunctionsOnASingleLine: All',
+    'AllowShortLambdasOnASingleLine: All',
+    'AllowShortIfStatementsOnASingleLine: WithoutElse',
+    'AccessModifierOffset: -2',
+    'PointerAlignment: Left',
+    ''
+  ].join('\n')
+  const base = join(__dirname, '../../resources/templates')
+
+  it('is the same seven lines in all twelve template folders', () => {
+    const folders = [
+      'project/empty',
+      'project/hello',
+      'project/token',
+      'hello',
+      ...readdirSync(join(base, 'examples')).map((e) => `examples/${e}`)
+    ]
+    expect(folders.length).toBe(12)
+    for (const d of folders) expect(readFileSync(join(base, d, '.clang-format'), 'utf8'), d).toBe(STYLE)
+  })
+
+  it('is written into every new project', () => {
+    for (const id of TEMPLATE_IDS) expect(templateFiles(id, 'my.ex')['.clang-format'], id).toBe(STYLE)
   })
 })

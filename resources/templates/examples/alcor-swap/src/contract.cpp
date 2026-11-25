@@ -23,14 +23,13 @@ void %CLASS%::swap(uint64_t pool_id, extended_asset token_in, extended_asset min
   // The deadline is worked out when the action runs (block time plus 3
   // minutes): it moves with the transaction, so swap.alcor never sees it pass.
   const uint32_t deadline = current_time_point().sec_since_epoch() + DEADLINE_SECONDS;
-  const std::string memo = "swapexactin#" + std::to_string(pool_id) + "#" + get_self().to_string() + "#" +
-                           min_out.quantity.to_string() + "@" + min_out.contract.to_string() + "#" +
-                           std::to_string(deadline);
+  const std::string memo = "swapexactin#" + std::to_string(pool_id) + "#" + get_self().to_string() + "#" + min_out.quantity.to_string() +
+                           "@" + min_out.contract.to_string() + "#" + std::to_string(deadline);
   print("memo: ", memo);
 
   // The transfer goes to the token's own contract, signed by the contract
   // account's active permission: eosio.code.
   action(permission_level{get_self(), "active"_n}, token_in.contract, "transfer"_n,
          std::make_tuple(get_self(), ALCOR_SWAP, token_in.quantity, memo))
-    .send();
+      .send();
 }

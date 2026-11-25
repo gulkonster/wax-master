@@ -19,8 +19,7 @@ static uint64_t recipe_id_of(const std::string& memo) {
   return id;
 }
 
-void %CLASS%::setrecipe(uint64_t id, name collection, std::vector<int32_t> ingredients, name result_schema,
-                        int32_t result_template) {
+void %CLASS%::setrecipe(uint64_t id, name collection, std::vector<int32_t> ingredients, name result_schema, int32_t result_template) {
   require_auth(get_self());
   check(id > 0, "the recipe id must be 1 or more");
   check(!ingredients.empty() && ingredients.size() <= MAX_INGREDIENTS, "a recipe has 1 to 10 ingredients");
@@ -36,8 +35,7 @@ void %CLASS%::setrecipe(uint64_t id, name collection, std::vector<int32_t> ingre
   }
   check(result_template > 0, "a template id must be 1 or more");
   auto res = templates.find(uint64_t(result_template));
-  check(res != templates.end() && res->schema_name == result_schema,
-        "the result template is not in this collection and schema");
+  check(res != templates.end() && res->schema_name == result_schema, "the result template is not in this collection and schema");
   std::sort(ingredients.begin(), ingredients.end()); // a blend compares sorted lists
   recipes.emplace(get_self(), [&](auto& r) { r = recipe{id, collection, ingredients, result_schema, result_template}; });
 }
@@ -75,7 +73,7 @@ void %CLASS%::on_transfer(name from, name to, std::vector<uint64_t> asset_ids, s
   for (uint64_t asset_id : asset_ids)
     action(permission_level{get_self(), "active"_n}, ATOMICASSETS, "burnasset"_n, std::make_tuple(get_self(), asset_id)).send();
   action(permission_level{get_self(), "active"_n}, ATOMICASSETS, "mintasset"_n,
-         std::make_tuple(get_self(), r.collection, r.result_schema, r.result_template, from,
-                         empty_attributes{}, empty_attributes{}, std::vector<asset>{}))
-    .send();
+         std::make_tuple(get_self(), r.collection, r.result_schema, r.result_template, from, empty_attributes{}, empty_attributes{},
+                         std::vector<asset>{}))
+      .send();
 }

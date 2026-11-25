@@ -80,6 +80,14 @@ export function isRicardianWarning(message: string): boolean {
   return /does not have a ricardian contract|empty ricardian clause file/i.test(message)
 }
 
+/** The name rule as the Problems row of a refused name carries it (the sentence of the editor's name messages). */
+export const NAME_HINT = "Names use a-z, 1-5 and '.', at most 12 characters (a 13th may be 1-5 or a-j), and do not end with a dot."
+
+/** True for the ABI generator's refusals of a name: not normalized, or more than 13 characters. */
+export function isNameRuleError(message: string): boolean {
+  return /name not properly normalized|is more than 13 characters long/i.test(message)
+}
+
 export type ProblemSeverity = 'error' | 'warning' | 'info'
 
 /** Severity of a line as a Problems entry (null: the line is not a problem of its own). */
@@ -128,4 +136,39 @@ export function countProblems(list: readonly { severity: string }[]): { errors: 
     else if (p.severity === 'warning') warnings++
   }
   return { errors, warnings }
+}
+
+/** A compiler path that is not inside the project: the toolchain's own headers, or a file outside the project folder. */
+export function isOutsideProject(file: string): boolean {
+  return /^(\/|[A-Za-z]:)/.test(file)
+}
+
+const INSTANTIATION_NOTE = /^in (instantiation of .* requested here|call to\b)/i
+
+/**
+ * An error or warning whose file is not in the project (a failure deep inside
+ * the toolchain's templates) takes the place of the first following note
+ * `in instantiation ... requested here` or `in call to ...` that is in the
+ * project, up to the next error or warning line. The message then ends with
+ * the toolchain file's base name and line in brackets. Without such a note the
+ * problem stays as it is.
+ */
+export function placeToolchainProblems<T extends { file: string; line: number; column: number; severity: string; message: string }>(list: readonly T[]): T[] {
+  const out = list.map((p) => ({ ...p }))
+  for (let i = 0; i < out.length; i++) {
+    const p = out[i]
+    if ((p.severity !== 'error' && p.severity !== 'warning') || !p.file || !isOutsideProject(p.file)) continue
+    for (let j = i + 1; j < out.length; j++) {
+      const n = out[j]
+      if (n.severity === 'error' || n.severity === 'warning') break
+      if (n.severity !== 'info' || !n.file || isOutsideProject(n.file) || !INSTANTIATION_NOTE.test(n.message)) continue
+      const base = p.file.slice(p.file.lastIndexOf('/') + 1)
+      p.message = `${p.message} [${base}:${p.line}]`
+      p.file = n.file
+      p.line = n.line
+      p.column = n.column
+      break
+    }
+  }
+  return out
 }

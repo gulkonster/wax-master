@@ -9,7 +9,7 @@ import {
   toolchainUriToPath,
   type PathMap
 } from '../../src/shared/lsp-paths'
-import { filterDiagnostics, keepDiagnostic, type LspDiagnostic } from '../../src/shared/lsp-diagnostics'
+import { KNOWN_EOSIO_ATTRIBUTES, filterDiagnostics, keepDiagnostic, rewriteDiagnostic, type LspDiagnostic } from '../../src/shared/lsp-diagnostics'
 import { applyTextEdits } from '../../src/shared/lsp-text'
 import { compileCommands, compileFlags } from '../../src/main/compile-commands'
 import { searchPattern, searchText } from '../../src/main/search'
@@ -169,7 +169,6 @@ describe('compile commands', () => {
       '-std=gnu++2a',
       '-fno-exceptions',
       '-fno-rtti',
-      '-Wno-unknown-attributes',
       '-D__eosio_cdt__',
       '-D__eosio_cdt_major__=4',
       '-D__eosio_cdt_minor__=1',
@@ -182,6 +181,7 @@ describe('compile commands', () => {
     }
     const sys = a.arguments.flatMap((x, i) => (a.arguments[i - 1] === '-isystem' ? [x] : []))
     expect(sys).toEqual([`${C}/include/libcxx`, `${C}/include/libc`, `${C}/include`, `${C}/include/eosiolib/core`, `${C}/include/eosiolib/contracts`])
+    expect(a.arguments).not.toContain('-Wno-unknown-attributes')
   })
   it('has the i386 setup as the fallback', () => {
     const f = compileFlags('i386', C, '4.1.1wax01', ['/mnt/c/p/include'])
@@ -225,6 +225,49 @@ describe('diagnostic filtering', () => {
   it('keeps ordinary errors', () => {
     const list = [own('undeclared_var_use'), fromHeader('typecheck_assign_const'), fromHeader('ovl_no_viable_function_in_call')]
     expect(filterDiagnostics(list, 'project:///src/a.cpp', 'x32').map((d) => d.code)).toEqual(['undeclared_var_use', 'ovl_no_viable_function_in_call'])
+  })
+})
+
+describe('unknown attributes and unused includes', () => {
+  const range = { start: { line: 48, character: 4 }, end: { line: 48, character: 17 } }
+  const attr = (name: string): LspDiagnostic => ({ range, severity: 2, code: 'unknown-attributes', message: `Unknown attribute '${name}' ignored` })
+  const uri = 'project:///include/a.hpp'
+  const V = '4.1.1wax01'
+
+  it('drops every known eosio attribute', () => {
+    for (const k of KNOWN_EOSIO_ATTRIBUTES) {
+      expect(keepDiagnostic(attr(k), uri, 'x32', { cdtVersion: V, underlined: `eosio::${k}` })).toBe(false)
+    }
+  })
+  it('keeps a misspelt one for 4.1.1wax01 with the words of the editor', () => {
+    const ctx = { cdtVersion: V, underlined: 'eosio::acton' }
+    expect(keepDiagnostic(attr('acton'), uri, 'x32', ctx)).toBe(true)
+    expect(rewriteDiagnostic(attr('acton'), ctx).message).toBe(
+      "Unknown attribute 'eosio::acton': the compiler ignores it, so it has no effect. Did you mean [[eosio::action]]?"
+    )
+    const t = { cdtVersion: V, underlined: 'eosio::tabel' }
+    expect(rewriteDiagnostic(attr('tabel'), t).message).toContain('Did you mean [[eosio::table]]?')
+  })
+  it('ends the message after "effect." without a near name', () => {
+    const ctx = { cdtVersion: V, underlined: 'eosio::singleton' }
+    expect(rewriteDiagnostic(attr('singleton'), ctx).message).toBe("Unknown attribute 'eosio::singleton': the compiler ignores it, so it has no effect.")
+  })
+  it('drops eosio attribute warnings for another toolchain version', () => {
+    expect(keepDiagnostic(attr('acton'), uri, 'x32', { cdtVersion: '4.0.0', underlined: 'eosio::acton' })).toBe(false)
+    expect(keepDiagnostic(attr('action'), uri, 'x32', { cdtVersion: '', underlined: 'eosio::action' })).toBe(false)
+  })
+  it('leaves an attribute that is not eosio alone', () => {
+    const ctx = { cdtVersion: V, underlined: 'gnu::foo' }
+    const d = attr('gnu::foo')
+    expect(keepDiagnostic(d, uri, 'x32', ctx)).toBe(true)
+    expect(rewriteDiagnostic(d, ctx)).toBe(d)
+  })
+  it('shows an unused include as a hint with the unnecessary tag', () => {
+    const d: LspDiagnostic = { range, severity: 2, code: 'unused-includes', message: 'Included header vector is not used directly (fix available)' }
+    const out = rewriteDiagnostic(d, { cdtVersion: V, underlined: '#include <vector>' })
+    expect(out.severity).toBe(4)
+    expect(out.tags).toEqual([1])
+    expect(keepDiagnostic(d, uri, 'x32', { cdtVersion: V, underlined: '#include <vector>' })).toBe(true)
   })
 })
 

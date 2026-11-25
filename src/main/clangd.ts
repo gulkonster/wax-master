@@ -14,7 +14,7 @@ import { join, relative, sep } from 'node:path'
 import type { EditorStatus } from '../shared/api'
 import { effectiveInclude } from '../shared/project'
 import { messageToClient, messageToServer, toolchainUriToPath, type PathMap } from '../shared/lsp-paths'
-import { FLAG_SETUP, compileCommands } from './compile-commands'
+import { FLAG_SETUP, compileCommands, compileFlags } from './compile-commands'
 import { lspKill, lspStart, lspWrite, onLspMessage, run, type LspProcessMessage } from './helper'
 import { log } from './log'
 import { currentProject } from './projects'
@@ -39,7 +39,7 @@ interface Engine {
 }
 
 let engine: Engine | null = null
-let status: EditorStatus = { state: 'off', detail: 'No project is open.', session: 0, setup: FLAG_SETUP }
+let status: EditorStatus = { state: 'off', detail: 'No project is open.', session: 0, setup: FLAG_SETUP, cdtVersion: '' }
 let generation = 0
 let wired = false
 
@@ -47,7 +47,7 @@ function wslExe(): string {
   return join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wsl.exe')
 }
 
-function setStatus(next: Omit<EditorStatus, 'session' | 'setup'>, sender?: WebContents | null): EditorStatus {
+function setStatus(next: Omit<EditorStatus, 'session' | 'setup' | 'cdtVersion'> & { cdtVersion?: string }, sender?: WebContents | null): EditorStatus {
   status = { ...status, ...next }
   const s = sender ?? engine?.sender
   if (s && !s.isDestroyed()) s.send('editor-status', status)
@@ -129,6 +129,25 @@ interface Prepared {
   cdtVersion: string
 }
 
+/** The engine's own arguments (after `wsl.exe -d <distro> --cd <dir> --exec clangd`). */
+export function engineArguments(dir: string): string[] {
+  return [
+    `--compile-commands-dir=${dir}`,
+    '--background-index',
+    '--header-insertion=never',
+    '--log=error',
+    '--enable-config=false',
+    // No clang-tidy: a project .clang-tidy file must not steer the editor engine.
+    '--clang-tidy=false'
+  ]
+}
+
+/** Hash of the compile flags and engine arguments: a change of either restarts a running engine. */
+function flagsHash(cdtRoot: string, cdtVersion: string, dir: string): string {
+  const list = [FLAG_SETUP, ...compileFlags(FLAG_SETUP, cdtRoot, cdtVersion, []), '--', ...engineArguments(dir)]
+  return createHash('sha256').update(JSON.stringify(list)).digest('hex').slice(0, 16)
+}
+
 async function prepare(distro: string, toolchainId: string): Promise<Prepared> {
   const p = currentProject()
   if (!p) throw new Error('No project is open.')
@@ -142,7 +161,7 @@ async function prepare(distro: string, toolchainId: string): Promise<Prepared> {
   return {
     map: { rootWsl, toolchainRoots: [`${cdtRoot}/include`] },
     dir,
-    key: JSON.stringify([p.root, include, p.config.main, toolchainId, FLAG_SETUP]),
+    key: JSON.stringify([p.root, include, p.config.main, toolchainId, flagsHash(cdtRoot, cdtVersion, dir)]),
     cdtRoot,
     cdtVersion
   }
@@ -204,7 +223,7 @@ export async function startEditor(sender: WebContents): Promise<EditorStatus> {
   const tc = engineToolchain()
   if (!tc) {
     return setStatus(
-      { state: 'off', detail: 'Code intelligence is off: the toolchain is not set up (Help > Setup). Syntax colors still work.' },
+      { state: 'off', cdtVersion: '', detail: 'Code intelligence is off: the toolchain is not set up (Help > Setup). Syntax colors still work.' },
       sender
     )
   }
@@ -223,25 +242,11 @@ export async function startEditor(sender: WebContents): Promise<EditorStatus> {
   lspStart(
     procId,
     wslExe(),
-    [
-      '-d',
-      tc.distro,
-      '--cd',
-      prep.dir,
-      '--exec',
-      'clangd',
-      `--compile-commands-dir=${prep.dir}`,
-      '--background-index',
-      '--header-insertion=never',
-      '--log=error',
-      '--enable-config=false',
-      // No clang-tidy: a project .clang-tidy file must not steer the editor engine.
-      '--clang-tidy=false'
-    ],
+    ['-d', tc.distro, '--cd', prep.dir, '--exec', 'clangd', ...engineArguments(prep.dir)],
     undefined,
     { WSL_UTF8: '1' }
   )
-  return setStatus({ state: 'running', detail: 'Editor engine running.' }, sender)
+  return setStatus({ state: 'running', detail: 'Editor engine running.', cdtVersion: prep.cdtVersion }, sender)
 }
 
 export function stopEditor(detail = 'No project is open.', now = false): void {

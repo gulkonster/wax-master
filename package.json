@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "dist": "node scripts/dist.mjs",
-    "check:doc-samples": "node scripts/check-doc-samples.mjs"
+    "check:doc-samples": "node scripts/check-doc-samples.mjs",
+    "check:editor": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",

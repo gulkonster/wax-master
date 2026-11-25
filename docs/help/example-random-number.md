@@ -11,9 +11,7 @@ A dice roll with the WAX random number service on the account `orng.wax`. `roll`
 `roll` sends one inline action to the service (`ORNG` is the constant `"orng.wax"_n` at the top of the source), signed by the contract's own `active` permission:
 
 ```cpp
-action(permission_level{get_self(), "active"_n}, ORNG, "requestrand"_n,
-       std::make_tuple(id, signing_value, get_self()))
-  .send();
+action(permission_level{get_self(), "active"_n}, ORNG, "requestrand"_n, std::make_tuple(id, signing_value, get_self())).send();
 ```
 
 | Field | Type | Meaning |

@@ -9,14 +9,14 @@ using namespace eosio;
 // template), described here only to read it. Outside the contract class, so it
 // is not part of this contract's ABI.
 namespace token {
-  struct currency_stats {
-    asset supply;
-    asset max_supply;
-    name  issuer;
-    uint64_t primary_key() const { return supply.symbol.code().raw(); }
-  };
-  typedef multi_index<"stat"_n, currency_stats> stats;
-}
+struct currency_stats {
+  asset supply;
+  asset max_supply;
+  name issuer;
+  uint64_t primary_key() const { return supply.symbol.code().raw(); }
+};
+typedef multi_index<"stat"_n, currency_stats> stats;
+} // namespace token
 
 // Accepts payments in the tokens on its list and keeps a balance per account
 // and token; withdraw pays it back. A token is its contract plus its symbol:
@@ -48,7 +48,7 @@ public:
 
   // The accepted tokens: one contract per symbol code. Scope: this account.
   struct [[eosio::table]] accepted {
-    name   token_contract;
+    name token_contract;
     symbol sym;
     uint64_t primary_key() const { return sym.code().raw(); }
   };
@@ -56,7 +56,7 @@ public:
 
   // One row per token an account holds here. Scope: the owner's account.
   struct [[eosio::table]] holding {
-    name  token_contract;
+    name token_contract;
     asset balance;
     uint64_t primary_key() const { return balance.symbol.code().raw(); }
   };

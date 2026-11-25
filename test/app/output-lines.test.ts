@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ app: { getPath: () => '', isPackaged: false }, BrowserWindow: class {}, dialog: {} }))
-import { classifyLine, countProblems, orderProblems, problemSeverity, uniqueProblems } from '../../src/shared/output-lines'
+import { NAME_HINT, classifyLine, countProblems, isNameRuleError, orderProblems, placeToolchainProblems, problemSeverity, uniqueProblems } from '../../src/shared/output-lines'
 import { parseProblems } from '../../src/main/build'
 
 const ROOT = 'C:\\Users\\me\\proj'
@@ -144,5 +144,120 @@ describe('Problems: each warning once, errors first', () => {
       { severity: 'error', id: 5 }
     ]
     expect(orderProblems(list).map((x) => x.id)).toEqual([4, 5, 1, 3, 2])
+  })
+})
+
+describe('Problems: an error inside the toolchain points at the project line', () => {
+  const TC = '/usr/opt/cdt/4.1.1wax01/bin/../include/eosiolib'
+  const first = (out: string): [string, number, number, string] => {
+    const p = parseProblems(out, ROOT).find((x) => x.severity === 'error')!
+    return [p.file, p.line, p.column, p.message]
+  }
+
+  it('mi-3: a name longer than 12 characters in "..."_n is placed at the literal in the header', () => {
+    const out = [
+      `${TC}/contracts/eosio/../../core/eosio/name.hpp:324:19: error: constexpr variable 'x' must be initialized by a constant expression`,
+      "./include/mytoken.hpp:123:47: note: in instantiation of function template specialization 'operator\"\"_n<char, 'a', 'c'>' requested here",
+      `${TC}/contracts/eosio/../../core/eosio/name.hpp:81:13: note: non-constexpr function 'check' cannot be used in a constant expression`,
+      './include/mytoken.hpp:123:30: error: non-type template argument is not a constant expression'
+    ].join('\n')
+    expect(first(out)).toEqual(['include/mytoken.hpp', 123, 47, "constexpr variable 'x' must be initialized by a constant expression [name.hpp:324]"])
+    const errors = parseProblems(out, ROOT).filter((x) => x.severity === 'error')
+    expect(errors.map((x) => [x.file, x.line, x.column])).toEqual([
+      ['include/mytoken.hpp', 123, 47],
+      ['include/mytoken.hpp', 123, 30]
+    ])
+  })
+
+  it('mi-5: a row without primary_key is placed at the table declaration', () => {
+    const out = [
+      `${TC}/contracts/eosio/multi_index.hpp:442:96: error: no member named 'primary_key' in 'mytoken::account'`,
+      "./include/mytoken.hpp:95:14: note: in instantiation of template class 'eosio::multi_index<3607749779137757184, mytoken::account>' requested here",
+      `${TC}/contracts/eosio/multi_index.hpp:1820:31: error: no member named 'primary_key' in 'eosio::multi_index<3607749779137757184, mytoken::account>::item'`,
+      "./include/mytoken.hpp:96:29: note: in instantiation of function template specialization 'eosio::multi_index<3607749779137757184, mytoken::account>::find<unsigned long long>' requested here"
+    ].join('\n')
+    const errors = parseProblems(out, ROOT).filter((x) => x.severity === 'error')
+    expect(errors.map((x) => [x.file, x.line, x.column])).toEqual([
+      ['include/mytoken.hpp', 95, 14],
+      ['include/mytoken.hpp', 96, 29]
+    ])
+    expect(errors[0].message).toBe("no member named 'primary_key' in 'mytoken::account' [multi_index.hpp:442]")
+  })
+
+  it('mi-6: find() with a string takes the first project note after each error', () => {
+    const out = [
+      `${TC}/contracts/eosio/multi_index.hpp:1820:45: error: comparison between pointer and integer ('uint64_t' (aka 'unsigned long long') and 'const char *')`,
+      "src/mytoken.cpp:12:30: note: in instantiation of function template specialization 'eosio::multi_index<14289235522390851584, mytoken::currency_stats>::find<const char *>' requested here",
+      `${TC}/contracts/eosio/multi_index.hpp:338:47: error: cannot initialize return object of type 'uint64_t' (aka 'unsigned long long') with an lvalue of type 'const char *'`,
+      `${TC}/contracts/eosio/multi_index.hpp:1825:54: note: in instantiation of function template specialization 'eosio::_multi_index_detail::to_raw_key<const char *>' requested here`,
+      "src/mytoken.cpp:12:30: note: in instantiation of function template specialization 'eosio::multi_index<14289235522390851584, mytoken::currency_stats>::find<const char *>' requested here",
+      'Error while processing src/mytoken.cpp.',
+      'abigen error'
+    ].join('\n')
+    const errors = parseProblems(out, ROOT).filter((x) => x.severity === 'error')
+    expect(errors.slice(0, 2).map((x) => [x.file, x.line, x.column])).toEqual([
+      ['src/mytoken.cpp', 12, 30],
+      ['src/mytoken.cpp', 12, 30]
+    ])
+    expect(errors[0].message.endsWith('[multi_index.hpp:1820]')).toBe(true)
+    expect(errors[1].message.endsWith('[multi_index.hpp:338]')).toBe(true)
+  })
+
+  it('mi-9: a pointer in a row is placed at the first project note, skipping toolchain notes', () => {
+    // The probe recorded the first eight lines only; the project note is the line the compiler prints after them.
+    const out = [
+      `${TC}/contracts/eosio/../../core/eosio/datastream.hpp:614:4: error: static_assert failed due to requirement '!_datastream_detail::is_pointer()' "Pointers should not be serialized"`,
+      `${TC}/contracts/eosio/../../core/eosio/datastream.hpp:985:10: note: in instantiation of function template specialization 'eosio::operator>><const char *, const char *, nullptr>' requested here`,
+      `${TC}/../include/bluegrass/meta/for_each.hpp:819:13: note: in instantiation of function template specialization 'bluegrass::meta::detail::for_each_field_impl_apply<const char *&>' requested here`,
+      `${TC}/contracts/eosio/multi_index.hpp:822:16: note: in instantiation of function template specialization 'eosio::operator>><eosio::datastream<const char *>, mytoken::account, nullptr>' requested here`,
+      "/usr/opt/cdt/4.1.1wax01/bin/../include/libcxx/memory:3003:32: note: in instantiation of function template specialization 'item::item' requested here",
+      "./include/mytoken.hpp:96:29: note: in instantiation of function template specialization 'eosio::multi_index<3607749779137757184, mytoken::account>::find<unsigned long long>' requested here"
+    ].join('\n')
+    expect(first(out)).toEqual([
+      'include/mytoken.hpp',
+      96,
+      29,
+      `static_assert failed due to requirement '!_datastream_detail::is_pointer()' "Pointers should not be serialized" [datastream.hpp:614]`
+    ])
+  })
+
+  it('name-5: an error that is already in the project stays as it is', () => {
+    const out = [
+      "src/mytoken.cpp:18:7: error: no member named 'isuer' in 'mytoken::currency_stats'",
+      `${TC}/contracts/eosio/multi_index.hpp:1579:13: note: in instantiation of function template specialization 'x' requested here`,
+      "src/mytoken.cpp:15:14: note: in instantiation of function template specialization 'y' requested here"
+    ].join('\n')
+    expect(first(out)).toEqual(['src/mytoken.cpp', 18, 7, "no member named 'isuer' in 'mytoken::currency_stats'"])
+  })
+
+  it('stays as it is without a project note, and a note after the next error is not taken', () => {
+    const out = [
+      `${TC}/core/eosio/check.hpp:66:16: error: something deep`,
+      `${TC}/core/eosio/name.hpp:81:13: note: in call to 'name()'`,
+      'src/a.cpp:3:1: error: second',
+      "src/a.cpp:9:9: note: in instantiation of template class 'z' requested here"
+    ].join('\n')
+    const p = parseProblems(out, ROOT).filter((x) => x.severity === 'error')
+    expect(p[0].file).toBe(`${TC}/core/eosio/check.hpp`)
+    expect(p[0].message).toBe('something deep')
+    expect(p[1].file).toBe('src/a.cpp')
+  })
+
+  it('takes an "in call to" note too, and leaves a Windows path outside the project alone', () => {
+    const list = [
+      { file: '/usr/x/h.hpp', line: 5, column: 1, severity: 'error', message: 'bad', source: 'build' },
+      { file: 'src/a.cpp', line: 2, column: 3, severity: 'info', message: "in call to 'f()'", source: 'build' }
+    ]
+    expect(placeToolchainProblems(list)[0]).toMatchObject({ file: 'src/a.cpp', line: 2, column: 3, message: 'bad [h.hpp:5]' })
+    expect(placeToolchainProblems([{ ...list[0], file: 'D:/other/h.hpp' }, list[1]])[0].file).toBe('src/a.cpp')
+  })
+})
+
+describe('name rule errors of the build', () => {
+  it('knows the two refusals of the ABI generator', () => {
+    expect(isNameRuleError('abigen error (name not properly normalized)')).toBe(true)
+    expect(isNameRuleError('abigen error (Name {averyveryverylongaction} is more than 13 characters long)')).toBe(true)
+    expect(isNameRuleError("no member named 'x' in 'y'")).toBe(false)
+    expect(NAME_HINT).toContain('do not end with a dot')
   })
 })

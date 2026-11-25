@@ -15,12 +15,12 @@ function actionsOf(hpp: string): string[] {
 
 /** The fields of the atomicassets `assets` row (its ABI on WAX Testnet), in order, with their C++ types. */
 const ASSET_ROW = [
-  'uint64_t             asset_id;',
-  'name                 collection_name;',
-  'name                 schema_name;',
-  'int32_t              template_id;',
-  'name                 ram_payer;',
-  'std::vector<asset>   backed_tokens;',
+  'uint64_t asset_id;',
+  'name collection_name;',
+  'name schema_name;',
+  'int32_t template_id;',
+  'name ram_payer;',
+  'std::vector<asset> backed_tokens;',
   'std::vector<uint8_t> immutable_serialized_data;',
   'std::vector<uint8_t> mutable_serialized_data;'
 ]

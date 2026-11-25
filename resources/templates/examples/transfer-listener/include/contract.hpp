@@ -23,7 +23,7 @@ public:
 
   // One row per account that has a deposit.
   struct [[eosio::table]] deposit {
-    name  owner;
+    name owner;
     asset balance;
     uint64_t primary_key() const { return owner.value; }
   };

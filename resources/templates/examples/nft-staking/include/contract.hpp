@@ -11,19 +11,19 @@ using namespace eosio;
 // its ABI, in the same order and with the same types. Outside the contract
 // class, so it is not part of this contract's ABI. Scope = the owner.
 namespace atomic {
-  struct asset_row {
-    uint64_t             asset_id;
-    name                 collection_name;
-    name                 schema_name;
-    int32_t              template_id;
-    name                 ram_payer;
-    std::vector<asset>   backed_tokens;
-    std::vector<uint8_t> immutable_serialized_data;
-    std::vector<uint8_t> mutable_serialized_data;
-    uint64_t primary_key() const { return asset_id; }
-  };
-  typedef multi_index<"assets"_n, asset_row> assets_table;
-}
+struct asset_row {
+  uint64_t asset_id;
+  name collection_name;
+  name schema_name;
+  int32_t template_id;
+  name ram_payer;
+  std::vector<asset> backed_tokens;
+  std::vector<uint8_t> immutable_serialized_data;
+  std::vector<uint8_t> mutable_serialized_data;
+  uint64_t primary_key() const { return asset_id; }
+};
+typedef multi_index<"assets"_n, asset_row> assets_table;
+} // namespace atomic
 
 // NFT staking: AtomicAssets assets sent with the memo "stake" are recorded in
 // the table stakes, one row per asset with its owner; unstake sends them back.
@@ -63,13 +63,12 @@ public:
   // that the contract owns the asset: this row is the only record of whose
   // it is.
   struct [[eosio::table]] stake_row {
-    uint64_t       asset_id;
-    name           owner;
+    uint64_t asset_id;
+    name owner;
     time_point_sec staked_at; // UTC; what a reward would be counted from
     uint64_t primary_key() const { return asset_id; }
     uint64_t by_owner() const { return owner.value; }
   };
-  typedef multi_index<"stakes"_n, stake_row,
-                      indexed_by<"byowner"_n, const_mem_fun<stake_row, uint64_t, &stake_row::by_owner>>>
-    stakes_table;
+  typedef multi_index<"stakes"_n, stake_row, indexed_by<"byowner"_n, const_mem_fun<stake_row, uint64_t, &stake_row::by_owner>>>
+      stakes_table;
 };

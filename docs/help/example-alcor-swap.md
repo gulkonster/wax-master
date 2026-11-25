@@ -32,15 +32,14 @@ The token out comes back as a transfer from `swap.alcor` with the memo `Swap tok
 `swap(pool_id, token_in, min_out)` checks that the contract account signed and that both quantities are positive and different tokens, builds the memo and sends `token_in` with an inline transfer:
 
 ```cpp
-const std::string memo = "swapexactin#" + std::to_string(pool_id) + "#" + get_self().to_string() + "#" +
-                         min_out.quantity.to_string() + "@" + min_out.contract.to_string() + "#" +
-                         std::to_string(deadline);
+const std::string memo = "swapexactin#" + std::to_string(pool_id) + "#" + get_self().to_string() + "#" + min_out.quantity.to_string() +
+                         "@" + min_out.contract.to_string() + "#" + std::to_string(deadline);
 ```
 
 ```cpp
 action(permission_level{get_self(), "active"_n}, token_in.contract, "transfer"_n,
        std::make_tuple(get_self(), ALCOR_SWAP, token_in.quantity, memo))
-  .send();
+    .send();
 ```
 
 - `token_in` is an `extended_asset`: the transfer goes to `token_in.contract`, the contract that issues the token. With a plain `asset` the contract would have to guess the token contract, and a token with the same symbol on another contract is a different token. See [Assets and symbols](doc:contract-assets).

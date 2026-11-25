@@ -11,34 +11,43 @@ import emptyCpp from '../../resources/templates/project/empty/src/contract.cpp?r
 import emptyHpp from '../../resources/templates/project/empty/include/contract.hpp?raw'
 import emptyContracts from '../../resources/templates/project/empty/resource/contract.contracts.md?raw'
 import emptyClauses from '../../resources/templates/project/empty/resource/contract.clauses.md?raw'
+import emptyStyle from '../../resources/templates/project/empty/.clang-format?raw'
 import helloCpp from '../../resources/templates/project/hello/src/contract.cpp?raw'
 import helloHpp from '../../resources/templates/project/hello/include/contract.hpp?raw'
 import helloContracts from '../../resources/templates/project/hello/resource/contract.contracts.md?raw'
 import helloClauses from '../../resources/templates/project/hello/resource/contract.clauses.md?raw'
+import helloStyle from '../../resources/templates/project/hello/.clang-format?raw'
 import tokenCpp from '../../resources/templates/project/token/src/contract.cpp?raw'
 import tokenHpp from '../../resources/templates/project/token/include/contract.hpp?raw'
 import tokenContracts from '../../resources/templates/project/token/resource/contract.contracts.md?raw'
 import tokenClauses from '../../resources/templates/project/token/resource/contract.clauses.md?raw'
+import tokenStyle from '../../resources/templates/project/token/.clang-format?raw'
 
 interface TemplateSource {
   cpp: string
   hpp: string
   contracts: string
   clauses: string
+  /** The `.clang-format` of the folder: Format Document keeps the layout of the shipped files. */
+  style: string
   /** Examples only. */
   readme?: string
 }
 
 const SOURCES: Record<ProjectTemplateId, TemplateSource> = {
-  empty: { cpp: emptyCpp, hpp: emptyHpp, contracts: emptyContracts, clauses: emptyClauses },
-  hello: { cpp: helloCpp, hpp: helloHpp, contracts: helloContracts, clauses: helloClauses },
-  token: { cpp: tokenCpp, hpp: tokenHpp, contracts: tokenContracts, clauses: tokenClauses }
+  empty: { cpp: emptyCpp, hpp: emptyHpp, contracts: emptyContracts, clauses: emptyClauses, style: emptyStyle },
+  hello: { cpp: helloCpp, hpp: helloHpp, contracts: helloContracts, clauses: helloClauses, style: helloStyle },
+  token: { cpp: tokenCpp, hpp: tokenHpp, contracts: tokenContracts, clauses: tokenClauses, style: tokenStyle }
 }
 
 /** The files every example folder holds, relative to the folder. */
-export const EXAMPLE_FILES = ['src/contract.cpp', 'include/contract.hpp', 'resource/contract.contracts.md', 'resource/contract.clauses.md', 'README.md'] as const
+export const EXAMPLE_FILES = ['src/contract.cpp', 'include/contract.hpp', 'resource/contract.contracts.md', 'resource/contract.clauses.md', 'README.md', '.clang-format'] as const
 
-const EXAMPLE_TEXTS = import.meta.glob('../../resources/templates/examples/*/**/*', { query: '?raw', import: 'default', eager: true })
+const EXAMPLE_TEXTS = {
+  ...import.meta.glob('../../resources/templates/examples/*/**/*', { query: '?raw', import: 'default', eager: true }),
+  // A pattern that names the dot file is needed: the first one does not match it.
+  ...import.meta.glob('../../resources/templates/examples/*/.clang-format', { query: '?raw', import: 'default', eager: true })
+}
 
 /** The files of every example folder, by folder name and path inside the folder. */
 export function readExampleFolders(texts: Record<string, string>): Map<string, Map<string, string>> {
@@ -64,6 +73,7 @@ function exampleSource(id: ExampleId): TemplateSource {
     hpp: get('include/contract.hpp'),
     contracts: get('resource/contract.contracts.md'),
     clauses: get('resource/contract.clauses.md'),
+    style: get('.clang-format'),
     readme: get('README.md')
   }
 }
@@ -117,7 +127,8 @@ export function templateFiles(template: TemplateId, contract: string): Record<st
     [`src/${contract}.cpp`]: fill(s.cpp),
     [`include/${contract}.hpp`]: fill(s.hpp),
     [`resource/${contract}.contracts.md`]: fill(s.contracts),
-    [`resource/${contract}.clauses.md`]: fill(s.clauses)
+    [`resource/${contract}.clauses.md`]: fill(s.clauses),
+    '.clang-format': s.style
   }
   if (s.readme !== undefined) files['README.md'] = fill(s.readme)
   return files

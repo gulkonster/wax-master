@@ -26,9 +26,7 @@ void %CLASS%::roll(name player) {
   signing_value += id;
 
   // requestrand(assoc_id, signing_value, caller): assoc_id comes back with the answer.
-  action(permission_level{get_self(), "active"_n}, ORNG, "requestrand"_n,
-         std::make_tuple(id, signing_value, get_self()))
-    .send();
+  action(permission_level{get_self(), "active"_n}, ORNG, "requestrand"_n, std::make_tuple(id, signing_value, get_self())).send();
 }
 
 void %CLASS%::remove(uint64_t id) {

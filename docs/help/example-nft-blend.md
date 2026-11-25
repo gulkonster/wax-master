@@ -68,9 +68,9 @@ When the assets are the recipe, the contract burns them and mints the result:
 for (uint64_t asset_id : asset_ids)
   action(permission_level{get_self(), "active"_n}, ATOMICASSETS, "burnasset"_n, std::make_tuple(get_self(), asset_id)).send();
 action(permission_level{get_self(), "active"_n}, ATOMICASSETS, "mintasset"_n,
-       std::make_tuple(get_self(), r.collection, r.result_schema, r.result_template, from,
-                       empty_attributes{}, empty_attributes{}, std::vector<asset>{}))
-  .send();
+       std::make_tuple(get_self(), r.collection, r.result_schema, r.result_template, from, empty_attributes{}, empty_attributes{},
+                       std::vector<asset>{}))
+    .send();
 ```
 
 - `burnasset(asset_owner, asset_id)` needs the owner's signature: the owner is now the contract account, which signs with its own `active`, so it needs `eosio.code`. See [The eosio.code permission](doc:eosio-code) and [Inline actions](doc:contract-inline-actions).
