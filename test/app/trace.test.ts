@@ -102,5 +102,68 @@ describe('transaction inspector', () => {
   it('falls back to inline traces when ordinals are missing', () => {
     const nodes = buildTree([{ receiver: 'a', act: { account: 'a', name: 'x' }, inline_traces: [{ receiver: 'b', act: { account: 'b', name: 'y' } }] }])
     expect(nodes[0].children[0].account).toBe('b')
+    expect(nodes[0].kind).toBe('action')
+    expect(nodes[0].placed).toBe('top')
+    expect(nodes[0].children[0].kind).toBe('inline')
+    expect(nodes[0].children[0].placed).toBe('link')
+  })
+
+  it('gives each node its kind, sequence, key and placement', () => {
+    const t = fromNodeAnswer(transferAnswer, ctx)
+    const root = t.actions[0]
+    expect([root.kind, root.placed, root.sequence, root.key]).toEqual(['action', 'top', null, 'o1'])
+    expect(root.children.map((c) => [c.kind, c.placed])).toEqual([
+      ['notification', 'link'],
+      ['notification', 'link']
+    ])
+    expect(root.children[1].children[0].kind).toBe('inline')
+    expect(root.children[1].children[0].placed).toBe('link')
+  })
+
+  it('puts children in the order of execution, not of ordinals', () => {
+    // The contract sent its inline action before it notified: the inline action has
+    // the lower ordinal, but the notifications ran first (global sequence).
+    const trace = (ordinal: number, creator: number, receiver: string, account: string, name: string, seq: number | string) => ({
+      action_ordinal: ordinal,
+      creator_action_ordinal: creator,
+      receiver,
+      receipt: { receiver, global_sequence: seq },
+      act: { account, name, authorization: [{ actor: account, permission: 'active' }], data: {} }
+    })
+    const answer = {
+      transaction_id: 'def',
+      processed: {
+        receipt: { status: 'executed' },
+        action_traces: [
+          trace(1, 0, 'game', 'game', 'reward', 100),
+          trace(2, 1, 'game', 'game', 'logreward', '103'),
+          trace(3, 1, 'player', 'game', 'reward', 101),
+          trace(4, 1, 'listener', 'game', 'reward', '102'),
+          trace(5, 2, 'player', 'game', 'logreward', 104)
+        ]
+      }
+    }
+    const t = fromNodeAnswer(answer, ctx)
+    expect(t.actions).toHaveLength(1)
+    const root = t.actions[0]
+    expect(root.children.map((c) => `${c.receiver}:${c.name}:${c.kind}`)).toEqual([
+      'player:reward:notification',
+      'listener:reward:notification',
+      'game:logreward:inline'
+    ])
+    expect(root.children.map((c) => c.key)).toEqual(['101', '102', '103'])
+    expect(root.children[2].children[0].receiver).toBe('player')
+    // Numeric, not text order.
+    const big = buildTree([trace(1, 0, 'a', 'a', 'x', 9), trace(2, 1, 'a', 'a', 'y', 11), trace(3, 1, 'a', 'a', 'z', 10)])
+    expect(big[0].children.map((c) => c.name)).toEqual(['z', 'y'])
+  })
+
+  it('keeps the node answer as the Raw block', () => {
+    const t = fromNodeAnswer(transferAnswer, ctx)
+    expect(t.raw).toEqual([{ title: 'Node answer', text: JSON.stringify(transferAnswer, null, 2) }])
+    const body = { code: 500, error: { what: 'x', details: [] } }
+    expect(fromNodeError(body, ctx).raw).toEqual([{ title: 'Node answer', text: JSON.stringify(body, null, 2) }])
+    const huge = { processed: { action_traces: [], console: 'x'.repeat(2_100_000) } }
+    expect(fromNodeAnswer(huge, ctx).raw[0].text).toHaveLength(2_000_000)
   })
 })

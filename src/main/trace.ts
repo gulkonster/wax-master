@@ -2,6 +2,7 @@
 // API transactions into the inspector's tree. Everything is untrusted text;
 // missing data stays null and is labelled in the window.
 
+import { historyTree } from '../shared/history-tree'
 import type { AccountResources, InspectedTransaction, RamShortage, ResourceKind, ResourceProblem, TraceNode } from '../shared/trace-types'
 
 type R = Record<string, unknown>
@@ -58,8 +59,16 @@ function nodeFromTrace(t: R): TraceNode {
   const receipt = (t.receipt ?? {}) as R
   const receiver = s(t.receiver) || s(receipt.receiver)
   const err = t.except ? exceptMessage(t.except).message : null
+  const ordinal = n(t.action_ordinal) ?? 0
+  const creator = n(t.creator_action_ordinal) ?? 0
+  const sequence = seqText(receipt.global_sequence)
+  const notification = !!receiver && receiver !== s(act.account)
   return {
-    ordinal: n(t.action_ordinal) ?? 0,
+    key: sequence ?? `o${ordinal}`,
+    kind: notification ? 'notification' : creator === 0 ? 'action' : 'inline',
+    sequence,
+    placed: creator === 0 ? 'top' : 'link',
+    ordinal,
     receiver,
     account: s(act.account),
     name: s(act.name),
@@ -71,14 +80,40 @@ function nodeFromTrace(t: R): TraceNode {
       ? (t.account_ram_deltas as R[]).map((d) => ({ account: s(d.account), delta: n(d.delta) ?? 0 }))
       : null,
     returnValue: s(t.return_value_hex_data) || null,
-    notification: !!receiver && receiver !== s(act.account),
+    notification,
     error: err,
     elapsedUs: n(t.elapsed),
     children: []
   }
 }
 
-/** Builds the tree from flat traces using creator_action_ordinal (falls back to inline_traces). */
+/** A global sequence as text (nodes give a number or a string). */
+function seqText(v: unknown): string | null {
+  if (typeof v === 'number' && Number.isInteger(v) && v >= 0) return String(v)
+  if (typeof v === 'string' && /^\d+$/.test(v.trim())) return v.trim().replace(/^0+(?=\d)/, '')
+  return null
+}
+
+/** Order of execution: by global sequence (numeric), by ordinal where there is none. */
+function byExecution(a: TraceNode, b: TraceNode): number {
+  if (a.sequence !== null && b.sequence !== null) {
+    const x = BigInt(a.sequence)
+    const y = BigInt(b.sequence)
+    if (x !== y) return x < y ? -1 : 1
+  } else if (a.sequence !== null || b.sequence !== null) return a.sequence !== null ? -1 : 1
+  return a.ordinal - b.ordinal
+}
+
+function sortByExecution(nodes: TraceNode[]): void {
+  nodes.sort(byExecution)
+  for (const x of nodes) sortByExecution(x.children)
+}
+
+/**
+ * Builds the tree from flat traces using creator_action_ordinal (falls back to
+ * inline_traces). A notification's creator is the action that notified it, so it
+ * stays a child of that action. Children are in the order the chain ran them.
+ */
 export function buildTree(traces: R[]): TraceNode[] {
   if (traces.length === 0) return []
   if (traces.some((t) => t.action_ordinal !== undefined)) {
@@ -94,16 +129,41 @@ export function buildTree(traces: R[]): TraceNode[] {
       const p = parentOf.get(ord) ?? 0
       const parent = p ? nodes.get(p) : undefined
       if (parent && parent !== node) parent.children.push(node)
-      else roots.push(node)
+      else {
+        // A creator the answer does not hold: shown at the top.
+        node.placed = 'top'
+        roots.push(node)
+      }
     }
+    sortByExecution(roots)
     return roots
   }
-  const walk = (t: R): TraceNode => {
+  const walk = (t: R, depth: number): TraceNode => {
     const node = nodeFromTrace(t)
-    node.children = Array.isArray(t.inline_traces) ? (t.inline_traces as R[]).map(walk) : []
+    if (!node.notification) node.kind = depth === 0 ? 'action' : 'inline'
+    node.placed = depth === 0 ? 'top' : 'link'
+    node.children = Array.isArray(t.inline_traces) ? (t.inline_traces as R[]).map((c) => walk(c, depth + 1)) : []
     return node
   }
-  return traces.map(walk)
+  const roots = traces.map((t) => walk(t, 0))
+  sortByExecution(roots)
+  return roots
+}
+
+const MAX_RAW = 2_000_000
+
+/**
+ * An answer as received, as JSON with 2 spaces, cut at 2,000,000 characters
+ * (the Raw tab says when a text was cut).
+ */
+export function rawText(v: unknown): string {
+  let t: string
+  try {
+    t = JSON.stringify(v, null, 2) ?? String(v)
+  } catch {
+    t = String(v)
+  }
+  return t.length > MAX_RAW ? t.slice(0, MAX_RAW) : t
 }
 
 function notesFor(nodes: TraceNode[]): string[] {
@@ -143,6 +203,7 @@ export function fromNodeAnswer(answer: unknown, ctx: { source: 'simulation' | 's
     errorStack: ex.stack,
     actions,
     notes: notesFor(actions),
+    raw: [{ title: 'Node answer', text: rawText(answer) }],
     ...(resource ? { resource: resourceProblem(resource) } : {})
   }
 }
@@ -334,39 +395,71 @@ export function fromNodeError(body: unknown, ctx: { source: 'simulation' | 'sent
     errorMessage: resource ? describeResource(resource.kind, '', null, resource.shortage) : message,
     errorStack: json(body),
     actions: [],
-    notes: ['The node returned an error before any action trace.']
+    notes: ['The node returned an error before any action trace.'],
+    raw: [{ title: 'Node answer', text: rawText(body) }]
   }
+}
+
+/**
+ * The first action of a history answer: the action of the transaction that ran
+ * first (ordinal 1, else the lowest global sequence; the service lists its
+ * entries in no fixed order).
+ */
+function firstEntry(list: R[]): R {
+  const one = list.find((x) => n(x.action_ordinal) === 1 && n(x.creator_action_ordinal) === 0)
+  if (one) return one
+  let best: R | undefined
+  let bestSeq: bigint | null = null
+  for (const x of list) {
+    const seq = seqText(x.global_sequence)
+    if (seq === null) continue
+    const v = BigInt(seq)
+    if (bestSeq === null || v < bestSeq) {
+      best = x
+      bestSeq = v
+    }
+  }
+  return best ?? list[0] ?? {}
 }
 
 /** Hyperion v2 get_transaction answer. */
 export function fromHistory(answer: unknown, ctx: { network: string; endpoint: string }): InspectedTransaction {
   const a = (answer ?? {}) as R
   const list = Array.isArray(a.actions) ? (a.actions as R[]) : []
-  const traces = list.map((x) => ({
-    action_ordinal: x.action_ordinal,
-    creator_action_ordinal: x.creator_action_ordinal,
-    receiver: Array.isArray(x.receipts) && x.receipts[0] ? (x.receipts[0] as R).receiver : x.receiver,
-    act: x.act,
-    console: x.console,
-    account_ram_deltas: x.account_ram_deltas
-  }))
-  const actions = buildTree(traces as R[])
-  const first = list[0] ?? {}
+  const tree = historyTree(answer)
+  const actions = tree.roots
+  const first = firstEntry(list)
+  // CPU and NET stand on the first action; another entry is read only when it has none there.
+  const billed = n(first.cpu_usage_us) !== null ? first : (list.find((x) => n(x.cpu_usage_us) !== null) ?? first)
+  const block = n(first.block_num)
+  const lib = n(a.lib)
+  const notes: string[] = []
+  if (actions.length && hasNullData(actions)) notes.push('Decoded input was not returned for some actions; the raw data is shown.')
+  notes.push('Read from the history service. It does not keep console output.')
+  if (tree.placedByOrder > 0)
+    notes.push(`${tree.placedByOrder} entries are placed by the order of execution, not by a link from the history service (marked "placed by order").`)
+  if (tree.joined) notes.push('The history service joined identical actions; their RAM changes may be listed once.')
   return {
     source: 'history',
     network: ctx.network,
     endpoint: ctx.endpoint,
     id: s(a.trx_id) || s(first.trx_id),
-    block: n(first.block_num),
+    block,
     time: s(first['@timestamp']) || s(first.timestamp) || null,
     status: a.executed === false ? 'failed' : 'executed',
-    cpuUs: n(first.cpu_usage_us),
-    netBytes: (n(first.net_usage_words) ?? 0) * 8 || null,
+    cpuUs: n(billed.cpu_usage_us),
+    netBytes: (n(billed.net_usage_words) ?? 0) * 8 || null,
     errorMessage: null,
     errorStack: null,
     actions,
-    notes: [...notesFor(actions), 'Read from the history service.']
+    notes,
+    raw: [{ title: 'History service answer', text: rawText(answer) }],
+    ...(block !== null && lib !== null ? { finality: block <= lib ? ('irreversible' as const) : ('pending' as const) } : {})
   }
+}
+
+function hasNullData(nodes: TraceNode[]): boolean {
+  return nodes.some((x) => x.data === null || hasNullData(x.children))
 }
 
 function findError(nodes: TraceNode[]): string | null {

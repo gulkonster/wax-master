@@ -1,0 +1,42 @@
+{
+  "executed": true,
+  "trx_id": "1111111111111111111111111111111111111111111111111111111111111111",
+  "lib": 2000,
+  "actions": [
+    {
+      "action_ordinal": 4,
+      "creator_action_ordinal": 3,
+      "act": {
+        "account": "gamecontract",
+        "name": "credit",
+        "authorization": [{ "actor": "gamecontract", "permission": "active" }],
+        "data": { "player": "playerone", "points": 10 }
+      },
+      "receipts": [{ "receiver": "gamecontract", "global_sequence": 504, "recv_sequence": 9, "auth_sequence": [] }],
+      "account_ram_deltas": [{ "account": "gamecontract", "delta": 128 }],
+      "block_num": 1990,
+      "@timestamp": "2026-11-25T10:00:00.000",
+      "global_sequence": 504
+    },
+    {
+      "action_ordinal": 1,
+      "creator_action_ordinal": 0,
+      "act": {
+        "account": "eosio.token",
+        "name": "transfer",
+        "authorization": [{ "actor": "playerone", "permission": "active" }],
+        "data": { "from": "playerone", "to": "gamecontract", "quantity": "1.00000000 WAX", "memo": "deposit" }
+      },
+      "receipts": [
+        { "receiver": "gamecontract", "global_sequence": 503, "recv_sequence": 8, "auth_sequence": [] },
+        { "receiver": "eosio.token", "global_sequence": 501, "recv_sequence": 7, "auth_sequence": [] },
+        { "receiver": "playerone", "global_sequence": 502, "recv_sequence": 3, "auth_sequence": [] }
+      ],
+      "block_num": 1990,
+      "@timestamp": "2026-11-25T10:00:00.000",
+      "global_sequence": 501,
+      "cpu_usage_us": 300,
+      "net_usage_words": 18
+    }
+  ]
+}

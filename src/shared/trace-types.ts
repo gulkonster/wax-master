@@ -1,6 +1,13 @@
 // Transaction inspector data, shared by the main process and the window.
 
 export interface TraceNode {
+  /** Unique in the transaction: the global sequence, else `o<ordinal>`. */
+  key: string
+  kind: 'action' | 'inline' | 'notification'
+  /** Global sequence of the execution; null when the endpoint did not return it. */
+  sequence: string | null
+  /** How the node was placed in the tree: by a link, by the order of execution, or at the top. */
+  placed: 'link' | 'order' | 'top'
   ordinal: number
   receiver: string
   account: string
@@ -21,7 +28,7 @@ export interface TraceNode {
 }
 
 export interface InspectedTransaction {
-  source: 'simulation' | 'sent' | 'history'
+  source: 'simulation' | 'sent' | 'kept' | 'history'
   network: string
   endpoint: string
   id: string
@@ -35,6 +42,15 @@ export interface InspectedTransaction {
   errorStack: string | null
   actions: TraceNode[]
   notes: string[]
+  /** The answers as received, each with its title, for the Raw tab. */
+  raw: { title: string; text: string }[]
+  finality?: 'irreversible' | 'pending'
+  /** Local send time of a kept answer. */
+  keptAt?: string
+  /** A kept answer of this transaction exists. */
+  hasKept?: boolean
+  /** A history service is available for this network. */
+  hasHistory?: boolean
   /** Set when the node refused the transaction for CPU, NET or RAM (never for a timeout or network error). */
   resource?: ResourceProblem
 }

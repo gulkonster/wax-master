@@ -1,0 +1,193 @@
+/* Transaction view: tabs Actions, Traces, RAM Deltas, Raw. Only theme tokens. */
+
+.txv-id {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.txv-source {
+  margin: 0 0 var(--sp-2);
+}
+
+/* tabs */
+.txv-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: var(--sp-3);
+  border-bottom: var(--bw) solid var(--border);
+}
+.txv-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--ctl-lg);
+  padding: 0 var(--sp-4);
+  background: none;
+  border: none;
+  color: var(--text-2);
+  font-size: var(--fs-body);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 100ms ease-out;
+}
+.txv-tab:hover {
+  color: var(--text);
+}
+.txv-tab.active {
+  color: var(--text-strong);
+}
+.txv-tab.active::after {
+  content: '';
+  position: absolute;
+  left: var(--sp-3);
+  right: var(--sp-3);
+  bottom: 0;
+  height: var(--bw-2);
+  border-radius: var(--bw);
+  background: var(--sel-line);
+}
+.txv-panel {
+  padding-top: var(--sp-3);
+}
+
+/* traces */
+.txv-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-1);
+}
+.txv-filter {
+  flex: 1;
+  min-width: var(--btn-min);
+  height: var(--ctl-sm);
+  font-size: var(--fs-caption);
+}
+.txv-node {
+  margin-top: var(--sp-1);
+  border-left: var(--bw) solid var(--border);
+}
+.txv-node.failed {
+  border-left-color: var(--red-text);
+}
+.txv-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: var(--sp-1) var(--sp-1h);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.txv-head:hover {
+  background: var(--hover);
+}
+.txv-head > * {
+  flex-shrink: 0;
+}
+.txv-head .hint {
+  margin: 0;
+}
+.txv-head.txv-dim {
+  opacity: 0.4;
+}
+.txv-twisty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.txv-twisty:hover {
+  color: var(--text);
+}
+.txv-head .txv-data {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.txv-details {
+  padding: var(--sp-half) var(--sp-2) var(--sp-2) var(--sp-6);
+}
+.txv-details-actions {
+  margin-top: var(--sp-2);
+}
+.txv-children {
+  margin-left: var(--sp-5);
+}
+
+/* actions */
+.txv-action {
+  margin-bottom: var(--sp-3);
+  padding-left: var(--sp-2);
+  border-left: var(--bw) solid var(--border);
+}
+.txv-action.failed {
+  border-left-color: var(--red-text);
+}
+.txv-action-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.txv-action-head .hint {
+  margin: 0;
+}
+.txv-num {
+  min-width: var(--icon);
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+/* RAM deltas */
+.txv-ram-grid {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: start;
+  gap: var(--sp-1) var(--sp-6);
+  margin-top: var(--sp-1);
+}
+.txv-ram-grid.three {
+  grid-template-columns: auto auto 1fr;
+}
+.txv-ram-row {
+  display: contents;
+}
+.txv-ram-more {
+  color: var(--red-text);
+}
+.txv-ram-freed {
+  color: var(--green-text);
+}
+.txv-link {
+  justify-self: start;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent-text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-data);
+  text-align: left;
+  cursor: pointer;
+}
+.txv-link:hover {
+  text-decoration: underline;
+}
+
+/* raw */
+.txv-raw-block + .txv-raw-block {
+  margin-top: var(--sp-3);
+}

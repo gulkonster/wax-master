@@ -1,73 +1,20 @@
-// Transaction inspector: header, deepest error first, and the action tree with
-// decoded input, console output, RAM changes and return values. Missing data
-// is labelled, never guessed.
+// Transaction view: the head, the deepest error first, then four parts
+// (Actions, Traces, RAM Deltas, Raw). Missing data is labelled, never guessed.
 
-import { useState } from 'react'
+import { useCallback, useId, useMemo, useState } from 'react'
 import type { InspectedTransaction, ResourceKind, ResourceProblem, TraceNode } from '../../../shared/trace-types'
+import { NOT_RETURNED, TAB_ORDER, detailsOpenAtStart, finalityText, flatten, nextTab, sourceLine, splitNotes, tabLabel, type TabId } from '../../../shared/trace-view'
 import { Modal } from './Modal'
-import { IconChevronDown, IconChevronRight } from './Icons'
 import { ReadMore } from './HelpButton'
 import { fmtTime } from '../lib/time'
+import { TraceTree, copyWithToast, type TreeState } from './inspector/TraceTree'
+import { ActionsTab } from './inspector/ActionsTab'
+import { RamDeltasTab } from './inspector/RamDeltasTab'
+import { RawTab } from './inspector/RawTab'
+import '../styles-inspector.css'
 
-const NOT_RETURNED = 'not returned by this endpoint'
-
-function Node({ node, depth }: { node: TraceNode; depth: number }): React.JSX.Element {
-  const [open, setOpen] = useState(depth < 2)
-  const [hex, setHex] = useState(false)
-  return (
-    <div className={`tr-node${node.error ? ' failed' : ''}`} style={{ marginLeft: depth ? 'var(--icon)' : 0 }}>
-      <div className="tr-head" onClick={() => setOpen((o) => !o)}>
-        <span className="tr-twisty">{open ? <IconChevronDown /> : <IconChevronRight />}</span>
-        <span className="badge-pair">
-          <span>{node.account}</span>
-          <span>{node.name}</span>
-        </span>
-        {node.notification ? (
-          <span className="badge">notification to {node.receiver}</span>
-        ) : (
-          <span className="hint" style={{ margin: 0 }}>
-            receiver {node.receiver}
-          </span>
-        )}
-        <span className="hint" style={{ margin: 0 }}>
-          {node.authorization.map((a) => `${a.actor}@${a.permission}`).join(', ')}
-        </span>
-        {node.elapsedUs !== null && <span className="hint" style={{ margin: 0 }}>{node.elapsedUs} µs</span>}
-      </div>
-      {open && (
-        <div className="tr-body">
-          {node.error && <div className="tr-error">{node.error}</div>}
-          <div className="tr-label">
-            Input{' '}
-            {node.hex && (
-              <button className="btn subtle sm" onClick={() => setHex((h) => !h)}>
-                {hex ? 'decoded' : 'raw hex'}
-              </button>
-            )}
-          </div>
-          <pre className="c-json">{hex ? node.hex : (node.data ?? `(${NOT_RETURNED}) ${node.hex ?? ''}`)}</pre>
-          <div className="tr-label">Console</div>
-          <pre className="c-json">{node.console === null ? `(${NOT_RETURNED})` : node.console || '(empty)'}</pre>
-          {node.ramDeltas && node.ramDeltas.length > 0 && (
-            <>
-              <div className="tr-label">RAM changes</div>
-              <div className="mono-small">{node.ramDeltas.map((d) => `${d.account} ${d.delta > 0 ? '+' : ''}${d.delta} bytes`).join(', ')}</div>
-            </>
-          )}
-          {node.returnValue && (
-            <>
-              <div className="tr-label">Return value (hex)</div>
-              <pre className="c-json">{node.returnValue}</pre>
-            </>
-          )}
-          {node.children.map((c) => (
-            <Node key={c.ordinal} node={c} depth={depth + 1} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+/** The chosen tab, remembered while the window is open. */
+let lastTab: TabId = 'traces'
 
 function fmtUs(us: number): string {
   if (us < 0) return 'unlimited'
@@ -109,13 +56,52 @@ function ResourceState({ r, endpoint }: { r: ResourceProblem; endpoint: string }
 }
 
 export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Element {
+  const uid = useId()
   const [stack, setStack] = useState(false)
+  const [tab, setTabState] = useState<TabId>(lastTab)
+  const [open, setOpen] = useState<Record<string, boolean>>({})
+  const [filter, setFilter] = useState('')
+  const [reveal, setReveal] = useState<string | null>(null)
+  const notes = useMemo(() => splitNotes(t.notes), [t.notes])
+  const all = useMemo(() => flatten(t.actions), [t.actions])
+  const setTab = (v: TabId): void => {
+    lastTab = v
+    setTabState(v)
+  }
+  const tree: TreeState = {
+    open,
+    filter,
+    isOpen: (n: TraceNode) => open[n.key] ?? detailsOpenAtStart(n),
+    toggle: (n: TraceNode) => setOpen((o) => ({ ...o, [n.key]: !(o[n.key] ?? detailsOpenAtStart(n)) }))
+  }
+  const setAll = (v: boolean): void => setOpen(Object.fromEntries(all.map((n) => [n.key, v])))
+  const showTrace = (key: string): void => {
+    setOpen((o) => ({ ...o, [key]: true }))
+    setTab('traces')
+    setReveal(key)
+  }
+  const revealed = useCallback(() => setReveal(null), [])
+  const onTabKey = (e: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    const next = nextTab(tab, e.key)
+    setTab(next)
+    e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')[TAB_ORDER.indexOf(next)]?.focus()
+  }
+  const source = sourceLine(t, fmtTime)
   return (
     <div className="inspector">
       {t.source === 'simulation' && <div className="sim-banner">Simulation - nothing was sent to the chain. Signatures are not checked and the result reflects the current state of {t.endpoint}.</div>}
       <div className="tr-grid">
         <span>Transaction</span>
-        <span className="mono-small">{t.id || '-'}</span>
+        <span className="txv-id">
+          <span className="mono-small">{t.id || '-'}</span>
+          {t.id && (
+            <button type="button" className="btn subtle sm" onClick={() => copyWithToast(t.id, t.id)}>
+              Copy
+            </button>
+          )}
+        </span>
         <span>Status</span>
         <span className={t.status === 'failed' ? 'sev-error' : 'sev-ok'}>{t.status}</span>
         <span>Network</span>
@@ -130,7 +116,14 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
         <span>
           {t.cpuUs !== null ? `${t.cpuUs} µs` : `(${NOT_RETURNED})`} / {t.netBytes !== null ? `${t.netBytes} bytes` : `(${NOT_RETURNED})`}
         </span>
+        {t.source === 'history' && (
+          <>
+            <span>Finality</span>
+            <span>{finalityText(t.finality)}</span>
+          </>
+        )}
       </div>
+      {source && <div className="hint txv-source">{source}</div>}
       {t.errorMessage && (
         <div className="tr-big-error">
           {t.errorMessage} {!t.resource && <ReadMore place="txRefusal" />}
@@ -145,14 +138,30 @@ export function InspectorBody({ t }: { t: InspectedTransaction }): React.JSX.Ele
           {stack && <pre className="c-json">{t.errorStack}</pre>}
         </>
       )}
-      <div className="tr-label" style={{ marginTop: 'var(--sp-3)' }}>
-        Actions
+      <div className="txv-tabs" role="tablist" aria-label="Transaction parts" onKeyDown={onTabKey}>
+        {TAB_ORDER.map((id) => (
+          <button
+            key={id}
+            id={`${uid}-tab-${id}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            aria-controls={`${uid}-panel`}
+            tabIndex={tab === id ? 0 : -1}
+            className={`txv-tab${tab === id ? ' active' : ''}`}
+            onClick={() => setTab(id)}
+          >
+            {tabLabel(id, t)}
+          </button>
+        ))}
       </div>
-      {t.actions.length === 0 && <div className="hint">No action traces.</div>}
-      {t.actions.map((n) => (
-        <Node key={n.ordinal} node={n} depth={0} />
-      ))}
-      {t.notes.map((n) => (
+      <div className="txv-panel" id={`${uid}-panel`} role="tabpanel" aria-labelledby={`${uid}-tab-${tab}`}>
+        {tab === 'actions' && <ActionsTab t={t} />}
+        {tab === 'traces' && <TraceTree t={t} state={tree} setFilter={setFilter} setAll={setAll} reveal={reveal} onRevealed={revealed} notes={notes.tree} />}
+        {tab === 'ram' && <RamDeltasTab t={t} onShowTrace={showTrace} notes={notes.ram} />}
+        {tab === 'raw' && <RawTab t={t} />}
+      </div>
+      {notes.general.map((n) => (
         <div key={n} className="hint">
           {n}
         </div>
