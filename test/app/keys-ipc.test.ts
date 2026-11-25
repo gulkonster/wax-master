@@ -96,6 +96,11 @@ vi.mock('../../src/main/toolchain', () => ({
   inspectCdtPackage: async () => ({}),
   status: async () => ({})
 }))
+vi.mock('../../src/main/local-chain', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/main/local-chain')>()),
+  isLocalChainSetUp: () => false,
+  remove: async () => undefined
+}))
 vi.mock('../../src/main/updates', () => ({
   checkForUpdates: async () => ({ ok: true }),
   dailyCheck: async () => undefined
