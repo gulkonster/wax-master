@@ -173,6 +173,11 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
         }
         left = (
           <>
+            {repair?.kind !== 'reset' && (
+              <button className="btn" disabled={busy} onClick={() => void run(() => api().reset())}>
+                Reset
+              </button>
+            )}
             <button className="btn" onClick={openLog}>
               Open log
             </button>

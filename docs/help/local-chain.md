@@ -90,9 +90,12 @@ Both are off at first, in the dialog:
 The dialog shows one of these texts with its button:
 
 - **"The chain's data was not closed cleanly and could not be repaired. Reset makes a new empty chain; the accounts and contracts on it are lost."** The app already tried once to rebuild the data from the chain's own blocks. Press **Reset**.
+- **"The chain's data is damaged and the node cannot start with it. Reset makes a new empty chain; the accounts and contracts on it are lost. The log has the node's own words."** The chain's block log or state data is broken, and a rebuild cannot help. Press **Reset**.
 - **"Port 8888 is used by another program."** Press **Use port** with the next free number; the entry **Local chain** follows it.
 - **"The node runs but does not answer at 127.0.0.1:8888. WSL's localhost forwarding may be switched off (`localhostForwarding` in `.wslconfig`)."** Switch it on in `%USERPROFILE%\.wslconfig` (or remove the line), run `wsl --shutdown` in a terminal and press Start again.
 - **"The local chain needs WSL 2 (virtualization on). The compiler works without it; the local chain does not."** Turn virtualization on in the computer's firmware settings and set up WSL 2 (see [First start and the toolchain](doc:first-start)).
+
+Whenever the node ended and the dialog shows a problem, **Reset** is offered beside **Open log** and **Remove**. If Start fails again and the log names no cause you can remove, press Reset.
 
 If the app was closed by force (for example in Task Manager) while the chain ran, the next Start finds the data not closed cleanly and rebuilds it as in the first text; a chain with many transactions takes longer. **Open log** shows the node's last lines (the last 2 MB are kept). The log never holds a key.
 
