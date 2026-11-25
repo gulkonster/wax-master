@@ -450,8 +450,8 @@ export function PermissionPicker({
   // No account chosen yet: a neutral placeholder, not a permission with a "view only" mark.
   if (!valid) {
     return (
-      <select className="select" disabled value="">
-        <option value="">(choose the account first)</option>
+      <select className="select" disabled value="" title="Choose the account first">
+        <option value="">(account first)</option>
       </select>
     )
   }

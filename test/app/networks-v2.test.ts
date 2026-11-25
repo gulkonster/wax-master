@@ -453,6 +453,19 @@ describe('a read that moves to another endpoint', () => {
     expect(notices).toHaveLength(1)
   })
 
+  it('two reads that fail at the same time give one notice', async () => {
+    const { n, RpcError, notices } = await twoEndpoints()
+    const asked: string[] = []
+    const read = (ep: string): Promise<string> => {
+      asked.push(ep)
+      return ep === A ? Promise.reject(new RpcError('no answer', 0)) : Promise.resolve('ok')
+    }
+    await expect(Promise.all([n.readCall(read), n.readCall(read), n.readCall(read)])).resolves.toEqual(['ok', 'ok', 'ok'])
+    expect(asked.filter((x) => x === A)).toHaveLength(3)
+    expect(n.readEndpointIndex(n.currentNetwork())).toBe(1)
+    expect(notices).toEqual([`WAX Testnet: ${A} did not answer a read. Reads go to ${B} for now; ${A} stays the selected endpoint.`])
+  })
+
   it('choosing an endpoint ends the session read endpoint', async () => {
     const { n, RpcError } = await twoEndpoints()
     let down = A

@@ -424,7 +424,8 @@ export async function readCall<T>(fn: (endpoint: string) => Promise<T>, network 
         if (idx === n.currentEndpoint) {
           // Back at the chosen endpoint: no session endpoint any more.
           readEndpoints.delete(n.id)
-        } else {
+        } else if (readEndpoints.get(n.id) !== idx) {
+          // Reads that failed at the same time all land here: only the first one gives the notice.
           readEndpoints.set(n.id, idx)
           onSwitch(getNetwork(n.id), n.endpoints[start], ep)
         }

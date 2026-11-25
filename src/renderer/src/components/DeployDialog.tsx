@@ -244,8 +244,8 @@ export function DeployDialog({
       if (r.status === 'sent') {
         setTrace(r.trace)
         toast('Deployed', `${account} on ${net?.name}`, 'success')
-        // An open Contract tab of this account reads its ABI again.
-        emit('contract-refresh', account)
+        // An open Contract tab of this account reads its ABI again until the new one is there.
+        emit('contract-changed', account)
         // The project file records the account of a deployment, never one that was only looked at.
         if (net && !askAccount && (saved?.account !== account || saved?.permission !== permission)) {
           const cfg = { ...project.config, deploy: { ...project.config.deploy, networks: { ...project.config.deploy.networks, [net.id]: { account, permission } } } }

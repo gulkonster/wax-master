@@ -9,6 +9,7 @@ import { ActionForm } from '../components/ActionForm'
 import { TableView } from '../components/TableView'
 import { IconClose, IconContract, IconPlus, IconRefresh, IconStar } from '../components/Icons'
 import { HelpButton } from '../components/HelpButton'
+import { readChangedAbi } from '../lib/abi-refresh'
 import { useApp } from '../state'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
@@ -130,6 +131,34 @@ function ContractBody({ name }: { name: string }): React.JSX.Element {
 
   useEffect(() => void load(false), [load])
   useEffect(() => on('contract-refresh', (n) => n === name && void load(true)), [name, load])
+
+  // After a sent deployment or Clear Contract Code the node may answer with the old ABI for a
+  // moment: it is read again until it changes (the typed fields are cleared then).
+  const shown = useRef<ContractAbiView | null>(null)
+  shown.current = view
+  useEffect(() => {
+    let run = 0
+    const stop = on('contract-changed', (n) => {
+      if (n !== name) return
+      const mine = ++run
+      void readChangedAbi(() => window.wax.contract.abi(name, true), shown.current, { cancelled: () => mine !== run })
+        .then((v) => {
+          if (!v || mine !== run) return
+          setError('')
+          setView(v)
+          setGen((g) => g + 1)
+        })
+        .catch((e) => {
+          if (mine !== run) return
+          setView(null)
+          setError(errorText(e))
+        })
+    })
+    return () => {
+      run++
+      stop()
+    }
+  }, [name])
 
   if (error) return <div className="page-scroll"><div className="error-text" style={{ margin: 'var(--sp-4)' }}>{error}</div></div>
   if (!view || !net.current) return <div className="coming">Loading {name}...</div>

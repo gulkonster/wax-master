@@ -2536,6 +2536,11 @@ button.sb-item.mainnet:hover {
 .network-page .tx-head .hint {
   margin-top: 0;
 }
+/* Block production rows: the same row height as the value rows above them. */
+.network-page .tx-table td {
+  height: var(--row-lg);
+  vertical-align: middle;
+}
 .network-empty {
   padding: var(--sp-10) 0;
   font-size: var(--fs-section);
