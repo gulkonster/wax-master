@@ -3675,6 +3675,7 @@ button.sb-item.mainnet:hover {
 .read-more {
   margin-left: var(--sp-1);
   font-size: inherit;
+  white-space: nowrap;
 }
 
 /* A view that failed to draw (components/ErrorBoundary.tsx). */

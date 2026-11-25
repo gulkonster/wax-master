@@ -127,7 +127,7 @@ export function CpuNetSection({ ctx }: { ctx: WalletContext }): React.JSX.Elemen
   )
 }
 
-function Refund({ ctx }: { ctx: WalletContext }): React.JSX.Element | null {
+export function Refund({ ctx }: { ctx: WalletContext }): React.JSX.Element | null {
   const { view } = ctx
   const [permission, setPermission] = useState(view.control[0] ?? 'active')
   const { busy, message, send } = useSend(ctx.afterSend)
@@ -145,8 +145,11 @@ function Refund({ ctx }: { ctx: WalletContext }): React.JSX.Element | null {
   if (!view.refundRequested) return message ? <SendLine message={message} /> : null
   const since = (now - readAt) / 1000
   const isDue = since >= view.refundSecondsLeft
-  // The local due time shown: the moment of the read plus the seconds the chain still counts.
-  const dueText = fmtTime(new Date(readAt + Math.max(0, view.refundSecondsLeft) * 1000).toISOString())
+  // The due time shown: the chain's own due time in local time; without it, the moment of the
+  // read plus the seconds the chain still counts.
+  const dueText = view.refundDue
+    ? fmtTime(view.refundDue)
+    : fmtTime(new Date(readAt + Math.max(0, view.refundSecondsLeft) * 1000).toISOString())
   const blocked = refundBlocked(view.refundExact, view.refundSecondsLeft, since)
   const action: TxAction | null = NAME.test(permission)
     ? { account: 'eosio', name: 'refund', authorization: [{ actor: view.name, permission }], data: { owner: view.name } }

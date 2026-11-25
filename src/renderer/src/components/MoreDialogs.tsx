@@ -23,6 +23,7 @@ export function ClearCodeDialog({ onClose, initialAccount = '' }: { onClose: () 
   const [account, setAccount] = useState(initialAccount)
   const [permission, setPermission] = useState('active')
   const [busy, setBusy] = useState(false)
+  const [cleared, setCleared] = useState(false)
   const [line, setLine] = useState<FormLine | null>(null)
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
   const go = async (): Promise<void> => {
@@ -32,6 +33,8 @@ export function ClearCodeDialog({ onClose, initialAccount = '' }: { onClose: () 
       const r = await withVault(() => window.wax.accounts.clearCode(account, permission))
       if (r.status === 'sent') {
         setTrace(r.trace)
+        // The code is gone: a second clear would only repeat the same transaction.
+        setCleared(true)
         toast('Contract code cleared', account, 'success')
         // An open Contract tab of this account reads its ABI again until the new one is there.
         emit('contract-changed', account)
@@ -58,7 +61,7 @@ export function ClearCodeDialog({ onClose, initialAccount = '' }: { onClose: () 
           <button className="btn" disabled={busy} onClick={onClose}>
             Close
           </button>
-          <button className="btn danger" disabled={busy || !NAME.test(account)} onClick={() => void go()}>
+          <button className="btn danger" disabled={busy || cleared || !NAME.test(account)} onClick={() => void go()}>
             {busy ? 'Waiting for confirmation...' : 'Clear code'}
           </button>
         </>

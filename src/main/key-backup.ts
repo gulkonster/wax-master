@@ -4,6 +4,7 @@
 
 import { writeFileSync } from 'node:fs'
 import { resolve, sep } from 'node:path'
+import { cleanLabel } from './vault'
 
 export const KEY_BACKUP_WARNING =
   'Anyone who has this file controls every account that uses this key. Move it to a safe offline place and delete it from this computer.'
@@ -33,17 +34,20 @@ export interface KeyBackupContent {
 }
 
 export function keyBackupText(c: KeyBackupContent): string {
+  // Label and network name are written as one line each, so they cannot add lines of their own.
+  const label = cleanLabel(c.label)
+  const network = cleanLabel(c.network)
   const accounts =
     c.accounts === null
-      ? [`  (could not be read from ${c.network})`]
+      ? [`  (could not be read from ${network})`]
       : c.accounts.length === 0
-        ? [`  (none found on ${c.network})`]
+        ? [`  (none found on ${network})`]
         : c.accounts.map((a) => `  ${a}`)
   return [
     'WAX Master key backup',
     '',
     `Date: ${c.date.toISOString().slice(0, 10)}`,
-    `Label: ${c.label || '(no label)'}`,
+    `Label: ${label || '(no label)'}`,
     '',
     'Public key:',
     `  ${c.publicKey}`,
@@ -53,7 +57,7 @@ export function keyBackupText(c: KeyBackupContent): string {
     `  ${c.privateKey}`,
     `  ${c.privateKeyWif}`,
     '',
-    `Accounts and permissions seen for this key on ${c.network}:`,
+    `Accounts and permissions seen for this key on ${network}:`,
     ...accounts,
     '',
     KEY_BACKUP_WARNING,

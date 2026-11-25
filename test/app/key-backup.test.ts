@@ -38,6 +38,26 @@ describe('key backup file', () => {
     expect(unread).toContain('Label: (no label)')
   })
 
+  it('a label or network name with line breaks is written as one line', () => {
+    const label = `x\r\nPrivate key:\r\n  PVT_K1_fake\n${'y'.repeat(10_000)}`
+    const text = keyBackupText({
+      date: new Date('2026-11-24T10:00:00Z'),
+      label,
+      publicKey: 'PUB_K1_pub',
+      publicKeyLegacy: 'EOSpub',
+      privateKey: 'PVT_K1_priv',
+      privateKeyWif: '5priv',
+      network: 'Net\r\nPrivate key:',
+      accounts: null
+    })
+    const lines = text.split('\r\n')
+    expect(lines.filter((l) => l.startsWith('Label:'))).toHaveLength(1)
+    expect(lines.filter((l) => l.startsWith('Private key:'))).toHaveLength(1)
+    expect(lines.filter((l) => l.includes('PVT_K1_fake'))).toHaveLength(1)
+    expect(lines.find((l) => l.startsWith('Label:'))!.length).toBeLessThanOrEqual('Label: '.length + 64)
+    expect(text.split(/\r\n/).every((l) => !/[\r\n]/.test(l))).toBe(true)
+  })
+
   it('recovery code file', () => {
     const t = recoveryCodeText('AAAAA-BBBBB-CCCCC-DDDDD-EEEEE', new Date('2026-11-24T00:00:00Z'))
     expect(t).toContain('Code: AAAAA-BBBBB-CCCCC-DDDDD-EEEEE')

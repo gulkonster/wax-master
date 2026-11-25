@@ -380,10 +380,17 @@ export function AccountPicker({
 // ---------------------------------------------------------------- permission
 
 /** Default permission of an account: active, or the first one the vault can sign. */
-export function defaultPermission(entry: AccountPickEntry | undefined, names: string[]): string {
-  const signable = entry?.signable ?? []
+export function defaultPermission(signable: readonly string[], names: string[]): string {
   if (signable.length === 0 || signable.includes('active')) return names.length === 0 || names.includes('active') ? 'active' : names[0]
   return signable[0]
+}
+
+/**
+ * What the vault can sign for an account: the key lookup's list and the permissions the
+ * account view says the vault's keys control (an account the lookup does not know yet).
+ */
+export function signableOf(fromList: readonly string[] | undefined, control: readonly string[]): string[] {
+  return [...new Set([...(fromList ?? []), ...control])]
 }
 
 /**
@@ -407,6 +414,8 @@ export function PermissionPicker({
   const isCurrent = !networkId || networkId === nets.current?.id
   const entry = list?.entries.find((e) => e.account === account)
   const [names, setNames] = useState<string[] | null>(null)
+  // The permissions the account view says the vault's keys control.
+  const [control, setControl] = useState<string[]>([])
   const valid = ACCOUNT_NAME.test(account)
   // A sent transaction may have added or removed a permission: read them again.
   const gen = usePickGeneration()
@@ -414,17 +423,29 @@ export function PermissionPicker({
 
   useEffect(() => {
     // A new account starts empty; a read again after a send keeps the names until the answer comes.
-    if (namesOf.current !== account) setNames(null)
+    if (namesOf.current !== account) {
+      setNames(null)
+      setControl([])
+    }
     namesOf.current = account
     if (!valid || !isCurrent) {
       setNames(null)
+      setControl([])
       return
     }
     let live = true
     const t = setTimeout(() => {
       window.wax.chain.account(account).then(
-        (v) => live && setNames(v.permissions.map((p) => p.name)),
-        () => live && setNames([])
+        (v) => {
+          if (!live) return
+          setNames(v.permissions.map((p) => p.name))
+          setControl(v.control)
+        },
+        () => {
+          if (!live) return
+          setNames([])
+          setControl([])
+        }
       )
     }, 250)
     return () => {
@@ -433,7 +454,7 @@ export function PermissionPicker({
     }
   }, [account, valid, isCurrent, gen])
 
-  const signable = entry?.signable ?? []
+  const signable = signableOf(entry?.signable, control)
   const base = names && names.length > 0 ? names : [...new Set(['active', 'owner', ...signable])]
   const options = [...new Set([...signable.filter((p) => base.includes(p)), ...base, ...(value ? [value] : [])])]
 
@@ -443,9 +464,9 @@ export function PermissionPicker({
     if (lastAccount.current === account) return
     if (!valid || (isCurrent && names === null)) return
     lastAccount.current = account
-    const d = defaultPermission(entry, names ?? [])
+    const d = defaultPermission(signable, names ?? [])
     if (d !== value) onChange(d)
-  }, [account, valid, isCurrent, names, entry, value, onChange])
+  }, [account, valid, isCurrent, names, signable, value, onChange])
 
   // No account chosen yet: a neutral placeholder, not a permission with a "view only" mark.
   if (!valid) {

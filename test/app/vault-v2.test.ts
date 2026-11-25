@@ -365,6 +365,26 @@ describe('backup notes and import', () => {
     expect(await target.importFile(exported, code.toLowerCase())).toBe(1)
     for (const k of v1Keys) expect(signs(target, k.pub)).toBe(true)
   })
+
+  it('a label enters the vault as one line of at most 64 characters, also from an imported file', async () => {
+    const src = new Vault(tempFile(), FAST)
+    await src.create('source password')
+    const key = src.addKey(freshKey().text, 'x')
+    const exported = src.exportFile()
+    exported.keys[0].label = `first\r\nPrivate key:\u2028${'z'.repeat(10_000)}\n`
+    const target = new Vault(tempFile(), FAST)
+    await target.create(PW)
+    expect(await target.importFile(exported, 'source password')).toBe(1)
+    const label = target.list().find((x) => x.publicKey === key.publicKey)!.label
+    expect(label).toHaveLength(64)
+    expect(label).not.toMatch(/[\r\n\u2028]/)
+    expect(label.startsWith('first  Private key: zzz')).toBe(true)
+    const typed = target.addKey(freshKey().text, ' a\nb\tc ')
+    expect(typed.label).toBe('a b c')
+    target.setLabel(typed.id, `d\r\n${'e'.repeat(100)}`)
+    expect(target.list().find((x) => x.id === typed.id)!.label).toBe(`d  ${'e'.repeat(61)}`)
+    expect(target.generateKey('g\nh').label).toBe('g h')
+  })
 })
 
 describe('password rule', () => {

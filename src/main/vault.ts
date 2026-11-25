@@ -31,6 +31,15 @@ import { LOCKED_MESSAGE } from '../shared/vault-locked'
 import { requirePasswordLength } from '../shared/password'
 import { newRecoveryCode, normalizeRecoveryCode } from './recovery-code'
 
+/**
+ * A key label as the vault keeps it: one line (control characters and line breaks become a
+ * space), trimmed, at most 64 characters. Used wherever a label enters the vault.
+ */
+export function cleanLabel(label: string): string {
+  // eslint-disable-next-line no-control-regex
+  return label.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, ' ').trim().slice(0, 64)
+}
+
 export { MIN_PASSWORD_LENGTH } from '../shared/password'
 
 export interface KdfParams {
@@ -673,7 +682,7 @@ export class Vault {
       const now = Date.now()
       const entry: StoredKey = {
         id,
-        label: label.trim().slice(0, 64),
+        label: cleanLabel(label),
         publicKey,
         created: now,
         enc: seal(key, priv.data, keyAad(id, publicKey)),
@@ -725,7 +734,7 @@ export class Vault {
       const now = Date.now()
       const entry: StoredKey = {
         id,
-        label: label.trim().slice(0, 64),
+        label: cleanLabel(label),
         publicKey,
         created: now,
         enc: seal(key, priv.data, keyAad(id, publicKey)),
@@ -746,7 +755,7 @@ export class Vault {
   }
 
   setLabel(id: string, label: string): void {
-    this.commit(this.withKey(id, (k) => ({ ...k, label: label.trim().slice(0, 64) })))
+    this.commit(this.withKey(id, (k) => ({ ...k, label: cleanLabel(label) })))
   }
 
   /** Records how the key was backed up (works while locked: the note is clear text). */
@@ -869,7 +878,7 @@ export class Vault {
             const id = randomUUID()
             added.push({
               id,
-              label: k.label,
+              label: cleanLabel(k.label),
               publicKey: pub,
               created: k.created,
               enc: seal(key, data, keyAad(id, pub)),

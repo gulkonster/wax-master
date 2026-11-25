@@ -424,7 +424,9 @@ describe('a read that moves to another endpoint', () => {
   const B = 'https://b.example'
   async function twoEndpoints(): Promise<{ n: Networks; RpcError: typeof import('../../src/main/rpc').RpcError; notices: string[] }> {
     const n = await fresh()
-    const { RpcError } = await import('../../src/main/rpc')
+    const rpc = await import('../../src/main/rpc')
+    const { RpcError } = rpc
+    vi.spyOn(rpc.chain, 'getInfo').mockResolvedValue({ chain_id: WAX_TEST } as never)
     await n.updateNetwork('wax-testnet', { endpoints: [A, B] }, never)
     n.selectNetwork('wax-testnet')
     const notices: string[] = []
@@ -482,5 +484,82 @@ describe('a read that moves to another endpoint', () => {
     await n.readCall(read)
     expect(asked).toEqual([A])
     expect(n.readEndpointIndex(n.currentNetwork())).toBe(0)
+  })
+})
+
+describe('an endpoint that takes over the reads is asked for its chain id', () => {
+  const A = 'https://a.example'
+  const B = 'https://b.example'
+  const C = 'https://c.example'
+  async function threeEndpoints(chainOf: Record<string, string>): Promise<{
+    n: Networks
+    RpcError: typeof import('../../src/main/rpc').RpcError
+    notices: string[]
+    warnings: string[]
+    infoAsked: string[]
+  }> {
+    const n = await fresh()
+    const rpc = await import('../../src/main/rpc')
+    const { log } = await import('../../src/main/log')
+    const infoAsked: string[] = []
+    vi.spyOn(rpc.chain, 'getInfo').mockImplementation(((ep: string) => {
+      infoAsked.push(ep)
+      return chainOf[ep] ? Promise.resolve({ chain_id: chainOf[ep] }) : Promise.reject(new rpc.RpcError('no answer', 0))
+    }) as never)
+    await n.updateNetwork('wax-testnet', { endpoints: [A, B, C] }, never)
+    n.selectNetwork('wax-testnet')
+    const notices: string[] = []
+    n.onEndpointSwitch((net, from, to) => notices.push(n.endpointSwitchText(net.name, from, to, n.endpointOf(net))))
+    const warnings: string[] = []
+    vi.spyOn(log, 'warn').mockImplementation(((text: string) => {
+      warnings.push(text)
+    }) as never)
+    return { n, RpcError: rpc.RpcError, notices, warnings, infoAsked }
+  }
+
+  function savedIndex(): number | undefined {
+    return (onDisk().networks as { id: string; currentEndpoint: number }[]).find((x) => x.id === 'wax-testnet')?.currentEndpoint
+  }
+
+  it('a fallback of another chain is skipped and the next one serves', async () => {
+    const { n, RpcError, notices, warnings } = await threeEndpoints({ [B]: WAX_MAIN, [C]: WAX_TEST })
+    const before = readFileSync(join(h.dataDir, 'networks.json'), 'utf8')
+    const asked: string[] = []
+    const read = (ep: string): Promise<string> => {
+      asked.push(ep)
+      return ep === A ? Promise.reject(new RpcError('no answer', 0)) : Promise.resolve(`from ${ep}`)
+    }
+    await expect(n.readCall(read)).resolves.toBe(`from ${C}`)
+    expect(asked).toEqual([A, B, C])
+    expect(warnings).toContain(`Endpoint ${B} answers for another chain than WAX Testnet; it is not used for reads`)
+    expect(notices).toEqual([`WAX Testnet: ${A} did not answer a read. Reads go to ${C} for now; ${A} stays the selected endpoint.`])
+    expect(n.readEndpointIndex(n.currentNetwork())).toBe(2)
+    expect(n.getNetwork('wax-testnet').currentEndpoint).toBe(0)
+    expect(savedIndex()).toBe(0)
+    expect(readFileSync(join(h.dataDir, 'networks.json'), 'utf8')).toBe(before)
+  })
+
+  it('a fallback whose chain id cannot be read is skipped; with none left the first error stays', async () => {
+    const { n, RpcError, notices, warnings } = await threeEndpoints({})
+    const read = (ep: string): Promise<string> => (ep === A ? Promise.reject(new RpcError('no answer', 0)) : Promise.resolve('ok'))
+    await expect(n.readCall(read)).rejects.toThrow('no answer (3 endpoints tried)')
+    expect(warnings.filter((w) => w.includes('answers for another chain'))).toHaveLength(2)
+    expect(notices).toEqual([])
+    expect(n.readEndpointIndex(n.currentNetwork())).toBe(0)
+  })
+
+  it('a fallback of the right chain serves, gives the one notice and is asked once', async () => {
+    const { n, RpcError, notices, warnings, infoAsked } = await threeEndpoints({ [B]: WAX_TEST, [C]: WAX_TEST })
+    const before = readFileSync(join(h.dataDir, 'networks.json'), 'utf8')
+    const read = (ep: string): Promise<string> => (ep === A ? Promise.reject(new RpcError('no answer', 0)) : Promise.resolve(`from ${ep}`))
+    await expect(Promise.all([n.readCall(read), n.readCall(read)])).resolves.toEqual([`from ${B}`, `from ${B}`])
+    await n.readCall(read)
+    expect(infoAsked).toEqual([B])
+    expect(warnings.filter((w) => w.includes('answers for another chain'))).toEqual([])
+    expect(notices).toEqual([`WAX Testnet: ${A} did not answer a read. Reads go to ${B} for now; ${A} stays the selected endpoint.`])
+    expect(n.getNetwork('wax-testnet').currentEndpoint).toBe(0)
+    expect(n.endpointOf(n.currentNetwork())).toBe(A)
+    expect(savedIndex()).toBe(0)
+    expect(readFileSync(join(h.dataDir, 'networks.json'), 'utf8')).toBe(before)
   })
 })

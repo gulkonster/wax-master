@@ -403,11 +403,39 @@ export function onEndpointSwitch(fn: SwitchNotice): void {
   onSwitch = fn
 }
 
+/** Chain id checks in progress, so reads that move at the same time ask an endpoint once. */
+const chainChecks = new Map<string, Promise<boolean>>()
+
+/**
+ * Whether an endpoint answers with the network's chain id as written. Another id or a failed
+ * read gives one warning and false.
+ */
+function servesChain(n: NetworkInfo, ep: string): Promise<boolean> {
+  const key = `${n.id} ${ep}`
+  let check = chainChecks.get(key)
+  if (!check) {
+    check = chain
+      .getInfo(ep)
+      .then(
+        (info) => info.chain_id === n.chainId,
+        () => false
+      )
+      .then((ok) => {
+        if (!ok) log.warn(`Endpoint ${ep} answers for another chain than ${n.name}; it is not used for reads`)
+        return ok
+      })
+      .finally(() => chainChecks.delete(key))
+    chainChecks.set(key, check)
+  }
+  return check
+}
+
 /**
  * Runs a read call against the read endpoint of the session (at first the chosen one); on a
  * network failure, a rate limit (429) or a server error it moves to the next endpoint of the
  * network. The endpoint that answers serves the reads of this session (a notice when it
- * changes); nothing is saved and the chosen endpoint stays. Node errors about the request itself are not retried. When every
+ * changes) once it gave the network's chain id; one that gives another id or none is skipped
+ * like a failed one. Nothing is saved and the chosen endpoint stays. Node errors about the request itself are not retried. When every
  * endpoint failed, the error is the one of the selected endpoint, with
  * "(<n> endpoints tried)" when the network has more than one.
  */
@@ -425,9 +453,14 @@ export async function readCall<T>(fn: (endpoint: string) => Promise<T>, network 
           // Back at the chosen endpoint: no session endpoint any more.
           readEndpoints.delete(n.id)
         } else if (readEndpoints.get(n.id) !== idx) {
+          // An endpoint takes over the reads only when it answers for this network's chain;
+          // otherwise its answer is dropped and the next endpoint is tried.
+          if (!(await servesChain(n, ep))) continue
           // Reads that failed at the same time all land here: only the first one gives the notice.
-          readEndpoints.set(n.id, idx)
-          onSwitch(getNetwork(n.id), n.endpoints[start], ep)
+          if (readEndpoints.get(n.id) !== idx) {
+            readEndpoints.set(n.id, idx)
+            onSwitch(getNetwork(n.id), n.endpoints[start], ep)
+          }
         }
       }
       return r

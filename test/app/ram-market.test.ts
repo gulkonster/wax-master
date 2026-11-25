@@ -152,6 +152,9 @@ describe('main-process read of the RAM price', () => {
   it('a failing first endpoint: readCall tries the next one and answers the market', async () => {
     const { chooseEndpoint, readCall } = await import('../../src/main/networks')
     const net = { id: 'wax-testnet', name: 'X', kind: 'testnet', chainId: 'f1'.repeat(32), endpoints: ['https://a.example', 'https://b.example'], currentEndpoint: 0 }
+    // The endpoint that takes over is asked for its chain id first: it is the network's.
+    const { chain } = await import('../../src/main/rpc')
+    const info = vi.spyOn(chain, 'getInfo').mockResolvedValue({ chain_id: net.chainId } as never)
     for (const status of [429, 502, 503, 504]) {
       // Choosing the endpoint again ends the read endpoint the last failover kept for the session.
       chooseEndpoint('wax-testnet', 0)
@@ -175,6 +178,7 @@ describe('main-process read of the RAM price', () => {
     const all = await readCall((ep) => readRamPrice(1, async () => Promise.reject(new RpcError(`${ep} HTTP 503`, 503))), net as never).catch((e) => e)
     expect(all).toBeInstanceOf(RpcError)
     expect((all as Error).message).toBe('https://a.example HTTP 503 (2 endpoints tried)')
+    info.mockRestore()
   })
   it('the shown text: "The RAM price could not be read"', async () => {
     const { ramPriceError } = await import('../../src/main/ram-price')
