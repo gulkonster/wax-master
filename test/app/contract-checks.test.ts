@@ -173,8 +173,8 @@ describe('shipped templates and examples', () => {
       const p = join(dir, n)
       return statSync(p).isDirectory() ? walk(p) : /\.(cpp|hpp|h|inc)$/.test(n) ? [p] : []
     })
-  it('covers twelve folders', () => {
-    expect(folders).toHaveLength(12)
+  it('covers thirteen folders', () => {
+    expect(folders).toHaveLength(13)
   })
   for (const folder of folders) {
     it(`gives no check: ${folder.slice(root.length + 1).replace(/\\/g, '/')}`, () => {

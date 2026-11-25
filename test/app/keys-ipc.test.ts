@@ -309,7 +309,7 @@ describe('app:clearData asks in the main process', () => {
     writeFileSync(join(project, 'src', 'contract.cpp'), '// code')
     h.answers.push(1)
     await call('app:clearData', false, '')
-    expect(h.dialogCalls[0].detail).toContain('- settings, networks, stars, added tokens, saved queries and the build record')
+    expect(h.dialogCalls[0].detail).toContain('- settings, networks, stars, added tokens, saved queries, the build record and the kept answers of sent transactions')
     for (const n of names) expect(existsSync(join(dir, n)), n).toBe(false)
     expect(existsSync(join(project, 'waxmaster.json'))).toBe(true)
     expect(existsSync(join(project, 'src', 'contract.cpp'))).toBe(true)
