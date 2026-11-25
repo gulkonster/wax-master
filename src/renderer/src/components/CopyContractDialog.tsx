@@ -10,6 +10,8 @@ import { errorText, toast } from '../lib/toast'
 import { networkStore } from '../lib/networks'
 import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
+import { withVault } from '../lib/vault'
+import { isUnlockCancelled } from '../../../shared/vault-locked'
 import { LOCAL_CHAIN_NETWORK_ID } from '../../../shared/local-chain'
 
 const NAME = /^[a-z1-5.]{1,12}$/
@@ -27,6 +29,8 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
   const [read, setRead] = useState<{ hash: string; size: number } | null>(null)
   const [targetState, setTargetState] = useState<{ exists: boolean; hasCode: boolean } | null>(null)
   const [localHash, setLocalHash] = useState('')
+  // After a copy: whether the code read back from the local chain equals the source's (B111 point 4).
+  const [same, setSame] = useState<boolean | null>(null)
   const [replace, setReplace] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -47,6 +51,7 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
     setRead(null)
     setTargetState(null)
     setLocalHash('')
+    setSame(null)
     setReplace(false)
     setError('')
   }
@@ -77,13 +82,13 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
     setBusy(true)
     setError('')
     try {
-      const r = await api().copyContract({ networkId: source, account, target, publicKey: key, replace })
+      const r = await withVault(() => api().copyContract({ networkId: source, account, target, publicKey: key, replace }))
       setLocalHash(r.localHash)
-      toast('Contract copied', `${target} on Local chain has the code of ${account}.`, 'success')
+      setSame(r.same)
+      if (r.same) toast('Contract copied', `${target} on Local chain has the code of ${account}.`, 'success')
       emit('open-account-page', target)
-      onClose()
     } catch (e) {
-      setError(errorText(e))
+      if (!isUnlockCancelled(e)) setError(errorText(e))
     } finally {
       setBusy(false)
     }
@@ -101,7 +106,7 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
           <button className="btn" disabled={busy} onClick={onClose}>
             Close
           </button>
-          {read ? (
+          {same !== null ? null : read ? (
             <button className="btn primary" disabled={!ready || busy} onClick={() => void doCopy()}>
               {busy ? 'Copying...' : 'Copy'}
             </button>
@@ -113,7 +118,7 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
         </>
       }
     >
-      <p className="hint">Only code and ABI are copied, not the tables. Most contracts need their first action (for example `init`) run again here.</p>
+      <p className="hint">Only code and ABI are copied, not the tables. Most contracts need their first action (for example <span className="mono">init</span>) run again here.</p>
       <div className="field">
         <label>Source network</label>
         <select
@@ -171,7 +176,9 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
           </div>
         </div>
       )}
-      {read && targetState && !targetState.exists && (
+      {same === true && <div className="acct-note good">The code on Local chain is the same as on the source.</div>}
+      {same === false && <div className="error-text">The code on Local chain is not the same as on the source.</div>}
+      {same === null && read && targetState && !targetState.exists && (
         <div className="field">
           <label>Key for the new account (owner and active)</label>
           <select className="select" value={key} disabled={busy || keys.length === 0} onChange={(e) => setKey(e.target.value)}>
@@ -186,7 +193,7 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
           <div className="hint">The account does not exist here; it is made with RAM for the code and the key you pick.</div>
         </div>
       )}
-      {read && targetState?.hasCode && (
+      {same === null && read && targetState?.hasCode && (
         <label className="check-label">
           <input type="checkbox" checked={replace} disabled={busy} onChange={() => setReplace(!replace)} />
           <span>{target} on Local chain already has code. Replace it with the copy.</span>

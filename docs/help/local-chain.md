@@ -21,8 +21,8 @@ What it does not have:
 ### Set up
 
 1. Open Network > Local Chain...
-2. Read the text and press **Set up**. It needs about 700 MB of disk space and takes a few minutes; the lines under the button show what is done. Nothing is downloaded.
-3. Wait for **Ready**. Set up is needed once.
+2. Read the text and press **Set up**. It needs about 350 MB of disk space and takes less than a minute; the lines under the button show what is done. Nothing is downloaded.
+3. Wait for the line "The chain is ready."; the dialog then shows **Stopped**. Set up is needed once.
 
 The local chain needs WSL 2 (virtualization on). On a computer that can run only WSL 1 the dialog says so and installs nothing. The compiler works without it; the local chain does not.
 
@@ -40,13 +40,13 @@ If port 8888 is taken by another program, the chain uses the next free one up to
 
 ### New account
 
-1. In the dialog, press **New account**.
+1. In the dialog, press **New account...**.
 2. Type a name (12 characters, a-z and 1-5; one is filled in at random) and pick a key from your vault. The same key serves as owner and active. Only the public key is used, so the vault can stay locked. **Manage Keypairs** makes or imports a key.
 3. Press **Create**. The chain's own system account creates the account, buys 1 MiB of RAM for it, stakes 100 WAX for CPU and 100 WAX for NET, and sends it 10,000 WAX. The account is starred on the local chain and its page opens.
 
 You sign nothing here: the system account belongs to the chain, not to you, and its key is never shown. Everything your own accounts do is signed with your keys from the vault, with the normal confirmation.
 
-**Give tokens** (in the dialog, and in the **Local tokens** section of an account's page on the local chain) sends WAX to an existing account of the chain. The amount starts at 1,000; the most is 1,000,000 WAX.
+**Give tokens**, in the **Local tokens** section of an account's page on the local chain, sends WAX to that account. The amount starts at 1,000; the most is 1,000,000 WAX.
 
 ### Deploy and try the Token template
 
@@ -83,7 +83,7 @@ Both are off at first, in the dialog:
 - One producer, `eosio`: a block every half second, made by this one node. The chain is not voted on.
 - The tokens are your own: the system account holds them and hands them out as above.
 - The system key belongs to this chain only. It stays inside the chain's private Linux and is never shown or sent anywhere.
-- Unstaking, voting and rewards work as the node answers them, and the app shows the node's own words. Read what the chain says before you rely on a delay.
+- Unstaking is refused while the chain is not activated by votes: the node answers "cannot undelegate bandwidth until the chain is activated (at least 15% of all tokens participate in voting)". The 100 WAX staked for CPU and for NET stay staked; Give tokens adds liquid WAX. Voting and rewards work as the node answers them, and the app shows the node's own words.
 
 ## When it does not start
 
@@ -97,7 +97,7 @@ The dialog shows one of these texts with its button:
 
 Whenever the node ended and the dialog shows a problem, **Reset** is offered beside **Open log** and **Remove**. If Start fails again and the log names no cause you can remove, press Reset.
 
-If the app was closed by force (for example in Task Manager) while the chain ran, the next Start finds the data not closed cleanly and rebuilds it as in the first text; a chain with many transactions takes longer. **Open log** shows the node's last lines (the last 2 MB are kept). The log never holds a key.
+If the app was closed by force (for example in Task Manager) while the chain ran, the next Start finds the data not closed cleanly and rebuilds it from the chain's own blocks before it runs (a few seconds; a chain with many transactions takes longer). **Open log** shows the node's last lines (the last 2 MB are kept). The log never holds a key.
 
 ## Other people's contracts
 
@@ -106,7 +106,9 @@ A WAX game calls contracts such as `atomicassets`. The local chain does not have
 1. Start the chain and press **Copy contract...** in the dialog.
 2. Choose the source network (for example WAX Mainnet) and type the account, for example `atomicassets`.
 3. Keep the same name here or type another, and pick a key. If the account does not exist, it is made as in New account.
-4. The dialog shows the SHA-256 of the code before and after. Both must be the same. Press **Copy** and approve the confirmation.
+4. Press **Read**: the dialog shows the SHA-256 of the code on the source and on the local chain. Press **Copy** and approve the confirmation. Afterwards the dialog shows both again; they must be the same.
+
+A copied contract that sends actions itself (inline actions, as `atomicassets` does) needs `eosio.code` on its `active` permission, as on its own network: on its Account page open **Keys and permissions** and tick **Allow this account's contract to send actions (eosio.code)**. `atomicassets` also needs `init`, and its collection format (`admincoledit`, signed by `atomicassets`) before a collection's `data` can hold a `name`; with `data` = `[]` a collection works without it.
 
 See [AtomicAssets in short](doc:nft-atomicassets).
 
@@ -117,6 +119,6 @@ You set up the chain, press Start and make `alice1111111` and `bob111111111` wit
 ## What is needed
 
 - Windows with WSL 2.
-- About 700 MB of free disk space for the chain, and about 1 GB of memory for its private Linux while it runs.
+- About 350 MB of free disk space for the chain, and about 1 GB of memory for its private Linux while it runs.
 - The vault, for the keys of your accounts.
 - To run your own node instead, see [Your own local node](doc:local-node). Networks and kinds: [Mainnet and testnet](doc:mainnet-and-testnet).

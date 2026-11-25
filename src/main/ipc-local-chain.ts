@@ -1,7 +1,7 @@
 // IPC handlers of the app's local chain (decision B108 point 7, B110 points 1-2): the window calls the
 // process module, and the network entry follows the node's port and chain id.
 
-import type { BrowserWindow } from 'electron'
+import { dialog, type BrowserWindow } from 'electron'
 import { bool, chainName, int, obj, str } from '../shared/validate'
 import {
   LOCAL_CHAIN_NETWORK_ID,
@@ -77,7 +77,23 @@ function dropNetwork(s: LocalChainStatus): LocalChainStatus {
   return s
 }
 
+/** The question B108 point 7 asks in the main process before Reset and Remove. */
+export const RESET_QUESTION = {
+  message: 'Reset the local chain?',
+  detail: 'Reset makes a new empty chain with the same chain id. The accounts, contracts and tables on it are lost, and the stars and added tokens of Local chain are cleared.'
+}
+export const REMOVE_QUESTION = {
+  message: 'Remove the local chain?',
+  detail: 'Remove deletes the chain and its private Linux from this computer and takes Local chain out of the network list. The accounts and contracts on it are lost. Set up makes a new one.'
+}
+
 export function registerLocalChainIpc(getWindow: () => BrowserWindow | null): void {
+  const ask = async (q: { message: string; detail: string }, button: string): Promise<boolean> => {
+    const opts: Electron.MessageBoxOptions = { type: 'warning', buttons: [button, 'Cancel'], defaultId: 1, cancelId: 1, noLink: true, title: 'Local Chain', ...q }
+    const win = getWindow()
+    const r = win && !win.isDestroyed() ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)
+    return r.response === 0
+  }
   const send = (channel: string, payload: unknown): void => {
     const win = getWindow()
     if (win && !win.isDestroyed()) win.webContents.send(channel, payload)
@@ -90,12 +106,14 @@ export function registerLocalChainIpc(getWindow: () => BrowserWindow | null): vo
   handle('localChain:start', async () => syncNetwork(await chain.start()))
   handle('localChain:stop', async () => chain.stop())
   handle('localChain:reset', async () => {
+    if (!(await ask(RESET_QUESTION, 'Reset'))) return chain.getStatus()
     const s = await chain.reset()
     networks.clearLocalChainMemory()
     forgetKept()
     return syncNetwork(s)
   })
   handle('localChain:remove', async () => {
+    if (!(await ask(REMOVE_QUESTION, 'Remove'))) return chain.getStatus()
     const s = await chain.remove()
     forgetKept()
     return dropNetwork(s)

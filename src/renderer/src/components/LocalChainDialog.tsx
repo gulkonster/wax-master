@@ -7,7 +7,7 @@ import { LocalAccountDialog } from './LocalAccountDialog'
 import { CopyContractDialog } from './CopyContractDialog'
 import { copyText } from '../lib/clipboard'
 import { errorText, toast } from '../lib/toast'
-import { selectNetwork } from '../lib/networks'
+import { refreshNetworks, selectNetwork } from '../lib/networks'
 import { LOCAL_CHAIN_NETWORK_ID, type LocalChainPhase, type LocalChainStatus } from '../../../shared/local-chain'
 
 const api = (): typeof window.wax.localChain => window.wax.localChain
@@ -73,6 +73,8 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
       setError(errorText(e))
     } finally {
       setPending(false)
+      // Set up, Start, Use port and Remove change the network entry Local chain (B110 point 1); the top bar and the status bar follow it.
+      void refreshNetworks().catch(() => undefined)
     }
   }
 
@@ -230,7 +232,7 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
             The local chain is a WAX node that runs only on this computer, in a private Linux of its own. It starts empty, with the WAX system contract and the WAX token (8 decimals), so accounts, RAM, CPU and NET work as on
             WAX. You make accounts and test WAX yourself, with no faucet and no waiting, and you can reset or remove the chain at any time.
           </p>
-          <p>Set up uses about 400 MB of disk space and takes less than a minute. Everything it needs is inside WAX Master; nothing is downloaded. While the chain runs, WSL uses about 1 GB of memory.</p>
+          <p>Set up uses about 350 MB of disk space and takes less than a minute. Everything it needs is inside WAX Master; nothing is downloaded. While the chain runs, WSL uses about 1 GB of memory.</p>
         </>
       )}
 
