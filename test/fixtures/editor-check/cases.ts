@@ -188,11 +188,11 @@ const EXPECT: Record<string, Expect> = {
   'mi-2': { items: [{ file: HPP, line: 123, col: 44, severity: 'error', text: "Unknown type name 'acount'; did you mean 'account'?" }] },
   'mi-3': {
     items: [{ file: HPP, line: 123, col: 30, severity: 'error', underlined: '"accountstoolong"_n', text: '"accountstoolong"_n is not a valid name: it has 15 characters.' }],
-    absent: [{ file: HPP, code: 'constexpr_var_requires_const_init' }, { file: HPP, code: 'expr_not_cce' }]
+    absent: [{ file: HPP, code: 'constexpr_var_requires_const_init' }, { file: HPP, code: 'expr_not_cce' }, { file: CPP, code: 'constexpr_var_requires_const_init' }, { file: CPP, code: 'expr_not_cce' }]
   },
   'mi-4': {
     items: [{ file: HPP, line: 123, col: 30, severity: 'error', underlined: '"Accounts"_n', text: `"Accounts"_n is not a valid name: 'A' is not allowed.` }],
-    absent: [{ file: HPP, code: 'constexpr_var_requires_const_init' }, { file: HPP, code: 'expr_not_cce' }]
+    absent: [{ file: HPP, code: 'constexpr_var_requires_const_init' }, { file: HPP, code: 'expr_not_cce' }, { file: CPP, code: 'constexpr_var_requires_const_init' }, { file: CPP, code: 'expr_not_cce' }]
   },
   'mi-5': { items: [{ file: HPP, line: 95, col: 14, severity: 'error', text: "No member named 'primary_key' in 'mytoken::account'" }] },
   'mi-6': { hole: true, nothing: true },

@@ -62,10 +62,11 @@ export interface CheckProject {
 }
 
 /** Writes a template (or example) as a new project in the system temp folder. */
-export function makeProject(template: TemplateId, contract: string): CheckProject {
+export function makeProject(template: TemplateId, contract: string, extra: Record<string, string> = {}, change?: (files: Record<string, string>) => void): CheckProject {
   const base = mkdtempSync(join(tmpdir(), 'waxmaster-check-'))
   const root = join(base, 'project')
-  const files = templateFiles(template, contract)
+  const files = { ...templateFiles(template, contract), ...extra }
+  change?.(files)
   for (const [rel, text] of Object.entries(files)) {
     const p = join(root, ...rel.split('/'))
     mkdirSync(dirname(p), { recursive: true })
@@ -209,6 +210,21 @@ export class EngineClient {
   private send(msg: unknown): void {
     const s = JSON.stringify(msg)
     this.proc?.stdin.write(`Content-Length: ${Buffer.byteLength(s)}\r\n\r\n${s}`)
+  }
+
+  /** A request to the engine (completion, hover, signature help, definition, symbols). */
+  ask(method: string, params: unknown, timeoutMs = 30000): Promise<unknown> {
+    return this.request(method, params, timeoutMs)
+  }
+
+  /** One `didChange` with no changes: the open document is checked again (against unsaved headers). */
+  async touch(rel: string, waitMs = 30000): Promise<number> {
+    const v = (this.versions.get(rel) ?? 1) + 1
+    this.versions.set(rel, v)
+    const t0 = Date.now()
+    this.notify('textDocument/didChange', { textDocument: { uri: this.serverUri(rel), version: v }, contentChanges: [] })
+    await this.waitVersion(rel, v, waitMs)
+    return Date.now() - t0
   }
 
   private request(method: string, params: unknown, timeoutMs = 90000): Promise<unknown> {

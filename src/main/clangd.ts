@@ -135,6 +135,8 @@ export function engineArguments(dir: string): string[] {
     `--compile-commands-dir=${dir}`,
     '--background-index',
     '--header-insertion=never',
+    // An open header that is changed and not saved counts for the files that include it.
+    '--use-dirty-headers',
     '--log=error',
     '--enable-config=false',
     // No clang-tidy: a project .clang-tidy file must not steer the editor engine.
