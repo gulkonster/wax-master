@@ -174,10 +174,11 @@
   --save-bar: 56px;
   --statusbar: 28px;
   --home-ctl: 40px;
-  --project-row: 76px;
+  --project-row: 80px;
   --tree-row: 30px;
   --menu-item: 36px;
   --row: 44px;
+  --row-lg: 48px;
   --table-row: 36px;
   --problem-row: 28px;
   --resize-grip: 6px;
@@ -780,11 +781,15 @@ h3 {
 }
 .modal .btn,
 .form-page .btn,
-.save-bar .btn {
+.save-bar .btn,
+.wallet-section .btn,
+.network-title .btn {
   height: var(--ctl-lg);
 }
 .modal .btn.sm,
-.form-page .btn.sm {
+.form-page .btn.sm,
+.wallet-section .btn.sm,
+.network-title .btn.sm {
   height: var(--ctl-sm);
 }
 
@@ -2357,8 +2362,8 @@ button.sb-item.mainnet:hover {
 .account-columns h3,
 .tx-section h3 {
   margin: 0 0 var(--sp-2);
-  font-size: var(--fs-card);
-  line-height: var(--lh-card);
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
   color: var(--text-strong);
 }
 .card-list {
@@ -2485,8 +2490,9 @@ button.sb-item.mainnet:hover {
 }
 .network-title h2 {
   margin: 0;
-  font-size: var(--fs-section);
-  line-height: var(--lh-section);
+  font-size: var(--fs-page);
+  line-height: var(--lh-page);
+  font-weight: 600;
   color: var(--text-strong);
 }
 .network-fields {
@@ -2516,9 +2522,12 @@ button.sb-item.mainnet:hover {
 }
 .network-cards h3 {
   margin: 0 0 var(--sp-2);
-  font-size: var(--fs-card);
-  line-height: var(--lh-card);
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
   color: var(--text-strong);
+}
+.network-cards .kv-row {
+  min-height: var(--row-lg);
 }
 .network-cards .kv-row .num {
   overflow: hidden;
@@ -3716,8 +3725,9 @@ button.sb-item.mainnet:hover {
 }
 .wallet-title h2 {
   margin: 0;
-  font-size: var(--fs-section);
-  line-height: var(--lh-section);
+  font-size: var(--fs-page);
+  line-height: var(--lh-page);
+  font-weight: 600;
   color: var(--text-strong);
   word-break: break-all;
 }
@@ -3843,8 +3853,8 @@ button.sb-item.mainnet:hover {
 }
 .wallet-section-head h3 {
   margin: 0;
-  font-size: var(--fs-card);
-  line-height: var(--lh-card);
+  font-size: var(--fs-section);
+  line-height: var(--lh-section);
   color: var(--text-strong);
 }
 .wallet-section-head .grow {
