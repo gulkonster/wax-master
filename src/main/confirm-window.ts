@@ -4,7 +4,9 @@
 //
 // Approve is accepted only APPROVE_DELAY_MS after the window was shown and
 // focused (a window that appears under a click cannot be approved by that
-// click), and only one confirmation is open at a time.
+// click), and only one confirmation is open at a time. While a recovery code is
+// on screen (the vault was just converted or made) the confirmation waits until
+// that window is closed, so it never covers the code.
 
 import { app, BrowserWindow, ipcMain, screen, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
@@ -14,6 +16,7 @@ import { APP_ORIGIN, isAllowedOrigin, secureWebPreferences } from './security'
 import { log } from './log'
 import { withoutLockedCode } from '../shared/vault-locked'
 import { followTheme, themeArgs, windowBackground } from './theme'
+import { afterCodeWindows, focusKeyWindow } from './key-windows'
 
 /** Default size: a plain transfer shows without scrolling at the size scale of styles.css. */
 const CONFIRM_WIDTH = 880
@@ -36,6 +39,8 @@ export type ConfirmOutcome =
   | { approved: false; reason: 'cancelled' | 'closed' | 'error'; error?: string; details?: unknown }
 
 const pendingByWindow = new Map<number, Pending>()
+/** Confirmations waiting for a recovery-code window to close; each call drops its approval. */
+const waiting = new Set<() => void>()
 let signerRef: Signer | null = null
 let registered = false
 
@@ -50,11 +55,13 @@ function fromConfirmWindow(e: IpcMainInvokeEvent): Pending | null {
 
 /** True while a confirmation window is open. */
 export function hasOpenConfirmation(): boolean {
-  return pendingByWindow.size > 0
+  return pendingByWindow.size > 0 || waiting.size > 0
 }
 
 /** Brings the open confirmation window to the front (a second request was refused). */
 export function focusOpenConfirmation(): void {
+  // A confirmation waiting behind a recovery code: the code window comes to the front.
+  if (waiting.size > 0) focusKeyWindow('code')
   for (const p of pendingByWindow.values()) {
     if (!p.win.isDestroyed()) {
       if (p.win.isMinimized()) p.win.restore()
@@ -68,6 +75,7 @@ export function focusOpenConfirmation(): void {
  * A window whose approval is already being sent is left alone; it ends with the send.
  */
 export function closeOpenConfirmations(): void {
+  for (const drop of [...waiting]) drop()
   for (const p of [...pendingByWindow.values()]) {
     if (!p.busy && !p.win.isDestroyed()) p.win.close()
   }
@@ -123,7 +131,11 @@ export function registerConfirmWindow(signer: Signer): void {
   })
 }
 
-/** Opens the confirmation for a prepared approval and resolves when it is approved, cancelled or closed. */
+/**
+ * Opens the confirmation for a prepared approval and resolves when it is approved,
+ * cancelled or closed. While a recovery-code window is open the window opens only
+ * after it has closed; a lock in the meantime ends the request as closed.
+ */
 export function openConfirmation(parent: BrowserWindow | null, record: ApprovalRecord, secret: Buffer): Promise<ConfirmOutcome> {
   return new Promise((resolve) => {
     let settled = false
@@ -133,55 +145,71 @@ export function openConfirmation(parent: BrowserWindow | null, record: ApprovalR
         resolve(r)
       }
     }
-    const area = (parent ? screen.getDisplayMatching(parent.getBounds()) : screen.getPrimaryDisplay()).workAreaSize
-    const win = new BrowserWindow({
-      parent: parent ?? undefined,
-      icon: iconPath(),
-      modal: false,
-      width: Math.min(CONFIRM_WIDTH, area.width),
-      height: Math.min(CONFIRM_HEIGHT, area.height),
-      minWidth: 600,
-      minHeight: 500,
-      show: false,
-      title: record.network.kind === 'mainnet' ? `Confirm on ${record.network.name}` : 'Confirm transaction',
-      backgroundColor: windowBackground('content'),
-      autoHideMenuBar: true,
-      webPreferences: secureWebPreferences(join(__dirname, '../preload/confirm.js'), themeArgs())
-    })
-    win.setMenu(null)
-    followTheme(win, 'content')
-    const pending: Pending = { record, secret, win, settle, busy: false, armedAt: null }
-    pendingByWindow.set(win.webContents.id, pending)
-    const arm = (): void => {
-      pending.armedAt = win.isVisible() && win.isFocused() ? Date.now() : null
-    }
-    const disarm = (): void => {
-      pending.armedAt = null
-    }
-    win.on('show', arm)
-    win.on('focus', arm)
-    win.on('blur', disarm)
-    win.on('hide', disarm)
-    win.on('minimize', disarm)
-    win.once('ready-to-show', () => {
-      win.show()
-      win.focus()
-      arm()
-    })
-    win.on('closed', () => {
-      const p = [...pendingByWindow.entries()].find(([, v]) => v.win === win)
-      if (p) {
-        pendingByWindow.delete(p[0])
-        signerRef?.cancel(record.id)
-        secret.fill(0)
-      }
+    const drop = (): void => {
+      waiting.delete(drop)
+      signerRef?.cancel(record.id)
+      secret.fill(0)
       settle({ approved: false, reason: 'closed' })
+    }
+    waiting.add(drop)
+    afterCodeWindows(() => {
+      if (!waiting.delete(drop)) return
+      showConfirmation(parent, record, secret, settle)
     })
-    const devUrl = process.env.ELECTRON_RENDERER_URL
-    const url = !app.isPackaged && devUrl ? `${devUrl.replace(/\/$/, '')}/confirm.html` : `${APP_ORIGIN}/confirm.html`
-    win.loadURL(url).catch((e) => {
-      log.error('Confirmation window failed to load', e)
-      if (!win.isDestroyed()) win.destroy()
-    })
+  })
+}
+
+/** Creates the confirmation window; `settle` ends the request. */
+function showConfirmation(parent: BrowserWindow | null, record: ApprovalRecord, secret: Buffer, settle: (r: ConfirmOutcome) => void): void {
+  if (parent?.isDestroyed()) parent = null
+  const area = (parent ? screen.getDisplayMatching(parent.getBounds()) : screen.getPrimaryDisplay()).workAreaSize
+  const win = new BrowserWindow({
+    parent: parent ?? undefined,
+    icon: iconPath(),
+    modal: false,
+    width: Math.min(CONFIRM_WIDTH, area.width),
+    height: Math.min(CONFIRM_HEIGHT, area.height),
+    minWidth: 600,
+    minHeight: 500,
+    show: false,
+    title: record.network.kind === 'mainnet' ? `Confirm on ${record.network.name}` : 'Confirm transaction',
+    backgroundColor: windowBackground('content'),
+    autoHideMenuBar: true,
+    webPreferences: secureWebPreferences(join(__dirname, '../preload/confirm.js'), themeArgs())
+  })
+  win.setMenu(null)
+  followTheme(win, 'content')
+  const pending: Pending = { record, secret, win, settle, busy: false, armedAt: null }
+  pendingByWindow.set(win.webContents.id, pending)
+  const arm = (): void => {
+    pending.armedAt = win.isVisible() && win.isFocused() ? Date.now() : null
+  }
+  const disarm = (): void => {
+    pending.armedAt = null
+  }
+  win.on('show', arm)
+  win.on('focus', arm)
+  win.on('blur', disarm)
+  win.on('hide', disarm)
+  win.on('minimize', disarm)
+  win.once('ready-to-show', () => {
+    win.show()
+    win.focus()
+    arm()
+  })
+  win.on('closed', () => {
+    const p = [...pendingByWindow.entries()].find(([, v]) => v.win === win)
+    if (p) {
+      pendingByWindow.delete(p[0])
+      signerRef?.cancel(record.id)
+      secret.fill(0)
+    }
+    settle({ approved: false, reason: 'closed' })
+  })
+  const devUrl = process.env.ELECTRON_RENDERER_URL
+  const url = !app.isPackaged && devUrl ? `${devUrl.replace(/\/$/, '')}/confirm.html` : `${APP_ORIGIN}/confirm.html`
+  win.loadURL(url).catch((e) => {
+    log.error('Confirmation window failed to load', e)
+    if (!win.isDestroyed()) win.destroy()
   })
 }

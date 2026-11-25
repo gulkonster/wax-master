@@ -227,6 +227,8 @@ beforeAll(async () => {
   // The window handlers below use a stand-in signer (approval content is tested in criterion-2-signer).
   registerConfirmWindow(fakeSigner)
   await call('keys:create', editor(), PW, PW)
+  // The new vault's recovery-code window is closed: a confirmation waits while one is open.
+  ;(h.windows[h.windows.length - 1] as unknown as { close(): void }).close()
   const entry = (await call('keys:import', editor(), privateKeyToString(generatePrivateKey(), 'wif'), 'test')) as { id: string }
   keyId = entry.id
   await call('keys:reveal', editor(), keyId)
@@ -526,6 +528,45 @@ describe('locking the vault closes an open confirmation window', () => {
   })
 })
 
+describe('a confirmation never covers a recovery code', () => {
+  const codeEvent = (w: FakeWin): unknown => frameEvent(w.webContents.id, 'app://bundle/confirm.html')
+
+  it('the confirmation opens only after the recovery-code window is closed', async () => {
+    await call('keys:unlock', editor(), PW).catch(() => undefined)
+    await call('keys:newRecoveryCode', editor(), PW)
+    const codeWin = h.windows[h.windows.length - 1]
+    expect(codeWin.url).toMatch(/#code$/)
+    const before = h.windows.length
+    const done = openConfirmation(null, record('appr-wait'), Buffer.alloc(32, 1))
+    // No window yet; the request counts as open, so a second one is refused.
+    expect(h.windows.length).toBe(before)
+    expect(hasOpenConfirmation()).toBe(true)
+    expect(() => preflight(null)).toThrow(BUSY_MESSAGE)
+    await expect(call('keywin:codeDone', codeEvent(codeWin))).resolves.toBe(true)
+    await new Promise((r) => setTimeout(r, 20))
+    expect(codeWin.destroyed).toBe(true)
+    expect(h.windows.length).toBe(before + 1)
+    const confirmWin = h.windows[h.windows.length - 1]
+    expect(confirmWin.title).toBe('Confirm transaction')
+    ;(confirmWin as unknown as { close(): void }).close()
+    await expect(done).resolves.toEqual({ approved: false, reason: 'closed' })
+    expect(hasOpenConfirmation()).toBe(false)
+  })
+
+  it('a lock while the confirmation waits ends it as closed; no window opens afterwards', async () => {
+    await call('keys:newRecoveryCode', editor(), PW)
+    const codeWin = h.windows[h.windows.length - 1]
+    const before = h.windows.length
+    const done = openConfirmation(null, record('appr-wait-lock'), Buffer.alloc(32, 1))
+    vault().lock()
+    await expect(done).resolves.toEqual({ approved: false, reason: 'closed' })
+    expect(hasOpenConfirmation()).toBe(false)
+    ;(codeWin as unknown as { close(): void }).close()
+    expect(h.windows.length).toBe(before)
+    await call('keys:unlock', editor(), PW)
+  })
+})
+
 describe('the confirmation and reveal windows follow the theme', () => {
   const saved = process.env.ELECTRON_RENDERER_URL
   afterEach(() => {
@@ -613,13 +654,14 @@ describe('recovery code, recovery password and key backup stay out of the editor
 
   it('a new recovery code is shown only in its own window; every other sender is refused', async () => {
     await call('keys:unlock', editor(), PW).catch(() => undefined)
+    // A confirmation already open when the code is made; a later one would wait for the code window.
+    const { win: confirmWin } = openOne('appr-code')
     const status = await fromEditor('keys:newRecoveryCode', PW)
     expect(Object.keys(status as object).sort()).toEqual(['exists', 'keptCopies', 'keys', 'noBackup', 'recovery', 'unlocked'])
     const codeWin = lastWindow()
     expect(codeWin.url).toMatch(/confirm\.html#code$/)
     const { code } = (await call('keywin:load', winEvent(codeWin))) as { code: string }
     expect(code).toMatch(/^[0-9A-Z]{5}(-[0-9A-Z]{5}){4}$/)
-    const { win: confirmWin } = openOne('appr-code')
     for (const e of [editor(), editor('confirm.html'), frameEvent(revealWin.webContents.id, 'app://bundle/confirm.html'), confirmEvent(confirmWin)]) {
       for (const ch of ['keywin:load', 'keywin:codeCopy', 'keywin:codeSave', 'keywin:codeDone']) {
         await expect(call(ch, e)).rejects.toThrow('Refused')

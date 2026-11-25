@@ -45,6 +45,28 @@ export function keyWindowTitle(mode: KeyWindowMode): string {
 
 const sessions = new Map<number, KeySession>()
 
+/** Calls waiting for every recovery-code window to close (a confirmation must not cover a code). */
+let afterCodeCalls: (() => void)[] = []
+
+/** True while a window shows a recovery code (or the text that replaced it after a lock). */
+export function codeWindowOpen(): boolean {
+  for (const s of sessions.values()) if (s.mode === 'code' && !s.win.isDestroyed()) return true
+  return false
+}
+
+/** Runs `fn` now when no recovery-code window is open, otherwise once the last one has closed. */
+export function afterCodeWindows(fn: () => void): void {
+  if (!codeWindowOpen()) fn()
+  else afterCodeCalls.push(fn)
+}
+
+function runAfterCodeCalls(): void {
+  if (afterCodeCalls.length === 0 || codeWindowOpen()) return
+  const calls = afterCodeCalls
+  afterCodeCalls = []
+  for (const fn of calls) fn()
+}
+
 /** A native question from the main process; Cancel is the default and the answer to Escape. */
 export async function askNative(win: BrowserWindow | null, message: string, detail: string, action: string): Promise<boolean> {
   const opts = {
@@ -125,6 +147,7 @@ export function openKeyWindow(
     sessions.delete(wcId)
     session.code = undefined
     session.onClosed?.(session)
+    runAfterCodeCalls()
   })
   win.once('ready-to-show', () => win.show())
   void win.loadURL(pageUrl(mode))

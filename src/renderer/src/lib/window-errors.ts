@@ -2,15 +2,20 @@
 // rejections and views that failed to draw. Only the message line and the
 // places in the app's own scripts leave the page (see shared/window-error).
 
-import { makeWindowErrorReport, type WindowErrorKind } from '../../../shared/window-error'
+import { makeWindowErrorReport, repeatFilter, type WindowErrorKind } from '../../../shared/window-error'
 
 function ownOrigins(): string[] {
   return [`${location.protocol}//${location.host}`]
 }
 
+/** One draw failure is written once, even when React catches it twice. */
+const notRepeated = repeatFilter()
+
 export function reportWindowError(kind: WindowErrorKind, thrown: unknown): void {
   try {
-    window.wax?.app.reportError(makeWindowErrorReport(kind, thrown, ownOrigins()))
+    const report = makeWindowErrorReport(kind, thrown, ownOrigins())
+    if ((kind === 'render' || kind === 'render-window') && !notRepeated(report)) return
+    window.wax?.app.reportError(report)
   } catch {
     // reporting must never throw
   }

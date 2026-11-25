@@ -3,7 +3,7 @@
 // account existence check used for recipients and new names.
 
 import { describe, expect, it } from 'vitest'
-import { isUnknownAccount, pickList, signableFrom, type AuthorizerRow } from '../../src/main/account-pick'
+import { isUnknownAccount, pickList, plainAccountError, signableFrom, type AuthorizerRow } from '../../src/main/account-pick'
 import { RpcError } from '../../src/main/rpc'
 import { convertPublicKey, generatePrivateKey, publicFromPrivate, publicKeyToString } from '../../src/chain-core'
 
@@ -120,5 +120,25 @@ describe('account existence', () => {
     expect(isUnknownAccount(new RpcError('Internal Service Error', 500, body))).toBe(true)
     expect(isUnknownAccount(new RpcError('Request failed', 0))).toBe(false)
     expect(isUnknownAccount(new Error('unknown key'))).toBe(false)
+  })
+})
+
+describe('an account the node does not know is said plainly', () => {
+  const RAW = 'unable to retrieve account info (unknown key (boost::tuples::tuple<bool, eosio::chain::name, boost::tuples::null_type>): (0 standinuser1))'
+  it('the node text becomes the one sentence; the error is still known as an unknown account', () => {
+    const body = { code: 500, error: { name: 'unknown_key', what: 'Key Not Found', details: [{ message: RAW }] } }
+    const e = plainAccountError(new RpcError(RAW, 500, body), 'standinuser1', 'WAX Testnet') as RpcError
+    expect(e).toBeInstanceOf(RpcError)
+    expect(e.message).toBe('This account does not exist on WAX Testnet: standinuser1.')
+    expect(e.status).toBe(500)
+    expect(e.details).toBe(body)
+    expect(isUnknownAccount(e)).toBe(true)
+    expect(isUnknownAccount(new RpcError(RAW, 500))).toBe(true)
+  })
+  it('any other failure comes back unchanged', () => {
+    const timeout = new RpcError('Could not reach https://node.example: no answer within 30 s.', 0)
+    expect(plainAccountError(timeout, 'alice', 'WAX Testnet')).toBe(timeout)
+    const plain = new Error('unknown key')
+    expect(plainAccountError(plain, 'alice', 'WAX Testnet')).toBe(plain)
   })
 })

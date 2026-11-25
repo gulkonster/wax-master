@@ -14,6 +14,7 @@ import { abiRefusal } from './build'
 import { MAX_ABI_JSON } from './abi-check'
 import { currentNetwork, endpointOf, getNetwork, readCall } from './networks'
 import { chain } from './rpc'
+import { plainAccountError } from './account-pick'
 import { wasmInfo } from './wasm-info'
 import type { ActionRequest } from './signer'
 
@@ -174,7 +175,9 @@ export async function planDeploy(input: { networkId?: string; account: string; p
   const codeHash = hashRead.hash
   const rawAbi = await readCall((ep) => chain.getRawAbi(ep, input.account), network).catch(() => null)
   const chainAbiHash = chainAbiHashOf(rawAbi)
-  const account = await readCall((ep) => chain.getAccount(ep, input.account), network)
+  const account = await readCall((ep) => chain.getAccount(ep, input.account), network).catch((e) => {
+    throw plainAccountError(e, input.account, network.name)
+  })
   const wasmHash = wasm ? sha(wasm) : undefined
   const abiHash = abi ? sha(abi) : undefined
   const sendWasm = !!wasm && wasmHash !== codeHash

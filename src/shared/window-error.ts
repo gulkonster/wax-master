@@ -12,8 +12,9 @@ export const MAX_WINDOW_ERROR_PLACES = 5
 /** At most this many reports a minute are written; the rest are dropped and their number written once the next minute starts. */
 export const MAX_WINDOW_ERRORS_PER_MINUTE = 20
 
-export type WindowErrorKind = 'error' | 'rejection' | 'render'
-const KINDS: readonly WindowErrorKind[] = ['error', 'rejection', 'render']
+/** render: a view failed to draw; render-window: a part outside the views (the whole window's panel). */
+export type WindowErrorKind = 'error' | 'rejection' | 'render' | 'render-window'
+const KINDS: readonly WindowErrorKind[] = ['error', 'rejection', 'render', 'render-window']
 
 export interface WindowErrorReport {
   kind: WindowErrorKind
@@ -106,8 +107,36 @@ export function parseWindowErrorReport(raw: unknown): WindowErrorReport | null {
 
 /** The log line of a report. */
 export function windowErrorLine(r: WindowErrorReport): string {
-  const what = r.kind === 'render' ? 'A view failed to draw' : r.kind === 'rejection' ? 'Unhandled rejection in the window' : 'Error in the window'
+  const what =
+    r.kind === 'render'
+      ? 'A view failed to draw'
+      : r.kind === 'render-window'
+        ? 'The window failed to draw (outside the views)'
+        : r.kind === 'rejection'
+          ? 'Unhandled rejection in the window'
+          : 'Error in the window'
   return `${what}: ${r.message}${r.places.length ? ` (at ${r.places.join(', ')})` : ''}`
+}
+
+/** The same draw failure sent again within this time is the same failure, not a new one. */
+export const REPEAT_MS = 1000
+
+/**
+ * React can catch one draw failure twice (it draws the failed part once more
+ * before showing the error panel). Returns a check that is false for a report
+ * equal to the previous one when it comes within `windowMs` of it.
+ */
+export function repeatFilter(windowMs = REPEAT_MS, now: () => number = Date.now): (r: WindowErrorReport) => boolean {
+  let last = ''
+  let at = Number.NEGATIVE_INFINITY
+  return (r) => {
+    const key = JSON.stringify([r.kind, r.message, r.places])
+    const t = now()
+    const repeat = key === last && t - at < windowMs
+    last = key
+    at = t
+    return !repeat
+  }
 }
 
 /** The line written for the reports a full minute dropped. */

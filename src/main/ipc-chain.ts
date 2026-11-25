@@ -31,7 +31,7 @@ function vaultPublicKeys(): string[] {
 }
 import { NetworkStatusPoller, networkStatus } from './network-status'
 import { log } from './log'
-import { isUnknownAccount } from './account-pick'
+import { isUnknownAccount, plainAccountError } from './account-pick'
 import { ramPriceError, readRamPrice } from './ram-price'
 import { RAM_MAX_BUY } from '../shared/ram-market'
 import type { AuthLevel, ContractHistoryKind, ContractHistoryList, ContractInfoView, LinkedActionsView } from '../shared/chain-types'
@@ -219,7 +219,10 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
     const acc = chainName(name, 'account')
     if (!acc) throw new Error('account: enter an account name')
     const n = networks.currentNetwork()
-    const fromNode = linksFromAccount(await networks.readCall((ep) => chain.getAccount(ep, acc), n))
+    const account = await networks.readCall((ep) => chain.getAccount(ep, acc), n).catch((e) => {
+      throw plainAccountError(e, acc, n.name)
+    })
+    const fromNode = linksFromAccount(account)
     if (fromNode) return { rows: fromNode, source: 'node' }
     if (!n.history) return { rows: [], source: 'none' }
     return { rows: linksFromHistory(await history.getLinks(n.history, acc)), source: 'history' }
@@ -229,7 +232,9 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
     const acc = chainName(name, 'account')
     if (!acc) throw new Error('account: enter an account name')
     const n = networks.currentNetwork()
-    const a = await networks.readCall((ep) => chain.getAccount(ep, acc), n)
+    const a = await networks.readCall((ep) => chain.getAccount(ep, acc), n).catch((e) => {
+      throw plainAccountError(e, acc, n.name)
+    })
     const raw = await networks.readCall((ep) => chain.getRawAbi(ep, acc), n)
     const hash = (v: unknown): string => (typeof v === 'string' && /^[0-9a-f]{64}$/.test(v) && !/^0+$/.test(v) ? v : '')
     const codeHash = hash(raw.code_hash)

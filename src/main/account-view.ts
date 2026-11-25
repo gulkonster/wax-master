@@ -4,6 +4,7 @@
 import type { AccountActionRow, AccountActionsFilter, AccountActionsPage, AccountView, PermissionView } from '../shared/chain-types'
 import { actionsQuery, ACTIONS_PAGE, nextPagePassesWindow } from '../shared/history-filter'
 import { chain, history } from './rpc'
+import { plainAccountError } from './account-pick'
 import { parsePublicKey, publicKeyToString } from '../chain-core'
 import { currentNetwork, readCall, WAX_TESTNET_CHAIN } from './networks'
 import { formatUnits, readAsset, rescaleUnits } from '../shared/wallet'
@@ -111,7 +112,9 @@ export function chainTimePlus(t: string, seconds: number): string {
 
 export async function accountView(name: string, vaultKeys: readonly string[] = []): Promise<AccountView> {
   const n = currentNetwork()
-  const a = await readCall((ep) => chain.getAccount(ep, name), n)
+  const a = await readCall((ep) => chain.getAccount(ep, name), n).catch((e) => {
+    throw plainAccountError(e, name, n.name)
+  })
   const sym = n.symbol
   const prec = n.precision
   // All sums in whole units, so every size is exact.

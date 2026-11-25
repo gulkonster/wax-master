@@ -35,7 +35,9 @@ import {
   droppedLine,
   stackPlaces,
   windowErrorLimiter,
-  withoutPaths
+  withoutPaths,
+  repeatFilter,
+  REPEAT_MS
 } from '../../src/shared/window-error'
 
 setLogSink((l) => h.lines.push(l))
@@ -335,5 +337,53 @@ describe('error boundary', () => {
     b.props = { ...b.props, resetKey: 'vault' }
     b.componentDidUpdate({ ...b.props, resetKey: 'deploy' })
     expect(b.state.error).toBeNull()
+  })
+})
+
+describe('one log line per draw failure, with the place it happened', () => {
+  it('a failure outside the views has its own line; a view failure keeps "A view failed to draw"', () => {
+    h.lines.length = 0
+    expect(onWindowError(editor as never, { ...ok, kind: 'render-window' }, always)).toBe(true)
+    expect(onWindowError(editor as never, ok, always)).toBe(true)
+    expect(h.lines[0]).toMatch(/ERROR The window failed to draw \(outside the views\): TypeError: x is not a function \(at index-abc\.js:12:5\)$/)
+    expect(h.lines[0]).not.toContain('A view failed to draw')
+    expect(h.lines[1]).toMatch(/ERROR A view failed to draw: TypeError: x is not a function/)
+  })
+
+  it('the same report again within a second is dropped; later, or a different one, is not', () => {
+    let now = 1_000
+    const allow = repeatFilter(REPEAT_MS, () => now)
+    const r = { kind: 'render' as const, message: 'Error: boom', places: ['index-a.js:1:2'] }
+    expect(allow(r)).toBe(true)
+    now += 1
+    expect(allow(r)).toBe(false)
+    expect(allow({ ...r, kind: 'render-window' })).toBe(true)
+    expect(allow({ ...r, message: 'Error: other' })).toBe(true)
+    now += REPEAT_MS
+    expect(allow({ ...r, message: 'Error: other' })).toBe(true)
+  })
+
+  it('the boundaries send one report per failure: the view boundary as a view, the window boundary as the window', async () => {
+    const sent: { kind: string; message: string }[] = []
+    const g = globalThis as Record<string, unknown>
+    const saved = { window: g.window, location: g.location }
+    g.window = { wax: { app: { reportError: (r: { kind: string; message: string }) => sent.push(r) } } }
+    g.location = { protocol: 'app:', host: 'bundle' }
+    try {
+      const ErrorBoundary = await loadBoundary()
+      const view = new ErrorBoundary({ onHome: () => undefined })
+      // React may catch one failure twice: two errors with the same text, a moment apart.
+      view.componentDidCatch(new Error('Test failure in the Settings view'), { componentStack: '' })
+      view.componentDidCatch(new Error('Test failure in the Settings view'), { componentStack: '' })
+      const win = new ErrorBoundary({ onReload: () => undefined, what: 'The window' })
+      win.componentDidCatch(new Error('Test failure in the status bar'), { componentStack: '' })
+      expect(sent.map((r) => [r.kind, r.message])).toEqual([
+        ['render', 'Error: Test failure in the Settings view'],
+        ['render-window', 'Error: Test failure in the status bar']
+      ])
+    } finally {
+      g.window = saved.window
+      g.location = saved.location
+    }
   })
 })

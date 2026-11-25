@@ -10,6 +10,7 @@ import { copyText } from '../lib/clipboard'
 import { IconCheck, IconChevronDown, IconChevronRight, IconClock, IconCopy, IconFunction, IconHeart, IconPlay, IconClose, IconPlus } from './Icons'
 import { withVault } from '../lib/vault'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
+import { missingAccountSentence } from '../../../shared/missing-account'
 import { CANCELLED_NOT_SIGNED, formLineClass, outcomeLine, type FormLine } from '../lib/tx-outcome'
 import { AccountPicker, PermissionPicker } from './AccountPicker'
 import { ReadMore } from './HelpButton'
@@ -455,7 +456,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
       for (const name of recipientNames(fields, acts[0].data as Record<string, unknown>)) {
         if (!(await window.wax.chain.accountExists(name))) {
           setResult(null)
-          setResultNote({ kind: 'error', text: `This account does not exist on ${network.name}: ${name}. Nothing was signed.` })
+          setResultNote({ kind: 'error', text: `${missingAccountSentence(name, network.name)} Nothing was signed.` })
           return
         }
       }

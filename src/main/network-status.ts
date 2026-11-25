@@ -248,7 +248,8 @@ export class NetworkStatusPoller {
   private update(): void {
     this.state = this.build()
     const s = this.state
-    const line = `${s.level} ${s.label}`
+    // A failed first check is its own state ("Checking: The first check failed"), logged like a change of level.
+    const line = `${s.level} ${s.label}${s.level === 'checking' && s.reasons.length > 0 ? ' failed' : ''}`
     if (line !== this.lastLogged && this.target) {
       this.lastLogged = line
       if (s.level !== 'checking' || s.reasons.length > 0) this.deps.log(`Network status of ${this.target.name} (${this.target.endpoint}): ${s.summary}`)

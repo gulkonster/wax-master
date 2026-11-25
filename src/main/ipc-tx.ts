@@ -9,6 +9,7 @@ import { handle } from './ipc'
 import { signer, vault } from './keys-service'
 import { getSettings } from './store'
 import { focusOpenConfirmation, hasOpenConfirmation, openConfirmation } from './confirm-window'
+import { afterCodeWindows, codeWindowOpen } from './key-windows'
 import { simulate, probeSimulation } from './simulate'
 import { fromHistory, fromNodeAnswer, fromNodeError, withResourceState } from './trace'
 import { WAX_TESTNET_CHAIN, currentNetwork, endpointOf, getNetwork } from './networks'
@@ -20,7 +21,7 @@ import { createTestnetAccount, randomTestnetName, requestTokens } from './faucet
 import { bool, int } from '../shared/validate'
 import { withoutLockedCode } from '../shared/vault-locked'
 import type { NetworkInfo } from '../shared/chain-types'
-import { isUnknownAccount } from './account-pick'
+import { isUnknownAccount, plainAccountError } from './account-pick'
 import { linksFromAccount, linksFromHistory, parsePermissionIntent, planPermissionChange, readPermissions, type PlanContext } from './wallet-permissions'
 
 const ACTION_NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
@@ -77,6 +78,13 @@ async function addResources(t: InspectedTransaction, account: string, endpoint: 
 
 async function signAndSend(win: BrowserWindow | null, networkId: string, actions: ActionRequest[], kind: PrepareKind): Promise<TxOutcome> {
   preflight(win)
+  // A recovery code on screen (the unlock just converted the vault): the transaction
+  // is built and confirmed only after its window is closed, so the confirmation
+  // never covers the code and its time to approve starts then.
+  if (codeWindowOpen()) {
+    await new Promise<void>((resolve) => afterCodeWindows(resolve))
+    preflight(win)
+  }
   const { record, secret } = await signer().prepare({ networkId, actions, kind })
   const outcome = await openConfirmation(win, record, secret)
   if (outcome.approved && getSettings().lockAfterSignature) vault().lock()
@@ -120,7 +128,9 @@ function vaultKeys(): string[] {
  */
 export async function permissionContext(n: NetworkInfo, account: string): Promise<PlanContext> {
   const ep = endpointOf(n)
-  const accountData = await chain.getAccount(ep, account)
+  const accountData = await chain.getAccount(ep, account).catch((e) => {
+    throw plainAccountError(e, account, n.name)
+  })
   let historyLinks = null
   if (!linksFromAccount(accountData) && n.history) {
     try {
@@ -225,7 +235,9 @@ export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
     preflight(getWindow())
     // The permission is read here, from the endpoint the signer will use; only one key changes.
     const n = currentNetwork()
-    const account = await chain.getAccount(endpointOf(n), input.account)
+    const account = await chain.getAccount(endpointOf(n), input.account).catch((e) => {
+      throw plainAccountError(e, input.account, n.name)
+    })
     return signAndSend(getWindow(), n.id, changeKeyActions(input, account), 'changeKey')
   })
 

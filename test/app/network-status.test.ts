@@ -217,6 +217,24 @@ describe('poll timer', () => {
     expect(r.logs.filter((l) => /Not reachable/.test(l))).toHaveLength(1)
   })
 
+  it('a failed first check gets its own log line; the checks after it add none until the level changes', async () => {
+    const r = rig(() => ({ latency: 5, error: 'Could not reach 127.0.0.1:8888: connection refused.' }))
+    r.setTarget({ networkId: 'local', name: 'Local', chainId: CHAIN, endpoint: 'http://127.0.0.1:8888' })
+    r.poller.start(true)
+    // Before any answer: "Checking" with nothing to say, no line.
+    expect(r.logs).toHaveLength(0)
+    await r.advance(0)
+    expect(r.poller.current().level).toBe('checking')
+    expect(r.logs).toHaveLength(1)
+    expect(r.logs[0]).toMatch(/^Network status of Local \(http:\/\/127\.0\.0\.1:8888\): Checking: The first check failed: Could not reach/)
+    await r.advance(10_000)
+    expect(r.poller.current().level).toBe('red')
+    await r.advance(30_000)
+    expect(r.calls.length).toBeGreaterThanOrEqual(4)
+    expect(r.logs).toHaveLength(2)
+    expect(r.logs[1]).toMatch(/Not reachable/)
+  })
+
   it('a huge error text with line breaks from the node becomes one short line in the summary and the log', async () => {
     const huge = `Node says:\n${'x'.repeat(1_000_000)}\r\nend`
     const r = rig(() => ({ latency: 5, error: huge }))

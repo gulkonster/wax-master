@@ -38,7 +38,7 @@ import {
   type PermissionLevel
 } from '../chain-core'
 import { authorityProblem, readPermissions } from './authority-reach'
-import { isUnknownAccount } from './account-pick'
+import { isUnknownAccount, plainAccountError } from './account-pick'
 import type { NetworkInfo } from '../shared/chain-types'
 import { MAINNET_SIGNING } from './build-info'
 import { getNetwork, endpointOf, effectiveKind } from './networks'
@@ -261,9 +261,11 @@ export class Signer {
     return this.preparing || this.approvals.size > 0
   }
 
-  /** Picks vault keys that satisfy actor@permission on the given endpoint. */
-  private async keysFor(endpoint: string, level: PermissionLevel): Promise<{ publicKey: string; label: string }[]> {
-    const account = await this.deps.getAccount(endpoint, level.actor)
+  /** Picks vault keys that satisfy actor@permission on the given endpoint; `network` names the network in the refusal. */
+  private async keysFor(endpoint: string, level: PermissionLevel, network: string): Promise<{ publicKey: string; label: string }[]> {
+    const account = await this.deps.getAccount(endpoint, level.actor).catch((e) => {
+      throw plainAccountError(e, level.actor, network)
+    })
     const perms = Array.isArray(account.permissions) ? (account.permissions as Record<string, unknown>[]) : []
     const perm = perms.find((p) => p.perm_name === level.permission)
     if (!perm) throw new SignerError(`The account ${level.actor} has no permission "${level.permission}"`)
@@ -427,7 +429,7 @@ export class Signer {
         const key = `${level.actor}@${level.permission}`
         if (seen.has(key)) continue
         seen.add(key)
-        for (const k of await this.keysFor(endpoint, level)) {
+        for (const k of await this.keysFor(endpoint, level, network.name)) {
           if (!signers.some((s) => s.publicKey === k.publicKey)) signers.push({ ...level, ...k })
         }
       }

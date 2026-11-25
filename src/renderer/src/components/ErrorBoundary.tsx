@@ -39,7 +39,9 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: unknown, _info: ErrorInfo): void {
-    ;(this.props.report ?? ((e: unknown) => reportWindowError('render', e)))(error)
+    // The boundary around the whole window logs its own line: the failure is outside the views.
+    const kind = this.props.onReload ? 'render-window' : 'render'
+    ;(this.props.report ?? ((e: unknown) => reportWindowError(kind, e)))(error)
   }
 
   componentDidUpdate(prev: Props): void {

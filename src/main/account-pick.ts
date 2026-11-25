@@ -5,6 +5,7 @@
 import type { AccountPickList } from '../shared/api'
 import { convertPublicKey, isValidName } from '../chain-core'
 import { RpcError } from './rpc'
+import { isMissingAccountText, missingAccountSentence } from '../shared/missing-account'
 
 /** One row of get_accounts_by_authorizers. */
 export interface AuthorizerRow {
@@ -116,5 +117,16 @@ export function isUnknownAccount(e: unknown): boolean {
   } catch {
     // the message alone
   }
-  return /unknown key|unknown_key|account_query_exception|does not exist/i.test(text)
+  return isMissingAccountText(text)
+}
+
+/**
+ * A failed get_account of `name` on `network`: an account the node does not
+ * know becomes the plain sentence, still an RpcError (status and node answer
+ * kept, so isUnknownAccount still knows it); any other error comes back as it is.
+ */
+export function plainAccountError(e: unknown, name: string, network: string): unknown {
+  if (!isUnknownAccount(e)) return e
+  const r = e as RpcError
+  return new RpcError(missingAccountSentence(name, network), r.status, r.details)
 }

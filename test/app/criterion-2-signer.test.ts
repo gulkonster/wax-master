@@ -400,3 +400,19 @@ describe('every updateauth is checked in prepare, whatever asked for it', () => 
     expect(s.busy()).toBe(false)
   })
 })
+
+describe('a signer that the node does not know', () => {
+  it('is refused with the plain sentence, not the node text', async () => {
+    const { RpcError } = await import('../../src/main/rpc')
+    const raw = 'unable to retrieve account info (unknown key (boost::tuples::tuple<bool, eosio::chain::name, boost::tuples::null_type>): (0 alice))'
+    const s = new Signer(
+      deps({
+        getAccount: async () => {
+          throw new RpcError(raw, 500, { error: { name: 'unknown_key', details: [{ message: raw }] } })
+        }
+      })
+    )
+    await expect(s.prepare({ networkId: 'n1', actions: [transfer] })).rejects.toThrow('This account does not exist on Test: alice.')
+    expect(s.busy()).toBe(false)
+  })
+})
