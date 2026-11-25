@@ -369,6 +369,8 @@ The installer contains the following files exactly as published (SHA-256 in `too
 | libkeyutils1 | libkeyutils1_1.6.3-3build1_amd64.deb | LGPL-2.1-or-later | https://launchpad.net/ubuntu/+source/libkeyutils1 |
 | libsasl2-modules-db | libsasl2-modules-db_2.1.28+dfsg1-5ubuntu3.1_amd64.deb | BSD-4-Clause-UC | https://launchpad.net/ubuntu/+source/libsasl2-modules-db |
 | wax-cdt-4.1.1wax01 | cdt_4.1.1wax01-1_amd64.deb | MIT (with LLVM and other bundled component licenses) | https://github.com/worldwide-asset-exchange/wax-cdt |
+| libcurl4t64 | libcurl4t64_8.5.0-2ubuntu10.16_amd64.deb | curl (MIT-style) | https://launchpad.net/ubuntu/+source/curl |
+| wax-spring-ce-1.3.1wax01 | wax-spring-ce_1.3.1wax01-ubuntu22.04_amd64.deb | MIT | https://github.com/worldwide-asset-exchange/wax-blockchain |
 
 ## System contracts of the local chain (built from source, shipped as .wasm and .abi)
 

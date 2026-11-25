@@ -31,5 +31,8 @@ out.push(
 const manifest = JSON.parse(readFileSync(join('toolchain', 'parts.json'), 'utf8'))
 for (const p of manifest.parts) out.push(`| ${p.id} | ${p.file} | ${p.license} | ${p.source ?? p.urls?.[0] ?? ''} |`)
 out.push('')
+// Contracts built from source for the local chain carry their own notice section.
+const localChainNotice = join('resources', 'local-chain', 'NOTICE.md')
+if (existsSync(localChainNotice)) out.push(readFileSync(localChainNotice, 'utf8').trimEnd(), '')
 writeFileSync('THIRD_PARTY_NOTICES.md', out.join('\n'))
 console.log('THIRD_PARTY_NOTICES.md written')
