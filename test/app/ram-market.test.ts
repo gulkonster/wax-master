@@ -184,7 +184,7 @@ describe('main-process read of the RAM price', () => {
 describe('RAM sell maximum', () => {
   it('keeps a margin for the sell transaction itself', () => {
     expect(RAM_SELL_MARGIN).toBe(512)
-    // The stage 26 case: 16,342 unused bytes, selling 16,200 was refused; the form now offers less.
+    // A case seen on testnet: 16,342 unused bytes, selling 16,200 was refused; the form now offers less.
     expect(ramSellable(161_328 - 16_342, 161_328)).toBe(16_342 - 512)
     expect(ramSellable(1_000, 1_200)).toBe(0)
     expect(ramSellable(1_000, -1)).toBe(0)
