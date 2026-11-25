@@ -34,11 +34,21 @@ describe('keepCompletion', () => {
   })
 
   it('drops the library scopes of an eosio:: list and keeps the names', () => {
-    expect(keep('detail')).toBe(false)
+    expect(keepCompletion({ label: 'detail', kind: 9 }, false)).toBe(false)
+    expect(keepCompletion({ label: 'impl', kind: 9 }, false)).toBe(false)
     expect(keep('internal_use_do_not_use')).toBe(false)
+    expect(keepCompletion({ label: 'bluegrass', kind: 6 }, false)).toBe(false)
+    expect(keepCompletion({ label: '_multi_index_detail', kind: 7 }, false)).toBe(false)
+    expect(keepCompletion({ label: '_datastream_detail' }, false)).toBe(false)
     for (const name of ['name', 'asset', 'symbol', 'check(…) : [7 overloads]', 'require_auth(…) : [2 overloads]', 'contract', 'action', 'permission_level']) {
       expect(keep(name)).toBe(true)
     }
+  })
+
+  it('keeps detail and impl when they are not a namespace', () => {
+    expect(keepCompletion({ label: 'detail', kind: 5 }, false)).toBe(true)
+    expect(keepCompletion({ label: 'impl', kind: 6 }, false)).toBe(true)
+    expect(keep('detail')).toBe(true)
   })
 
   it('drops the macros of the app flags and keeps other names', () => {
@@ -245,7 +255,12 @@ describe('SNIPPETS', () => {
     expect(body('modify')).toContain('auto& ${4:row}')
     expect(filled(body('inline'))).toContain('action(permission_level{get_self(), "active"_n}')
     expect(filled(body('inline'))).toContain('.send();')
+    expect(filled(body('inline'))).toContain('std::make_tuple(get_self(), st.issuer, quantity, memo)')
     expect(filled(body('singleton'))).toContain('eosio::singleton<"config"_n')
+    expect(body('singleton')).not.toContain('//')
+    expect(SNIPPETS.find((s) => s.label === 'singleton')!.detail).toBe('A table that holds one row')
+    expect(SNIPPETS.find((s) => s.label === 'singleton')!.include).toBe('eosio/singleton.hpp')
+    expect(SNIPPETS.filter((s) => s.include).map((s) => s.label)).toEqual(['singleton'])
   })
 
   it('has a table name that is valid and at most twelve characters', () => {

@@ -6,13 +6,18 @@ interface CompletionLike {
   filterText?: string
   insertText?: string
   textEdit?: { newText: string }
+  /** The engine's completion kind (9: Module, a namespace). */
+  kind?: number
 }
 
 /** Prefixes (with their scope marker) of names that are library internals. */
 const INTERNAL_PREFIXES = ['internal_use_do_not_use::', 'bluegrass::', 'detail::', '_multi_index_detail::', '_datastream_detail::', 'impl::', 'std::__']
 
 /** The same scopes as bare names, as they show up when the namespace itself is completed (`eosio::`). */
-const INTERNAL_SCOPES = ['internal_use_do_not_use', 'bluegrass', 'detail', '_multi_index_detail', '_datastream_detail', 'impl']
+const INTERNAL_SCOPES = ['internal_use_do_not_use', 'bluegrass', '_multi_index_detail', '_datastream_detail']
+/** Bare scope names that are also ordinary words: dropped only as a namespace (kind 9, Module). */
+const INTERNAL_SCOPES_AS_NAMESPACE = ['detail', 'impl']
+const KIND_MODULE = 9
 
 /** The macros the app's own flags define, and the three version macros. */
 const FLAG_MACROS = [
@@ -48,7 +53,9 @@ export function keepCompletion(item: CompletionLike, inInclude: boolean): boolea
   for (const f of forms) {
     if (startsWithInternal(f)) return false
   }
-  if (INTERNAL_SCOPES.includes(name.replace(/::$/, ''))) return false
+  const scope = name.replace(/::$/, '')
+  if (INTERNAL_SCOPES.includes(scope)) return false
+  if (item.kind === KIND_MODULE && INTERNAL_SCOPES_AS_NAMESPACE.includes(scope)) return false
   const bare = name.replace(/[<(\s].*$/s, '')
   if (FLAG_MACROS.includes(bare)) return false
   return true
@@ -250,7 +257,7 @@ export function rowTypeOf(hoverText: string): string | null {
  * texts, each body is valid inside the Token template: the statement ones in the body of a function that has
  * `statstable`, `st`, `quantity` and `memo` (as `retire` has them), the member ones in the contract class.
  */
-export const SNIPPETS: readonly { label: string; detail: string; body: string; where: 'statement' | 'member' }[] = [
+export const SNIPPETS: readonly { label: string; detail: string; body: string; where: 'statement' | 'member'; include?: string }[] = [
   {
     label: 'action',
     detail: 'Action declaration',
@@ -321,19 +328,19 @@ export const SNIPPETS: readonly { label: string; detail: string; body: string; w
   {
     label: 'inline',
     detail: 'Send an inline action',
-    body: 'action(permission_level{get_self(), "active"_n}, ${1:"eosio.token"_n}, ${2:"transfer"_n}, std::make_tuple(${3:get_self()}, ${4:get_self()}, ${5:quantity}, ${6:memo})).send();',
+    body: 'action(permission_level{get_self(), "active"_n}, ${1:"eosio.token"_n}, ${2:"transfer"_n}, std::make_tuple(${3:get_self()}, ${4:st.issuer}, ${5:quantity}, ${6:memo})).send();',
     where: 'statement'
   },
   {
     label: 'singleton',
-    detail: 'A table that holds one row (needs eosio/singleton.hpp)',
+    detail: 'A table that holds one row',
     body: [
-      '// needs: #include <eosio/singleton.hpp>',
       'struct [[eosio::table]] ${1:config_row} {',
       '  uint64_t ${2:value} = 0;',
       '};',
       'typedef eosio::singleton<"${3:config}"_n, ${1:config_row}> ${4:config_table};'
     ].join('\n'),
-    where: 'member'
+    where: 'member',
+    include: 'eosio/singleton.hpp'
   }
 ]

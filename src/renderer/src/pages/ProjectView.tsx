@@ -14,7 +14,7 @@ import { startBuild } from '../lib/build'
 import { mergedProblemsStore, setVersionSource } from '../lib/stores'
 import type { Problem, WasmInfo } from '../../../shared/api'
 import { WasmInfoView } from './WasmInfoView'
-import { documentSaved, openDocument, startEditorEngine, switchHeaderSource } from '../lib/lsp/engine'
+import { documentSaved, openDocument, setEngineMainFile, startEditorEngine, switchHeaderSource } from '../lib/lsp/engine'
 import { adoptModel, ensureModel, projectUri, relOf } from '../lib/lsp/models'
 import { FindInFilesDialog } from '../components/FindInFilesDialog'
 import { SymbolSearchDialog } from '../components/SymbolSearchDialog'
@@ -170,6 +170,11 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     if (!project.needsMainFile && project.config.main) void openFile(project.config.main)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.needsMainFile])
+
+  // The editor engine checks headers that are pieces of the main file against it.
+  useEffect(() => {
+    setEngineMainFile(project.needsMainFile ? null : project.config.main || null)
+  }, [project.needsMainFile, project.config.main])
 
   // Show the active tab's model.
   useEffect(() => {

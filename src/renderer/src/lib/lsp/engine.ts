@@ -14,10 +14,12 @@ import { contractChecks, replacedByCheck, type Check } from '../../../../shared/
 import { placeDiagnostics } from '../../../../shared/lsp-place'
 import { cleanDoc, cleanMessage, prettyNames } from '../../../../shared/lsp-messages'
 import { applyTextEdits, type LspTextEdit } from '../../../../shared/lsp-text'
+import { headerSummary, includeTarget, isHeaderPath, isPiece, namedInInclude, pieceNotice } from '../../../../shared/lsp-fragment'
+import { keepCompletion, memberAccessBefore, rowLambdaAt, rowTypeOf, SNIPPETS } from '../../../../shared/lsp-completion'
 import { LspClient, isCancelled, type RpcMessage } from './client'
 import * as conv from './convert'
 import { sortTextFor } from './sort'
-import { disposeBackgroundModels, ensureModels, markBackgroundSaved, relOf } from './models'
+import { disposeBackgroundModels, ensureModel, ensureModels, isBackground, markBackgroundSaved, projectUri, relOf } from './models'
 import { setEngineView } from './status'
 import { clearLiveDiagnostics, placeNameOf, replacedInHeader, setLiveDocument, type ShownDiagnostic } from './problems'
 
@@ -27,6 +29,10 @@ const CHECKS_OWNER = 'checks'
 const CHECKS_SOURCE = 'WAX Master'
 const CHECK_DELAY_MS = 300
 const COMMAND_ID = 'wax.engine.command'
+/** Other documents are rebuilt against an unsaved header this long after its last change (B97 point 2). */
+const HEADER_TOUCH_MS = 400
+/** Project files the engine opens without a tab, per project (B97 point 3). */
+const MAX_BACKGROUND = 12
 
 interface ServerCaps {
   textDocumentSync?: number | { change?: number }
@@ -41,6 +47,8 @@ interface SyncedDoc {
   model: monaco.editor.ITextModel
   sub: monaco.IDisposable
   opened: boolean
+  /** Rebuild requests sent without a text change; added to the model's version so versions only grow. */
+  touches: number
 }
 
 interface LspWorkspaceEdit {
@@ -120,6 +128,23 @@ const engineDiagnostics = new Map<string, LspDiagnostic[]>()
 /** As the editor shows them, each with the engine's form (code action requests send the engine's ranges). */
 const shownDiagnostics = new Map<string, ShownDiagnostic[]>()
 const checkTimers = new Map<string, ReturnType<typeof setTimeout>>()
+/** The project's main source file (project-relative), from the project's settings. */
+let mainFile: string | null = null
+/** Documents the engine has open without a tab (opened or still loading); a tab that opens one adopts it. */
+const backgroundDocs = new Set<string>()
+/** Headers changed since the last rebuild request to the other documents. */
+const touchedHeaders = new Set<string>()
+let headerTouchTimer: ReturnType<typeof setTimeout> | null = null
+/** Header path -> named in an `#include` line of another project file (one file search per header and session). */
+const includedIn = new Map<string, boolean | 'pending'>()
+/** Document -> `<line>\n<line text>` -> the file that include line opens ('' when none, 'pending' while asked). */
+const includeTargets = new Map<string, Map<string, string>>()
+/** Errors of a project document's own (before the piece rule), for the include-line summary of B97 point 4. */
+const ownErrors = new Map<string, { line: number; message: string }[]>()
+/** Header -> documents whose include-line summary or piece state depends on it. */
+const dependents = new Map<string, Set<string>>()
+/** Errors of the main file after the filter; null while not known. */
+let mainErrors: number | null = null
 
 const CLIENT_CAPABILITIES = {
   general: { positionEncodings: ['utf-16'] },
@@ -156,6 +181,7 @@ const CLIENT_CAPABILITIES = {
     definition: { linkSupport: false },
     declaration: { linkSupport: false },
     references: {},
+    documentHighlight: {},
     documentSymbol: { hierarchicalDocumentSymbolSupport: true, symbolKind: { valueSet: Array.from({ length: 26 }, (_, i) => i + 1) } },
     formatting: {},
     rangeFormatting: {},
@@ -223,34 +249,49 @@ function syncKind(): number {
   return s?.change ?? 1
 }
 
+function versionOf(d: SyncedDoc): number {
+  return d.model.getVersionId() + d.touches
+}
+
 function sendOpen(d: SyncedDoc): void {
   const c = activeClient()
   if (!c || d.opened || d.model.isDisposed()) return
   d.opened = true
   c.notify('textDocument/didOpen', {
-    textDocument: { uri: d.model.uri.toString(), languageId: 'cpp', version: d.model.getVersionId(), text: d.model.getValue() }
+    textDocument: { uri: d.model.uri.toString(), languageId: 'cpp', version: versionOf(d), text: d.model.getValue() }
   })
   applyStoredMarkers(d.model)
 }
 
-/** A file shown in a tab: the engine follows its content. Only C++ files. */
+/** A project header (not a C or C++ source file). */
+function isProjectHeader(k: string): boolean {
+  return k.startsWith('project:') && isHeaderPath(relOf(monaco.Uri.parse(k)))
+}
+
+/** A file shown in a tab: the engine follows its content. Only C++ files. A tab that opens a background document adopts it. */
 export function openDocument(model: monaco.editor.ITextModel): void {
   if (model.getLanguageId() !== LANGUAGE) return
   if (model.uri.scheme !== 'project' && model.uri.scheme !== 'toolchain') return
   const k = model.uri.toString()
-  if (docs.has(k)) return
+  if (docs.has(k)) {
+    backgroundDocs.delete(k)
+    return
+  }
+  const header = isProjectHeader(k)
   const d: SyncedDoc = {
     model,
     opened: false,
+    touches: 0,
     sub: model.onDidChangeContent((e) => {
       scheduleChecks(k)
+      if (header) scheduleHeaderTouch(k)
       const c = activeClient()
       if (!c || !d.opened) return
       const changes =
         syncKind() === 2 && !e.isFlush
           ? e.changes.map((ch) => ({ range: conv.toLspRange(ch.range), rangeLength: ch.rangeLength, text: ch.text }))
           : [{ text: model.getValue() }]
-      c.notify('textDocument/didChange', { textDocument: { uri: k, version: model.getVersionId() }, contentChanges: changes })
+      c.notify('textDocument/didChange', { textDocument: { uri: k, version: versionOf(d) }, contentChanges: changes })
     })
   }
   docs.set(k, d)
@@ -258,30 +299,181 @@ export function openDocument(model: monaco.editor.ITextModel): void {
   refreshDocument(k)
 }
 
-export function closeDocument(model: monaco.editor.ITextModel): void {
-  const k = model.uri.toString()
+/** Forgets a document in the engine and in the window; the model itself stays. */
+function forgetDocument(k: string): void {
   const d = docs.get(k)
   if (!d) return
   d.sub.dispose()
   docs.delete(k)
+  backgroundDocs.delete(k)
   fileStatus.delete(k)
   const t = checkTimers.get(k)
   if (t) clearTimeout(t)
   checkTimers.delete(k)
   engineDiagnostics.delete(k)
   shownDiagnostics.delete(k)
+  includeTargets.delete(k)
+  ownErrors.delete(k)
   setLiveDocument(k, null)
-  if (!model.isDisposed()) {
-    monaco.editor.setModelMarkers(model, OWNER, [])
-    monaco.editor.setModelMarkers(model, CHECKS_OWNER, [])
+  if (!d.model.isDisposed()) {
+    monaco.editor.setModelMarkers(d.model, OWNER, [])
+    monaco.editor.setModelMarkers(d.model, CHECKS_OWNER, [])
   }
   if (d.opened) activeClient()?.notify('textDocument/didClose', { textDocument: { uri: k } })
+}
+
+export function closeDocument(model: monaco.editor.ITextModel): void {
+  const k = model.uri.toString()
+  if (!docs.has(k)) return
+  forgetDocument(k)
+  // Headers that are pieces of the main file are judged again at their next update (the main file is then opened in the background).
+  if (k === mainKey()) mainErrors = null
   updateView()
 }
 
 export function documentSaved(model: monaco.editor.ITextModel): void {
   const k = model.uri.toString()
+  // Which files name a header in an include line is searched again after any save.
+  includedIn.clear()
   if (docs.get(k)?.opened) activeClient()?.notify('textDocument/didSave', { textDocument: { uri: k } })
+}
+
+/** The project's main source file (project-relative path; null when the project has none yet). */
+export function setEngineMainFile(rel: string | null): void {
+  const next = rel || null
+  if (next === mainFile) return
+  mainFile = next
+  mainErrors = null
+  for (const k of docs.keys()) if (isProjectHeader(k)) refreshDocument(k)
+}
+
+function mainKey(): string | null {
+  return mainFile ? projectUri(mainFile).toString() : null
+}
+
+// ---- headers: unsaved changes, background documents, pieces ---------------
+
+/** 400 ms after the last change of an open header, every other open project document is rebuilt against it. */
+function scheduleHeaderTouch(k: string): void {
+  touchedHeaders.add(k)
+  if (headerTouchTimer) clearTimeout(headerTouchTimer)
+  headerTouchTimer = setTimeout(() => {
+    headerTouchTimer = null
+    const c = activeClient()
+    const changed = new Set(touchedHeaders)
+    touchedHeaders.clear()
+    if (!c) return
+    for (const [uri, d] of docs) {
+      if (changed.has(uri) || !d.opened || !uri.startsWith('project:') || d.model.isDisposed()) continue
+      d.touches++
+      c.notify('textDocument/didChange', { textDocument: { uri, version: versionOf(d) }, contentChanges: [] })
+    }
+  }, HEADER_TOUCH_MS)
+}
+
+/** Opens a project file in the engine without a tab (at most 12 per project). */
+function openBackground(k: string): void {
+  if (docs.has(k) || backgroundDocs.has(k) || !activeClient()) return
+  if (backgroundDocs.size >= MAX_BACKGROUND) return
+  const uri = monaco.Uri.parse(k)
+  if (uri.scheme !== 'project') return
+  backgroundDocs.add(k)
+  const session = client?.session
+  void ensureModel(uri).then((model) => {
+    if (!backgroundDocs.has(k) || docs.has(k) || client?.session !== session || !activeClient()) {
+      // A tab opened it meanwhile, or the engine was restarted; after the project closed, a model loaded for nothing goes.
+      if (!docs.has(k) && model && !model.isDisposed() && isBackground(model.uri) && users === 0) model.dispose()
+      backgroundDocs.delete(k)
+      return
+    }
+    if (!model || model.isDisposed() || model.getLanguageId() !== LANGUAGE) {
+      backgroundDocs.delete(k)
+      return
+    }
+    openDocument(model)
+    // openDocument adopts a document that is already there; this one stays in the background.
+    backgroundDocs.add(k)
+  })
+}
+
+/** Closes the background documents (engine restart, project closed). */
+function closeBackgroundDocs(): void {
+  for (const k of [...backgroundDocs]) forgetDocument(k)
+  backgroundDocs.clear()
+}
+
+function addDependent(header: string, doc: string): void {
+  let set = dependents.get(header)
+  if (!set) dependents.set(header, (set = new Set()))
+  set.add(doc)
+}
+
+/**
+ * The file an include line opens, from the engine's definition of the include target
+ * (the engine's document links name their targets in a form the window cannot read).
+ * Undefined while asked; the document is refreshed when the answer comes.
+ */
+function includeTargetOf(k: string, line: number, text: string): string | undefined {
+  let byLine = includeTargets.get(k)
+  if (!byLine) includeTargets.set(k, (byLine = new Map()))
+  const id = `${line}\n${text}`
+  const known = byLine.get(id)
+  if (known !== undefined) return known === 'pending' ? undefined : known
+  const t = includeTarget(text)
+  if (!t) {
+    byLine.set(id, '')
+    return ''
+  }
+  byLine.set(id, 'pending')
+  void request<conv.LspLocation | conv.LspLocation[]>('textDocument/definition', {
+    textDocument: { uri: k },
+    position: { line, character: t.start + 1 }
+  }).then((r) => {
+    const map = includeTargets.get(k)
+    if (!map || map.get(id) !== 'pending') return
+    const first = conv.toLocations(r)[0]
+    map.set(id, first ? first.uri.toString() : '')
+    if (docs.has(k)) refreshDocument(k)
+  })
+  return undefined
+}
+
+/** Whether a header is named in an include line of another project file; undefined while the search runs. */
+function headerIncluded(rel: string, k: string): boolean | undefined {
+  const known = includedIn.get(rel)
+  if (known === 'pending') return undefined
+  if (known !== undefined) return known
+  includedIn.set(rel, 'pending')
+  const name = rel.slice(rel.lastIndexOf('/') + 1)
+  window.wax.files
+    .search(name, true, false)
+    .then((r) => r.matches.filter((m) => /^\s*#/.test(m.text)).map((m) => ({ file: m.file, text: m.text })))
+    .catch(() => [])
+    .then((lines) => {
+      if (includedIn.get(rel) !== 'pending') return
+      includedIn.set(rel, namedInInclude(lines, rel))
+      if (docs.has(k)) refreshDocument(k)
+    })
+  return undefined
+}
+
+function errorCount(list: ShownDiagnostic[], checks: Check[]): number {
+  return list.filter((s) => (s.shown.severity ?? 1) === 1).length + checks.filter((c) => c.severity === 1).length
+}
+
+/**
+ * B98: a project header whose errors come from being parsed alone. Gives the notice for
+ * line 1 when the header is a piece; null otherwise. Opens the main file in the background
+ * when it has no tab.
+ */
+function pieceState(k: string, headerErrors: number): string | null {
+  if (headerErrors === 0 || !isProjectHeader(k) || !mainFile) return null
+  const main = mainKey()
+  if (!main || main === k) return null
+  if (!docs.has(main)) openBackground(main)
+  const included = headerIncluded(relOf(monaco.Uri.parse(k)), k)
+  if (!isPiece({ headerErrors, mainFileErrors: mainErrors, included: included === true })) return null
+  return pieceNotice(mainFile)
 }
 
 monaco.editor.onWillDisposeModel((m) => closeDocument(m))
@@ -346,10 +538,18 @@ function refreshDocument(k: string): void {
     }
     return headerChecks.get(h) ?? null
   }
+  const open = docs.has(k)
   const kept: ShownDiagnostic[] = []
+  /** Include lines whose `In included file` diagnostic the filter dropped (B97 point 4). */
+  const droppedIncludeLines = new Map<number, LspDiagnostic>()
   for (const raw of engineDiagnostics.get(k) ?? []) {
     const ctx = { cdtVersion, underlined: textIn(lines, raw.range) }
-    if (!keepDiagnostic(raw, k, setup, ctx)) continue
+    const included = IN_INCLUDED_FILE.test(raw.message)
+    if (included && open) openRelatedHeaders(k, raw)
+    if (!keepDiagnostic(raw, k, setup, ctx)) {
+      if (included && !droppedIncludeLines.has(raw.range.start.line)) droppedIncludeLines.set(raw.range.start.line, raw)
+      continue
+    }
     const d = rewriteDiagnostic(raw, ctx)
     if (replacedByCheck(d, checks) || replacedInHeader(d, checksOfOpen)) continue
     kept.push({ shown: d, raw })
@@ -360,13 +560,75 @@ function refreshDocument(k: string): void {
     k,
     placeNameOf
   )
-  const shown = placed.map((d, i) => ({ shown: cleanDiagnostic(d), raw: kept[i].raw }))
+  let shown: ShownDiagnostic[] = placed.map((d, i) => ({ shown: cleanDiagnostic(d), raw: kept[i].raw }))
+  if (open && k.startsWith('project:')) shown = [...shown, ...includeSummaries(k, lines, droppedIncludeLines, shown)]
+  // The document's own errors, before the piece rule hides them.
+  const own = shown.filter((s) => (s.shown.severity ?? 1) === 1)
+  const ownBefore = JSON.stringify(ownErrors.get(k) ?? [])
+  if (open) ownErrors.set(k, own.map((s) => ({ line: s.shown.range.start.line + 1, message: s.shown.message })))
+  else ownErrors.delete(k)
+  const notice = open && engineDiagnostics.has(k) ? pieceState(k, own.length) : null
+  if (notice) {
+    shown = shown.filter((s) => (s.shown.severity ?? 1) !== 1)
+    const notes: LspDiagnostic = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: (lines[0] ?? '').length } }, severity: 3, message: notice, source: CHECKS_SOURCE }
+    shown.unshift({ shown: notes, raw: notes })
+  }
   shownDiagnostics.set(k, shown)
   if (model) {
     monaco.editor.setModelMarkers(model, OWNER, shown.map((s) => conv.toMarker(s.shown)))
     monaco.editor.setModelMarkers(model, CHECKS_OWNER, checks.map(checkMarker))
   }
-  if (docs.has(k)) setLiveDocument(k, { diagnostics: shown, checks })
+  if (open) setLiveDocument(k, { diagnostics: shown, checks })
+  afterRefresh(k, ownBefore, errorCount(shown, checks))
+}
+
+const IN_INCLUDED_FILE = /^in included file/i
+
+/** B97 point 3: the project headers an `In included file` diagnostic names are opened in the background. */
+function openRelatedHeaders(k: string, raw: LspDiagnostic): void {
+  for (const r of raw.relatedInformation ?? []) {
+    const h = key(r.location.uri)
+    if (h !== k && isProjectHeader(h) && !docs.has(h)) openBackground(h)
+  }
+}
+
+/**
+ * B97 point 4: an include line whose diagnostic the filter dropped gets one error when the
+ * header it opens is a project file with errors of its own.
+ */
+function includeSummaries(k: string, lines: string[], dropped: Map<number, LspDiagnostic>, shown: ShownDiagnostic[]): ShownDiagnostic[] {
+  const out: ShownDiagnostic[] = []
+  for (const line of dropped.keys()) {
+    const text = lines[line] ?? ''
+    const t = includeTarget(text)
+    if (!t) continue
+    const target = includeTargetOf(k, line, text)
+    if (!target || !isProjectHeader(target) || target === k) continue
+    addDependent(target, k)
+    if (!docs.has(target)) {
+      openBackground(target)
+      continue
+    }
+    if (shown.some((s) => s.shown.range.start.line === line && (s.shown.severity ?? 1) === 1)) continue
+    const message = headerSummary(placeNameOf(target), ownErrors.get(target) ?? [])
+    if (!message) continue
+    const d: LspDiagnostic = { range: { start: { line, character: t.start }, end: { line, character: t.end } }, severity: 1, message, source: CHECKS_SOURCE }
+    out.push({ shown: d, raw: d })
+  }
+  return out
+}
+
+/** Keeps what depends on a document up to date: include-line summaries and the piece state of headers. */
+function afterRefresh(k: string, ownBefore: string, errors: number): void {
+  if (JSON.stringify(ownErrors.get(k) ?? []) !== ownBefore) {
+    for (const d of dependents.get(k) ?? []) if (d !== k && docs.has(d)) refreshDocument(d)
+  }
+  if (k === mainKey() && docs.has(k) && engineDiagnostics.has(k)) {
+    if (errors !== mainErrors) {
+      mainErrors = errors
+      for (const h of docs.keys()) if (h !== k && isProjectHeader(h) && (ownErrors.get(h)?.length ?? 0) > 0) refreshDocument(h)
+    }
+  }
 }
 
 /** The checks run 300 ms after the last change of a document. */
@@ -584,6 +846,106 @@ function completionItem(item: LspCompletionItem, defaultRange: monaco.IRange): m
   return out
 }
 
+const SYMBOL_FIELD = 8
+const SYMBOL_METHOD = 6
+const SYMBOL_FUNCTION = 12
+
+/** The hover text at an offset of the document, '' when the engine has none. */
+async function hoverText(uri: string, model: monaco.editor.ITextModel, offset: number, token: monaco.CancellationToken): Promise<string> {
+  const r = await request<{ contents: conv.MarkupContent | conv.MarkedString | conv.MarkedString[] } | null>(
+    'textDocument/hover',
+    { textDocument: { uri }, position: conv.toPosition(model.getPositionAt(offset)) },
+    token
+  )
+  return r ? conv.toMarkdown(r.contents).map((m) => m.value).join('\n') : ''
+}
+
+/**
+ * B102 point 2: inside `<table>.emplace(..., [&](auto& row) { row.` the engine has no list. The
+ * row type comes from the hover of the table object, its members from a workspace symbol search.
+ * While the lambda is still open the engine's hover on the table object can be empty; then the
+ * nearest earlier use of the same name (its declaration, as a rule) is asked once.
+ */
+async function rowMembers(
+  model: monaco.editor.ITextModel,
+  position: monaco.Position,
+  lineBefore: string,
+  range: monaco.IRange,
+  token: monaco.CancellationToken
+): Promise<monaco.languages.CompletionItem[]> {
+  const uri = docUri(model)
+  const access = memberAccessBefore(lineBefore)
+  if (!uri || !access || !/\.\s*\w*$/.test(lineBefore) || /->\s*\w*$/.test(lineBefore)) return []
+  const text = model.getValue()
+  const lambda = rowLambdaAt(text, model.getOffsetAt(position))
+  if (!lambda || lambda.param !== access.id) return []
+  let row = rowTypeOf(await hoverText(uri, model, lambda.tableExprEnd - 1, token))
+  if (!row) {
+    const name = /([A-Za-z_]\w*)$/.exec(text.slice(0, lambda.tableExprEnd))?.[1]
+    if (name) {
+      const before = text.slice(0, lambda.tableExprEnd - name.length)
+      const uses = [...before.matchAll(new RegExp(`\\b${name}\\b`, 'g'))]
+      const last = uses[uses.length - 1]
+      if (last?.index !== undefined) row = rowTypeOf(await hoverText(uri, model, last.index, token))
+    }
+  }
+  if (!row || token.isCancellationRequested) return []
+  const symbols = await request<LspSymbolInformation[]>('workspace/symbol', { query: `${row}::` }, token)
+  if (!Array.isArray(symbols)) return []
+  const sameRow = (container: string): boolean => container === row || container.endsWith(`::${row}`) || row.endsWith(`::${container}`)
+  const out: monaco.languages.CompletionItem[] = []
+  const seen = new Set<string>()
+  for (const s of symbols) {
+    if (!sameRow(s.containerName ?? '') || seen.has(s.name) || !keepCompletion({ label: s.name }, false)) continue
+    const field = s.kind === SYMBOL_FIELD
+    if (!field && s.kind !== SYMBOL_METHOD && s.kind !== SYMBOL_FUNCTION) continue
+    seen.add(s.name)
+    out.push({
+      label: s.name,
+      kind: field ? monaco.languages.CompletionItemKind.Field : monaco.languages.CompletionItemKind.Method,
+      detail: `${field ? 'field' : 'function'} of ${row}`,
+      sortText: `${field ? '0' : '1'}${s.name}`,
+      insertText: s.name,
+      range
+    })
+  }
+  return out
+}
+
+/**
+ * B102 point 3 and B116: the snippets, after the engine's items. A snippet that needs a header
+ * the document does not name adds its include line after the last one (at line 1 without one).
+ */
+function snippetItems(model: monaco.editor.ITextModel, range: monaco.IRange): monaco.languages.CompletionItem[] {
+  const lines = model.getLinesContent()
+  const text = lines.join('\n')
+  let lastInclude = -1
+  lines.forEach((l, i) => {
+    if (includeTarget(l)) lastInclude = i
+  })
+  return SNIPPETS.map((s) => {
+    const item: monaco.languages.CompletionItem = {
+      label: s.label,
+      kind: monaco.languages.CompletionItemKind.Snippet,
+      detail: s.detail,
+      documentation: { value: '```cpp\n' + s.body.replace(/\$\{\d+:([^}]*)\}/g, '$1').replace(/\$\d+/g, '') + '\n```' },
+      sortText: `~${s.label}`,
+      insertText: s.body,
+      insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+      range
+    }
+    if (s.include && !text.includes(s.include)) {
+      const line = `#include <${s.include}>`
+      const at = lastInclude + 2
+      item.additionalTextEdits =
+        at <= lines.length
+          ? [{ range: { startLineNumber: at, startColumn: 1, endLineNumber: at, endColumn: 1 }, text: `${line}\n` }]
+          : [{ range: { startLineNumber: lines.length, startColumn: lines[lines.length - 1].length + 1, endLineNumber: lines.length, endColumn: lines[lines.length - 1].length + 1 }, text: `\n${line}` }]
+    }
+    return item
+  })
+}
+
 function codeAction(a: LspCodeAction | LspCommand): monaco.languages.CodeAction {
   if (typeof (a as LspCommand).command === 'string') {
     const cmd = a as LspCommand
@@ -635,7 +997,12 @@ function registerProviders(): void {
           const items = Array.isArray(r) ? r : r.items
           const word = model.getWordUntilPosition(position)
           const range = { startLineNumber: position.lineNumber, endLineNumber: position.lineNumber, startColumn: word.startColumn, endColumn: word.endColumn }
-          return { suggestions: items.map((i) => completionItem(i, range)), incomplete: !Array.isArray(r) && !!r.isIncomplete }
+          const lineBefore = model.getLineContent(position.lineNumber).slice(0, position.column - 1)
+          const inInclude = /^\s*#\s*include/.test(lineBefore)
+          const suggestions = items.filter((i) => keepCompletion(i, inInclude)).map((i) => completionItem(i, range))
+          if (items.length === 0) suggestions.push(...(await rowMembers(model, position, lineBefore, range, token)))
+          if (!inInclude && /^\s*(?:[A-Za-z_]\w*)?$/.test(lineBefore)) suggestions.push(...snippetItems(model, range))
+          return { suggestions, incomplete: !Array.isArray(r) && !!r.isIncomplete }
         },
         resolveCompletionItem: completion.resolveProvider
           ? async (item, token) => {
@@ -726,6 +1093,20 @@ function registerProviders(): void {
       L.registerReferenceProvider(LANGUAGE, {
         provideReferences: (model, position, context, token) =>
           locations('textDocument/references', model, position, token, { context: { includeDeclaration: context.includeDeclaration } })
+      })
+    )
+  }
+  if (caps.documentHighlightProvider) {
+    providers.push(
+      L.registerDocumentHighlightProvider(LANGUAGE, {
+        async provideDocumentHighlights(model, position, token) {
+          const uri = docUri(model)
+          if (!uri) return []
+          const r = await request<{ range: LspRange; kind?: number }[]>('textDocument/documentHighlight', { textDocument: { uri }, position: conv.toPosition(position) }, token)
+          if (!Array.isArray(r)) return []
+          // The engine counts kinds from 1 (text, read, write); the editor from 0.
+          return r.map((h) => ({ range: conv.toRange(h.range), kind: ((h.kind ?? 1) - 1) as monaco.languages.DocumentHighlightKind }))
+        }
       })
     )
   }
@@ -834,6 +1215,7 @@ function registerProviders(): void {
             if (!uri) return { actions: [], dispose: () => undefined }
             // The request names the engine's own diagnostics (its ranges and words), so it finds their fixes.
             const related = (shownDiagnostics.get(uri) ?? [])
+              .filter((s) => s.raw.source !== CHECKS_SOURCE)
               .filter((s) => conv.rangesOverlap(conv.toRange(s.shown.range), range) || conv.rangesOverlap(conv.toRange(s.raw.range), range))
               .map((s) => engineForm(s.raw))
             const r = await request<(LspCodeAction | LspCommand)[]>(
@@ -880,7 +1262,16 @@ function resetClient(): void {
   fileStatus.clear()
   providers.forEach((p) => p.dispose())
   providers = []
+  closeBackgroundDocs()
   for (const d of docs.values()) d.opened = false
+  if (headerTouchTimer) clearTimeout(headerTouchTimer)
+  headerTouchTimer = null
+  touchedHeaders.clear()
+  includedIn.clear()
+  includeTargets.clear()
+  ownErrors.clear()
+  dependents.clear()
+  mainErrors = null
   clearMarkers()
 }
 
@@ -984,6 +1375,7 @@ export function startEditorEngine(): () => void {
     unsubscribe = []
     resetClient()
     mainStatus = null
+    mainFile = null
     disposeBackgroundModels()
     setEngineView({ state: 'off', detail: 'No project is open.' })
   }
