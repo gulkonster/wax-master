@@ -115,7 +115,7 @@ export function ToolchainManager({ busy, onBusy }: { busy: boolean; onBusy: (b: 
             <div className="chip">{candidate.file}</div>
           </div>
           <div className="field">
-            <label>SHA-256 ({candidate.size.toLocaleString()} bytes)</label>
+            <label>SHA-256 ({candidate.size.toLocaleString('en-US')} bytes)</label>
             <div className="chip" style={{ userSelect: 'text' }}>{candidate.sha256}</div>
           </div>
           {candidate.known ? (

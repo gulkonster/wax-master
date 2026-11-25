@@ -337,7 +337,7 @@ export function DeployDialog({
               <div className="plan-lines">
                 <span>This build (SHA-256)</span>
                 <span className="mono-small" title={plan.wasmSha256 ?? ''}>
-                  {short(plan.wasmSha256)} {plan.wasmSize !== null && `(${plan.wasmSize.toLocaleString()} B)`}
+                  {short(plan.wasmSha256)} {plan.wasmSize !== null && `(${plan.wasmSize.toLocaleString('en-US')} B)`}
                 </span>
                 <span>On the account now</span>
                 <span className="mono-small" title={plan.chainCodeHash}>{short(plan.chainCodeHash || null)}</span>
@@ -352,7 +352,7 @@ export function DeployDialog({
               <div className="plan-lines">
                 <span>This build (SHA-256)</span>
                 <span className="mono-small" title={plan.abiSha256 ?? ''}>
-                  {short(plan.abiSha256)} {plan.abiSize !== null && `(${plan.abiSize.toLocaleString()} B)`}
+                  {short(plan.abiSha256)} {plan.abiSize !== null && `(${plan.abiSize.toLocaleString('en-US')} B)`}
                 </span>
                 <span>On the account now</span>
                 <span className="mono-small" title={plan.chainAbiHash}>{short(plan.chainAbiHash || null)}</span>

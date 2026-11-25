@@ -49,12 +49,21 @@ export interface AccountResources {
   ram: { used: number; quota: number } | null
 }
 
+/** The account a RAM refusal names, with the bytes it needs and has (null when the node did not say). */
+export interface RamShortage {
+  account: string
+  needs: number | null
+  has: number | null
+}
+
 export interface ResourceProblem {
   kind: ResourceKind
   /** Node error name, e.g. tx_cpu_usage_exceeded. */
   errorName: string
-  /** The first authorizer of the transaction (whose resources are shown). */
+  /** Whose resources are shown: the account a RAM refusal names, else the first authorizer. */
   account: string
   /** Read with get_account from the same endpoint; null if that read failed. */
   state: AccountResources | null
+  /** Set for a RAM refusal whose account the node names. */
+  shortage?: RamShortage
 }

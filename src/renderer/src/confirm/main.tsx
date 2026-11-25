@@ -69,7 +69,7 @@ function Row({ label, children, mono }: { label: string; children: React.ReactNo
 }
 
 function blobText(b: { size: number; sha256: string }): string {
-  return b.size === 0 ? '0 bytes (empty: removes it)' : `${b.size.toLocaleString()} bytes, SHA-256 ${b.sha256}`
+  return b.size === 0 ? '0 bytes (empty: removes it)' : `${b.size.toLocaleString('en-US')} bytes, SHA-256 ${b.sha256}`
 }
 
 /** Action data for display: code and ABI bytes as size and hash (the hex is behind "Show packed data"). */

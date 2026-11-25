@@ -199,7 +199,7 @@ export function BuyRamPanel({
       : bytesOk
         ? { account: 'eosio', name: 'buyrambytes', authorization: [{ actor: payer, permission }], data: { payer, receiver, bytes } }
         : null
-  const boughtText = mode === 'amount' && market && amountOk ? `RAM for ${formatAmount(amount, market.precision, market.symbol)}` : `${bytes.toLocaleString()} bytes of RAM`
+  const boughtText = mode === 'amount' && market && amountOk ? `RAM for ${formatAmount(amount, market.precision, market.symbol)}` : `${bytes.toLocaleString('en-US')} bytes of RAM`
 
   const buy = async (): Promise<void> => {
     setBytesTouched(true)
@@ -283,7 +283,7 @@ export function BuyRamPanel({
             onChange={(e) => setBytesText(e.target.value.replace(/[\s,.]/g, ''))}
             onBlur={() => setBytesTouched(true)}
           />
-          {bytesTouched && !bytesOk && <div className="acct-note bad">Enter a whole number of bytes from 1 to {RAM_MAX_BUY.toLocaleString()}.</div>}
+          {bytesTouched && !bytesOk && <div className="acct-note bad">Enter a whole number of bytes from 1 to {RAM_MAX_BUY.toLocaleString('en-US')}.</div>}
         </div>
         )}
         <div className="field buy-ram-payer">
@@ -308,7 +308,7 @@ export function BuyRamPanel({
       <div className="buy-ram-lines">
         {mode === 'amount' ? (
           <span>
-            You get: {!market ? (price ? 'not available' : 'reading the RAM market...') : amountOk ? `about ${amountBytes.toLocaleString()} bytes (after the 0.5% fee)` : '-'}
+            You get: {!market ? (price ? 'not available' : 'reading the RAM market...') : amountOk ? `about ${amountBytes.toLocaleString('en-US')} bytes (after the 0.5% fee)` : '-'}
           </span>
         ) : (
         <span>

@@ -77,6 +77,28 @@ describe('transaction inspector', () => {
     expect(e.message).toBe('no balance')
   })
 
+  it('never takes the pending console line for the error', () => {
+    const except = {
+      code: 3050010,
+      name: 'unauthorized_ram_usage_increase',
+      message: 'Action attempts to increase RAM usage of account without authorization',
+      stack: [
+        { format: 'unprivileged contract cannot increase RAM usage of another account that has not authorized the action: ${account}', data: { account: 'bob' } },
+        { format: '${receiver} <= ${account}::${action} pending console output: ${console}', data: { receiver: 'alice', account: 'alice', action: 'put', console: '' } }
+      ]
+    }
+    expect(exceptMessage(except).message).toBe('unprivileged contract cannot increase RAM usage of another account that has not authorized the action: bob')
+    const t = fromNodeAnswer({ processed: { except, action_traces: [] } }, ctx)
+    expect(t.errorMessage).toBe('unprivileged contract cannot increase RAM usage of another account that has not authorized the action: bob')
+    // Only the context line: the exception's own message.
+    expect(exceptMessage({ name: 'x', message: 'missing authority', stack: [except.stack[1]] }).message).toBe('missing authority')
+    const body = {
+      code: 500,
+      error: { what: 'Missing required authority', details: [{ message: 'alice <= alice::put pending console output: ' }, { message: 'missing authority of bob' }] }
+    }
+    expect(fromNodeError(body, ctx).errorMessage).toBe('missing authority of bob')
+  })
+
   it('falls back to inline traces when ordinals are missing', () => {
     const nodes = buildTree([{ receiver: 'a', act: { account: 'a', name: 'x' }, inline_traces: [{ receiver: 'b', act: { account: 'b', name: 'y' } }] }])
     expect(nodes[0].children[0].account).toBe('b')

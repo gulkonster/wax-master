@@ -65,7 +65,8 @@ async function readLimited(res: Response): Promise<string> {
 export function nodeErrorMessage(body: unknown, fallback: string): string {
   if (typeof body !== 'object' || body === null) return fallback
   const b = body as { error?: { what?: string; details?: { message?: string }[] }; message?: string }
-  const detail = b.error?.details?.find((d) => typeof d.message === 'string')?.message
+  // The node's "<receiver> <= <contract>::<action> pending console output:" line is context, never the error.
+  const detail = b.error?.details?.find((d) => typeof d.message === 'string' && d.message.trim() !== '' && !/pending console output:/i.test(d.message))?.message
   return detail || b.error?.what || b.message || fallback
 }
 

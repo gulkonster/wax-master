@@ -13,7 +13,7 @@ import { isWaxTestnet } from '../../components/FaucetButton'
 import { HelpButton } from '../../components/HelpButton'
 import { IconKey } from '../../components/Icons'
 import { fmtBytes, fmtTime, fmtUs, Gauge, pct, useReadsAfterSend, viewOnlyReason, type WalletContext } from './common'
-import { NEW_ACCOUNT_WAIT_TEXT, newAccountRead, nextNewAccountRead } from './wallet-form'
+import { missingAccountText, NEW_ACCOUNT_WAIT_TEXT, newAccountRead, nextNewAccountRead } from './wallet-form'
 import { TokensSection } from './TokensSection'
 import { TransferSection } from './TransferSection'
 import { RamSection } from './RamSection'
@@ -85,7 +85,8 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
       const wait = nextNewAccountRead(name)
       if (wait === null) {
         setWaitingNew(false)
-        setError(errorText(e))
+        const text = errorText(e)
+        setError(missingAccountText(text, name, networkStore.get().current?.name ?? 'this network') ?? text)
       } else {
         setWaitingNew(true)
         setTimeout(() => setRetryTick((t) => t + 1), wait)

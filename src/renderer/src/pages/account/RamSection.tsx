@@ -87,14 +87,14 @@ function SellRam({ ctx, free }: { ctx: WalletContext; free: number }): React.JSX
   const sell = async (): Promise<void> => {
     setTouched(true)
     if (ctx.viewOnly || !action) return
-    await send([action], `${bytes.toLocaleString()} bytes of RAM sold.`, () => setTouched(false))
+    await send([action], `${bytes.toLocaleString('en-US')} bytes of RAM sold.`, () => setTouched(false))
   }
 
   return (
     <div className="buy-ram">
       <div className="buy-ram-title">Sell RAM of {view.name}</div>
       <div className="hint">
-        Only RAM the account does not use can be sold, less a margin of {RAM_SELL_MARGIN.toLocaleString()} bytes for the sale itself: {free.toLocaleString()} bytes now.
+        Only RAM the account does not use can be sold, less a margin of {RAM_SELL_MARGIN.toLocaleString('en-US')} bytes for the sale itself: {free.toLocaleString('en-US')} bytes now.
       </div>
       <div className="buy-ram-fields">
         <div className="field buy-ram-bytes">
@@ -106,7 +106,7 @@ function SellRam({ ctx, free }: { ctx: WalletContext; free: number }): React.JSX
             onChange={(e) => setBytesText(e.target.value.replace(/[\s,.]/g, ''))}
             onBlur={() => setTouched(true)}
           />
-          {touched && !bytesOk && <div className="acct-note bad">Enter a whole number of bytes from 1 to {free.toLocaleString()}.</div>}
+          {touched && !bytesOk && <div className="acct-note bad">Enter a whole number of bytes from 1 to {free.toLocaleString('en-US')}.</div>}
         </div>
         <div className="field buy-ram-bytes">
           <label>Permission</label>

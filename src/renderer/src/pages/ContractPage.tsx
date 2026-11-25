@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ContractAbiView } from '../../../shared/chain-types'
 import { on, emit } from '../lib/bus'
 import { networkStore, toggleStar } from '../lib/networks'
@@ -9,10 +9,12 @@ import { ActionForm } from '../components/ActionForm'
 import { TableView } from '../components/TableView'
 import { IconClose, IconContract, IconPlus, IconRefresh, IconStar } from '../components/Icons'
 import { HelpButton } from '../components/HelpButton'
+import { useApp } from '../state'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
 export function ContractPage(): React.JSX.Element {
+  const { state } = useApp()
   const net = useStore(networkStore)
   const [tabs, setTabs] = useState<string[]>([])
   const [active, setActive] = useState<string | null>(null)
@@ -40,11 +42,17 @@ export function ContractPage(): React.JSX.Element {
     if (active === name) select(next[next.length - 1] ?? null)
   }
 
+  // The active tab is scrolled into view when there are more tabs than fit.
+  const tabBar = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    tabBar.current?.querySelector('.editor-tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [active, tabs, state.view])
+
   const starred = active ? net.stars.includes(active) : false
 
   return (
     <div className="chain-page">
-      <div className="page-tabs">
+      <div className="page-tabs" ref={tabBar}>
         {tabs.map((t) => (
           <div key={t} className={`editor-tab${t === active ? ' active' : ''}`} onClick={() => select(t)}>
             {t}

@@ -46,11 +46,43 @@ describe('resource refusals', () => {
   it('NET and RAM refusals; an unreadable account says so', async () => {
     const net = await withResourceState(fromNodeError(nodeError('tx_net_usage_exceeded', 'net usage'), ctx), 'alice', async () => accountAnswer)
     expect(net.errorMessage).toMatch(/^Rejected for NET: alice does not have enough network bandwidth \(NET\)/)
-    const ram = await withResourceState(fromNodeError(nodeError('ram_usage_exceeded', 'account bob has insufficient ram; needs 5000 bytes has 4096 bytes'), ctx), 'alice', async () => {
+    const asked: string[] = []
+    const ram = await withResourceState(fromNodeError(nodeError('ram_usage_exceeded', 'account bob has insufficient ram; needs 5000 bytes has 4096 bytes'), ctx), 'alice', async (a) => {
+      asked.push(a)
       throw new Error('down')
     })
-    expect(ram.errorMessage).toBe('Rejected for RAM: bob does not have enough RAM for this transaction (the resources of alice could not be read).')
+    // The account the node names is read, not the signer.
+    expect(asked).toEqual(['bob'])
+    expect(ram.errorMessage).toBe('Rejected for RAM: bob does not have enough RAM for this transaction (needs 5,000 bytes, has 4,096 bytes).')
+    expect(ram.resource?.account).toBe('bob')
     expect(ram.resource?.state).toBeNull()
+    const unread = await withResourceState(fromNodeError(nodeError('ram_usage_exceeded', 'ram usage'), ctx), 'alice', async () => {
+      throw new Error('down')
+    })
+    expect(unread.errorMessage).toBe('Rejected for RAM: alice does not have enough RAM for this transaction (the resources of alice could not be read).')
+  })
+
+  it('a RAM refusal in a simulation fills the account from the error data and never shows the signer as that account', async () => {
+    const except = {
+      code: 3080001,
+      name: 'ram_usage_exceeded',
+      message: 'Account using more than allotted RAM usage',
+      stack: [
+        { format: 'account ${account} has insufficient ram; needs ${needs} bytes has ${available} bytes', data: { account: 'newacct12345', needs: 2996, available: 0 } },
+        { format: '${receiver} <= ${account}::${action} pending console output: ${console}', data: { receiver: 'eosio', account: 'eosio', action: 'newaccount', console: '' } }
+      ]
+    }
+    const t = fromNodeAnswer({ processed: { except, action_traces: [] } }, { ...ctx, source: 'simulation' })
+    expect(t.errorMessage).toBe('Rejected for RAM: newacct12345 does not have enough RAM for this transaction (needs 2,996 bytes, has 0 bytes).')
+    const asked: string[] = []
+    const r = await withResourceState(t, 'alice', async (a) => {
+      asked.push(a)
+      return { ...accountAnswer, account_name: a, ram_usage: 2800, ram_quota: 2996 }
+    })
+    expect(asked).toEqual(['newacct12345'])
+    expect(r.errorMessage).toMatch(/^Rejected for RAM: newacct12345 does not have enough RAM for this transaction \(needs 2,996 bytes, has 0 bytes; newacct12345: RAM /)
+    expect(r.errorMessage).not.toContain('alice')
+    expect(r.errorMessage).not.toContain('${')
   })
 
   it('a CPU except in a trace (simulation answer) is recognised as well', () => {

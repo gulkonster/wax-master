@@ -10,7 +10,8 @@ vi.mock('electron', () => ({ app: { getPath: () => h.dataDir, isPackaged: false,
 import { base64Size, chainAbiHashOf, chainCodeSize, deployRam, readCodeHash } from '../../src/main/deploy'
 import { CODE_SIZE_UNREAD, deployRamText, ramToBuy } from '../../src/shared/ram-market'
 
-const n = (x: number): string => x.toLocaleString()
+// Counts are written the English way on every system (1,000 bytes).
+const n = (x: number): string => x.toLocaleString('en-US')
 
 describe('bytes held by base64 text', () => {
   it('counts with and without the padding', () => {

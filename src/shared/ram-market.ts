@@ -127,11 +127,11 @@ export const CODE_SIZE_UNREAD = 'The size of the code now on the account could n
 
 /** The RAM line of the Deploy dialog: a first deployment, or the difference to what is replaced. */
 export function deployRamText(p: DeployRamFigures): string {
-  const available = p.ramAvailable < 0 ? 'unlimited' : `${p.ramAvailable.toLocaleString()} bytes`
+  const available = p.ramAvailable < 0 ? 'unlimited' : `${p.ramAvailable.toLocaleString('en-US')} bytes`
   const line =
     p.ramReplaced > 0
-      ? `RAM needed about ${p.ramNeeded.toLocaleString()} bytes more than now (new code and ABI ${p.ramNew.toLocaleString()} bytes, replacing ${p.ramReplaced.toLocaleString()} bytes); available ${available}.`
-      : `RAM needed about ${p.ramNeeded.toLocaleString()} bytes; available ${available}.`
+      ? `RAM needed about ${p.ramNeeded.toLocaleString('en-US')} bytes more than now (new code and ABI ${p.ramNew.toLocaleString('en-US')} bytes, replacing ${p.ramReplaced.toLocaleString('en-US')} bytes); available ${available}.`
+      : `RAM needed about ${p.ramNeeded.toLocaleString('en-US')} bytes; available ${available}.`
   return p.chainCodeUnread ? `${line} ${CODE_SIZE_UNREAD}` : line
 }
 

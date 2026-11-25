@@ -22,6 +22,12 @@ describe('node error messages', () => {
     const body = { error: { what: 'Assert failure', details: [{ message: 'assertion failure with message: overdrawn balance' }] } }
     expect(nodeErrorMessage(body, 'x')).toBe('assertion failure with message: overdrawn balance')
   })
+  it('skips the pending console line', () => {
+    const body = { error: { what: 'Missing required authority', details: [{ message: 'alice <= alice::put pending console output: ' }, { message: 'missing authority of bob' }] } }
+    expect(nodeErrorMessage(body, 'x')).toBe('missing authority of bob')
+    const only = { error: { what: 'Missing required authority', details: [{ message: 'alice <= alice::put pending console output: ' }] } }
+    expect(nodeErrorMessage(only, 'x')).toBe('Missing required authority')
+  })
   it('falls back', () => {
     expect(nodeErrorMessage(null, 'HTTP 500')).toBe('HTTP 500')
   })

@@ -14,7 +14,7 @@ import { NAME } from './account/common'
 import { useApp } from '../state'
 
 export function AccountPage(): React.JSX.Element {
-  const { actions } = useApp()
+  const { state, actions } = useApp()
   const net = useStore(networkStore)
   const [tabs, setTabs] = useState<string[]>([])
   const [active, setActive] = useState<string | null>(null)
@@ -60,11 +60,17 @@ export function AccountPage(): React.JSX.Element {
     }
   }
 
+  // The active tab is scrolled into view when there are more tabs than fit.
+  const tabBar = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    tabBar.current?.querySelector('.editor-tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [active, tabs, state.view])
+
   const starred = active ? net.stars.includes(active) : false
 
   return (
     <div className="chain-page">
-      <div className="page-tabs">
+      <div className="page-tabs" ref={tabBar}>
         {tabs.map((t) => (
           <div key={t} className={`editor-tab${t === active ? ' active' : ''}`} onClick={() => (setActive(t), setInput(t))}>
             {t}

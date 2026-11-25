@@ -13,7 +13,7 @@ export function WasmInfoView({ rel, info }: { rel: string; info: WasmInfo }): Re
         {!info.valid && <div className="error-text">This file could not be read as a WebAssembly module: {info.error}</div>}
         <div className="field">
           <label>Size</label>
-          <div className="chip">{info.size.toLocaleString()} bytes</div>
+          <div className="chip">{info.size.toLocaleString('en-US')} bytes</div>
         </div>
         <div className="field">
           <label>SHA-256</label>

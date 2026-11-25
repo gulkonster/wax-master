@@ -72,6 +72,16 @@ export const NEW_ACCOUNT_READS_MS: readonly number[] = [1500, 2500, 4000, 6000]
 /** What the page says while it waits for a new account to be readable. */
 export const NEW_ACCOUNT_WAIT_TEXT = 'The new account is not readable yet; reading again...'
 
+/**
+ * The plain sentence for a failed account read when the node's text says the
+ * account is not there (get_account answers "unable to retrieve account info
+ * (unknown key ...)"); null for any other failure, which keeps its own text.
+ */
+export function missingAccountText(errorText: string, name: string, network: string): string | null {
+  if (!/unknown key|unknown_key|account_query_exception|does not exist|unable to retrieve account info/i.test(errorText)) return null
+  return `This account does not exist on ${network}: ${name}.`
+}
+
 /** Accounts created here whose page has not read them yet, with the reads tried again so far. */
 const newAccounts = new Map<string, number>()
 

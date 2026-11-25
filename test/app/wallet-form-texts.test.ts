@@ -6,6 +6,7 @@ import { COMMA_TEXT, stakeProblem, stakeQuantity } from '../../src/shared/wallet
 import {
   addEntryWeightHint,
   markNewAccount,
+  missingAccountText,
   NEW_ACCOUNT_READS_MS,
   NEW_ACCOUNT_WAIT_TEXT,
   newAccountRead,
@@ -69,5 +70,16 @@ describe('the reads of an account created a moment ago', () => {
     newAccountRead('newacct22222')
     expect(nextNewAccountRead('newacct22222')).toBeNull()
     expect(NEW_ACCOUNT_WAIT_TEXT).toBe('The new account is not readable yet; reading again...')
+  })
+})
+
+describe('an account that is not on the network', () => {
+  it('says so plainly instead of the node text', () => {
+    const raw =
+      'unable to retrieve account info (unknown key (boost::tuples::tuple<bool, eosio::chain::name, boost::tuples::null_type>): (0 5ymau4vvvhtj))'
+    expect(missingAccountText(raw, '5ymau4vvvhtj', 'WAX Mainnet')).toBe('This account does not exist on WAX Mainnet: 5ymau4vvvhtj.')
+  })
+  it('keeps any other failure as it is', () => {
+    expect(missingAccountText('Request timed out after 30 s', 'alice', 'WAX Mainnet')).toBeNull()
   })
 })

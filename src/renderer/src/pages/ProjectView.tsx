@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ExternalFile, MenuCommand, OpenProject, TreeNode } from '../../../shared/api'
-import { editorThemeName, monaco, languageFor } from '../lib/monaco'
+import { editorThemeName, keybindingOf, monaco, languageFor } from '../lib/monaco'
 import { emit, on } from '../lib/bus'
 import { errorText, toast } from '../lib/toast'
 import { useApp } from '../state'
@@ -131,6 +131,9 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     for (const [id, label, cmd] of paletteCommands) ed.addAction({ id, label, run: () => emit('editor-command', cmd) })
     // Contract commands run through the same path as the menu.
     ed.addAction({ id: 'wax.createRicardian', label: 'Contract: Create Ricardian Files', run: () => emit('menu-run', 'create-ricardian') })
+    // Ctrl+B does not reach the menu while the editor has the keyboard; the editor runs the same Build.
+    const buildKey = keybindingOf('CmdOrCtrl+B')
+    ed.addAction({ id: 'wax.build', label: 'Contract: Build', keybindings: buildKey === undefined ? [] : [buildKey], run: () => emit('menu-run', 'build') })
     const sub1 = ed.onDidChangeCursorPosition((e) => actions.setCursor({ line: e.position.lineNumber, column: e.position.column }))
     const stopEngine = startEditorEngine()
     return () => {
@@ -260,8 +263,8 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
         savedVersion = adopted.savedVersion
       } else {
         const f = await window.wax.files.read(rel)
-        if (f.binary) info = `Binary file, ${f.size.toLocaleString()} bytes.`
-        else if (f.tooLarge) info = `This file is too large to edit here (${f.size.toLocaleString()} bytes).`
+        if (f.binary) info = `Binary file, ${f.size.toLocaleString('en-US')} bytes.`
+        else if (f.tooLarge) info = `This file is too large to edit here (${f.size.toLocaleString('en-US')} bytes).`
         else {
           monaco.editor.getModel(uri)?.dispose()
           model = monaco.editor.createModel(f.content, languageFor(rel), uri)

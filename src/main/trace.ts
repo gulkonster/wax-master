@@ -2,7 +2,7 @@
 // API transactions into the inspector's tree. Everything is untrusted text;
 // missing data stays null and is labelled in the window.
 
-import type { AccountResources, InspectedTransaction, ResourceKind, ResourceProblem, TraceNode } from '../shared/trace-types'
+import type { AccountResources, InspectedTransaction, RamShortage, ResourceKind, ResourceProblem, TraceNode } from '../shared/trace-types'
 
 type R = Record<string, unknown>
 
@@ -30,6 +30,14 @@ function auths(v: unknown): { actor: string; permission: string }[] {
   return Array.isArray(v) ? v.map((a: R) => ({ actor: s(a?.actor), permission: s(a?.permission) })) : []
 }
 
+/**
+ * Lines the node adds after the real error (the console printed so far by the
+ * running action). They never stand for the error itself.
+ */
+export function isContextLine(text: string): boolean {
+  return /pending console output:/i.test(text)
+}
+
 /** Deepest useful message of a node exception (assertion text first). */
 export function exceptMessage(except: unknown): { message: string | null; stack: string | null } {
   if (!except || typeof except !== 'object') return { message: null, stack: null }
@@ -41,8 +49,8 @@ export function exceptMessage(except: unknown): { message: string | null; stack:
     return fmt.replace(/\$\{([a-z_]+)\}/gi, (_m, k: string) => (data[k] === undefined ? `\${${k}}` : String(data[k])))
   })
   const assertion = formats.map((f) => /assertion failure with message: (.*)/s.exec(f)?.[1]).find(Boolean)
-  const message = assertion ?? formats.filter(Boolean).pop() ?? s(e.message) ?? s(e.name) ?? null
-  return { message: message || s(e.name) || null, stack: json(except) }
+  const message = assertion || formats.filter((f) => f.trim() && !isContextLine(f)).pop() || s(e.message) || s(e.name)
+  return { message: message || null, stack: json(except) }
 }
 
 function nodeFromTrace(t: R): TraceNode {
@@ -131,11 +139,11 @@ export function fromNodeAnswer(answer: unknown, ctx: { source: 'simulation' | 's
     status: ex.message || failedNode ? 'failed' : s(receipt.status) || 'executed',
     cpuUs: n(receipt.cpu_usage_us),
     netBytes: (n(receipt.net_usage_words) ?? 0) * 8 || n(p.net_usage),
-    errorMessage: resource ? describeResource(resource.kind, '', null, resource.subject) : (ex.message ?? failedNode),
+    errorMessage: resource ? describeResource(resource.kind, '', null, resource.shortage) : (ex.message ?? failedNode),
     errorStack: ex.stack,
     actions,
     notes: notesFor(actions),
-    ...(resource ? { resource: { kind: resource.kind, errorName: resource.name, account: '', state: null } } : {})
+    ...(resource ? { resource: resourceProblem(resource) } : {})
   }
 }
 
@@ -150,7 +158,7 @@ const RAM_ERRORS = new Set(['ram_usage_exceeded'])
  * the except of a trace) names. Only the node's own error names count; a
  * timeout or a network error never reaches here as a resource problem.
  */
-export function resourceKindOf(err: R): { kind: ResourceKind; name: string; subject: string | null } | null {
+export function resourceKindOf(err: R): { kind: ResourceKind; name: string; shortage: RamShortage | null } | null {
   const name = s(err.name)
   let text = ''
   try {
@@ -165,8 +173,33 @@ export function resourceKindOf(err: R): { kind: ResourceKind; name: string; subj
   // deadline_exception counts only when it comes from CPU billing.
   else if (name === 'deadline_exception' && /billing_timer|deadline exceeded/i.test(text)) kind = 'cpu'
   if (!kind) return null
-  const subject = kind === 'ram' ? (/account (\S+?) has insufficient ram/i.exec(text)?.[1] ?? null) : null
-  return { kind, name, subject }
+  return { kind, name, shortage: kind === 'ram' ? ramShortage(err) : null }
+}
+
+function resourceProblem(r: { kind: ResourceKind; name: string; shortage: RamShortage | null }): ResourceProblem {
+  return { kind: r.kind, errorName: r.name, account: '', state: null, ...(r.shortage ? { shortage: r.shortage } : {}) }
+}
+
+const NAME = /^[a-z1-5.]{1,13}$/
+
+/**
+ * The account a RAM refusal names and the bytes it needs and has, read from the
+ * error's data (an except stack) or from the node's formatted text (error details).
+ */
+export function ramShortage(err: R): RamShortage | null {
+  const stack = Array.isArray(err.stack) ? (err.stack as R[]) : []
+  for (const x of stack) {
+    if (!/insufficient ram/i.test(s(x.format))) continue
+    const data = (x.data ?? {}) as R
+    const account = s(data.account)
+    if (NAME.test(account)) return { account, needs: n(data.needs), has: n(data.available) }
+  }
+  const details = Array.isArray(err.details) ? (err.details as R[]) : []
+  for (const text of [...details.map((d) => s(d.message)), s(err.message), s(err.what)]) {
+    const m = /account ([a-z1-5.]{1,13}) has insufficient ram(?:; needs (\d+) bytes has (\d+) bytes)?/i.exec(text)
+    if (m) return { account: m[1], needs: m[2] ? Number(m[2]) : null, has: m[3] ? Number(m[3]) : null }
+  }
+  return null
 }
 
 /** CPU, NET and RAM of an account from a get_account answer. */
@@ -221,23 +254,37 @@ const WHAT: Record<ResourceKind, string> = {
 }
 
 /** The plain sentence for a CPU / NET / RAM refusal, with the account's state when it is known. */
-export function describeResource(kind: ResourceKind, account: string, state: AccountResources | null | 'unreadable', subject: string | null = null): string {
-  const who = subject || account || 'the account'
+/**
+ * The plain sentence for a CPU / NET / RAM refusal. `account` is the account whose
+ * resources `state` holds; a RAM refusal names the account the node names.
+ */
+export function describeResource(
+  kind: ResourceKind,
+  account: string,
+  state: AccountResources | null | 'unreadable',
+  shortage: RamShortage | null = null
+): string {
+  const who = shortage?.account || account || 'the account'
   const head = `Rejected for ${kind.toUpperCase()}: ${who} does not have ${WHAT[kind]} for this transaction`
-  if (state === 'unreadable') return `${head} (the resources of ${account} could not be read).`
-  if (!state) return `${head}.`
-  const sum = resourceSummary(kind, state)
-  return sum ? `${head} (${account}: ${sum}).` : `${head}.`
+  const need =
+    shortage && shortage.needs !== null && shortage.has !== null ? `needs ${shortage.needs.toLocaleString('en-US')} bytes, has ${shortage.has.toLocaleString('en-US')} bytes` : null
+  // Resources of another account than the one named are never shown as if they were its own.
+  const own = !shortage || shortage.account === account
+  const sum = state && state !== 'unreadable' && own ? resourceSummary(kind, state) : ''
+  const parts = [need, sum ? `${account}: ${sum}` : null, state === 'unreadable' && own && !need ? `the resources of ${account} could not be read` : null].filter(Boolean)
+  return parts.length ? `${head} (${parts.join('; ')}).` : `${head}.`
 }
 
 /**
- * For a CPU / NET / RAM refusal: reads the first authorizer's resources (from
- * the same endpoint, through `read`) and puts them into the trace and its
- * error sentence. Other traces are returned unchanged.
+ * For a CPU / NET / RAM refusal: reads the resources of the account the node
+ * names (a RAM refusal) or else of the first authorizer (from the same endpoint,
+ * through `read`) and puts them into the trace and its error sentence. Other
+ * traces are returned unchanged.
  */
-export async function withResourceState(t: InspectedTransaction, account: string, read: (account: string) => Promise<R>): Promise<InspectedTransaction> {
+export async function withResourceState(t: InspectedTransaction, signer: string, read: (account: string) => Promise<R>): Promise<InspectedTransaction> {
   if (!t.resource) return t
-  const subject = t.resource.kind === 'ram' && t.errorStack ? (/account (\S+?) has insufficient ram/i.exec(t.errorStack)?.[1] ?? null) : null
+  const shortage = t.resource.shortage ?? null
+  const account = shortage?.account || signer
   let state: AccountResources | null = null
   if (account) {
     try {
@@ -247,7 +294,7 @@ export async function withResourceState(t: InspectedTransaction, account: string
     }
   }
   const resource: ResourceProblem = { ...t.resource, account, state }
-  return { ...t, resource, errorMessage: describeResource(resource.kind, account, account ? (state ?? 'unreadable') : null, subject) }
+  return { ...t, resource, errorMessage: describeResource(resource.kind, account, account ? (state ?? 'unreadable') : null, shortage) }
 }
 
 /** Error answer of a node (HTTP 500 body), e.g. a failed check in a contract. */
@@ -256,10 +303,15 @@ export function fromNodeError(body: unknown, ctx: { source: 'simulation' | 'sent
   const err = (b.error ?? {}) as R
   const details = Array.isArray(err.details) ? (err.details as R[]) : []
   const assertion = details.map((d) => /assertion failure with message: (.*)/s.exec(s(d.message))?.[1]).find(Boolean)
-  const message = assertion ?? details.map((d) => s(d.message)).filter(Boolean)[0] ?? s(err.what) ?? s(b.message) ?? 'The node refused the transaction'
+  const message =
+    assertion ||
+    details.map((d) => s(d.message)).filter((m) => m.trim() && !isContextLine(m))[0] ||
+    s(err.what) ||
+    s(b.message) ||
+    'The node refused the transaction'
   const resource = resourceKindOf(err)
   return {
-    ...(resource ? { resource: { kind: resource.kind, errorName: resource.name, account: '', state: null } } : {}),
+    ...(resource ? { resource: resourceProblem(resource) } : {}),
     source: ctx.source,
     network: ctx.network,
     endpoint: ctx.endpoint,
@@ -269,7 +321,7 @@ export function fromNodeError(body: unknown, ctx: { source: 'simulation' | 'sent
     status: 'failed',
     cpuUs: null,
     netBytes: null,
-    errorMessage: resource ? describeResource(resource.kind, '', null, resource.subject) : message,
+    errorMessage: resource ? describeResource(resource.kind, '', null, resource.shortage) : message,
     errorStack: json(body),
     actions: [],
     notes: ['The node returned an error before any action trace.']
