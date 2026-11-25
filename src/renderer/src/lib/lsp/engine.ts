@@ -29,9 +29,9 @@ const CHECKS_OWNER = 'checks'
 const CHECKS_SOURCE = 'WAX Master'
 const CHECK_DELAY_MS = 300
 const COMMAND_ID = 'wax.engine.command'
-/** Other documents are rebuilt against an unsaved header this long after its last change (B97 point 2). */
+/** Other documents are rebuilt against an unsaved header this long after its last change. */
 const HEADER_TOUCH_MS = 400
-/** Project files the engine opens without a tab, per project (B97 point 3). */
+/** Project files the engine opens without a tab, per project. */
 const MAX_BACKGROUND = 12
 
 interface ServerCaps {
@@ -139,7 +139,7 @@ let headerTouchTimer: ReturnType<typeof setTimeout> | null = null
 const includedIn = new Map<string, boolean | 'pending'>()
 /** Document -> `<line>\n<line text>` -> the file that include line opens ('' when none, 'pending' while asked). */
 const includeTargets = new Map<string, Map<string, string>>()
-/** Errors of a project document's own (before the piece rule), for the include-line summary of B97 point 4. */
+/** Errors of a project document's own (before the piece rule), for the include-line summary of the include line. */
 const ownErrors = new Map<string, { line: number; message: string }[]>()
 /** Header -> documents whose include-line summary or piece state depends on it. */
 const dependents = new Map<string, Set<string>>()
@@ -462,7 +462,7 @@ function errorCount(list: ShownDiagnostic[], checks: Check[]): number {
 }
 
 /**
- * B98: a project header whose errors come from being parsed alone. Gives the notice for
+ * A project header whose errors come from being parsed alone. Gives the notice for
  * line 1 when the header is a piece; null otherwise. Opens the main file in the background
  * when it has no tab.
  */
@@ -540,7 +540,7 @@ function refreshDocument(k: string): void {
   }
   const open = docs.has(k)
   const kept: ShownDiagnostic[] = []
-  /** Include lines whose `In included file` diagnostic the filter dropped (B97 point 4). */
+  /** Include lines whose `In included file` diagnostic the filter dropped. */
   const droppedIncludeLines = new Map<number, LspDiagnostic>()
   for (const raw of engineDiagnostics.get(k) ?? []) {
     const ctx = { cdtVersion, underlined: textIn(lines, raw.range) }
@@ -584,7 +584,7 @@ function refreshDocument(k: string): void {
 
 const IN_INCLUDED_FILE = /^in included file/i
 
-/** B97 point 3: the project headers an `In included file` diagnostic names are opened in the background. */
+/** The project headers an `In included file` diagnostic names are opened in the background. */
 function openRelatedHeaders(k: string, raw: LspDiagnostic): void {
   for (const r of raw.relatedInformation ?? []) {
     const h = key(r.location.uri)
@@ -593,7 +593,7 @@ function openRelatedHeaders(k: string, raw: LspDiagnostic): void {
 }
 
 /**
- * B97 point 4: an include line whose diagnostic the filter dropped gets one error when the
+ * An include line whose diagnostic the filter dropped gets one error when the
  * header it opens is a project file with errors of its own.
  */
 function includeSummaries(k: string, lines: string[], dropped: Map<number, LspDiagnostic>, shown: ShownDiagnostic[]): ShownDiagnostic[] {
@@ -869,7 +869,7 @@ async function hoverText(uri: string, model: monaco.editor.ITextModel, offset: n
 }
 
 /**
- * B102 point 2: inside `<table>.emplace(..., [&](auto& row) { row.` the engine has no list. The
+ * Inside `<table>.emplace(..., [&](auto& row) { row.` the engine has no list. The
  * row type comes from the hover of the table object, its members from a workspace symbol search.
  * While the lambda is still open the engine's hover on the table object can be empty; then the
  * nearest earlier use of the same name (its declaration, as a rule) is asked once.
@@ -921,7 +921,7 @@ async function rowMembers(
 }
 
 /**
- * B102 point 3 and B116: the snippets, after the engine's items. A snippet that needs a header
+ * The snippets, after the engine's items. A snippet that needs a header
  * the document does not name adds its include line after the last one (at line 1 without one).
  */
 function snippetItems(model: monaco.editor.ITextModel, range: monaco.IRange): monaco.languages.CompletionItem[] {

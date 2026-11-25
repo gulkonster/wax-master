@@ -1,4 +1,4 @@
-// Network > Local Chain: set up, start, stop, reset and remove the app's own chain (B108).
+// Network > Local Chain: set up, start, stop, reset and remove the app's own chain.
 // One primary button per state; the state comes from the main process.
 
 import { useEffect, useRef, useState } from 'react'
@@ -86,7 +86,7 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
       setError(errorText(e))
     } finally {
       setPending(false)
-      // Set up, Start, Use port and Remove change the network entry Local chain (B110 point 1); the top bar and the status bar follow it.
+      // Set up, Start, Use port and Remove change the network entry Local chain; the top bar and the status bar follow it.
       void refreshNetworks().catch(() => undefined)
     }
   }

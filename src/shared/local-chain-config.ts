@@ -1,4 +1,4 @@
-// Pure text and plan builders of the app's local chain (decisions B107, B108 point 2, B109).
+// Pure text and plan builders of the app's local chain.
 // Nothing here touches the disk, the network or a process.
 
 import { LOCAL_CHAIN_HTTP_ALIAS_HOST } from './local-chain'
@@ -14,7 +14,7 @@ export const LOCAL_CHAIN_TOKEN_ISSUE = '1000000000.00000000 WAX'
 
 /**
  * Accounts the WAX system contract names in its source (`eosio.system.hpp`: token, ram, ramfee, stake,
- * bpay, vpay, names, saving, voters, reserv, fees; `eosio.null` exists from the genesis), plus `eosio.msig` and `eosio.rex` (B107 point 5).
+ * bpay, vpay, names, saving, voters, reserv, fees; `eosio.null` exists from the genesis), plus `eosio.msig` and `eosio.rex`.
  * Each is controlled by `eosio@active`, as on WAX Mainnet.
  */
 export const LOCAL_CHAIN_SYSTEM_ACCOUNTS = [
@@ -87,14 +87,14 @@ export interface ConfigIniInput {
   publicKey: string
   /** The system key's private form. The text is written once, through stdin, and never logged. */
   privateKey: string
-  /** "Web pages on this computer may call the local chain" (B108 point 9). */
+  /** "Web pages on this computer may call the local chain". */
   webPages: boolean
 }
 
 /**
- * `config.ini` text (B108 point 2). The producer API is not in it: it is added on the command line for
- * the bootstrap only (B108 point 1). `http-alias` lets `localhost:<port>` through host validation
- * (stage 35 P2: without it the node answers HTTP 400).
+ * `config.ini` text. The producer API is not in it: it is added on the command line for
+ * the bootstrap only. `http-alias` lets `localhost:<port>` through host validation
+ * (without it the node answers HTTP 400).
  */
 export function configIni(input: ConfigIniInput): string {
   const { port, publicKey, privateKey, webPages } = input
@@ -109,7 +109,7 @@ export function configIni(input: ConfigIniInput): string {
     `http-server-address = 127.0.0.1:${port}`,
     `http-alias = ${LOCAL_CHAIN_HTTP_ALIAS_HOST}:${port}`,
     // The node loads its net plugin whatever the config says and would listen for peers on 0.0.0.0:9876;
-    // an empty endpoint keeps it from listening at all (B108 point 2).
+    // an empty endpoint keeps it from listening at all.
     'p2p-listen-endpoint =',
     'contracts-console = true',
     'enable-account-queries = true'
@@ -219,7 +219,7 @@ export type BootStep =
 const eosioActive = { threshold: 1, keys: [], accounts: [{ permission: { actor: 'eosio', permission: 'active' }, weight: 1 }], waits: [] }
 
 /**
- * The bootstrap as an ordered list of steps (B107 point 5): PREACTIVATE, `eosio.boot`, `activate` per feature,
+ * The bootstrap as an ordered list of steps: PREACTIVATE, `eosio.boot`, `activate` per feature,
  * the system accounts, `eosio.token` with `create` and `issue`, `eosio.msig`, `eosio.system`, `setpriv` of
  * `eosio.msig` (an action of the system contract, so after it), `init(0, "8,WAX")`.
  */

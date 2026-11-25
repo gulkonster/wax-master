@@ -1,4 +1,4 @@
-// Bootstrap of the app's local chain (decisions B107 point 5, B109 points 1-3): what is sent to the node once
+// Bootstrap of the app's local chain: what is sent to the node once
 // it answers. Signed here with the chain's own system key, without the vault and without a confirmation window;
 // `assertLocalChain` keeps this path off every other network. The key is never logged and never put in a
 // progress line or an error text.
@@ -43,7 +43,7 @@ import { resourcesDir } from './paths'
 
 export class LocalChainBootError extends Error {}
 
-// ---------------------------------------------------------------- guard (B109 point 3)
+// ---------------------------------------------------------------- guard
 
 export interface LocalChainExpectation {
   /** The state's port; without it any port of the local chain's range is taken. */
@@ -296,11 +296,11 @@ export interface BootResult extends BootCheck {
 }
 
 /**
- * Bootstraps an empty local chain whose node answers at `endpoint` with the producer API loaded (B108 point 1).
- * `systemKey` is the chain's own private key (B109 point 1); it signs as `eosio` and the system accounts.
+ * Bootstraps an empty local chain whose node answers at `endpoint` with the producer API loaded.
+ * `systemKey` is the chain's own private key; it signs as `eosio` and the system accounts.
  * `progress` gets one plain line per step, never a key. Ends by reading the token, `rammarket` and `global`;
  * only a resolved promise means bootstrapped. A bootstrap that stops halfway is repeated from an empty data
- * folder, never continued (B107 point 5).
+ * folder, never continued.
  */
 export async function bootstrap(
   endpoint: string,

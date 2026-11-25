@@ -1,4 +1,4 @@
-// One Problems list from the last build and from the editor (B101 points 2 and 4).
+// One Problems list from the last build and from the editor.
 
 import type { Problem } from './api'
 

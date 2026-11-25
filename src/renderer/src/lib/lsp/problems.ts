@@ -58,7 +58,7 @@ const IN_INCLUDED = /^in included file:\s*/i
 
 /**
  * True when an `In included file` diagnostic repeats a header error that a
- * naming check of that header replaces (B99 point 1: the copy on the
+ * naming check of that header replaces (the copy on the
  * `#include` line goes with the original). One of its related places (for a
  * bad `"..."_n` the "requested here" note) must touch the checked literal.
  * `checksOf` gives the checks of an open project header, null otherwise.

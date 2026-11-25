@@ -1,4 +1,4 @@
-// The app's local chain (decisions B106, B108, B109): its private WSL distro, made offline from the
+// The app's local chain: its private WSL distro, made offline from the
 // bundled parts, and its one node process, kept attached while the chain runs and stopped with a signal.
 // What is sent to the node once it answers is in `local-chain-boot.ts`.
 
@@ -30,7 +30,7 @@ import { localDataDir } from './paths'
 import { clean, listDistros, partsDir, toolchainState, toWslPath, verifyParts, wsl, wslExe } from './toolchain'
 import { log } from './log'
 
-// ---------------------------------------------------------------- fixed texts (B106 point 5, B108 point 4)
+// ---------------------------------------------------------------- fixed texts
 
 export const UNAVAILABLE_TEXT = 'The local chain needs WSL 2 (virtualization on). The compiler works without it; the local chain does not.'
 export const DIRTY_TEXT =
@@ -96,7 +96,7 @@ const DAMAGED_PATTERN =/block_log_exception|fork_database_exception|database_exc
 export type ExitOutcome = { kind: 'replay' } | { kind: 'failed'; reason: string; repair: LocalChainRepair; portTaken?: boolean }
 
 /**
- * What to do when the node ended without being asked to (B108 point 4): a dirty database gets one start
+ * What to do when the node ended without being asked to: a dirty database gets one start
  * with `--replay-blockchain`; if that ends too, the chain can only be reset.
  */
 export function exitOutcome(code: number, tail: string, replayTried: boolean, port: number, genesis = false): ExitOutcome {
@@ -157,7 +157,7 @@ export function scriptArgs(command: string, args: string[] = []): string[] {
   return ['-d', LOCAL_CHAIN_DISTRO, '-u', 'root', '--exec', 'bash', '-c', SETUP_SCRIPT, 'setup-distro', command, ...args]
 }
 
-/** The `wsl.exe` arguments of the node itself (B108 point 1). */
+/** The `wsl.exe` arguments of the node itself. */
 export function nodeArgs(mode: { genesis?: boolean; producerApi?: boolean; replay?: boolean } = {}): string[] {
   return [
     '-d',
@@ -291,10 +291,10 @@ let reason: string | undefined
 let repair: LocalChainRepair | undefined
 let dataMb: number | undefined
 let dataMbAt = 0
-/** When the last Remove began its delete (B134); 0 when there was none in this session. */
+/** When the last Remove began its delete; 0 when there was none in this session. */
 let removeStartedAt = 0
 
-/** Removes `dir` only when it exists and is empty; never recursive, never throws (B134). */
+/** Removes `dir` only when it exists and is empty; never recursive, never throws. */
 export function dropEmptyDir(dir: string): { removed: boolean; madeAt: number } {
   try {
     if (!existsSync(dir) || readdirSync(dir).length > 0) return { removed: false, madeAt: 0 }
@@ -306,7 +306,7 @@ export function dropEmptyDir(dir: string): { removed: boolean; madeAt: number } 
   }
 }
 
-/** Removes an empty chain folder and writes down when it was made (B134). */
+/** Removes an empty chain folder and writes down when it was made. */
 function tidyEmptyFolder(): void {
   const r = dropEmptyDir(chainDir())
   if (!r.removed) return
@@ -318,7 +318,7 @@ function tidyEmptyFolder(): void {
         : `made ${((r.madeAt - removeStartedAt) / 1000).toFixed(1)} s after the Remove`
   log.warn('Local chain: an empty folder was found and removed (' + when + ')')
 }
-/** The system key while the chain runs (B109 point 2). Never logged, never sent to a window. */
+/** The system key while the chain runs. Never logged, never sent to a window. */
 let systemKey: string | null = null
 
 interface NodeProc {
@@ -428,7 +428,7 @@ async function scriptOk(command: string, args: string[] = [], opts: { input?: st
   return out
 }
 
-/** The system key, read from the chain's own config through WSL and kept in memory (B109 point 2). */
+/** The system key, read from the chain's own config through WSL and kept in memory. */
 export async function localChainSystemKey(): Promise<string> {
   if (systemKey) return systemKey
   const r = await script('read-key', [], { timeoutMs: 30_000 })
@@ -501,7 +501,7 @@ async function settleBlocks(port: number): Promise<void> {
 }
 
 /**
- * Stops the node as B108 point 3 says, after its last block became irreversible (up to 10 s; a SIGINT
+ * Stops the node as designed, after its last block became irreversible (up to 10 s; a SIGINT
  * drops the block being built): SIGINT, up to 15 s, then `wsl --terminate`.
  */
 async function stopProcess(opts: { settle?: boolean } = {}): Promise<void> {
@@ -569,7 +569,7 @@ function checkStop(): void {
 }
 
 /**
- * Starts the node and waits until it answers. A dirty database gets one replay (B108 point 4 a);
+ * Starts the node and waits until it answers. A dirty database gets one replay;
  * a taken port and a silent node fail with their texts.
  */
 async function startAnswering(port: number, mode: { genesis?: boolean; producerApi?: boolean } = {}): Promise<ChainInfo> {
@@ -601,7 +601,7 @@ export const ENDED_TEXT = 'The node ended unexpectedly. Start checks its data an
 
 /**
  * The node ended while it ran (WSL stopped under it, or the node itself ended). Its data may be dirty;
- * the next Start replays it if so (B108 point 4 a), so the chain is shown as stopped with one line.
+ * the next Start replays it if so, so the chain is shown as stopped with one line.
  */
 function onUnexpectedExit(proc: NodeProc): void {
   if (phase !== 'running') return
@@ -612,7 +612,7 @@ function onUnexpectedExit(proc: NodeProc): void {
 
 /**
  * A new chain on an empty data folder: genesis start with the producer API, the bootstrap of
- * `local-chain-boot.ts`, then a clean stop (B108 point 1, B107 point 5). Ends stopped.
+ * `local-chain-boot.ts`, then a clean stop. Ends stopped.
  */
 async function freshChain(state: LocalChainState, key: string): Promise<LocalChainState> {
   progress('Emptying the data folder...')
@@ -691,7 +691,7 @@ async function guarded(fn: () => Promise<void>, failedPrefix?: string): Promise<
   return getStatus()
 }
 
-// ---------------------------------------------------------------- calls (B108 point 7)
+// ---------------------------------------------------------------- calls
 
 /** Makes the distro, the key, genesis and config, fills the chain with the system contracts. Ends stopped. */
 export function setUp(): Promise<LocalChainStatus> {
@@ -833,7 +833,7 @@ export function stop(): Promise<LocalChainStatus> {
   })
 }
 
-/** Stop, empty data, genesis start, bootstrap, start (B108 point 3). The question is asked by the caller. */
+/** Stop, empty data, genesis start, bootstrap, start. The question is asked by the caller. */
 export function reset(): Promise<LocalChainStatus> {
   return serial(async () => {
     const p = await determinePhase()
@@ -852,7 +852,7 @@ export function reset(): Promise<LocalChainStatus> {
   })
 }
 
-/** Stop, unregister the distro, delete its folder (B108 point 3). The caller asks first and removes the network entry. */
+/** Stop, unregister the distro, delete its folder. The caller asks first and removes the network entry. */
 export function remove(): Promise<LocalChainStatus> {
   return serial(async () => {
     const p = await determinePhase()
@@ -899,7 +899,7 @@ export function usePort(port: number): Promise<LocalChainStatus> {
   })
 }
 
-/** Saves the options; the web pages option rewrites config.ini and restarts a running node (B108 point 9). */
+/** Saves the options; the web pages option rewrites config.ini and restarts a running node. */
 export function setOptions(options: LocalChainOptions): Promise<LocalChainStatus> {
   return serial(async () => {
     const state = readState()
@@ -934,7 +934,7 @@ export async function openLog(): Promise<void> {
   if (err) throw new Error(`The log could not be opened: ${err}`)
 }
 
-// ---------------------------------------------------------------- app life (B108 points 5, 6, 9)
+// ---------------------------------------------------------------- app life
 
 /** True when the chain is set up (for the first question of Clear All App Data). */
 export function isLocalChainSetUp(): boolean {
@@ -946,7 +946,7 @@ export function localChainRunning(): boolean {
   return !!node && !node.exited
 }
 
-/** Stops the node for the app's quit, without a question (B108 point 5). */
+/** Stops the node for the app's quit, without a question. */
 export async function stopForQuit(): Promise<void> {
   if (!node || node.exited) return
   setPhase('stopping')

@@ -1,5 +1,5 @@
 // Local tokens (local chain only): the chain's own account sends test WAX to this account.
-// Nothing is signed by the user; the main process signs as the chain's system account (B109).
+// Nothing is signed by the user; the main process signs as the chain's system account.
 
 import { useState } from 'react'
 import { HelpButton } from '../../components/HelpButton'

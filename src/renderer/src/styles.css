@@ -4127,7 +4127,7 @@ button.sb-item.mainnet:hover {
   margin: var(--sp-3) 0 var(--sp-4);
 }
 
-/* Local Chain dialog (B108) */
+/* Local Chain dialog */
 .lc-state {
   display: flex;
   align-items: center;
@@ -4184,7 +4184,7 @@ button.sb-item.mainnet:hover {
   gap: var(--sp-2);
 }
 
-/* Local chain on the pages (B110) */
+/* Local chain on the pages */
 .lc-line {
   display: flex;
   align-items: center;

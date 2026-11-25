@@ -1,4 +1,4 @@
-// Where an engine error is drawn (decision B96). The engine reports a missing
+// Where an engine error is drawn. The engine reports a missing
 // `;` at the next token and `Expected '}'` at a place with no width; its own fix
 // carries the true place. Pure functions: no engine, no editor.
 

@@ -1,4 +1,4 @@
-// IPC handlers of the app's local chain (decision B108 point 7, B110 points 1-2): the window calls the
+// IPC handlers of the app's local chain: the window calls the
 // process module, and the network entry follows the node's port and chain id.
 
 import { dialog, type BrowserWindow } from 'electron'
@@ -62,7 +62,7 @@ function syncNetwork(s: LocalChainStatus): LocalChainStatus {
   return s
 }
 
-/** The kept answers of the local chain go with its data (B120 point 1). */
+/** The kept answers of the local chain go with its data. */
 function forgetKept(): void {
   try {
     sentStore().clear(LOCAL_CHAIN_NETWORK_ID)
@@ -80,7 +80,7 @@ function dropNetwork(s: LocalChainStatus): LocalChainStatus {
   return s
 }
 
-/** The question B108 point 7 asks in the main process before Reset and Remove. */
+/** The question asked in the main process before Reset and Remove. */
 export const RESET_QUESTION = {
   message: 'Reset the local chain?',
   detail: 'Reset makes a new empty chain with the same chain id. The accounts, contracts and tables on it are lost, and the stars and added tokens of Local chain are cleared.'
@@ -127,7 +127,7 @@ export function registerLocalChainIpc(getWindow: () => BrowserWindow | null): vo
     return chain.setOptions({ webPages: bool(o.webPages, 'webPages'), startWithApp: bool(o.startWithApp, 'startWithApp') })
   })
   handle('localChain:openLog', async () => chain.openLog())
-  // B109 points 4-5: sent by eosio and signed in the main process after the local chain guard.
+  // Sent by eosio and signed in the main process after the local chain guard.
   handle('localChain:accountExists', async (_e, name) => localAccountExists(chainName(name, 'account')))
   handle('localChain:createAccount', async (_e, input) => {
     const i = obj(input, 'input')
@@ -138,7 +138,7 @@ export function registerLocalChainIpc(getWindow: () => BrowserWindow | null): vo
     if (typeof i.amount !== 'number') throw new Error('amount: must be a number')
     return giveLocalTokens({ account: chainName(i.account, 'account'), amount: i.amount })
   })
-  // B111 points 1-4: read on the source network (nothing is signed there); a missing target is made by
+  // Read on the source network (nothing is signed there); a missing target is made by
   // eosio; the deployment is signed from the vault with the normal confirmation.
   const copyDeps = (): ReturnType<typeof defaultContractCopyDeps> => defaultContractCopyDeps((n, a) => signFromVault(getWindow(), n, a))
   handle('localChain:copyRead', async (_e, input) => {

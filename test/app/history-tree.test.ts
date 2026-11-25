@@ -156,12 +156,12 @@ describe('fromHistory', () => {
   })
 })
 
-// B127: a joined copy of an action of the transaction is an action of the transaction.
+// A joined copy of an action of the transaction is an action of the transaction.
 const twice = load('handmade-twice-transfer.json')
 // A path in a variable: the test build has no JSX settings; vitest loads the component.
 const INSPECTOR = '../../src/renderer/src/components/Inspector'
 
-describe('two identical actions of the transaction (B127)', () => {
+describe('two identical actions of the transaction', () => {
   const tops = (t: ReturnType<typeof historyTree>): TraceNode[] => t.roots
 
   it('without the signed count: both at the top in order, the second with ordinal 2 and placed by order', () => {

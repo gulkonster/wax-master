@@ -108,7 +108,7 @@ describe('local chain parts', () => {
   })
 })
 
-describe('node command lines (B108 point 1)', () => {
+describe('node command lines', () => {
   it('runs nodeos as wax in the chain distro with config and data folders', () => {
     const a = nodeArgs()
     expect(a.slice(0, 5)).toEqual(['-d', LOCAL_CHAIN_DISTRO, '-u', 'wax', '--exec'])
@@ -151,7 +151,7 @@ describe('the setup script', () => {
   })
 })
 
-describe('exit handling (B108 point 4)', () => {
+describe('exit handling', () => {
   const dirty = 'error ... database dirty flag set (likely due to unclean shutdown): replay required'
   it('replays once on a dirty database, then offers Reset', () => {
     expect(exitOutcome(2, dirty, false, 8888)).toEqual({ kind: 'replay' })
@@ -170,7 +170,7 @@ describe('exit handling (B108 point 4)', () => {
   it('any other end points to the log', () => {
     expect(exitOutcome(1, 'something else', false, 8888)).toMatchObject({ kind: 'failed', repair: { kind: 'none' } })
   })
-  it('keeps the fixed texts of B106 and B108 word for word', () => {
+  it('keeps the fixed texts word for word', () => {
     expect(UNAVAILABLE_TEXT).toBe('The local chain needs WSL 2 (virtualization on). The compiler works without it; the local chain does not.')
     expect(DIRTY_TEXT).toBe(
       "The chain's data was not closed cleanly and could not be repaired. Reset makes a new empty chain; the accounts and contracts on it are lost."
@@ -182,7 +182,7 @@ describe('exit handling (B108 point 4)', () => {
   })
 })
 
-describe('repair and start with the app (B108 points 3, 4, 9)', () => {
+describe('repair and start with the app', () => {
   const blockLog = '3190000 block_log_exception: Block log exception'
   it('offers Reset when the replay itself ends, whatever the node says', () => {
     expect(exitOutcome(254, blockLog, true, 8888)).toEqual({ kind: 'failed', reason: DIRTY_TEXT, repair: { kind: 'reset' } })
@@ -244,7 +244,7 @@ describe('log and key hiding', () => {
   })
 })
 
-describe('stop keeps the last transactions (stage 37 fix)', () => {
+describe('stop keeps the last transactions', () => {
   it('waits until the irreversible block passes the head read at the call', async () => {
     const answers = [
       { head: 10, irreversible: 9 },
@@ -293,7 +293,7 @@ describe('stop keeps the last transactions (stage 37 fix)', () => {
   })
 })
 
-describe('empty chain folder (B134)', () => {
+describe('empty chain folder', () => {
   it('removes an empty folder only, and gives its creation time', () => {
     const root = mkdtempSync(join(tmpdir(), 'lc-tidy-'))
     try {

@@ -152,7 +152,7 @@ describe('new account', () => {
     expect(JSON.stringify(r)).not.toContain('PVT_')
   })
 
-  it('makes owner and active the chosen key alone, without eosio.code (B132 (b))', async () => {
+  it('makes owner and active the chosen key alone, without eosio.code', async () => {
     const c = fakeChain()
     await createLocalAccount({ name: 'newuser12345', publicKey: c.user.pub }, c.deps)
     const t = sentTransaction(c.sent)!

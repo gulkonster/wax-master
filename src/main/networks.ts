@@ -614,7 +614,7 @@ export async function updateNetwork(
   return getNetwork(id)
 }
 
-/** The entry of the app's local chain (decision B110): added if missing, address and chain id corrected. */
+/** The entry of the app's local chain: added if missing, address and chain id corrected. */
 export function ensureLocalChainNetwork(input: { port: number; chainId: string }): NetworkInfo {
   if (!Number.isInteger(input.port) || input.port < 1 || input.port > 65535) throw new Error('Port is not valid')
   if (!CHAIN_ID_FORM.test(input.chainId)) throw new Error('Chain id must be 64 hex characters')

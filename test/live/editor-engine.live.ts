@@ -274,7 +274,7 @@ describe.skipIf(!AVAILABLE)('editor engine: the 52 slips on the Token template',
   }
 })
 
-// ---- headers, completion, signatures, hover, definitions, snippets (stage 33) ----------------------------------
+// ---- headers, completion, signatures, hover, definitions, snippets ----------------------------------
 
 const FRAG = (name: string): string => readFileSync(new URL(`../fixtures/editor-check/frag/${name}`, import.meta.url), 'utf8')
 

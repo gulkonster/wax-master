@@ -44,7 +44,7 @@ export function clearOutput(): void {
 export const problemsStore = new Store<Problem[]>([])
 /** What the editor reports now (errors and warnings of the open documents). */
 const liveProblemsStore = new Store<Problem[]>([])
-/** The list the Problems tab and the build markers show: build and live problems, each once (B101). */
+/** The list the Problems tab and the build markers show: build and live problems, each once. */
 export const mergedProblemsStore = new Store<Problem[]>([])
 
 /** Alternative version id of every open project file, by project-relative path. Set by the editor page. */

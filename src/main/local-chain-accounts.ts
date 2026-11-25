@@ -1,6 +1,6 @@
-// New account and Give tokens on the app's local chain (decision B109 points 3-5). Both are sent by the
+// New account and Give tokens on the app's local chain. Both are sent by the
 // chain's own `eosio` account and signed here with its system key, without the vault and without a
-// confirmation window. Every send first passes the guard of B109 point 3. The key is never logged and never
+// confirmation window. Every send first passes the local chain guard. The key is never logged and never
 // put in a result or an error text.
 
 import { readFile } from 'node:fs/promises'
@@ -87,11 +87,11 @@ function encode(abi: AbiDef, account: string, name: string, data: unknown): Acti
   return { account, name, authorization: [{ actor: 'eosio', permission: 'active' }], data: bytesToHex(encodeAction(abi, name, data)) }
 }
 
-/** The four actions of B109 point 4, all by `eosio`. */
+/** The four actions of New account, all by `eosio`. */
 export function newAccountActions(name: string, publicKey: string, abis: { system: AbiDef; token: AbiDef }, codePermission = false): Action[] {
   const key = normalizeKey(publicKey)
   const auth = normalizeAuthority({ threshold: 1, keys: [{ key, weight: 1 }] })
-  // A copy of a contract whose source has eosio.code gets it on active too (B132 (b)); owner stays the key alone.
+  // A copy of a contract whose source has eosio.code gets it on active too; owner stays the key alone.
   const active = codePermission
     ? normalizeAuthority({ threshold: 1, keys: [{ key, weight: 1 }], accounts: [{ permission: { actor: name, permission: 'eosio.code' }, weight: 1 }] })
     : auth
@@ -171,7 +171,7 @@ interface Ready {
   key: string
 }
 
-/** The running chain, its system key and the guard of B109 point 3; else throws. */
+/** The running chain, its system key and the local chain guard; else throws. */
 async function ready(deps: LocalAccountsDeps): Promise<Ready> {
   const s = await deps.status()
   if (s.phase !== 'running') throw new Error(NOT_RUNNING_TEXT)
@@ -221,7 +221,7 @@ export async function localAccountExists(name: string, deps: LocalAccountsDeps =
   return exists(s.endpoint, name, deps)
 }
 
-/** B109 point 4: `newaccount`, `buyrambytes` 1 MiB, `delegatebw` 100/100 WAX with transfer, `transfer` 10,000 WAX; then the star. */
+/** The four steps: `newaccount`, `buyrambytes` 1 MiB, `delegatebw` 100/100 WAX with transfer, `transfer` 10,000 WAX; then the star. */
 export async function createLocalAccount(input: LocalAccountInput, deps: LocalAccountsDeps = defaultLocalAccountsDeps()): Promise<LocalAccountResult> {
   const name = checkNewName(input.name)
   const publicKey = normalizeKey(input.publicKey)
@@ -234,7 +234,7 @@ export async function createLocalAccount(input: LocalAccountInput, deps: LocalAc
   return { account: name, transactionId: id }
 }
 
-/** B109 point 5: WAX from `eosio` to an existing account of the local chain. */
+/** WAX from `eosio` to an existing account of the local chain. */
 export async function giveLocalTokens(input: LocalTokensInput, deps: LocalAccountsDeps = defaultLocalAccountsDeps()): Promise<LocalTokensResult> {
   if (typeof input.account !== 'string' || !ANY_NAME.test(input.account) || !input.account) throw new Error('account: not a valid account name')
   const quantity = tokenQuantity(input.amount)

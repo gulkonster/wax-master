@@ -1,4 +1,4 @@
-// The local chain's entry in the network list (decision B110 points 1-2).
+// The local chain's entry in the network list.
 
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'

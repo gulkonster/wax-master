@@ -53,7 +53,7 @@ describe('genesis and config.ini', () => {
     expect(() => genesisJson('nonsense', ts)).toThrow()
   })
 
-  it('writes the lines of B108 point 2 with the http-alias and no producer API', () => {
+  it('writes the lines of the config with the http-alias and no producer API', () => {
     const { priv, pub } = newKey()
     const text = configIni({ port: 8890, publicKey: pub, privateKey: priv, webPages: false })
     const lines = text.trim().split('\n')
@@ -70,7 +70,7 @@ describe('genesis and config.ini', () => {
     ])
     expect(text).not.toContain('producer_api')
     expect(text).not.toContain('net_plugin')
-    // The node loads its net plugin anyway; an empty listen endpoint keeps it from listening (B108 point 2).
+    // The node loads its net plugin anyway; an empty listen endpoint keeps it from listening.
     expect(lines.filter((l) => l.startsWith('p2p-'))).toEqual(['p2p-listen-endpoint ='])
     expect(text).not.toContain('0.0.0.0')
     expect(configIni({ port: 8890, publicKey: pub, privateKey: priv, webPages: true })).toContain('access-control-allow-origin = *')
@@ -105,7 +105,7 @@ describe('feature choice', () => {
 })
 
 describe('bootstrap plan', () => {
-  it('follows B107 point 5 with setpriv after the system contract', () => {
+  it('follows the bootstrap order with setpriv after the system contract', () => {
     const c = chooseFeatures(['PREACTIVATE_FEATURE', 'GET_SENDER'], [feature('PREACTIVATE_FEATURE', 1), feature('GET_SENDER', 2, [1])])
     const plan = bootstrapPlan(c)
     expect(plan.map((s) => (s.kind === 'deploy' ? `deploy ${s.contract}` : s.kind))).toEqual([

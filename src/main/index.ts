@@ -158,7 +158,7 @@ app.whenReady().then(() => {
   vault().onChange(() => refreshMenu())
   createMainWindow()
   log.info(`WAX Master ${app.getVersion()} started`)
-  // "Start the local chain with WAX Master" (B108 point 9); off unless the user switched it on.
+  // "Start the local chain with WAX Master"; off unless the user switched it on.
   void startIfAsked()
     .then((s) => {
       if (s) ensureLocalChainNetwork({ port: s.port, chainId: s.chainId })
@@ -170,7 +170,7 @@ app.on('window-all-closed', () => {
   app.quit()
 })
 
-// A running local chain is stopped with a signal before the app ends, without a question (B108 point 5):
+// A running local chain is stopped with a signal before the app ends, without a question:
 // a node cut off by the end of its WSL session leaves data that must be replayed.
 let localChainStopping: Promise<void> | null = null
 app.on('before-quit', (e) => {

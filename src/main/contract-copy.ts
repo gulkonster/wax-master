@@ -1,6 +1,6 @@
-// Copy a contract from another network to the app's local chain (decision B111 points 1-4).
+// Copy a contract from another network to the app's local chain.
 // The source is only read (get_raw_code_and_abi through readCall of that network); nothing is
-// signed there. A missing target account is created by `eosio` as in B109 point 4, with RAM for
+// signed there. A missing target account is created by `eosio` as New account does, with RAM for
 // ten times the code plus 1 MiB. The code and ABI are then deployed by the existing deployment
 // as bytes, signed from the vault with the normal confirmation. The SHA-256 of the code is given
 // before (the source's, of the bytes read) and after (read back from the local chain).
@@ -34,11 +34,11 @@ import { chain, type ChainInfo } from './rpc'
 import { plainAccountError } from './account-pick'
 import type { ActionRequest } from './signer'
 
-/** B111 point 1: the largest code that is copied. */
+/** The largest code that is copied. */
 export const MAX_COPY_CODE = 4 * 1024 * 1024
-/** B111 point 2: RAM of a created target beyond ten times the code. */
+/** RAM of a created target beyond ten times the code. */
 export const COPY_EXTRA_RAM = 1_048_576
-/** B109 point 4 buys this much already; the copy buys the rest. */
+/** New account buys this much already; the copy buys the rest. */
 const BASE_RAM = 1_048_576
 
 const ANY_NAME = /^[a-z1-5.]{0,11}[a-z1-5]$|^[a-z1-5.]{12}[a-j1-5]$/
@@ -64,7 +64,7 @@ export function sha256Hex(b: Uint8Array): string {
   return createHash('sha256').update(b).digest('hex')
 }
 
-/** RAM a created target gets: ten times the code plus 1 MiB (B111 point 2). */
+/** RAM a created target gets: ten times the code plus 1 MiB. */
 export function copyRamBytes(codeSize: number): number {
   return codeSize * 10 + COPY_EXTRA_RAM
 }
@@ -99,7 +99,7 @@ export interface ContractCopyDeps {
 
 /**
  * True when a get_account answer has a permission `active` whose authority holds `<name>@eosio.code`
- * (B132 (b)); false for anything else. Never throws.
+ *; false for anything else. Never throws.
  */
 export function hasCodePermission(account: unknown, name: string): boolean {
   try {
@@ -172,7 +172,7 @@ function summary(networkId: string, r: SourceRead): ContractCopySource {
   }
 }
 
-// ---------------------------------------------------------------- B111 point 1
+// ---------------------------------------------------------------- reading the source
 
 async function readSource(input: ContractReadInput, deps: ContractCopyDeps): Promise<SourceRead> {
   const account = checkName(input.account, 'account')
@@ -222,7 +222,7 @@ async function runningEndpoint(deps: LocalAccountsDeps): Promise<string> {
   return s.endpoint
 }
 
-/** The running chain, its system key and the guard of B109 point 3; else throws. */
+/** The running chain, its system key and the local chain guard; else throws. */
 async function ready(deps: LocalAccountsDeps): Promise<Ready> {
   const s = await deps.status()
   if (s.phase !== 'running') throw new Error(NOT_RUNNING_TEXT)
@@ -280,7 +280,7 @@ function normalizeKey(k: string): string {
 }
 
 /**
- * The actions that create a copy's target: those of B109 point 4 (1 MiB of RAM, 100 WAX CPU and NET,
+ * The actions that create a copy's target: those of New account (1 MiB of RAM, 100 WAX CPU and NET,
  * 10,000 WAX) and one more `buyrambytes` for ten times the code, so the account holds 10 x code + 1 MiB.
  */
 export function copyAccountActions(
@@ -311,7 +311,7 @@ export async function copyTarget(target: string, deps: ContractCopyDeps): Promis
   return { exists: true, hasCode: codeHash !== '', codeHash }
 }
 
-// ---------------------------------------------------------------- B111 points 2-4
+// ---------------------------------------------------------------- copying
 
 /**
  * Copies the code and ABI read from the source (read again when Read was not called or is old) to the

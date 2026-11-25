@@ -155,7 +155,7 @@ export function noSourceMessage(network: string): string {
 }
 
 /**
- * B120 points 2-4: the kept answer of the current network first, then the history
+ * The kept answer of the current network first, then the history
  * service; `from` forces one source. From history, the v1 read (RAM per trace) and
  * the block read (the signed transaction) run at once and may fail.
  */

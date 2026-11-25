@@ -83,7 +83,7 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
     if (withVault) for (const f of vaultFiles(dataDir())) rmSync(join(dataDir(), f), { force: true })
     log.info(`App data cleared${withVault ? ' including the vault' : ''}`)
     rmSync(join(dataDir(), 'logs'), { recursive: true, force: true })
-    // The kept answers of sent transactions (B120 point 1).
+    // The kept answers of sent transactions.
     rmSync(join(dataDir(), 'sent'), { recursive: true, force: true })
     app.relaunch()
     app.exit(0)

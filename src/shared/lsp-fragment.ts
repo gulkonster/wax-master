@@ -1,5 +1,5 @@
-// Rules for project headers that are only a piece of another file (decision B98)
-// and the summary line for a header with errors of its own (decision B97).
+// Rules for project headers that are only a piece of another file
+// and the summary line for a header with errors of its own.
 
 const SOURCE_EXT = /\.(cpp|cc|cxx|c)$/i
 
@@ -59,13 +59,13 @@ export function namedInInclude(searchLines: { file: string; text: string }[], he
   return false
 }
 
-/** B98 point 1: all three conditions hold. `mainFileErrors` is null while it is not known. */
+/** All three conditions hold. `mainFileErrors` is null while it is not known. */
 export function isPiece(input: { headerErrors: number; mainFileErrors: number | null; included: boolean }): boolean {
   return input.headerErrors > 0 && input.mainFileErrors === 0 && input.included
 }
 
 /**
- * B97 point 4: the one line for an include line whose header has errors of its own.
+ * The one line for an include line whose header has errors of its own.
  * `errors[].line` is 1-based, as shown to the user. Null when there is no error.
  */
 export function headerSummary(file: string, errors: { line: number; message: string }[]): string | null {
@@ -74,7 +74,7 @@ export function headerSummary(file: string, errors: { line: number; message: str
   return `${file} has ${errors.length} ${errors.length === 1 ? 'error' : 'errors'}; first: line ${first.line}: ${first.message}`
 }
 
-/** B98 point 2: the information mark on line 1 of a piece. */
+/** The information mark on line 1 of a piece. */
 export function pieceNotice(mainFile: string): string {
   return `This header is not complete on its own: it uses what ${mainFile} includes before it. It is checked as part of that file, which has no errors.`
 }

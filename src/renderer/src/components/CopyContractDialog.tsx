@@ -1,4 +1,4 @@
-// Network > Local Chain > Copy contract (B111 point 5): the code and ABI of an account on another saved
+// Network > Local Chain > Copy contract: the code and ABI of an account on another saved
 // network are read (a read, nothing is signed there) and deployed to the local chain under the same or
 // another name. The SHA-256 of the code is shown before (the source's) and after (read back from here).
 
@@ -29,9 +29,9 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
   const [read, setRead] = useState<{ hash: string; size: number; network: string; codePermission: boolean } | null>(null)
   const [targetState, setTargetState] = useState<{ exists: boolean; hasCode: boolean } | null>(null)
   const [localHash, setLocalHash] = useState('')
-  // After a copy: whether the code read back from the local chain equals the source's (B111 point 4).
+  // After a copy: whether the code read back from the local chain equals the source's.
   const [same, setSame] = useState<boolean | null>(null)
-  // After a copy: whether the target has eosio.code on active as the source does (B132 (b)).
+  // After a copy: whether the target has eosio.code on active as the source does.
   const [codePermission, setCodePermission] = useState<'given' | 'needed' | 'none'>('none')
   const [replace, setReplace] = useState(false)
   const [busy, setBusy] = useState(false)

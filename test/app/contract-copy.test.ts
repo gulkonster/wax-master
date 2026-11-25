@@ -1,4 +1,4 @@
-// Copy a contract to the local chain (B111 points 1-4): the read on the source, the refusals, the
+// Copy a contract to the local chain: the read on the source, the refusals, the
 // target made by eosio with RAM for ten times the code plus 1 MiB, the replace rule, and the deployment
 // of the read bytes through the existing deploy plan. Keys are generated in the test.
 
@@ -225,7 +225,7 @@ beforeEach(() => {
   h.codeHash = ''
 })
 
-describe('reading the source (B111 point 1)', () => {
+describe('reading the source', () => {
   it('gives the SHA-256 of the code, the sizes and the ABI names', async () => {
     const w = world()
     const r = await copyRead({ networkId: 'wax-mainnet', account: 'atomicassets' }, w.deps)
@@ -253,7 +253,7 @@ describe('the target', () => {
   })
 })
 
-describe('copying (B111 points 2-4)', () => {
+describe('copying', () => {
   it('makes a missing target by eosio with RAM for 10 x the code plus 1 MiB, then deploys the read bytes from the vault', async () => {
     const w = world()
     await copyRead({ networkId: 'wax-mainnet', account: 'atomicassets' }, w.deps)
@@ -410,7 +410,7 @@ function newAccountOf(sent: Sent[]) {
   }
 }
 
-describe('eosio.code of the source (B132 (b))', () => {
+describe('eosio.code of the source', () => {
   it('reads the permission from a get_account answer and never throws', async () => {
     const key = newKey().pub
     expect(hasCodePermission(accountAnswer('atomicassets', key, true), 'atomicassets')).toBe(true)

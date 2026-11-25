@@ -37,7 +37,7 @@ export interface LspDiagnostic {
   }[]
 }
 
-/** The toolchain version whose attribute list is known (B99 point 4). */
+/** The toolchain version whose attribute list is known. */
 const ATTRIBUTE_CDT_VERSION = '4.1.1wax01'
 
 /** The `eosio::` attributes the 4.1.1wax01 compiler knows. */

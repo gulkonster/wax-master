@@ -1,4 +1,4 @@
-// Network > Local Chain > New account (decision B109 point 4): the local chain's own `eosio` account creates
+// Network > Local Chain > New account: the local chain's own `eosio` account creates
 // the account with 1 MiB of RAM, 100 WAX CPU and 100 WAX NET staked to it and 10,000 WAX. The user picks one
 // key of the vault for owner and active; only its public form is used, so the vault need not be unlocked.
 

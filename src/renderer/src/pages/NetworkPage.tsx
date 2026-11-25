@@ -94,7 +94,7 @@ export function NetworkPage(): React.JSX.Element {
   return <NetworkBody key={`${n.id}:${endpoint}`} network={n} endpoint={endpoint} />
 }
 
-/** The line shown on the local chain's page while the chain does not run (B110 point 3). */
+/** The line shown on the local chain's page while the chain does not run. */
 function LocalChainLine(): React.JSX.Element | null {
   const [status, setStatus] = useState<LocalChainStatus | null>(null)
   const [error, setError] = useState('')

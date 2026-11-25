@@ -2,7 +2,7 @@
 // Token template (contract `mytoken`), with what the editor must show for it.
 // Places are line:column (both from 1) of the start of the underline in the
 // file the mistake was made in, as the window shows them after the filter,
-// the place and message modules and the contract checks (stage 32).
+// the place and message modules and the contract checks.
 
 export const CONTRACT = 'mytoken'
 export const CPP = `src/${CONTRACT}.cpp`
@@ -33,7 +33,7 @@ export interface Expect {
   lastError?: { line: number; col: number }
   /** No error and no warning anywhere (hints do not count). */
   nothing?: boolean
-  /** The engine is known to say nothing here (B104); asserted so that a change is noticed. */
+  /** The engine is known to say nothing here; asserted so that a change is noticed. */
   hole?: boolean
 }
 

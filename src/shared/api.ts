@@ -652,13 +652,13 @@ declare global {
   }
 }
 
-/** What New account on the local chain sent (B109 point 4). */
+/** What New account on the local chain sent. */
 export interface LocalAccountResult {
   account: string
   transactionId: string
 }
 
-/** What Give tokens on the local chain sent (B109 point 5). */
+/** What Give tokens on the local chain sent. */
 export interface LocalTokensResult {
   account: string
   /** As sent, for example "1000.00000000 WAX". */
@@ -666,7 +666,7 @@ export interface LocalTokensResult {
   transactionId: string
 }
 
-/** Accounts and tokens of the app's local chain, sent by its `eosio` account (B109 points 4-5). */
+/** Accounts and tokens of the app's local chain, sent by its `eosio` account. */
 export interface LocalAccountsApi {
   /** Whether the name exists on the running local chain. */
   accountExists(name: string): Promise<boolean>
@@ -674,7 +674,7 @@ export interface LocalAccountsApi {
   giveTokens(input: LocalTokensInput): Promise<LocalTokensResult>
 }
 
-/** Copy a contract: the source account on a saved network (B111 point 1). */
+/** Copy a contract: the source account on a saved network. */
 export interface ContractReadInput {
   networkId: string
   account: string
@@ -692,7 +692,7 @@ export interface ContractCopySource {
   abiSize: number
   actions: string[]
   tables: string[]
-  /** The source's active permission has <account>@eosio.code (B132 (b)); false when that could not be read. */
+  /** The source's active permission has <account>@eosio.code; false when that could not be read. */
   codePermission: boolean
 }
 
@@ -704,7 +704,7 @@ export interface ContractCopyTarget {
   codeHash: string
 }
 
-/** Copy a contract (B111 points 2-3). */
+/** Copy a contract. */
 export interface ContractCopyInput {
   networkId: string
   account: string
@@ -720,7 +720,7 @@ export interface ContractCopyResult {
   networkId: string
   account: string
   target: string
-  /** The target did not exist and was made by `eosio` (B109 point 4, RAM 10 x code + 1 MiB). */
+  /** The target did not exist and was made by `eosio` (RAM 10 x code + 1 MiB). */
   created: boolean
   /** Other code on the target was replaced. */
   replaced: boolean
@@ -738,7 +738,7 @@ export interface ContractCopyResult {
   codePermission: 'given' | 'needed' | 'none'
 }
 
-/** Copy a contract from another network to the local chain (B111 points 1-4). */
+/** Copy a contract from another network to the local chain. */
 export interface ContractCopyApi {
   /** Reads get_raw_code_and_abi on the source network (nothing is signed there); refuses an account without code. */
   copyRead(input: ContractReadInput): Promise<ContractCopySource>

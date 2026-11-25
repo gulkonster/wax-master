@@ -1,4 +1,4 @@
-// Types and fixed names of the app's local chain (decision B108). No logic.
+// Types and fixed names of the app's local chain. No logic.
 
 export const LOCAL_CHAIN_NETWORK_ID = 'local-chain'
 export const LOCAL_CHAIN_DISTRO = 'waxmaster-localchain'
@@ -30,7 +30,7 @@ export interface LocalChainOptions {
   startWithApp: boolean
 }
 
-/** A repair offer shown in the failed state (B108 point 4). */
+/** A repair offer shown in the failed state. */
 export type LocalChainRepair =
   | { kind: 'reset' }
   | { kind: 'use-port'; port: number }
@@ -80,13 +80,13 @@ export interface LocalChainApi {
 export const LOCAL_CHAIN_STATUS_EVENT = 'local-chain-status'
 export const LOCAL_CHAIN_PROGRESS_EVENT = 'local-chain-progress'
 
-/** New account on the local chain (B109 point 4): one vault key (public form) for owner and active. */
+/** New account on the local chain: one vault key (public form) for owner and active. */
 export interface LocalAccountInput {
   name: string
   publicKey: string
 }
 
-/** Give tokens on the local chain (B109 point 5): WAX from `eosio` to an existing account. */
+/** Give tokens on the local chain: WAX from `eosio` to an existing account. */
 export interface LocalTokensInput {
   account: string
   /** Whole WAX, up to 8 decimals; more than 0 and at most 1,000,000. */

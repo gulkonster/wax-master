@@ -249,7 +249,7 @@ describe('tx:open', () => {
     expect(full.cpuUs).not.toBe(777)
   })
 
-  it('says the two messages of B120 point 3', async () => {
+  it('says the two messages of the kept answer', async () => {
     await expect(openTransaction(MAINNET_ID, undefined, sources({ network: net() }))).rejects.toThrow(noSourceMessage('WAX Mainnet'))
     expect(noSourceMessage('Local chain')).toBe(
       'Local chain has no history service, and this transaction was not sent from WAX Master on this computer. Add a history service in Network > Manage Networks.'
