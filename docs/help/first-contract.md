@@ -60,7 +60,7 @@ The build writes `hello.wasm` (the code) and `hello.abi` (the description of its
 3. The dialog compares the build with the account. A new account has no code, so WASM and ABI both say **yes** under Sent.
 4. A fresh faucet account usually has too little RAM for the code. The dialog then shows a yellow line such as "RAM needed about 10,650 bytes; available 6,596 bytes." with the buttons **Buy RAM** and **Request testnet tokens**.
 5. If the account has no WAX to pay for RAM, press **Request testnet tokens** first. The faucet sends free test WAX to the account.
-6. Press **Buy RAM**. A small form opens with the missing bytes already filled in, the payer and the cost. Press **Buy RAM** in the form. The confirmation window opens; check it and press **Approve and send**.
+6. Press **Buy RAM**. A small form opens with the bytes already filled in (the missing bytes plus a margin, rounded up to whole KB), the payer and the cost. Press **Buy RAM** in the form. The confirmation window opens; check it and press **Approve and send**.
 7. After the purchase the dialog reads the account again ("RAM bought; the comparison was read again.") and the yellow line is gone.
 8. Press **Deploy**. The confirmation window shows the account, the SHA-256 of the WASM and the ABI, and the actions `setcode` and `setabi`. Press **Approve and send**.
 9. The dialog shows the transaction with status `executed`.

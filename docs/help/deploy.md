@@ -27,7 +27,7 @@ When the size of the code on the account could not be read, the dialog counts it
 
 When the account has less RAM than needed, a yellow line shows both numbers with:
 
-- **Buy RAM**: a form with the missing bytes filled in, a payer from your accounts and the cost from the chain's RAM market. It sends `eosio::buyrambytes` through the confirmation window. Afterwards the dialog reads the account again without building.
+- **Buy RAM**: a form with the bytes filled in (the missing bytes plus a margin of at least 2,048 bytes, rounded up to whole KB), a payer from your accounts and the cost from the chain's RAM market. It sends `eosio::buyrambytes` through the confirmation window. Afterwards the dialog reads the account again without building.
 - **Request testnet tokens** (WAX Testnet only): free test tokens for the account, to pay for the RAM.
 
 The warning never blocks Deploy: the chain decides.
