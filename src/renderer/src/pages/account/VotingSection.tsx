@@ -67,14 +67,14 @@ export function VotingSection({ ctx }: { ctx: WalletContext }): React.JSX.Elemen
                       : 'none'}
               </span>
             </div>
-            {current && current.producers.length > 0 && <div className="hint mono">{current.producers.join(', ')}</div>}
+            {current && current.producers.length > 0 && <div className="hint mono card-list-note">{current.producers.join(', ')}</div>}
             {current?.staked && (
               <div className="kv-row">
                 <span>Staked (counts for the vote)</span>
                 <span className="num">{current.staked}</span>
               </div>
             )}
-            {current?.isProxy && <div className="hint">This account is registered as a proxy: other accounts can vote through it.</div>}
+            {current?.isProxy && <div className="hint card-list-note">This account is registered as a proxy: other accounts can vote through it.</div>}
           </div>
           <Claims ctx={ctx} claims={data.claims} />
           <FormSwitch

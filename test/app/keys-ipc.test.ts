@@ -62,11 +62,11 @@ vi.mock('electron', () => ({
   },
   utilityProcess: {},
   BrowserWindow: class {
-    webContents: { id: number; on: () => void }
+    webContents: { id: number; on: () => void; send: () => void }
     private rec: { id: number; closed: boolean }
     constructor() {
       this.rec = { id: 900 + h.windows.length, closed: false }
-      this.webContents = { id: this.rec.id, on: () => undefined }
+      this.webContents = { id: this.rec.id, on: () => undefined, send: () => undefined }
       h.windows.push(this.rec)
     }
     setMenu(): void {}

@@ -2363,6 +2363,11 @@ button.sb-item.mainnet:hover {
 .card-list > *:last-child {
   border-bottom: none;
 }
+/* A note line inside a card list: the same side padding as its rows. */
+.card-list-note {
+  margin-top: 0;
+  padding: var(--sp-2) var(--sp-4);
+}
 .kv-row {
   display: flex;
   justify-content: space-between;

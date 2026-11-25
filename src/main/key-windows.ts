@@ -61,10 +61,20 @@ export async function askNative(win: BrowserWindow | null, message: string, deta
   return r.response === 1
 }
 
-function pageUrl(mode: KeyWindowMode): string {
+/** Sent to a recovery-code page on a lock: the page drops the code at once and shows the hidden text. */
+export const CODE_HIDDEN_CHANNEL = 'keywin:hidden'
+
+/** Counts the reloads after a lock, so each one has its own address. */
+let hiddenLoads = 0
+
+/**
+ * The page address of a mode. `hidden`: the reload after a lock; the query makes it
+ * a new document (an address that differs only in the hash keeps the old page and its state).
+ */
+function pageUrl(mode: KeyWindowMode, hidden = false): string {
   const devUrl = process.env.ELECTRON_RENDERER_URL
   const base = !app.isPackaged && devUrl ? `${devUrl.replace(/\/$/, '')}/confirm.html` : `${APP_ORIGIN}/confirm.html`
-  return `${base}#${mode}`
+  return hidden ? `${base}?hidden=${++hiddenLoads}#${mode}` : `${base}#${mode}`
 }
 
 export function openKeyWindow(
@@ -145,8 +155,9 @@ export function closeKeyWindows(modes: KeyWindowMode[], keyId?: string): void {
 }
 
 /**
- * A lock: every recovery-code window forgets its code. The page is loaded again
- * and then says that the code was hidden; the window closes without the question.
+ * A lock: every recovery-code window forgets its code. The page is told to drop
+ * the code it holds, then loaded again as a new document (its old state gone),
+ * and says that the code was hidden; the window closes without the question.
  */
 export function hideRecoveryCodes(): void {
   for (const s of sessions.values()) {
@@ -154,7 +165,9 @@ export function hideRecoveryCodes(): void {
     s.code = undefined
     s.hidden = true
     s.closeOk = true
-    if (!s.win.isDestroyed()) void s.win.loadURL(pageUrl('code'))
+    if (s.win.isDestroyed()) continue
+    s.win.webContents.send(CODE_HIDDEN_CHANNEL)
+    void s.win.loadURL(pageUrl('code', true))
   }
 }
 

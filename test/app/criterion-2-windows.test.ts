@@ -604,9 +604,11 @@ describe('recovery code, recovery password and key backup stay out of the editor
     expect(editorPreload).not.toMatch(/'(keywin|reveal|confirm):/)
     const keyPreload = readFileSync(join(__dirname, '../../src/preload/confirm.ts'), 'utf8')
     expect(keyPreload).not.toMatch(/'keys:/)
+    // keywin:hidden is only received (the lock message, no data); the others are calls.
     expect([...keyPreload.matchAll(/'(keywin:\w+)'/g)].map((m) => m[1]).sort()).toEqual(
-      ['keywin:backupSave', 'keywin:codeCopy', 'keywin:codeDone', 'keywin:codeSave', 'keywin:load', 'keywin:recover', 'keywin:reset'].sort()
+      ['keywin:backupSave', 'keywin:codeCopy', 'keywin:codeDone', 'keywin:codeSave', 'keywin:hidden', 'keywin:load', 'keywin:recover', 'keywin:reset'].sort()
     )
+    expect(keyPreload).toMatch(/ipcRenderer\.on\('keywin:hidden', \(\) => cb\(\)\)/)
   })
 
   it('a new recovery code is shown only in its own window; every other sender is refused', async () => {
@@ -764,11 +766,16 @@ describe('the recovery code after a lock, a newer code, and the backup window af
 
   it('keys:lock wipes the code: load, copy and save of that window give no code; the window stays and closes without the question', async () => {
     const { win, code } = await codeWindow()
-    win.url = ''
+    const before = win.url
+    expect(before).toMatch(/confirm\.html#code$/)
+    const sentBefore = h.sent.length
     await call('keys:lock', editor())
     expect(win.destroyed).toBe(false)
-    // The page is loaded again and then shows the locked text.
-    expect(win.url).toMatch(/confirm\.html#code$/)
+    // The page is told to drop the code, then loaded again as a new document (a query, not only the hash,
+    // differs: a hash-only change keeps the old page and its code) and shows the locked text.
+    expect(h.sent.slice(sentBefore).map((m) => m.channel)).toContain('keywin:hidden')
+    expect(win.url).toMatch(/confirm\.html\?hidden=\d+#code$/)
+    expect(win.url.split('#')[0]).not.toBe(before.split('#')[0])
     const loaded = await call('keywin:load', winEvent(win))
     expect(loaded).toEqual({ mode: 'code', code: '', hidden: true })
     h.clip = ''
@@ -781,6 +788,29 @@ describe('the recovery code after a lock, a newer code, and the backup window af
     expect(JSON.stringify(loaded)).not.toContain(code)
     // Closing asks nothing (the question would need the close event to be stopped).
     expect(() => win.emit('close')).not.toThrow()
+  })
+
+  it('each lock reloads the code window as a new document; the page drops its copy of the code on the message', async () => {
+    const first = await codeWindow()
+    await call('keys:lock', editor())
+    const firstUrl = first.win.url
+    await call('keys:unlock', editor(), PW)
+    const second = await codeWindow()
+    await call('keys:lock', editor())
+    // Two locks, two different addresses: a reload is never a hash-only (same document) navigation.
+    expect(second.win.url).toMatch(/confirm\.html\?hidden=\d+#code$/)
+    expect(second.win.url).not.toBe(firstUrl)
+    // A window whose code is already hidden is not loaded again and gets no code.
+    const again = second.win.url
+    await call('keys:lock', editor())
+    expect(second.win.url).toBe(again)
+    expect(await call('keywin:load', winEvent(second.win))).toEqual({ mode: 'code', code: '', hidden: true })
+    // The preload hands the lock message to the page, and the code page clears its state on it.
+    const preload = readFileSync(join(__dirname, '../../src/preload/confirm.ts'), 'utf8')
+    expect(preload).toMatch(/onCodeHidden[\s\S]*ipcRenderer\.on\('keywin:hidden'/)
+    const page = readFileSync(join(__dirname, '../../src/renderer/src/confirm/main.tsx'), 'utf8')
+    const code = page.slice(page.indexOf('function Code('), page.indexOf('function Recover('))
+    expect(code).toMatch(/onCodeHidden\(\(\) => \{[\s\S]*setCode\(''\)[\s\S]*setVisible\(false\)[\s\S]*setHidden\(true\)/)
   })
 
   it('the vault locking by itself hides the code too, also a code made while the vault was locked', async () => {
@@ -829,8 +859,10 @@ describe('the recovery code after a lock, a newer code, and the backup window af
     expect(recoverWin.destroyed).toBe(false)
     expect(recoverWin.title).toBe('Vault recovery code')
     expect(await call('keywin:load', winEvent(recoverWin))).toEqual({ mode: 'code', code: r.code, hidden: false })
+    const recoverUrl = recoverWin.url
     await call('keys:lock', editor())
-    expect(recoverWin.url).toMatch(/confirm\.html#code$/)
+    expect(recoverWin.url).toMatch(/confirm\.html\?hidden=\d+#code$/)
+    expect(recoverWin.url.split('#')[0]).not.toBe(recoverUrl.split('#')[0])
     expect(await call('keywin:load', winEvent(recoverWin))).toEqual({ mode: 'code', code: '', hidden: true })
   })
 

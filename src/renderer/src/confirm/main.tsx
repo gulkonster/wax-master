@@ -54,6 +54,7 @@ declare global {
       codeDone(): Promise<boolean>
       recover(code: string, password: string, again: string): Promise<unknown>
       reset(typed: string): Promise<unknown>
+      onCodeHidden(cb: () => void): void
     }
   }
 }
@@ -476,6 +477,17 @@ function Code({ given }: { given?: string }): React.JSX.Element {
       })
       .catch(() => setError('No code to show.'))
   }, [given])
+
+  // A lock wiped the code in the main process: the page drops its copy at once (a reload follows).
+  useEffect(() => {
+    window.confirmation.onCodeHidden(() => {
+      setCode('')
+      setVisible(false)
+      setNote('')
+      setError('')
+      setHidden(true)
+    })
+  }, [])
 
   const run = async (fn: () => Promise<unknown>, done: (r: unknown) => string): Promise<void> => {
     setError('')

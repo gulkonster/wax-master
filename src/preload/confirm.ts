@@ -45,5 +45,9 @@ contextBridge.exposeInMainWorld('confirmation', {
   codeSave: (): Promise<unknown> => ipcRenderer.invoke('keywin:codeSave'),
   codeDone: (): Promise<unknown> => ipcRenderer.invoke('keywin:codeDone'),
   recover: (code: string, password: string, again: string): Promise<unknown> => ipcRenderer.invoke('keywin:recover', code, password, again),
-  reset: (typed: string): Promise<unknown> => ipcRenderer.invoke('keywin:reset', typed)
+  reset: (typed: string): Promise<unknown> => ipcRenderer.invoke('keywin:reset', typed),
+  // A lock hid the recovery code: the page drops it at once (a reload follows).
+  onCodeHidden: (cb: () => void): void => {
+    ipcRenderer.on('keywin:hidden', () => cb())
+  }
 })
