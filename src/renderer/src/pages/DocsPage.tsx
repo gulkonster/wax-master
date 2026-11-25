@@ -25,6 +25,11 @@ export function DocsPage(): React.JSX.Element {
   useEffect(() => {
     mainRef.current?.scrollTo(0, 0)
   }, [history.current])
+  // The open topic is scrolled into view in the list (a link, Back or a search hit may open one far down).
+  const treeRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    treeRef.current?.querySelector('.docs-item.sel')?.scrollIntoView({ block: 'nearest' })
+  }, [history.current, index, result])
 
   useEffect(() => {
     loadDocsIndex()
@@ -70,7 +75,7 @@ export function DocsPage(): React.JSX.Element {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Escape' && setQuery('')}
         />
-        <div className="docs-tree">
+        <div className="docs-tree" ref={treeRef}>
           {indexError && (
             <div className="doc-missing">
               <div className="error-text">The documentation could not be read.</div>

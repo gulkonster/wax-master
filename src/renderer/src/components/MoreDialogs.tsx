@@ -33,6 +33,8 @@ export function ClearCodeDialog({ onClose, initialAccount = '' }: { onClose: () 
       if (r.status === 'sent') {
         setTrace(r.trace)
         toast('Contract code cleared', account, 'success')
+        // An open Contract tab of this account reads its ABI again.
+        emit('contract-refresh', account)
       } else {
         // A cancel is a neutral note; a refusal is explained once, by the inspector below when it has the text.
         if (r.status === 'failed' && r.trace) setTrace(r.trace)

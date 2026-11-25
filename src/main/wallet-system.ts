@@ -128,10 +128,17 @@ export function claimViews(
       return {
         ...c,
         dueText: `The amount due cannot be estimated exactly${parts.length ? `; the account's genesis row shows ${parts.join(', ')}` : ''}.`,
-        timeNote: ''
+        timeNote: '',
+        blocked: ''
       }
     }
-    if (!voter) return { ...c, dueText: 'This account has no row in the voters table: it has not voted, so nothing is due.', timeNote: '' }
+    if (!voter)
+      return {
+        ...c,
+        dueText: 'This account has no row in the voters table: it has not voted, so nothing is due.',
+        timeNote: '',
+        blocked: 'This account has not voted: nothing can be claimed.'
+      }
     let dueText = 'What is due cannot be estimated from the tables.'
     if (c.action === 'voterclaim' && global && headMs !== null) {
       const t = (v: unknown): number => chainMs(v) ?? NaN
@@ -150,12 +157,15 @@ export function claimViews(
       if (est !== null) dueText = `About ${formatUnits(est, precision, symbol)} (estimated from the voters and global tables; the contract computes the exact amount at the claim).`
     }
     let timeNote = ''
+    let blocked = ''
     const last = chainMs(voter.last_claim_time)
     if (last !== null && last > 0 && headMs !== null) {
       const next = last + CLAIM_INTERVAL_SEC * 1000
       timeNote = next > headMs ? `Claimed ${fmtUtc(last)}; the contract allows one claim per day, the next from ${fmtUtc(next)} (UTC).` : `Last claimed ${fmtUtc(last)}.`
+      // An estimate of 0 does not block: it is only an estimate. The day rule does.
+      if (next > headMs) blocked = `The next claim is possible from ${fmtUtc(next)} (UTC).`
     }
-    return { ...c, dueText, timeNote }
+    return { ...c, dueText, timeNote, blocked }
   })
 }
 

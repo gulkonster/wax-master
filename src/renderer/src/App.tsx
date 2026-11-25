@@ -387,6 +387,8 @@ export function App(): React.JSX.Element {
             emit('editor-command', cmd)
           } else if (cmd === 'open-file') {
             toast('Open a project first', 'Files are opened inside a project.')
+          } else if (cmd === 'command-palette') {
+            toast('Open a project first', 'The command palette belongs to the code editor.')
           }
           break
         default:

@@ -46,14 +46,28 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'transactions', label: 'Transactions' }
 ]
 
+// The open section of each account tab ("<network id>:<account>"), for this session only:
+// a tab that is shown again opens where it was left.
+const openSections = new Map<string, SectionId>()
+
+/** Forgets the open section of a closed account tab. */
+export function forgetAccountSection(key: string): void {
+  openSections.delete(key)
+}
+
 export function AccountBody({ name }: { name: string }): React.JSX.Element {
   const net = useStore(networkStore).current
+  const sectionKey = `${net?.id ?? ''}:${name}`
   const vault = useStore(vaultStore)
   const [view, setView] = useState<AccountView | null>(null)
   const [error, setError] = useState('')
   const [tokens, setTokens] = useState<WalletTokens | null>(null)
   const [tokensError, setTokensError] = useState('')
-  const [section, setSection] = useState<SectionId>('tokens')
+  const [section, setSectionState] = useState<SectionId>(() => openSections.get(sectionKey) ?? 'tokens')
+  const setSection = (id: SectionId): void => {
+    openSections.set(sectionKey, id)
+    setSectionState(id)
+  }
   const [transferToken, setTransferToken] = useState<TokenRow | null>(null)
   // A name won in Name bids, filled into Create account when that section is opened from there.
   const [createName, setCreateName] = useState('')

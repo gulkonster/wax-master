@@ -102,7 +102,7 @@ vi.mock('../../src/main/updates', () => ({
 }))
 
 import { registerKeys } from '../../src/main/keys-service'
-import { registerAppIpc } from '../../src/main/ipc-app'
+import { appDataFiles, registerAppIpc } from '../../src/main/ipc-app'
 import { registerToolchainIpc } from '../../src/main/ipc-toolchains'
 import { registerIpc } from '../../src/main/ipc'
 import { vault } from '../../src/main/keys-service'
@@ -293,6 +293,27 @@ describe('app:clearData asks in the main process', () => {
     expect(existsSync(join(dir, 'logs'))).toBe(false)
     expect(existsSync(join(dir, 'vault.json'))).toBe(true)
     for (const n of kept) expect(existsSync(join(dir, n))).toBe(true)
+    expect(h.exit).toHaveBeenCalledWith(0)
+  })
+  it('every file the app writes in its data folder goes, half-written copies too; a project folder stays', async () => {
+    const dir = seed()
+    const names = appDataFiles()
+    for (const n of ['settings.json', 'networks.json', 'networks.v1.bak.json', 'contract-history.json', 'wallet-tokens.json', 'build-state.json']) {
+      expect(names).toContain(n)
+      if (n !== 'networks.v1.bak.json') expect(names).toContain(`${n}.tmp`)
+    }
+    for (const n of names) writeFileSync(join(dir, n), '{}')
+    const project = join(dir, 'my-project')
+    mkdirSync(join(project, 'src'), { recursive: true })
+    writeFileSync(join(project, 'waxmaster.json'), '{}')
+    writeFileSync(join(project, 'src', 'contract.cpp'), '// code')
+    h.answers.push(1)
+    await call('app:clearData', false, '')
+    expect(h.dialogCalls[0].detail).toContain('- settings, networks, stars, added tokens, saved queries and the build record')
+    for (const n of names) expect(existsSync(join(dir, n)), n).toBe(false)
+    expect(existsSync(join(project, 'waxmaster.json'))).toBe(true)
+    expect(existsSync(join(project, 'src', 'contract.cpp'))).toBe(true)
+    expect(existsSync(join(dir, 'vault.json'))).toBe(true)
     expect(h.exit).toHaveBeenCalledWith(0)
   })
   it('both confirmed with the vault: the vault file and every kept copy go too, and the question lists them', async () => {

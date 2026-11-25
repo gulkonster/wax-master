@@ -370,13 +370,33 @@ function setEndpointIndex(id: string, index: number): void {
   save()
 }
 
+/**
+ * The endpoint reads go to for this session, per network id, after the chosen one did not
+ * answer. Kept in memory only: a failed read never changes the endpoint the user chose,
+ * which the status bar, the confirmation and every send keep using.
+ */
+const readEndpoints = new Map<string, number>()
+
+/** The index reads of this network start at: the session's read endpoint when there is one, else the chosen one. */
+export function readEndpointIndex(n: NetworkInfo): number {
+  const i = readEndpoints.get(n.id)
+  return i !== undefined && i < n.endpoints.length ? i : n.currentEndpoint
+}
+
 export function chooseEndpoint(id: string, index: number): NetworkInfo {
   const n = getNetwork(id)
   if (index < 0 || index >= n.endpoints.length) throw new Error('No such endpoint')
+  readEndpoints.delete(id)
   setEndpointIndex(id, index)
   return getNetwork(id)
 }
 
+/** The notice of a read that moved to another endpoint; the chosen endpoint is named as the one that stays selected. */
+export function endpointSwitchText(network: string, from: string, to: string, chosen: string): string {
+  return `${network}: ${from} did not answer a read. Reads go to ${to} for now; ${chosen} stays the selected endpoint.`
+}
+
+/** A read moved from `from` to `to`; `network` still names the chosen endpoint. */
 export type SwitchNotice = (network: NetworkInfo, from: string, to: string) => void
 let onSwitch: SwitchNotice = () => {}
 export function onEndpointSwitch(fn: SwitchNotice): void {
@@ -384,23 +404,30 @@ export function onEndpointSwitch(fn: SwitchNotice): void {
 }
 
 /**
- * Runs a read call against the current endpoint; on a network failure, a rate
- * limit (429) or a server error it moves to the next endpoint of the network (reads only, with
- * a notice). Node errors about the request itself are not retried. When every
+ * Runs a read call against the read endpoint of the session (at first the chosen one); on a
+ * network failure, a rate limit (429) or a server error it moves to the next endpoint of the
+ * network. The endpoint that answers serves the reads of this session (a notice when it
+ * changes); nothing is saved and the chosen endpoint stays. Node errors about the request itself are not retried. When every
  * endpoint failed, the error is the one of the selected endpoint, with
  * "(<n> endpoints tried)" when the network has more than one.
  */
 export async function readCall<T>(fn: (endpoint: string) => Promise<T>, network = currentNetwork()): Promise<T> {
   const n = network
   let firstErr: unknown
+  const start = readEndpointIndex(n)
   for (let i = 0; i < n.endpoints.length; i++) {
-    const idx = (n.currentEndpoint + i) % n.endpoints.length
+    const idx = (start + i) % n.endpoints.length
     const ep = n.endpoints[idx]
     try {
       const r = await fn(ep)
       if (i > 0) {
-        setEndpointIndex(n.id, idx)
-        onSwitch(getNetwork(n.id), endpointOf(n), ep)
+        if (idx === n.currentEndpoint) {
+          // Back at the chosen endpoint: no session endpoint any more.
+          readEndpoints.delete(n.id)
+        } else {
+          readEndpoints.set(n.id, idx)
+          onSwitch(getNetwork(n.id), n.endpoints[start], ep)
+        }
       }
       return r
     } catch (e) {
@@ -542,6 +569,7 @@ export async function updateNetwork(
   else delete c.testnetConfirmed
   c.endpoints = endpoints
   c.currentEndpoint = Math.min(c.currentEndpoint, endpoints.length - 1)
+  if (patch.endpoints) readEndpoints.delete(id)
   c.history = history
   save()
   return getNetwork(id)
@@ -557,6 +585,7 @@ export function removeNetwork(id: string): NetworkInfo {
   if (!f.networks.some((x) => x.id === id)) throw new Error('Unknown network')
   if (f.networks.length <= 1) throw new Error('At least one network must stay in the list')
   f.networks = f.networks.filter((x) => x.id !== id)
+  readEndpoints.delete(id)
   delete f.stars[id]
   if (isDefaultId(id) && !f.removedDefaults.includes(id)) f.removedDefaults.push(id)
   if (f.current === id || !f.networks.some((x) => x.id === f.current)) f.current = fallbackNetwork(listNetworks()).id

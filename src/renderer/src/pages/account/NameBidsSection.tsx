@@ -153,11 +153,20 @@ export function NameBidsSection({ ctx, onCreate }: { ctx: WalletContext; onCreat
     await refund.send([bidrefundAction({ bidder: view.name, permission, newname: current.name })], `Refund of ${fmt(current.refund)} on ${current.name} claimed.`)
   }
 
+  // A result line belongs to the name it was sent for: another name read from the field or the list starts without one.
+  const readOther = (n: string): void => {
+    if (n !== lookup?.name) {
+      bid.setMessage(null)
+      refund.setMessage(null)
+    }
+    void readName(n)
+  }
+
   const pick = (n: string): void => {
     setName(n)
     setAmount(CLEARED_FIELD)
     setProblem(null)
-    void readName(n)
+    readOther(n)
   }
 
   const lastClose = auctions?.lastNameClose ? fmtTime(auctions.lastNameClose) : ''
@@ -191,9 +200,9 @@ export function NameBidsSection({ ctx, onCreate }: { ctx: WalletContext; onCreat
               setNameTouched(false)
               setProblem(null)
             }}
-            onBlur={() => name && void readName(name)}
+            onBlur={() => name && readOther(name)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') void readName(name)
+              if (e.key === 'Enter') readOther(name)
             }}
           />
           {nameProblem && <div className="acct-note bad">{nameProblem}</div>}

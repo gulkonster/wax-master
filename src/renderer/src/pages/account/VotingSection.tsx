@@ -118,9 +118,9 @@ function Claims({ ctx, claims }: { ctx: WalletContext; claims: VoterClaimView[] 
                   </span>
                   <span className="num">
                     <button
-                      className="btn subtle sm"
-                      disabled={busy || ctx.viewOnly || !action}
-                      title={ctx.viewOnly ? ctx.reason : `Sends eosio::${c.action}`}
+                      className="btn sm"
+                      disabled={busy || ctx.viewOnly || !action || !!c.blocked}
+                      title={ctx.viewOnly ? ctx.reason : c.blocked || `Sends eosio::${c.action}`}
                       onClick={() => action && void send([action], `${c.label}: sent.`)}
                     >
                       Claim

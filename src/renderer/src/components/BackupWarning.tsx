@@ -89,7 +89,7 @@ export function useNoBackupGate(): { gate: (publicKeys: string[]) => Promise<boo
 
   const element = open ? (
     <Modal
-      size="s"
+      size="m"
       name="no-backup"
       help="keyBackup"
       title="This key has no backup"
@@ -110,8 +110,11 @@ export function useNoBackupGate(): { gate: (publicKeys: string[]) => Promise<boo
         lost, the account on {net?.name ?? 'this network'} is lost with it.
       </p>
       {open.keys.map((k) => (
-        <div key={k.id} className="mono-small" style={{ whiteSpace: 'nowrap', overflowX: 'auto' }}>
-          {k.label || 'unlabelled'}: {k.publicKey}
+        <div key={k.id} style={{ marginTop: 'var(--sp-2)' }}>
+          <div style={{ fontWeight: 600 }}>{k.label || 'unlabelled'}</div>
+          <div className="mono-small" style={{ whiteSpace: 'nowrap' }}>
+            {k.publicKey}
+          </div>
         </div>
       ))}
       {error && <div className="error-text">{error}</div>}

@@ -53,6 +53,9 @@ function fromTerminalFrame(e: IpcMainInvokeEvent): boolean {
   return isEditorPageUrl(main.url)
 }
 
+/** Channels whose failures are not logged: the live check of a form being typed, whose text is on screen. */
+const QUIET_CHANNELS = new Set(['contract:pack'])
+
 function guarded(channel: string, allowed: (e: IpcMainInvokeEvent) => boolean, fn: Handler): void {
   ipcMain.handle(channel, async (e, ...args) => {
     if (!allowed(e)) throw new Error('Refused')
@@ -61,7 +64,7 @@ function guarded(channel: string, allowed: (e: IpcMainInvokeEvent) => boolean, f
     } catch (err) {
       // Only the typed locked-vault error itself carries its code to the editor.
       const msg = neutralizeLockedCode(err instanceof Error ? err.message : String(err))
-      log.warn(`${channel} failed: ${msg}`)
+      if (!QUIET_CHANNELS.has(channel)) log.warn(`${channel} failed: ${msg}`)
       throw new Error(msg)
     }
   })

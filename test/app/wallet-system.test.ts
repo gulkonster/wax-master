@@ -154,6 +154,30 @@ describe('voter reward estimate', () => {
     expect(g.action).toBe('claimgenesis')
     expect(g.dueText).toContain('cannot be estimated exactly')
     expect(g.dueText).toContain('1.00000000 WAX')
+    expect(g.blocked).toBe('')
+  })
+  it('claim views: a claim the tables show as not possible says why; a free one says nothing', () => {
+    const global = {
+      total_unpaid_voteshare: '1000.0',
+      total_unpaid_voteshare_last_updated: '2026-11-24T00:00:00.000',
+      total_voteshare_change_rate: '0.0',
+      voters_bucket: '50000000'
+    }
+    const head = Date.parse('2026-11-24T12:00:00Z')
+    const voter = (last: string): Record<string, unknown> => ({
+      owner: 'alice',
+      unpaid_voteshare: '0.0',
+      unpaid_voteshare_last_updated: '2026-11-24T00:00:00.000',
+      unpaid_voteshare_change_rate: '0.0',
+      last_claim_time: last
+    })
+    const [none] = claimViews(fixture.actions, undefined, global, undefined, head, 8, 'WAX')
+    expect(none.blocked).toBe('This account has not voted: nothing can be claimed.')
+    const [early] = claimViews(fixture.actions, voter('2026-11-24T00:00:00.000'), global, undefined, head, 8, 'WAX')
+    expect(early.blocked).toBe('The next claim is possible from 2026-11-25T00:00:00Z (UTC).')
+    const [free] = claimViews(fixture.actions, voter('2026-11-22T00:00:00.000'), global, undefined, head, 8, 'WAX')
+    expect(free.blocked).toBe('')
+    expect(free.dueText).toContain('About 0.00000000 WAX')
   })
 })
 

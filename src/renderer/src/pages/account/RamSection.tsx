@@ -26,6 +26,12 @@ export function RamSection({ ctx }: { ctx: WalletContext }): React.JSX.Element {
       <p className="wallet-lead">RAM is the storage an account pays for to keep data on the chain (its contract, its tables, its token rows). It is bought and sold at the chain's RAM market price.</p>
       <div className="card-list">
         <Gauge label="RAM" text={`${fmtBytes(view.ram.usage)} used of ${fmtBytes(view.ram.quota)}`} value={pct(view.ram.usage, view.ram.quota)} />
+        {!unlimited && (
+          <div className="kv-row">
+            <span>Free</span>
+            <span className="num">{fmtBytes(Math.max(0, view.ram.quota - view.ram.usage))}</span>
+          </div>
+        )}
         <div className="kv-row">
           <span>Price</span>
           <span className="num">

@@ -11,7 +11,7 @@ import { getSettings } from './store'
 import { focusOpenConfirmation, hasOpenConfirmation, openConfirmation } from './confirm-window'
 import { afterCodeWindows, codeWindowOpen } from './key-windows'
 import { simulate, probeSimulation } from './simulate'
-import { fromHistory, fromNodeAnswer, fromNodeError, withResourceState } from './trace'
+import { failedSendError, fromHistory, fromNodeAnswer, fromNodeError, withResourceState } from './trace'
 import { WAX_TESTNET_CHAIN, currentNetwork, endpointOf, getNetwork } from './networks'
 import { chain, history } from './rpc'
 import { clearCodeActions, deployActions, planDeploy } from './deploy'
@@ -98,7 +98,7 @@ async function signAndSend(win: BrowserWindow | null, networkId: string, actions
       status: 'failed',
       // A CPU / NET / RAM refusal is said plainly; anything else keeps the node's message.
       // Without the locked-vault code: a failed send is never repeated after an unlock.
-      error: withoutLockedCode(trace?.resource ? (trace.errorMessage ?? outcome.error ?? 'Failed') : (outcome.error ?? 'Failed')),
+      error: withoutLockedCode(failedSendError(trace, outcome.error)),
       trace
     }
   }

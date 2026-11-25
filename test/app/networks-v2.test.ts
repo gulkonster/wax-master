@@ -418,3 +418,56 @@ describe('text from a probed endpoint', () => {
     expect(await probeWith(undefined)).toBe('')
   })
 })
+
+describe('a read that moves to another endpoint', () => {
+  const A = 'https://a.example'
+  const B = 'https://b.example'
+  async function twoEndpoints(): Promise<{ n: Networks; RpcError: typeof import('../../src/main/rpc').RpcError; notices: string[] }> {
+    const n = await fresh()
+    const { RpcError } = await import('../../src/main/rpc')
+    await n.updateNetwork('wax-testnet', { endpoints: [A, B] }, never)
+    n.selectNetwork('wax-testnet')
+    const notices: string[] = []
+    n.onEndpointSwitch((net, from, to) => notices.push(n.endpointSwitchText(net.name, from, to, n.endpointOf(net))))
+    return { n, RpcError, notices }
+  }
+
+  it('keeps the chosen endpoint in memory and on disk; the next read starts at the one that answered', async () => {
+    const { n, RpcError, notices } = await twoEndpoints()
+    const asked: string[] = []
+    const read = (ep: string): Promise<string> => {
+      asked.push(ep)
+      return ep === A ? Promise.reject(new RpcError('no answer', 0)) : Promise.resolve('ok')
+    }
+    await expect(n.readCall(read)).resolves.toBe('ok')
+    expect(asked).toEqual([A, B])
+    expect(n.getNetwork('wax-testnet').currentEndpoint).toBe(0)
+    expect(n.endpointOf(n.currentNetwork())).toBe(A)
+    const saved = (onDisk().networks as { id: string; currentEndpoint: number }[]).find((x) => x.id === 'wax-testnet')
+    expect(saved?.currentEndpoint).toBe(0)
+    expect(notices).toEqual([`WAX Testnet: ${A} did not answer a read. Reads go to ${B} for now; ${A} stays the selected endpoint.`])
+    // The next read goes to B at once, without a second notice.
+    asked.length = 0
+    await n.readCall(read)
+    expect(asked).toEqual([B])
+    expect(notices).toHaveLength(1)
+  })
+
+  it('choosing an endpoint ends the session read endpoint', async () => {
+    const { n, RpcError } = await twoEndpoints()
+    let down = A
+    const asked: string[] = []
+    const read = (ep: string): Promise<string> => {
+      asked.push(ep)
+      return ep === down ? Promise.reject(new RpcError('busy', 503)) : Promise.resolve('ok')
+    }
+    await n.readCall(read)
+    expect(n.readEndpointIndex(n.currentNetwork())).toBe(1)
+    n.chooseEndpoint('wax-testnet', 0)
+    down = ''
+    asked.length = 0
+    await n.readCall(read)
+    expect(asked).toEqual([A])
+    expect(n.readEndpointIndex(n.currentNetwork())).toBe(0)
+  })
+})

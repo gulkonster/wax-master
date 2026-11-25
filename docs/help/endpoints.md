@@ -1,6 +1,6 @@
 # Endpoints
 
-An endpoint is the address of a node's API, for example `https://testnet.waxsweden.org`. WAX Master reads the chain and sends transactions through the network's current endpoint. A network can have several endpoints of the same chain; if one is slow or down, choose another. When the current endpoint gives no answer or a server error while the app reads the chain, the app tries the network's other endpoints in turn, uses the first that answers from then on and says so in a notice.
+An endpoint is the address of a node's API, for example `https://testnet.waxsweden.org`. WAX Master reads the chain and sends transactions through the network's current endpoint. A network can have several endpoints of the same chain; if one is slow or down, choose another. When the current endpoint gives no answer or a server error while the app reads the chain, the app tries the network's other endpoints in turn, reads from the first that answers until the app is closed and says so in a notice. The endpoint you chose stays selected: the status bar, the confirmation window and every transaction keep using it, and choosing an endpoint again sends the reads back to it.
 
 A **history service** is a separate address (Hyperion) that answers questions about the past: an account's transactions, a transaction by id. Without it, those parts of the app say that the network has no history service.
 

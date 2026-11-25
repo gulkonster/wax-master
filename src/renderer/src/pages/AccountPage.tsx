@@ -9,7 +9,7 @@ import { useStore } from '../lib/stores'
 import { lastOpened } from '../components/ChainButtons'
 import { IconClose, IconContract, IconKey, IconPlus, IconRefresh, IconStar, IconUser } from '../components/Icons'
 import { HelpButton } from '../components/HelpButton'
-import { AccountBody } from './account/AccountBody'
+import { AccountBody, forgetAccountSection } from './account/AccountBody'
 import { NAME } from './account/common'
 import { useApp } from '../state'
 
@@ -25,8 +25,12 @@ export function AccountPage(): React.JSX.Element {
     setTabs((t) => (t.includes(name) ? t : [...t, name]))
     setActive(name)
     setInput(name)
-    lastOpened.set({ ...lastOpened.get(), account: name })
   }, [])
+
+  // The top bar's account is the tab on screen; with no tab left it keeps the last one.
+  useEffect(() => {
+    if (active) lastOpened.set({ ...lastOpened.get(), account: active })
+  }, [active])
 
   useEffect(() => on('open-account', (n) => open(n as string)), [open])
 
@@ -54,6 +58,7 @@ export function AccountPage(): React.JSX.Element {
   const close = (name: string): void => {
     const next = tabs.filter((t) => t !== name)
     setTabs(next)
+    if (net.current) forgetAccountSection(`${net.current.id}:${name}`)
     if (active === name) {
       setActive(next[next.length - 1] ?? null)
       setInput(next[next.length - 1] ?? '')

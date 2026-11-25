@@ -20,6 +20,12 @@ export function vaultFiles(dir: string): string[] {
   return ['vault.json', 'vault.json.tmp', ...keptVaultCopies(dir)].filter((n) => existsSync(join(dir, n)))
 }
 
+/** The files of the data folder that Clear All App Data removes (the vault and the logs aside); a half-written `.tmp` of each JSON file too. */
+export function appDataFiles(): string[] {
+  const written = ['settings.json', 'networks.json', 'contract-history.json', 'wallet-tokens.json', 'build-state.json']
+  return [...written, NETWORKS_V1_BACKUP, ...written.map((n) => `${n}.tmp`)]
+}
+
 export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
   handle('app:checkUpdates', () => checkForUpdates())
   setTimeout(() => {
@@ -38,7 +44,7 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
     const first = await confirmNative(
       win,
       'Clear all app data?',
-      `This removes:\n- settings, networks and saved history\n- the log files\n- the installed toolchains:\n${list}\n\nProjects are not touched. WAX Master restarts afterwards.`,
+      `This removes:\n- settings, networks, stars, added tokens, saved queries and the build record\n- the log files\n- the installed toolchains:\n${list}\n\nProjects are not touched. WAX Master restarts afterwards.`,
       'Clear data'
     )
     if (!first) return
@@ -67,7 +73,7 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
       }
     }
     vault().lock()
-    for (const f of ['settings.json', 'networks.json', NETWORKS_V1_BACKUP, 'contract-history.json']) rmSync(join(dataDir(), f), { force: true })
+    for (const f of appDataFiles()) rmSync(join(dataDir(), f), { force: true })
     if (withVault) for (const f of vaultFiles(dataDir())) rmSync(join(dataDir(), f), { force: true })
     log.info(`App data cleared${withVault ? ' including the vault' : ''}`)
     rmSync(join(dataDir(), 'logs'), { recursive: true, force: true })

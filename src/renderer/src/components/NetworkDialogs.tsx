@@ -320,7 +320,7 @@ export function RemoveNetworkDialog({ network, onClose, onRemoved }: { network: 
           )}
           {isCurrent && next && <p>It is the current network; {next.name} is selected instead.</p>}
           <p className="hint">
-            {network.preset ? 'Manage Networks > "Restore default networks" brings it back with its endpoints.' : 'To use it again, add it with Add Network.'}
+            {network.preset ? 'Manage Networks > "Restore default networks" brings it back with its default endpoints.' : 'To use it again, add it with Add Network.'}
           </p>
         </>
       )}

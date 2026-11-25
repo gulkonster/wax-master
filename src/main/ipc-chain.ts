@@ -69,7 +69,9 @@ function dataObject(v: unknown): Record<string, unknown> {
 
 export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
   networks.onEndpointSwitch((n, from, to) => {
-    getWindow()?.webContents.send('network-changed', n, `${n.name}: ${from} did not answer; reading from ${to}.`)
+    const text = networks.endpointSwitchText(n.name, from, to, networks.endpointOf(n))
+    log.info(text)
+    getWindow()?.webContents.send('network-changed', n, text)
   })
 
   // Status mark of the selected network; the checks start with the main window (index.ts).

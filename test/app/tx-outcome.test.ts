@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { CANCELLED_NOT_SENT, CANCELLED_NOT_SIGNED, formLineClass, outcomeLine } from '../../src/renderer/src/lib/tx-outcome'
 import { NOT_SENT_MAX, confirmPageKind, notSentText, oneLine } from '../../src/renderer/src/confirm/not-sent'
 import type { InspectedTransaction } from '../../src/shared/trace-types'
+import { failedSendError } from '../../src/main/trace'
 
 const RAM_TEXT = 'Rejected for RAM: alice does not have enough RAM for this transaction (alice: RAM 177,528 of 177,528 bytes used).'
 const trace = (errorMessage: string | null): InspectedTransaction => ({ errorMessage }) as unknown as InspectedTransaction
@@ -43,6 +44,16 @@ describe('the line of a signing form', () => {
     expect(outcomeLine({ status: 'failed', trace: trace(null), error: 'x' }, CANCELLED_NOT_SENT)?.kind).toBe('error')
     expect(outcomeLine({ status: 'failed', trace: trace(RAM_TEXT), error: RAM_TEXT }, CANCELLED_NOT_SENT, false)?.kind).toBe('error')
     expect(formLineClass({ kind: 'error', text: 'x' })).toBe('error-text')
+  })
+
+  it('a refused send keeps what stands before a contract check, without the assertion words', () => {
+    expect(failedSendError(null, 'Not sent. The node refused the transaction: assertion failure with message: overdrawn balance')).toBe(
+      'Not sent. The node refused the transaction: overdrawn balance'
+    )
+    expect(failedSendError(trace(null), 'No answer')).toBe('No answer')
+    const ram = { errorMessage: RAM_TEXT, resource: { kind: 'ram' } } as unknown as InspectedTransaction
+    expect(failedSendError(ram, 'assertion failure with message: x')).toBe(RAM_TEXT)
+    expect(failedSendError(null, undefined)).toBe('Failed')
   })
 
   it('a sent transaction gets no line', () => {

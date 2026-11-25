@@ -163,11 +163,6 @@ export function DeployDialog({
       }
       setBusy('plan')
       await loadPlan()
-      if (!askAccount && (saved?.account !== account || saved?.permission !== permission)) {
-        const cfg = { ...project.config, deploy: { ...project.config.deploy, networks: { ...project.config.deploy.networks, [net.id]: { account, permission } } } }
-        // The window's copy of the project follows, so the dialog opens with this account next time.
-        actions.projectUpdated(await window.wax.projects.saveConfig(cfg))
-      }
     } catch (e) {
       setError(errorText(e))
     } finally {
@@ -249,6 +244,18 @@ export function DeployDialog({
       if (r.status === 'sent') {
         setTrace(r.trace)
         toast('Deployed', `${account} on ${net?.name}`, 'success')
+        // An open Contract tab of this account reads its ABI again.
+        emit('contract-refresh', account)
+        // The project file records the account of a deployment, never one that was only looked at.
+        if (net && !askAccount && (saved?.account !== account || saved?.permission !== permission)) {
+          const cfg = { ...project.config, deploy: { ...project.config.deploy, networks: { ...project.config.deploy.networks, [net.id]: { account, permission } } } }
+          try {
+            // The window's copy of the project follows, so the dialog opens with this account next time.
+            actions.projectUpdated(await window.wax.projects.saveConfig(cfg))
+          } catch (e) {
+            toast('Deployed, but the project file was not saved', errorText(e), 'error')
+          }
+        }
       } else {
         // The plan is used up: it is prepared again from the same build, so Deploy can be pressed again.
         await loadPlan().catch(() => undefined)
@@ -292,7 +299,12 @@ export function DeployDialog({
           <button className="btn" disabled={!!busy} onClick={onClose}>
             Close
           </button>
-          <button className={`btn ${net?.kind === 'mainnet' ? 'danger' : 'primary'}`} disabled={!plan || !!nothing || !!busy} onClick={() => void deploy()}>
+          <button
+            className={`btn ${net?.kind === 'mainnet' ? 'danger' : 'primary'}`}
+            disabled={!plan || !!nothing || !!busy || keyMissing}
+            title={keyMissing ? `The vault has no key for ${account}@${permission}` : undefined}
+            onClick={() => void deploy()}
+          >
             {busy === 'deploy' ? 'Waiting for confirmation...' : 'Deploy'}
           </button>
         </>

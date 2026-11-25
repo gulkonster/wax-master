@@ -21,6 +21,10 @@ describe('default signer of a new Contract page tab', () => {
     expect(defaultContractSigner('atomicassets', stars, undefined, 'alice')).toEqual([{ actor: 'alice', permission: 'active' }])
     expect(defaultContractSigner('atomicassets', stars, [], 'alice')).toEqual([{ actor: 'alice', permission: 'active' }])
   })
+  it('then the first starred account of this network with active (after a restart: no last signer, no top bar account)', () => {
+    expect(defaultContractSigner('atomicassets', stars, undefined, null)).toEqual([{ actor: 'mycontract11', permission: 'active' }])
+    expect(defaultContractSigner('atomicassets', ['alice'], [], '')).toEqual([{ actor: 'alice', permission: 'active' }])
+  })
   it('else the opened account', () => {
     expect(defaultContractSigner('atomicassets', [], undefined, null)).toEqual([{ actor: 'atomicassets', permission: 'active' }])
     expect(defaultContractSigner('atomicassets', [], undefined, '')).toEqual([{ actor: 'atomicassets', permission: 'active' }])

@@ -150,9 +150,11 @@ describe('main-process read of the RAM price', () => {
     await expect(readRamPrice(1, async () => Promise.reject(new RpcError('HTTP 403', 403)))).rejects.toThrow('HTTP 403')
   })
   it('a failing first endpoint: readCall tries the next one and answers the market', async () => {
-    const { readCall } = await import('../../src/main/networks')
+    const { chooseEndpoint, readCall } = await import('../../src/main/networks')
     const net = { id: 'wax-testnet', name: 'X', kind: 'testnet', chainId: 'f1'.repeat(32), endpoints: ['https://a.example', 'https://b.example'], currentEndpoint: 0 }
     for (const status of [429, 502, 503, 504]) {
+      // Choosing the endpoint again ends the read endpoint the last failover kept for the session.
+      chooseEndpoint('wax-testnet', 0)
       const tried: string[] = []
       const errors: RpcError[] = [new RpcError(`HTTP ${status}`, status)]
       // Only the second endpoint answers.
@@ -169,6 +171,7 @@ describe('main-process read of the RAM price', () => {
       expect(tried).toEqual(['https://a.example', 'https://b.example'])
       expect(r).toMatchObject({ available: true, symbol: 'WAX' })
     }
+    chooseEndpoint('wax-testnet', 0)
     const all = await readCall((ep) => readRamPrice(1, async () => Promise.reject(new RpcError(`${ep} HTTP 503`, 503))), net as never).catch((e) => e)
     expect(all).toBeInstanceOf(RpcError)
     expect((all as Error).message).toBe('https://a.example HTTP 503 (2 endpoints tried)')

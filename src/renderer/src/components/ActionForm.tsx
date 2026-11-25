@@ -364,8 +364,14 @@ export function ActionForm({ account, view, network }: { account: string; view: 
     }
   }
 
+  // The Result belongs to the action it was run for: another action starts without one.
+  const [result, setResult] = useState<InspectedTransaction | null>(null)
+  const [resultNote, setResultNote] = useState<FormLine | null>(null)
+
   const pickAction = (name: string): void => {
     void commitHistory()
+    setResult(null)
+    setResultNote(null)
     setTouched(false)
     setActionName(name)
     setValues({})
@@ -379,6 +385,8 @@ export function ActionForm({ account, view, network }: { account: string; view: 
       toast('Action not found', `${e.name} is not in the ABI of ${account} any more.`, 'error')
       return
     }
+    setResult(null)
+    setResultNote(null)
     setTouched(true)
     setActionName(a.name)
     setValues(valuesFromData(a.fields, e.payload.data))
@@ -430,8 +438,6 @@ export function ActionForm({ account, view, network }: { account: string; view: 
     }
   }
 
-  const [result, setResult] = useState<InspectedTransaction | null>(null)
-  const [resultNote, setResultNote] = useState<FormLine | null>(null)
   const [running, setRunning] = useState<null | 'run' | 'simulate'>(null)
 
   const txActions = (): { account: string; name: string; authorization: AuthLevel[]; data: unknown }[] | null => {

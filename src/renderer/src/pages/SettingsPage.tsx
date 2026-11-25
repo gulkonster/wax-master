@@ -148,7 +148,7 @@ function ClearData({ onClose }: { onClose: () => void }): React.JSX.Element {
         </>
       }
     >
-      <p style={{ marginTop: 0 }}>Removes settings, networks, stars, saved queries, the log files and the installed toolchains, then restarts WAX Master after a separate confirmation; your projects are not touched.</p>
+      <p style={{ marginTop: 0 }}>Removes settings, networks, stars, added tokens, saved queries, the build record, the log files and the installed toolchains, then restarts WAX Master after a separate confirmation; your projects are not touched.</p>
       <label className="check-label">
         <input type="checkbox" checked={vault} onChange={(e) => setVault(e.target.checked)} /> Also delete the key vault
       </label>

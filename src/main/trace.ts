@@ -297,6 +297,16 @@ export async function withResourceState(t: InspectedTransaction, signer: string,
   return { ...t, resource, errorMessage: describeResource(resource.kind, account, account ? (state ?? 'unreadable') : null, shortage) }
 }
 
+/**
+ * The error line of a send the node refused: a CPU / NET / RAM refusal in plain words;
+ * anything else the node's message without the words "assertion failure with message: ",
+ * so every form says a contract's check as the inspector does.
+ */
+export function failedSendError(trace: InspectedTransaction | null, error: string | undefined): string {
+  if (trace?.resource) return trace.errorMessage ?? error ?? 'Failed'
+  return (error ?? 'Failed').replace('assertion failure with message: ', '')
+}
+
 /** Error answer of a node (HTTP 500 body), e.g. a failed check in a contract. */
 export function fromNodeError(body: unknown, ctx: { source: 'simulation' | 'sent'; network: string; endpoint: string }, id = ''): InspectedTransaction {
   const b = (body ?? {}) as R

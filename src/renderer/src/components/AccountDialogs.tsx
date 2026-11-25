@@ -6,7 +6,7 @@ import { errorText, toast } from '../lib/toast'
 import { networkStore } from '../lib/networks'
 import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
-import { withVault } from '../lib/vault'
+import { vaultStore, withVault } from '../lib/vault'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
 import { changeKeyDefaults } from '../../../shared/permission-signers'
 import { CANCELLED_NOT_SENT, formLineClass, outcomeLine, type FormLine } from '../lib/tx-outcome'
@@ -23,11 +23,13 @@ interface VaultKey {
   publicKey: string
 }
 
+/** The vault's keys, read again whenever the vault changes (a key made in Manage Keypairs appears at once). */
 export function useVaultKeys(): VaultKey[] {
   const [keys, setKeys] = useState<VaultKey[]>([])
+  const vault = useStore(vaultStore)
   useEffect(() => {
     window.wax.keys.list().then(setKeys).catch(() => setKeys([]))
-  }, [])
+  }, [vault])
   return keys
 }
 
@@ -190,6 +192,12 @@ export function useCreateAccountForm(initialCreator = '', initialName = ''): {
         <label>Active key</label>
         <KeyPicker value={activeKey} onChange={setActiveKey} keys={keys} />
         {activeKey !== ownerKey && <NoBackupLine publicKey={activeKey} />}
+        <div className="hint">
+          A new key is created in Manage Keypairs; it then appears in both lists.{' '}
+          <button type="button" className="btn subtle sm" onClick={() => emit('open-keys', null)}>
+            Manage Keypairs
+          </button>
+        </div>
       </div>
       <div className="field" style={{ display: 'flex', gap: 'var(--gap-row)' }}>
         <div style={{ flex: 1 }}>

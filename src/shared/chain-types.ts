@@ -203,6 +203,8 @@ export interface VoterClaimView {
   dueText: string
   /** A note about the time of the claim ('' when none). */
   timeNote: string
+  /** Why the tables show the claim as not possible now ('' when it can be tried). */
+  blocked: string
 }
 
 export interface VotingView {
