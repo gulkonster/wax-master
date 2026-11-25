@@ -139,6 +139,7 @@
         { "id": "example-nft-staking", "title": "Example: NFT staking", "keywords": ["example", "nft staking", "stake nft", "unstake", "ownership", "whose nft", "atomicassets", "transfer", "assets table", "nft ownership", "staked_at", "byowner"] },
         { "id": "example-nft-blend", "title": "Example: NFT blend", "keywords": ["example", "blend", "craft", "merge", "combine", "burn", "burnasset", "mintasset", "recipe", "upgrade nft"] },
         { "id": "example-payments", "title": "Example: Token payments", "keywords": ["example", "payments", "accept token", "fake token", "scam", "get_first_receiver", "deposit", "withdraw", "extended_symbol"] },
+        { "id": "example-reward-log", "title": "Example: Reward log (log actions and notifications)", "keywords": ["log action", "logreward", "logmint", "notify", "notification", "require_recipient", "inline action", "trace", "event", "history", "explorer", "on_notify"] },
         { "id": "example-random-number", "title": "Example: Random number (ORNG)", "keywords": ["example", "random", "orng", "orng.wax", "requestrand", "randnotify", "receiverand", "dice", "credits"] }
       ]
     },

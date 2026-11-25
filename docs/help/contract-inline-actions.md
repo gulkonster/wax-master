@@ -15,6 +15,8 @@ The chain checks an inline action against `yourcontract@eosio.code` alone. The s
 | `action(permission_level{get_self(), "active"_n}, "eosio.token"_n, "transfer"_n, std::make_tuple(...)).send();` | Any contract. The tuple must hold the parameters in the order and the types of the receiving action. |
 | `using log_action = action_wrapper<"log"_n, &payout::log>;` then `log_action{get_self(), {get_self(), "active"_n}}.send(...)` | An action whose declaration you have, such as your own. The compiler checks the parameters. |
 
+An inline action is also how a contract announces what it did: a log action that only notifies. A complete example of a contract that announces what it did with a log action: [Reward log](doc:example-reward-log).
+
 ## Example
 
 A complete contract that pays WAX from its own account and logs it with an inline call to itself.

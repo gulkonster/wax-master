@@ -2,7 +2,7 @@
 
 After most of its actions `atomicassets` runs a **log action** on itself as an inline action: `logmint` after a mint, `logtransfer` after a movement, `logburnasset` after a burn, and so on. A log action does nothing but notify accounts with `require_recipient`. A contract on such an account handles it with `[[eosio::on_notify("atomicassets::logmint")]]`, in the same transaction. This is how a game contract learns that an NFT of its collection was minted, moved, burnt or changed, whoever did it: the game's own action, a player, a market or another contract.
 
-Most log actions go to the collection's **notify accounts**. The collection's author adds your contract account to that list with `addnotifyacc`. For notifications in general see [Notifications (on_notify)](doc:contract-notifications); for collections and authorized accounts see [AtomicAssets in short](doc:nft-atomicassets).
+Most log actions go to the collection's **notify accounts**. The collection's author adds your contract account to that list with `addnotifyacc`. For notifications in general see [Notifications (on_notify)](doc:contract-notifications); for collections and authorized accounts see [AtomicAssets in short](doc:nft-atomicassets). A complete example of a contract that announces what it did with a log action: [Reward log](doc:example-reward-log).
 
 ## The log actions
 

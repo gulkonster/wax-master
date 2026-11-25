@@ -14,6 +14,7 @@ The examples are small, complete contracts, each built around one idea. Each is 
 | [NFT staking](doc:example-nft-staking) | NFTs sent to a contract with a memo; a table that records whose each NFT is; giving them back | `atomicassets` | `nftstake` |
 | [NFT blend](doc:example-nft-blend) | Burning the NFTs of a recipe and minting the result to the sender | `atomicassets` | `blender` |
 | [Token payments](doc:example-payments) | Accepting only listed tokens, checked by token contract and symbol; refusing look-alikes | `eosio.token` and any token | `payments` |
+| [Reward log](doc:example-reward-log) | A log action that announces a result only the contract knows; notifying the player and listener contracts; reading it from the trace and a history service | nothing else; runs on an empty local chain | `rewards` |
 
 On WAX Testnet the random number service did not answer requests when this example was written (none since 2026-10-21). Steps 1 to 8 work there as written. The result of step 9 arrives only when the service answers; on WAX Mainnet it answers within seconds. Steps 9 to 11 were not tried.
 
@@ -24,6 +25,7 @@ On WAX Testnet the random number service did not answer requests when this examp
 3. AtomicAssets and Alcor swap use contracts of other teams that run on WAX Testnet. Their steps read those contracts' tables and run their actions from the Contract page.
 4. For a game with NFTs: AtomicAssets first, then NFT staking and NFT blend; see also the group [NFTs and game tools](doc:nft-atomicassets).
 5. Token payments before any contract that takes money from users: it shows how a fake token is refused. See [Accepting tokens safely](doc:contract-accept-tokens).
+6. Reward log for a game or a contract whose results a web page shows: the log action, the player's history and other contracts that react. It needs no other contract, so it also runs on the [local chain](doc:local-chain).
 
 ## What every example needs
 

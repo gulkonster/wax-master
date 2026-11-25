@@ -96,4 +96,6 @@ public:
 
 > Note: Your own actions can notify too: `require_recipient(user)` lets another contract react to your action. The receiver cannot stop your action except by failing the whole transaction.
 
+A complete example of a contract that announces what it did with a log action: [Reward log](doc:example-reward-log).
+
 See also [Tables, scopes and payers](doc:contract-tables) and [The token contract](doc:token-contract).

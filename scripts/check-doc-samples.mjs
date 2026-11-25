@@ -47,6 +47,7 @@ const FULL_FORMS = {
   'example-nft-staking.md': [{ dirs: ['resources/templates/examples/nft-staking'], contract: 'nftstake' }],
   'example-nft-blend.md': [{ dirs: ['resources/templates/examples/nft-blend'], contract: 'blender' }],
   'example-payments.md': [{ dirs: ['resources/templates/examples/payments'], contract: 'payments' }],
+  'example-reward-log.md': [{ dirs: ['resources/templates/examples/reward-log'], contract: 'rewards' }],
   'contract-table-migration.md': [
     { dirs: ['test/fixtures/doc-samples/migration-v1'], contract: 'migrate' },
     { dirs: ['test/fixtures/doc-samples/migration-v2-plain'], contract: 'migrate' },

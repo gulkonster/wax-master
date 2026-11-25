@@ -135,6 +135,7 @@ export type ExampleId =
   | 'nft-staking'
   | 'nft-blend'
   | 'payments'
+  | 'reward-log'
 export type TemplateId = ProjectTemplateId | ExampleId
 
 export const TEMPLATES: { id: ProjectTemplateId; label: string; description: string }[] = [
@@ -200,6 +201,13 @@ export const EXAMPLES: { id: ExampleId; label: string; description: string; name
     description: 'Accepts only the tokens on its list, checked by token contract and symbol; refuses look-alikes; withdraw pays back.',
     name: 'payments',
     topic: 'example-payments'
+  },
+  {
+    id: 'reward-log',
+    label: 'Reward log (log action)',
+    description: "Announces each reward with a log action that reaches the player's history and notifies other contracts; shows how a web page reads it from the trace.",
+    name: 'rewards',
+    topic: 'example-reward-log'
   }
 ]
 
