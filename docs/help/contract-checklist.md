@@ -97,7 +97,7 @@ A cooldown per account does not stop one person who makes many accounts. The tot
 
 ## How to do it here
 
-1. Build and deploy to a testnet account and switch on **eosio.code** for it (Account page > Keys and permissions); see [The eosio.code permission](doc:eosio-code). Send some testnet WAX to the contract account.
+1. Build and deploy to a testnet account and tick **eosio.code** for it (Account page > Keys and permissions); see [The eosio.code permission](doc:eosio-code). Send some testnet WAX to the contract account.
 2. Run `claim` with `user` = a second account and Authorization = that account. The inspector shows the inline `transfer`.
 3. Run it again at once: `come back later, one claim per day`.
 4. Run it with Authorization = another account: the node refuses it with `missing authority`.

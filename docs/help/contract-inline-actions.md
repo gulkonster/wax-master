@@ -4,7 +4,7 @@ An inline action is an action that your contract sends while it runs: a token tr
 
 ## Authority
 
-A contract holds no keys. An inline action that declares `yourcontract@active` is accepted only when `active` of the contract account lists `yourcontract@eosio.code`. Without it the transaction fails with an error saying it does not have signatures for `yourcontract@active`, and the provided permissions show `eosio.code`. Add it with one switch on the Account page; see [The eosio.code permission](doc:eosio-code).
+A contract holds no keys. An inline action that declares `yourcontract@active` is accepted only when `active` of the contract account lists `yourcontract@eosio.code`. Without it the transaction fails with an error saying it does not have signatures for `yourcontract@active`, and the provided permissions show `eosio.code`. Add it with one checkbox on the Account page; see [The eosio.code permission](doc:eosio-code).
 
 The chain checks an inline action against `yourcontract@eosio.code` alone. The signatures of the transaction do not carry over to it, so the contract cannot act for the user who called it, unless that user's permission itself lists `yourcontract@eosio.code`. To take a user's tokens, let the user send them (see [Notifications](doc:contract-notifications)).
 
@@ -63,7 +63,7 @@ The inline actions run in the order they were sent, after `pay` has finished. Th
 ## How to do it here
 
 1. Build and deploy the contract to its account, for example `mypayout1111`.
-2. Account page > `mypayout1111` > **Keys and permissions**: switch on **Allow this account's contract to send actions (eosio.code)** on `active`. See [The eosio.code permission](doc:eosio-code).
+2. Account page > `mypayout1111` > **Keys and permissions**: tick **Allow this account's contract to send actions (eosio.code)** on `active`. See [The eosio.code permission](doc:eosio-code).
 3. Send some WAX to `mypayout1111` so it has something to pay. See [Transfers and memos](doc:transfers).
 4. On the Contract page run `pay` with Authorization = `mypayout1111@active`.
 5. Open in inspector: the trace shows `pay`, then `eosio.token::transfer` with its notifications, then `log` with its console line.
