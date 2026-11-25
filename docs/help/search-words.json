@@ -26,6 +26,7 @@
     ["multisig", "multi signature", "msig", "multiple signatures"],
     ["testnet", "test network", "test net"],
     ["local node", "own node", "nodeos", "local chain", "private chain", "own chain"],
+    ["copy contract", "clone contract", "copy atomicassets", "contract from mainnet", "contract from another network", "copy code and abi", "foreign contract", "third party contract"],
     ["reset chain", "new chain", "start over", "wipe chain", "empty chain"],
     ["mainnet", "main network", "main net", "production"],
     ["faucet", "free tokens", "free wax", "test tokens"],

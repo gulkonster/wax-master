@@ -188,6 +188,9 @@ const api: WaxApi = {
     accountExists: call('localChain:accountExists'),
     createAccount: call('localChain:createAccount'),
     giveTokens: call('localChain:giveTokens'),
+    copyRead: call('localChain:copyRead'),
+    copyTarget: call('localChain:copyTarget'),
+    copyContract: call('localChain:copyContract'),
     onStatus: (cb: (status: LocalChainStatus) => void): (() => void) => subscribe(EVENTS, LOCAL_CHAIN_STATUS_EVENT, cb as (...args: never[]) => void),
     onProgress: (cb: (line: string) => void): (() => void) => subscribe(EVENTS, LOCAL_CHAIN_PROGRESS_EVENT, cb as (...args: never[]) => void)
   },

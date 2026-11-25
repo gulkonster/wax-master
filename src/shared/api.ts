@@ -502,7 +502,7 @@ export interface WaxApi {
     nameAuctions(): Promise<NameAuctions>
   }
   /** The app's local chain (Network > Local Chain). */
-  localChain: LocalChainApi & LocalAccountsApi
+  localChain: LocalChainApi & LocalAccountsApi & ContractCopyApi
   networkInfo: {
     /** Chain state of a saved network for the Network page: get_info, RAM, RAM price, core token. */
     overview(networkId: string): Promise<NetworkOverview>
@@ -658,4 +658,71 @@ export interface LocalAccountsApi {
   accountExists(name: string): Promise<boolean>
   createAccount(input: LocalAccountInput): Promise<LocalAccountResult>
   giveTokens(input: LocalTokensInput): Promise<LocalTokensResult>
+}
+
+/** Copy a contract: the source account on a saved network (B111 point 1). */
+export interface ContractReadInput {
+  networkId: string
+  account: string
+}
+
+/** The code and ABI read from the source; the bytes stay in the main process for the copy. */
+export interface ContractCopySource {
+  networkId: string
+  network: string
+  account: string
+  /** SHA-256 of the code as read (hex). */
+  codeHash: string
+  codeSize: number
+  /** 0: the account has no ABI; only the code is copied. */
+  abiSize: number
+  actions: string[]
+  tables: string[]
+}
+
+/** The target on the running local chain. */
+export interface ContractCopyTarget {
+  exists: boolean
+  hasCode: boolean
+  /** SHA-256 of its code ('' for none). */
+  codeHash: string
+}
+
+/** Copy a contract (B111 points 2-3). */
+export interface ContractCopyInput {
+  networkId: string
+  account: string
+  /** Account name on the local chain; by default the source's name. */
+  target: string
+  /** Vault key (public form) for a target that does not exist yet; it is made with it. */
+  publicKey?: string
+  /** The target already has other code: replace it (the Deploy dialog's question). */
+  replace?: boolean
+}
+
+export interface ContractCopyResult {
+  networkId: string
+  account: string
+  target: string
+  /** The target did not exist and was made by `eosio` (B109 point 4, RAM 10 x code + 1 MiB). */
+  created: boolean
+  /** Other code on the target was replaced. */
+  replaced: boolean
+  /** SHA-256 of the code read from the source. */
+  sourceHash: string
+  /** SHA-256 of the code read back from the local chain after the copy. */
+  localHash: string
+  same: boolean
+  /** The deployment's transaction; null when the target already had this code and ABI. */
+  transactionId: string | null
+}
+
+/** Copy a contract from another network to the local chain (B111 points 1-4). */
+export interface ContractCopyApi {
+  /** Reads get_raw_code_and_abi on the source network (nothing is signed there); refuses an account without code. */
+  copyRead(input: ContractReadInput): Promise<ContractCopySource>
+  /** Whether the name exists on the running local chain and the hash of its code. */
+  copyTarget(target: string): Promise<ContractCopyTarget>
+  /** Makes a missing target, then deploys the read code and ABI, signed from the vault with the normal confirmation. */
+  copyContract(input: ContractCopyInput): Promise<ContractCopyResult>
 }

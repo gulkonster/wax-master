@@ -15,9 +15,36 @@ import { handle } from './ipc'
 import * as chain from './local-chain'
 import * as networks from './networks'
 import { createLocalAccount, giveLocalTokens, localAccountExists } from './local-chain-accounts'
+import { copyContract, copyRead, copyTarget, defaultContractCopyDeps, type CopySignOutcome } from './contract-copy'
+import { preflight } from './ipc-tx'
+import { signer, vault } from './keys-service'
+import { getSettings } from './store'
+import { openConfirmation } from './confirm-window'
+import { afterCodeWindows, codeWindowOpen } from './key-windows'
+import { failedSendError, fromNodeError } from './trace'
+import type { ActionRequest } from './signer'
 import { log } from './log'
 
 const CHAIN_ID_FORM = /^[0-9a-f]{64}$/
+
+/** The vault-signed send of a copy's deployment: the same steps and confirmation as Deploy. */
+async function signFromVault(win: BrowserWindow | null, networkId: string, actions: ActionRequest[]): Promise<CopySignOutcome> {
+  preflight(win)
+  if (codeWindowOpen()) {
+    await new Promise<void>((resolve) => afterCodeWindows(resolve))
+    preflight(win)
+  }
+  const { record, secret } = await signer().prepare({ networkId, actions, kind: 'deploy' })
+  const outcome = await openConfirmation(win, record, secret)
+  if (outcome.approved && getSettings().lockAfterSignature) vault().lock()
+  if (outcome.approved) return { status: 'sent', transactionId: record.transactionId }
+  if (outcome.reason === 'error') {
+    const ctx = { source: 'sent' as const, network: record.network.name, endpoint: record.endpoint }
+    const trace = outcome.details ? fromNodeError(outcome.details, ctx, record.transactionId) : null
+    return { status: 'failed', error: failedSendError(trace, outcome.error) }
+  }
+  return { status: 'cancelled' }
+}
 
 /** Keeps the network entry at the node's port and chain id once the chain is set up. */
 function syncNetwork(s: LocalChainStatus): LocalChainStatus {
@@ -74,5 +101,27 @@ export function registerLocalChainIpc(getWindow: () => BrowserWindow | null): vo
     const i = obj(input, 'input')
     if (typeof i.amount !== 'number') throw new Error('amount: must be a number')
     return giveLocalTokens({ account: chainName(i.account, 'account'), amount: i.amount })
+  })
+  // B111 points 1-4: read on the source network (nothing is signed there); a missing target is made by
+  // eosio; the deployment is signed from the vault with the normal confirmation.
+  const copyDeps = (): ReturnType<typeof defaultContractCopyDeps> => defaultContractCopyDeps((n, a) => signFromVault(getWindow(), n, a))
+  handle('localChain:copyRead', async (_e, input) => {
+    const i = obj(input, 'input')
+    return copyRead({ networkId: str(i.networkId, 'networkId', 64), account: chainName(i.account, 'account') }, copyDeps())
+  })
+  handle('localChain:copyTarget', async (_e, target) => copyTarget(chainName(target, 'target'), copyDeps()))
+  handle('localChain:copyContract', async (_e, input) => {
+    const i = obj(input, 'input')
+    const key = i.publicKey === undefined || i.publicKey === null || i.publicKey === '' ? undefined : str(i.publicKey, 'publicKey', 200)
+    return copyContract(
+      {
+        networkId: str(i.networkId, 'networkId', 64),
+        account: chainName(i.account, 'account'),
+        target: chainName(i.target, 'target'),
+        publicKey: key,
+        replace: i.replace === undefined ? false : bool(i.replace, 'replace')
+      },
+      copyDeps()
+    )
   })
 }

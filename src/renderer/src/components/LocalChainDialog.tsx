@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Modal } from './Modal'
 import { LocalAccountDialog } from './LocalAccountDialog'
+import { CopyContractDialog } from './CopyContractDialog'
 import { copyText } from '../lib/clipboard'
 import { errorText, toast } from '../lib/toast'
 import { selectNetwork } from '../lib/networks'
@@ -30,6 +31,7 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
   const [newAccount, setNewAccount] = useState(false)
+  const [copyContract, setCopyContract] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -284,6 +286,9 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
           <button className="btn" disabled={busy} onClick={() => setNewAccount(true)}>
             New account...
           </button>
+          <button className="btn" disabled={busy} onClick={() => setCopyContract(true)}>
+            Copy contract...
+          </button>
         </div>
       )}
 
@@ -310,6 +315,7 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
 
       {error && <div className="error-text">{error}</div>}
       {newAccount && <LocalAccountDialog onClose={() => setNewAccount(false)} />}
+      {copyContract && <CopyContractDialog onClose={() => setCopyContract(false)} />}
     </Modal>
   )
 }

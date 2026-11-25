@@ -78,3 +78,5 @@ On the `atomicassets` tab pick the table, set **Scope**, then **Run query**.
 The steps that make a collection, a schema and a template from the Contract page are steps 7 to 11 of [Example: AtomicAssets](doc:example-atomicassets), with the JSON of every field. To mint by hand afterwards, choose `mintasset` with **Authorization** = an authorized account: `authorized_minter` = that account, `collection_name`, `schema_name`, `template_id` from those steps, `new_asset_owner` = any account, `immutable_data` = `[]`, `mutable_data` = `[]`, `tokens_to_back` = `[]`. **Run** and approve; the trace shows `logmint` with the new `asset_id`.
 
 See also [AtomicAssets notifications](doc:nft-notifications), [Drops (atomicdropsx)](doc:nft-drops), [Packs (atomicpacksx)](doc:nft-packs), [Example: NFT staking](doc:example-nft-staking) and [Contracts and services a WAX game uses](doc:wax-services).
+
+To try `atomicassets` on your own chain, copy it from WAX Mainnet: see [Other people's contracts](doc:local-chain).

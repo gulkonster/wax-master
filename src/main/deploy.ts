@@ -1,12 +1,12 @@
-// Deploy: reads the built WASM and ABI once, compares them with the account,
-// checks host functions against the chain's active features, and prepares
-// setcode/setabi with exactly those bytes. The hashes shown on the confirmation
-// are computed by the signer from the code and ABI inside the packed
-// transaction; the files are not read again.
+// Deploy: reads the built WASM and ABI once (or takes them as bytes), compares
+// them with the account, checks host functions against the chain's active
+// features, and prepares setcode/setabi with exactly those bytes. The hashes
+// shown on the confirmation are computed by the signer from the code and ABI
+// inside the packed transaction; the files are not read again.
 
 import { createHash, randomUUID } from 'node:crypto'
 import { promises as fsp } from 'node:fs'
-import { abiToBinary, bytesToHex } from '../chain-core'
+import { abiFromBinary, abiToBinary, bytesToHex } from '../chain-core'
 import { effectiveOutput, type DeployTarget } from '../shared/project'
 import { DEPLOY_PLAN_EXPIRED, type DeployPlan } from '../shared/chain-types'
 import { currentProject, resolveInProject } from './projects'
@@ -143,31 +143,70 @@ async function activeFeatures(networkId: string): Promise<Set<string>> {
   return names
 }
 
-export async function planDeploy(input: { networkId?: string; account: string; permission: string; target: DeployTarget }): Promise<DeployPlan> {
-  const p = currentProject()
-  if (!p) throw new Error('No project is open')
+/**
+ * Code and ABI given as bytes instead of the project's files (a contract read
+ * from another network). `abi` is the binary ABI as a node returns it; null or
+ * empty: code only. `label` names the bytes where a file name would stand.
+ */
+export interface DeployBytes {
+  wasm: Uint8Array
+  abi: Uint8Array | null
+  label: string
+}
+
+export async function planDeploy(input: {
+  networkId?: string
+  account: string
+  permission: string
+  target: DeployTarget
+  bytes?: DeployBytes
+}): Promise<DeployPlan> {
   const network = input.networkId ? getNetwork(input.networkId) : currentNetwork()
-  const wasmRel = effectiveOutput(p.config)
-  const abiRel = wasmRel.replace(/\.wasm$/i, '') + '.abi'
+  let wasmRel: string
+  let abiRel: string
   let wasm: Uint8Array | undefined
   let abi: Uint8Array | undefined
-  if (input.target !== 'abi') {
-    const st = await fsp.stat(resolveInProject(wasmRel)).catch(() => null)
-    if (!st) throw new Error(`${wasmRel} was not found. Build the contract first.`)
-    if (st.size > MAX_WASM) throw new Error(`${wasmRel} is larger than ${MAX_WASM / 1024 / 1024} MB`)
-    wasm = new Uint8Array(await fsp.readFile(resolveInProject(wasmRel)))
-  }
-  if (input.target !== 'wasm') {
-    const text = await fsp.readFile(resolveInProject(abiRel), 'utf8').catch(() => null)
-    if (text === null) throw new Error(`${abiRel} was not found. Build the contract first.`)
-    if (text.length > MAX_ABI_JSON) throw new Error(`${abiRel} is too large`)
-    // An ABI the chain refuses stops Deploy and Simulate Deploy with the build's explanation.
-    const refusal = await abiRefusal(p.root, abiRel, text)
-    if (refusal) throw new Error(refusal)
-    try {
-      abi = abiToBinary(text)
-    } catch (e) {
-      throw new Error(`${abiRel} is not a valid ABI: ${e instanceof Error ? e.message : String(e)}`)
+  if (input.bytes) {
+    const b = input.bytes
+    wasmRel = `${b.label} (code)`
+    abiRel = `${b.label} (ABI)`
+    if (input.target !== 'abi') {
+      if (b.wasm.length === 0) throw new Error(`${b.label} has no code`)
+      if (b.wasm.length > MAX_WASM) throw new Error(`The code of ${b.label} is larger than ${MAX_WASM / 1024 / 1024} MB`)
+      wasm = b.wasm
+    }
+    if (input.target !== 'wasm' && b.abi && b.abi.length > 0) {
+      if (b.abi.length > MAX_ABI_JSON) throw new Error(`The ABI of ${b.label} is too large`)
+      try {
+        abiFromBinary(b.abi)
+      } catch (e) {
+        throw new Error(`The ABI of ${b.label} is not a valid ABI: ${e instanceof Error ? e.message : String(e)}`)
+      }
+      abi = b.abi
+    }
+  } else {
+    const p = currentProject()
+    if (!p) throw new Error('No project is open')
+    wasmRel = effectiveOutput(p.config)
+    abiRel = wasmRel.replace(/\.wasm$/i, '') + '.abi'
+    if (input.target !== 'abi') {
+      const st = await fsp.stat(resolveInProject(wasmRel)).catch(() => null)
+      if (!st) throw new Error(`${wasmRel} was not found. Build the contract first.`)
+      if (st.size > MAX_WASM) throw new Error(`${wasmRel} is larger than ${MAX_WASM / 1024 / 1024} MB`)
+      wasm = new Uint8Array(await fsp.readFile(resolveInProject(wasmRel)))
+    }
+    if (input.target !== 'wasm') {
+      const text = await fsp.readFile(resolveInProject(abiRel), 'utf8').catch(() => null)
+      if (text === null) throw new Error(`${abiRel} was not found. Build the contract first.`)
+      if (text.length > MAX_ABI_JSON) throw new Error(`${abiRel} is too large`)
+      // An ABI the chain refuses stops Deploy and Simulate Deploy with the build's explanation.
+      const refusal = await abiRefusal(p.root, abiRel, text)
+      if (refusal) throw new Error(refusal)
+      try {
+        abi = abiToBinary(text)
+      } catch (e) {
+        throw new Error(`${abiRel} is not a valid ABI: ${e instanceof Error ? e.message : String(e)}`)
+      }
     }
   }
   // What is on the account now.

@@ -550,6 +550,8 @@ const DIALOG_HELP: Record<string, keyof typeof HELP_TOPICS | null> = {
   'manage-networks': 'manageNetworks',
   'edit-network': 'editNetwork',
   'local-chain': 'localChain',
+  'local-account': 'localChain',
+  'copy-contract': 'localChain',
   'starred-accounts': 'starredAccounts',
   'new-project': 'newProject',
   'testnet-account': 'testnetAccount',
@@ -670,7 +672,8 @@ describe('context help', () => {
       ['pages/account/PowerupSection.tsx', 'walletPowerup'],
       ['pages/account/NameBidsSection.tsx', 'walletNameBids'],
       ['pages/account/FaucetSection.tsx', 'walletFaucet'],
-      ['pages/account/TransactionsSection.tsx', 'walletTransactions']
+      ['pages/account/TransactionsSection.tsx', 'walletTransactions'],
+      ['pages/account/LocalTokensSection.tsx', 'localChain']
     ]
     for (const [file, place] of sections) expect(readFileSync(join(RENDERER, file), 'utf8'), file).toContain(`<HelpButton place="${place}" />`)
     // A new section file gets a row above.
