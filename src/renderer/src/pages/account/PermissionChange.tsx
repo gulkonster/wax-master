@@ -20,6 +20,7 @@ import { withVault } from '../../lib/vault'
 import { errorText, toast } from '../../lib/toast'
 import { CANCELLED_NOT_SENT, formLineClass, outcomeLine, type FormLine } from '../../lib/tx-outcome'
 import { CommandView, NAME, type WalletContext } from './common'
+import { addEntryWeightHint } from './wallet-form'
 
 /** What the dialog starts from: a form to fill, or a change that needs no fields. */
 export type ChangeStart =
@@ -340,9 +341,7 @@ export function PermissionChangeDialog({
             <div className="field">
               <label>Weight</label>
               <input className="input mono" inputMode="numeric" value={weight} onChange={(e) => setWeight(e.target.value.trim())} />
-              <div className="hint">
-                The threshold of {start.permission} is {current?.threshold ?? '?'}. With weight 1 and threshold 1 the new entry can sign alone.
-              </div>
+              <div className="hint">{addEntryWeightHint(start.permission, current?.threshold, weightNum)}</div>
             </div>
           )}
           {start.form === 'setThreshold' && (

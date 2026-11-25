@@ -55,6 +55,26 @@ export function quantityText(text: string, precision: number, symbol: string): s
   return u === null ? null : formatUnits(u, precision, symbol)
 }
 
+/**
+ * A stake field of the core token as asset text: a bare amount ("1", "0.5") or
+ * the amount with the token's symbol ("1.0 WAX"); an empty field is zero. null
+ * when it is not an amount of that token with at most `precision` decimals.
+ */
+export function stakeQuantity(text: string, precision: number, symbol: string): string | null {
+  const t = text.trim()
+  if (t === '') return formatUnits(0n, precision, symbol)
+  const m = /^(\S+)(?:\s+([A-Za-z]{1,7}))?$/.exec(t)
+  if (!m || (m[2] !== undefined && m[2] !== symbol)) return null
+  return quantityText(m[1], precision, symbol)
+}
+
+/** The note under a stake field ('' when it is valid). */
+export function stakeProblem(text: string, precision: number, symbol: string): string {
+  if (stakeQuantity(text, precision, symbol) !== null) return ''
+  if (text.includes(',')) return COMMA_TEXT
+  return `Enter an amount of ${symbol} with at most ${precision} decimals, for example 1 or 0.5.`
+}
+
 /** An asset text ("1234.5678 WAX") as exact whole units; null when it is not an asset within the chain's limit. */
 export function readAsset(text: unknown): { units: bigint; precision: number; symbol: string } | null {
   if (typeof text !== 'string') return null

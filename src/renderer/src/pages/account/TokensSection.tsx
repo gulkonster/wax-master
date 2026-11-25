@@ -75,7 +75,7 @@ export function TokensSection({
       {error && <div className="error-text">{error}</div>}
       {!tokens && !error && <div className="hint">Reading balances...</div>}
       {tokens && (
-        <div className="card-list">
+        <div className="card-list token-list">
           <div className="token-row token-head">
             <span>Token</span>
             <span>Balance</span>

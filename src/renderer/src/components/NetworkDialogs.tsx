@@ -200,7 +200,7 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
             </div>
           </div>
           {target && (
-            <div className="hint warn-note">
+            <div className="hint warn-note" style={{ marginTop: 0, marginBottom: 'var(--gap-field)' }}>
               {alreadyIn
                 ? `This endpoint is already in ${alreadyIn.name}.`
                 : `${target.name} is this chain. Add the endpoint to it (its starred accounts and deploy settings stay), or add a new network.`}

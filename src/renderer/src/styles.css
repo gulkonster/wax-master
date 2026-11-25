@@ -963,6 +963,11 @@ input[type='radio'] {
   display: flex;
   gap: var(--gap-row);
 }
+/* A note under a field of a row wraps in the field's width instead of widening it. */
+.field-row > .field > .acct-note {
+  width: 0;
+  min-width: 100%;
+}
 
 .field {
   margin-bottom: var(--gap-field);
@@ -2266,10 +2271,13 @@ button.sb-item.mainnet:hover {
   white-space: nowrap;
   text-align: right;
 }
+/* One line per row (--table-row); the full data is in the tooltip and the inspector. */
 .data-cell {
-  display: block;
-  max-height: calc(var(--lh-data) * 3);
+  width: 100%;
+  max-width: 0;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--text-2);
 }
 .result-line {
@@ -3873,6 +3881,15 @@ button.sb-item.mainnet:hover {
   min-height: var(--row);
   padding: var(--sp-1) var(--sp-4);
 }
+/* The rows share the list's columns, so a row with a remove button keeps its balance under the others. */
+.token-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+.token-list > .token-row {
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
 .token-row.token-head {
   min-height: var(--table-row);
   font-size: var(--fs-caption);
@@ -3897,6 +3914,7 @@ button.sb-item.mainnet:hover {
 }
 .token-actions {
   display: flex;
+  justify-content: flex-end;
   align-items: center;
   gap: var(--sp-1);
 }

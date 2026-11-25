@@ -11,6 +11,7 @@ import { WAX_TESTNET_CHAIN_ID } from '../../../shared/ram-market'
 import { withVault } from '../lib/vault'
 import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
+import { markNewAccount } from '../pages/account/wallet-form'
 import { BackupStep } from './KeysDialog'
 import type { VaultKeyEntry } from '../../../shared/api'
 
@@ -92,6 +93,7 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
             <button
               className="btn primary"
               onClick={() => {
+                markNewAccount(created)
                 emit('open-account-page', created)
                 onClose()
               }}
@@ -129,7 +131,7 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
               Switch to {testnet.name}
             </button>
           ) : (
-            <span className="hint">WAX Testnet is not in the network list: Network &gt; Manage Networks &gt; Restore default networks.</span>
+            <span className="hint" style={{ flexBasis: '100%', marginTop: 0 }}>WAX Testnet is not in the network list: Network &gt; Manage Networks &gt; Restore default networks.</span>
           )}
         </div>
       )}

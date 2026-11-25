@@ -13,6 +13,7 @@ import { isWaxTestnet } from '../../components/FaucetButton'
 import { HelpButton } from '../../components/HelpButton'
 import { IconKey } from '../../components/Icons'
 import { fmtBytes, fmtTime, fmtUs, Gauge, pct, useReadsAfterSend, viewOnlyReason, type WalletContext } from './common'
+import { NEW_ACCOUNT_WAIT_TEXT, newAccountRead, nextNewAccountRead } from './wallet-form'
 import { TokensSection } from './TokensSection'
 import { TransferSection } from './TransferSection'
 import { RamSection } from './RamSection'
@@ -69,13 +70,26 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
     }
   }, [net?.id])
 
+  // An account created a moment ago may not be on the node yet: it is read again a few times
+  // (NEW_ACCOUNT_READS_MS) with a plain line before a failed read is shown.
+  const [waitingNew, setWaitingNew] = useState(false)
+  const [retryTick, setRetryTick] = useState(0)
   const load = useCallback(async () => {
     setError('')
     try {
       setView(await window.wax.chain.account(name))
+      newAccountRead(name)
+      setWaitingNew(false)
     } catch (e) {
       setView(null)
-      setError(errorText(e))
+      const wait = nextNewAccountRead(name)
+      if (wait === null) {
+        setWaitingNew(false)
+        setError(errorText(e))
+      } else {
+        setWaitingNew(true)
+        setTimeout(() => setRetryTick((t) => t + 1), wait)
+      }
     }
   }, [name])
 
@@ -117,6 +131,10 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
     [name, reload]
   )
 
+  useEffect(() => {
+    if (retryTick > 0) reload()
+  }, [retryTick, reload])
+
   if (error) {
     return (
       <div className="page-scroll">
@@ -124,7 +142,7 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
       </div>
     )
   }
-  if (!view) return <div className="coming">Loading {name}...</div>
+  if (!view) return <div className="coming">{waitingNew ? NEW_ACCOUNT_WAIT_TEXT : `Loading ${name}...`}</div>
 
   const viewOnly = view.control.length === 0
   const ctx: WalletContext = { view, viewOnly, reason: viewOnlyReason(view.name), reload, afterSend, readTick }

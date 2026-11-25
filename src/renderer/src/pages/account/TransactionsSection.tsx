@@ -145,7 +145,7 @@ export function TransactionsSection({ name, refresh = 0 }: { name: string; refre
                     <span>{r.action}</span>
                   </span>
                 </td>
-                <td className="mono-small data-cell">{r.data}</td>
+                <td className="mono-small data-cell" title={r.data}>{r.data}</td>
               </tr>
             ))}
           </tbody>

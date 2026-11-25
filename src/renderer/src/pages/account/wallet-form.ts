@@ -38,6 +38,19 @@ export function refundTimeText(exact: boolean, due: boolean, dueText: string, re
   return `About 3 days after the unstake (${requestedText}), if this chain uses the standard waiting time.`
 }
 
+/**
+ * The line under Weight of Add key / Add account. Adding an entry keeps the
+ * permission's threshold, so it is said with that threshold and the typed weight.
+ */
+export function addEntryWeightHint(permission: string, threshold: number | undefined, weight: number): string {
+  if (threshold === undefined) return `The threshold of ${permission} is not read yet.`
+  const head = `The threshold of ${permission} is ${threshold} and stays as it is.`
+  if (!Number.isInteger(weight) || weight < 1) return `${head} Enter a weight of 1 or more.`
+  return weight >= threshold
+    ? `${head} With weight ${weight} the new entry can sign alone.`
+    : `${head} With weight ${weight} the new entry cannot sign alone: with the other signers the weights must add up to ${threshold}.`
+}
+
 /** Whether Claim refund is disabled by the time: only on the WAX chains, until the chain's time reaches the due time. */
 export function refundBlocked(exact: boolean, secondsLeft: number, secondsSinceRead: number): boolean {
   return exact && secondsSinceRead < secondsLeft
@@ -49,6 +62,40 @@ export function refundBlocked(exact: boolean, secondsLeft: number, secondsSinceR
  * before the one that holds the transaction.
  */
 export const AFTER_SEND_READS_MS: readonly number[] = [0, 1500, 4000]
+
+/**
+ * When the page of an account created a moment ago reads it again while the
+ * node does not have it yet (after the first failed read, then each next one).
+ */
+export const NEW_ACCOUNT_READS_MS: readonly number[] = [1500, 2500, 4000, 6000]
+
+/** What the page says while it waits for a new account to be readable. */
+export const NEW_ACCOUNT_WAIT_TEXT = 'The new account is not readable yet; reading again...'
+
+/** Accounts created here whose page has not read them yet, with the reads tried again so far. */
+const newAccounts = new Map<string, number>()
+
+/** Marks an account created a moment ago: its page reads it again a few times before it shows a failed read. */
+export function markNewAccount(name: string): void {
+  newAccounts.set(name, 0)
+}
+
+/** The account was read: it is no longer waited for. */
+export function newAccountRead(name: string): void {
+  newAccounts.delete(name)
+}
+
+/** After a failed read: the wait before the next read of a new account, or null to show the failure. */
+export function nextNewAccountRead(name: string): number | null {
+  const tried = newAccounts.get(name)
+  if (tried === undefined) return null
+  if (tried >= NEW_ACCOUNT_READS_MS.length) {
+    newAccounts.delete(name)
+    return null
+  }
+  newAccounts.set(name, tried + 1)
+  return NEW_ACCOUNT_READS_MS[tried]
+}
 
 /**
  * Starts the reads that follow a sent transaction: `read` at each time of

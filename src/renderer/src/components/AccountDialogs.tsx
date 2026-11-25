@@ -11,8 +11,9 @@ import { isUnlockCancelled } from '../../../shared/vault-locked'
 import { changeKeyDefaults } from '../../../shared/permission-signers'
 import { CANCELLED_NOT_SENT, formLineClass, outcomeLine, type FormLine } from '../lib/tx-outcome'
 import { AccountPicker, PermissionPicker, refreshPickLists, usePickList } from './AccountPicker'
-import { scheduleReadsAfterSend } from '../pages/account/wallet-form'
+import { markNewAccount, scheduleReadsAfterSend } from '../pages/account/wallet-form'
 import { NoBackupLine, useNoBackupGate } from './BackupWarning'
+import { stakeProblem, stakeQuantity } from '../../../shared/wallet'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
@@ -98,7 +99,13 @@ export function useCreateAccountForm(initialCreator = '', initialName = ''): {
     }
   }, [keys, ownerKey])
 
-  const ok = NAME.test(creator) && NAME.test(name) && NAME.test(creatorPerm) && !!ownerKey && !!activeKey && free !== 'taken'
+  // A bare number is an amount of the network's core token, as in the Transfer form.
+  const cpuQuantity = stakeQuantity(cpu, prec, sym)
+  const netQuantity = stakeQuantity(netStake, prec, sym)
+  const cpuProblem = stakeProblem(cpu, prec, sym)
+  const netProblem = stakeProblem(netStake, prec, sym)
+  const ok =
+    NAME.test(creator) && NAME.test(name) && NAME.test(creatorPerm) && !!ownerKey && !!activeKey && free !== 'taken' && !!cpuQuantity && !!netQuantity
   // The same list the pickers use: the permissions of the creator the vault can sign for.
   const { list } = usePickList()
   const creatorEntry = list?.entries.find((e) => e.account === creator)
@@ -109,6 +116,7 @@ export function useCreateAccountForm(initialCreator = '', initialName = ''): {
   const noBackup = useNoBackupGate()
 
   const create = async (): Promise<void> => {
+    if (!cpuQuantity || !netQuantity) return
     if (!(await noBackup.gate([ownerKey, activeKey]))) return
     setBusy(true)
     setLine(null)
@@ -121,14 +129,16 @@ export function useCreateAccountForm(initialCreator = '', initialName = ''): {
           ownerKey,
           activeKey,
           ramBytes: ram,
-          stakeCpu: cpu,
-          stakeNet: netStake,
+          stakeCpu: cpuQuantity,
+          stakeNet: netQuantity,
           transfer
         })
       )
       if (r.status === 'sent') {
         setTrace(r.trace)
         toast('Account created', name, 'success')
+        // The node may not have the new account yet: its page reads it again a few times.
+        markNewAccount(name)
         emit('open-account-page', name)
       } else {
         // A cancel is a neutral note; a refusal is explained once, by the inspector below when it has the text.
@@ -189,10 +199,12 @@ export function useCreateAccountForm(initialCreator = '', initialName = ''): {
         <div style={{ flex: 1 }}>
           <label>Stake CPU</label>
           <input className="input mono" value={cpu} onChange={(e) => setCpu(e.target.value)} />
+          {cpuProblem && <div className="acct-note bad">{cpuProblem}</div>}
         </div>
         <div style={{ flex: 1 }}>
           <label>Stake NET</label>
           <input className="input mono" value={netStake} onChange={(e) => setNetStake(e.target.value)} />
+          {netProblem && <div className="acct-note bad">{netProblem}</div>}
         </div>
       </div>
       <label style={{ display: 'flex', gap: 'var(--sp-2)', alignItems: 'center' }}>
@@ -266,6 +278,7 @@ export function ChangeKeyDialog({
   const [newKey, setNewKey] = useState('')
   const [signWith, setSignWith] = useState(start.signWith)
   const [busy, setBusy] = useState(false)
+  const [changed, setChanged] = useState(false)
   const [line, setLine] = useState<FormLine | null>(null)
   const [trace, setTrace] = useState<InspectedTransaction | null>(null)
   const noBackup = useNoBackupGate()
@@ -277,6 +290,8 @@ export function ChangeKeyDialog({
       const r = await withVault(() => window.wax.accounts.changeKey({ account, permission, oldKey, newKey, signWith }))
       if (r.status === 'sent') {
         setTrace(r.trace)
+        // The keys this dialog was opened with are no longer the permission's keys.
+        setChanged(true)
         toast('Key changed', `${account}@${permission}`, 'success')
         // The account page and the account lists of the pickers read again: at once, after 1.5 s and after 4 s.
         scheduleReadsAfterSend(
@@ -311,7 +326,7 @@ export function ChangeKeyDialog({
           <button className="btn" disabled={busy} onClick={onClose}>
             Close
           </button>
-          <button className="btn danger" disabled={!newKey || !oldKey || busy} onClick={() => void change()}>
+          <button className="btn danger" disabled={!newKey || !oldKey || busy || changed} onClick={() => void change()}>
             {busy ? 'Waiting for confirmation...' : 'Change key'}
           </button>
         </>
