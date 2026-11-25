@@ -753,7 +753,8 @@ export function remove(): Promise<LocalChainStatus> {
         const r = await wsl(['--unregister', LOCAL_CHAIN_DISTRO], { timeoutMs: 120_000 })
         if (r.code !== 0) throw new Error(`WSL could not remove the local chain's distro: ${clean(r.output).trim().slice(0, 200)}`)
       }
-      await fsp.rm(chainDir(), { recursive: true, force: true })
+      await fsp.rm(chainDir(), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
+      if (existsSync(chainDir())) log.warn('Local chain removed, but its folder is still there')
       dataMb = undefined
       setPhase('not-set-up')
       log.info('Local chain removed')

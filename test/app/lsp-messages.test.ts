@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cleanDoc, cleanMessage, prettyNames } from '../../src/shared/lsp-messages'
+import { cleanDoc, cleanMessage, includeHoverText, prettyNames } from '../../src/shared/lsp-messages'
 import { nameToUint64 } from '../../src/chain-core/name'
 
 describe('prettyNames', () => {
@@ -130,5 +130,27 @@ describe('cleanMessage', () => {
   it('leaves a clean message as it is', () => {
     expect(cleanMessage("Use of undeclared identifier 'x'")).toBe("Use of undeclared identifier 'x'")
     expect(cleanMessage('')).toBe('')
+  })
+})
+
+describe('includeHoverText', () => {
+  it('shows the project path in place of the engine path, also with a space in the folder', () => {
+    const text = 'chickandrich.hpp\n\n/mnt/c/Users/A B/proj/include/x.hpp\n\nprovides `chickandrich`'
+    expect(includeHoverText(text, 'include/x.hpp')).toBe('chickandrich.hpp\n\ninclude/x.hpp\n\nprovides `chickandrich`')
+  })
+
+  it('shows the toolchain path in place of the engine path and keeps the leading spaces', () => {
+    const text = 'vector\n  /opt/wax-cdt/include/libcxx/vector'
+    expect(includeHoverText(text, 'libcxx/vector')).toBe('vector\n  libcxx/vector')
+  })
+
+  it('leaves comments and division lines as they are', () => {
+    const text = '// comment\na / b\n/usr/include/x.h'
+    expect(includeHoverText(text, 'x.h')).toBe('// comment\na / b\nx.h')
+  })
+
+  it('returns the text as it was when nothing is shown', () => {
+    const text = 'x.hpp\n/mnt/c/Users/A B/proj/include/x.hpp'
+    expect(includeHoverText(text, '')).toBe(text)
   })
 })

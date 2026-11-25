@@ -68,9 +68,11 @@ import {
   copyRamBytes,
   copyRead,
   copyTarget,
+  hasCodePermission,
   noCodeText,
   replaceText,
   sha256Hex,
+  sourceCodePermission,
   type ContractCopyDeps,
   type CopySignOutcome
 } from '../../src/main/contract-copy'
@@ -104,7 +106,17 @@ interface Sent {
   body: Record<string, unknown>
 }
 
-function world(opts: { accounts?: Record<string, string>; source?: { wasm: Uint8Array; abi: Uint8Array | null } | null; sign?: CopySignOutcome['status'] } = {}) {
+function world(
+  opts: {
+    accounts?: Record<string, string>
+    source?: { wasm: Uint8Array; abi: Uint8Array | null } | null
+    sign?: CopySignOutcome['status']
+    /** The source has <account>@eosio.code on active. */
+    codePermission?: boolean
+    /** get_account answers of existing local accounts by name. */
+    localAccounts?: Record<string, unknown>
+  } = {}
+) {
   const system = newKey()
   const user = newKey()
   /** Local accounts and the hash of their code ('' = none). */
@@ -143,7 +155,7 @@ function world(opts: { accounts?: Record<string, string>; source?: { wasm: Uint8
       }
       if (path === '/v1/chain/get_account') {
         if (name === 'eosio') return { permissions: [{ perm_name: 'owner', required_auth: { keys: [{ key: system.pub }] } }] } as T
-        if (accounts.has(name)) return { account_name: name } as T
+        if (accounts.has(name)) return (opts.localAccounts?.[name] ?? { account_name: name }) as T
         throw new Error(`unknown key (eosio::chain::name): ${name}`)
       }
       if (path === '/v1/chain/get_code_hash') {
@@ -165,8 +177,9 @@ function world(opts: { accounts?: Record<string, string>; source?: { wasm: Uint8
     readSource: async (networkId, account) => {
       sourceReads.push(`${networkId}/${account}`)
       if (account === 'nobody') throw new Error('The account nobody does not exist on WAX Mainnet.')
-      if (!source) return { network: 'WAX Mainnet', wasm: '', abi: '' }
-      return { network: 'WAX Mainnet', wasm: b64(source.wasm), abi: source.abi ? b64(source.abi) : '' }
+      const codePermission = opts.codePermission ?? false
+      if (!source) return { network: 'WAX Mainnet', wasm: '', abi: '', codePermission }
+      return { network: 'WAX Mainnet', wasm: b64(source.wasm), abi: source.abi ? b64(source.abi) : '', codePermission }
     },
     plan: (input) => {
       // The deploy plan reads the target through the mocked rpc: give it this world's state.
@@ -365,5 +378,81 @@ describe('the deployment takes bytes (deploy.ts)', () => {
       planDeploy({ networkId: 'local-chain', account: 'x', permission: 'active', target: 'both', bytes: { wasm: WASM, abi: new Uint8Array([1, 2, 3]), label: 'x' } })
     ).rejects.toThrow('not a valid ABI')
     await expect(planDeploy({ networkId: 'local-chain', account: 'x', permission: 'active', target: 'both' })).rejects.toThrow('No project is open')
+  })
+})
+
+/** A get_account answer in the shape the node gives, with or without <name>@eosio.code on active. */
+function accountAnswer(name: string, key: string, code: boolean): unknown {
+  const accounts = code ? [{ permission: { actor: name, permission: 'eosio.code' }, weight: 1 }] : []
+  return {
+    account_name: name,
+    permissions: [
+      { perm_name: 'active', parent: 'owner', required_auth: { threshold: 1, keys: [{ key, weight: 1 }], accounts, waits: [] } },
+      { perm_name: 'owner', parent: '', required_auth: { threshold: 1, keys: [{ key, weight: 1 }], accounts: [], waits: [] } }
+    ]
+  }
+}
+
+function newAccountOf(sent: Sent[]) {
+  const t = eosioTransaction(sent)!
+  const na = t.trx.actions.find((a) => a.name === 'newaccount')!
+  return decodeAction(EOSIO_ABI, 'newaccount', hexToBytes(na.data as string)) as {
+    owner: { accounts: { permission: { actor: string; permission: string }; weight: number }[] }
+    active: { threshold: number; keys: unknown[]; accounts: { permission: { actor: string; permission: string }; weight: number }[] }
+  }
+}
+
+describe('eosio.code of the source (B132 (b))', () => {
+  it('reads the permission from a get_account answer and never throws', async () => {
+    const key = newKey().pub
+    expect(hasCodePermission(accountAnswer('atomicassets', key, true), 'atomicassets')).toBe(true)
+    expect(hasCodePermission(accountAnswer('atomicassets', key, false), 'atomicassets')).toBe(false)
+    expect(hasCodePermission(accountAnswer('atomicassets', key, true), 'someoneelse')).toBe(false)
+    expect(hasCodePermission(null, 'atomicassets')).toBe(false)
+    expect(hasCodePermission({ permissions: 'x' }, 'atomicassets')).toBe(false)
+    expect(await sourceCodePermission('atomicassets', async () => accountAnswer('atomicassets', key, true))).toBe(true)
+    expect(await sourceCodePermission('atomicassets', () => Promise.reject(new Error('the node did not answer')))).toBe(false)
+  })
+
+  it('gives a created target eosio.code on active only when the source has it; owner stays the key alone', async () => {
+    let w = world({ codePermission: true })
+    const read = await copyRead({ networkId: 'wax-mainnet', account: 'atomicassets' }, w.deps)
+    expect(read.codePermission).toBe(true)
+    let r = await copyContract({ networkId: 'wax-mainnet', account: 'atomicassets', target: 'myassets1234', publicKey: w.user.pub }, w.deps)
+    let na = newAccountOf(w.sent)
+    expect(na.active.threshold).toBe(1)
+    expect(na.active.keys).toHaveLength(1)
+    expect(na.active.accounts).toEqual([{ permission: { actor: 'myassets1234', permission: 'eosio.code' }, weight: 1 }])
+    expect(na.owner.accounts).toEqual([])
+    expect(r.codePermission).toBe('given')
+
+    clearReads()
+    w = world()
+    r = await copyContract({ networkId: 'wax-mainnet', account: 'atomicassets', target: 'myassets1234', publicKey: w.user.pub }, w.deps)
+    na = newAccountOf(w.sent)
+    expect(na.active.accounts).toEqual([])
+    expect(r.codePermission).toBe('none')
+  })
+
+  it('says needed for a target that was there without it, and changes nothing on it', async () => {
+    const key = newKey().pub
+    let w = world({ codePermission: true, accounts: { atomicassets: '' }, localAccounts: { atomicassets: accountAnswer('atomicassets', key, false) } })
+    let r = await copyContract({ networkId: 'wax-mainnet', account: 'atomicassets', target: 'atomicassets' }, w.deps)
+    expect(r.codePermission).toBe('needed')
+    expect(w.sent.some((x) => x.path === '/v1/chain/send_transaction')).toBe(false)
+    expect(w.signed[0].map((a) => a.name)).toEqual(['setcode', 'setabi'])
+
+    clearReads()
+    w = world({ codePermission: true, accounts: { atomicassets: '' }, localAccounts: { atomicassets: accountAnswer('atomicassets', key, true) } })
+    r = await copyContract({ networkId: 'wax-mainnet', account: 'atomicassets', target: 'atomicassets' }, w.deps)
+    expect(r.codePermission).toBe('none')
+  })
+
+  it('a failed account read of the source gives none and the copy goes on', async () => {
+    const codePermission = await sourceCodePermission('atomicassets', () => Promise.reject(new Error('timeout')))
+    const w = world({ codePermission })
+    const r = await copyContract({ networkId: 'wax-mainnet', account: 'atomicassets', target: 'atomicassets', publicKey: w.user.pub }, w.deps)
+    expect(r).toMatchObject({ created: true, same: true, codePermission: 'none' })
+    expect(newAccountOf(w.sent).active.accounts).toEqual([])
   })
 })

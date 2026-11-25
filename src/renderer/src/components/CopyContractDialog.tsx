@@ -26,11 +26,13 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
   const [target, setTarget] = useState('')
   const [targetTouched, setTargetTouched] = useState(false)
   const [key, setKey] = useState('')
-  const [read, setRead] = useState<{ hash: string; size: number } | null>(null)
+  const [read, setRead] = useState<{ hash: string; size: number; network: string; codePermission: boolean } | null>(null)
   const [targetState, setTargetState] = useState<{ exists: boolean; hasCode: boolean } | null>(null)
   const [localHash, setLocalHash] = useState('')
   // After a copy: whether the code read back from the local chain equals the source's (B111 point 4).
   const [same, setSame] = useState<boolean | null>(null)
+  // After a copy: whether the target has eosio.code on active as the source does (B132 (b)).
+  const [codePermission, setCodePermission] = useState<'given' | 'needed' | 'none'>('none')
   const [replace, setReplace] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -52,6 +54,7 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
     setTargetState(null)
     setLocalHash('')
     setSame(null)
+    setCodePermission('none')
     setReplace(false)
     setError('')
   }
@@ -66,7 +69,7 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
     setError('')
     try {
       const r = await api().copyRead({ networkId: source, account })
-      setRead({ hash: r.codeHash, size: r.codeSize })
+      setRead({ hash: r.codeHash, size: r.codeSize, network: r.network, codePermission: r.codePermission })
       const t = await api().copyTarget(target)
       setTargetState(t)
       setLocalHash(t.codeHash ?? '')
@@ -85,6 +88,7 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
       const r = await withVault(() => api().copyContract({ networkId: source, account, target, publicKey: key, replace }))
       setLocalHash(r.localHash)
       setSame(r.same)
+      setCodePermission(r.codePermission)
       if (r.same) toast('Contract copied', `${target} on Local chain has the code of ${account}.`, 'success')
       emit('open-account-page', target)
     } catch (e) {
@@ -178,6 +182,18 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
       )}
       {same === true && <div className="acct-note good">The code on Local chain is the same as on the source.</div>}
       {same === false && <div className="error-text">The code on Local chain is not the same as on the source.</div>}
+      {same !== null && codePermission === 'given' && (
+        <div className="hint">
+          {target} can send actions itself: its active permission has <span className="mono">eosio.code</span>, as on the source.
+        </div>
+      )}
+      {same !== null && codePermission === 'needed' && read && (
+        <div className="acct-note">
+          {account} has <span className="mono">eosio.code</span> on its active permission on {read.network}; {target} on Local chain does not, so actions the
+          contract sends itself are refused. Tick &quot;Allow this account&apos;s contract to send actions (eosio.code)&quot; in Keys and permissions on its
+          Account page.
+        </div>
+      )}
       {same === null && read && targetState && !targetState.exists && (
         <div className="field">
           <label>Key for the new account (owner and active)</label>
@@ -191,6 +207,12 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
           </select>
           <NoBackupLine publicKey={key} />
           <div className="hint">The account does not exist here; it is made with RAM for the code and the key you pick.</div>
+          {read.codePermission && (
+            <div className="hint">
+              {account} has <span className="mono">eosio.code</span> on its active permission on {read.network}; the new account gets it too, so the copy can
+              send actions itself.
+            </div>
+          )}
         </div>
       )}
       {same === null && read && targetState?.hasCode && (

@@ -118,3 +118,16 @@ export function cleanMessage(text: string): string {
   out = out.replace(/^In template: (\S)/, (_all, first: string) => first.toUpperCase())
   return prettyNames(out)
 }
+
+/**
+ * A hover text of an include line with the engine's path of the header replaced by the path the app shows:
+ * every line that holds an absolute path alone becomes its leading spaces plus `shown`.
+ * When `shown` is empty the text is returned as it was.
+ */
+export function includeHoverText(text: string, shown: string): string {
+  if (!shown) return text
+  return text
+    .split('\n')
+    .map((line) => (/^\s*\/[^/\s]/.test(line) ? (/^\s*/.exec(line)?.[0] ?? '') + shown : line))
+    .join('\n')
+}

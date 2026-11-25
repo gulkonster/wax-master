@@ -8,7 +8,7 @@ Open it with the main part of the **Network** button in the top bar, or Network 
 
 | Part | What it shows |
 |---|---|
-| Header | Name, kind, status, **Edit** and **Remove** |
+| Header | Name, kind, status, **Edit** and **Remove** (for Local chain: **Local Chain...** in place of Edit) |
 | API endpoint | The endpoint in use; choose another of the network's endpoints here. Copy button. |
 | Chain ID | The chain's id. Copy button. |
 | Basic info | Blocks (head block), Irreversible, Current producer, Server version |

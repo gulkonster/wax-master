@@ -84,10 +84,15 @@ function encode(abi: AbiDef, account: string, name: string, data: unknown): Acti
 }
 
 /** The four actions of B109 point 4, all by `eosio`. */
-export function newAccountActions(name: string, publicKey: string, abis: { system: AbiDef; token: AbiDef }): Action[] {
-  const auth = normalizeAuthority({ threshold: 1, keys: [{ key: normalizeKey(publicKey), weight: 1 }] })
+export function newAccountActions(name: string, publicKey: string, abis: { system: AbiDef; token: AbiDef }, codePermission = false): Action[] {
+  const key = normalizeKey(publicKey)
+  const auth = normalizeAuthority({ threshold: 1, keys: [{ key, weight: 1 }] })
+  // A copy of a contract whose source has eosio.code gets it on active too (B132 (b)); owner stays the key alone.
+  const active = codePermission
+    ? normalizeAuthority({ threshold: 1, keys: [{ key, weight: 1 }], accounts: [{ permission: { actor: name, permission: 'eosio.code' }, weight: 1 }] })
+    : auth
   return [
-    encode(EOSIO_ABI, 'eosio', 'newaccount', { creator: 'eosio', name, owner: auth, active: auth }),
+    encode(EOSIO_ABI, 'eosio', 'newaccount', { creator: 'eosio', name, owner: auth, active }),
     encode(abis.system, 'eosio', 'buyrambytes', { payer: 'eosio', receiver: name, bytes: LOCAL_ACCOUNT_RAM_BYTES }),
     encode(abis.system, 'eosio', 'delegatebw', {
       from: 'eosio',

@@ -692,6 +692,8 @@ export interface ContractCopySource {
   abiSize: number
   actions: string[]
   tables: string[]
+  /** The source's active permission has <account>@eosio.code (B132 (b)); false when that could not be read. */
+  codePermission: boolean
 }
 
 /** The target on the running local chain. */
@@ -729,6 +731,11 @@ export interface ContractCopyResult {
   same: boolean
   /** The deployment's transaction; null when the target already had this code and ABI. */
   transactionId: string | null
+  /**
+   * given: the target was made with eosio.code on its active permission, as the source has it;
+   * needed: the source has it and the target, which was there before, does not; none: otherwise.
+   */
+  codePermission: 'given' | 'needed' | 'none'
 }
 
 /** Copy a contract from another network to the local chain (B111 points 1-4). */

@@ -12,7 +12,7 @@ import type { EditorStatus } from '../../../../shared/api'
 import { FLAG_SETUP, keepDiagnostic, rewriteDiagnostic, type FlagSetup, type LspDiagnostic, type LspRange } from '../../../../shared/lsp-diagnostics'
 import { contractChecks, replacedByCheck, type Check } from '../../../../shared/contract-checks'
 import { placeDiagnostics } from '../../../../shared/lsp-place'
-import { cleanDoc, cleanMessage, prettyNames } from '../../../../shared/lsp-messages'
+import { cleanDoc, cleanMessage, includeHoverText, prettyNames } from '../../../../shared/lsp-messages'
 import { applyTextEdits, type LspTextEdit } from '../../../../shared/lsp-text'
 import { headerSummary, includeTarget, isHeaderPath, isPiece, namedInInclude, pieceNotice } from '../../../../shared/lsp-fragment'
 import { keepCompletion, memberAccessBefore, rowLambdaAt, rowTypeOf, SNIPPETS } from '../../../../shared/lsp-completion'
@@ -1030,13 +1030,28 @@ function registerProviders(): void {
         async provideHover(model, position, token) {
           const uri = docUri(model)
           if (!uri) return null
-          const r = await request<{ contents: conv.MarkupContent | conv.MarkedString | conv.MarkedString[]; range?: LspRange }>(
-            'textDocument/hover',
-            { textDocument: { uri }, position: conv.toPosition(position) },
-            token
-          )
+          const inc = includeTarget(model.getLineContent(position.lineNumber))
+          const [r, def] = await Promise.all([
+            request<{ contents: conv.MarkupContent | conv.MarkedString | conv.MarkedString[]; range?: LspRange }>(
+              'textDocument/hover',
+              { textDocument: { uri }, position: conv.toPosition(position) },
+              token
+            ),
+            inc
+              ? request<conv.LspLocation | conv.LspLocation[]>(
+                  'textDocument/definition',
+                  { textDocument: { uri }, position: { line: position.lineNumber - 1, character: inc.start + 1 } },
+                  token
+                ).catch(() => null)
+              : Promise.resolve(null)
+          ])
           if (!r) return null
-          const contents = conv.toMarkdown(r.contents).map((m) => ({ ...m, value: cleanDoc(prettyNames(m.value)) }))
+          let shown = ''
+          if (inc) {
+            const first = conv.toLocations(def)[0]
+            shown = (first ? placeNameOf(first.uri.toString()) : '') || inc.name
+          }
+          const contents = conv.toMarkdown(r.contents).map((m) => ({ ...m, value: includeHoverText(cleanDoc(prettyNames(m.value)), shown) }))
           return { contents, range: r.range ? conv.toRange(r.range) : undefined }
         }
       })

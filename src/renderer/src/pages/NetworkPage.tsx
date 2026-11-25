@@ -256,9 +256,13 @@ function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint:
             </span>
           )}
           <span className="spacer" />
-          <button className="btn" onClick={() => setDialog('edit')}>
-            <IconPencil size="sm" /> Edit
-          </button>
+          {n.id === LOCAL_CHAIN_NETWORK_ID ? (
+            <button className="btn" onClick={() => emit('dialog', 'local-chain')}>Local Chain...</button>
+          ) : (
+            <button className="btn" onClick={() => setDialog('edit')}>
+              <IconPencil size="sm" /> Edit
+            </button>
+          )}
           <button className="btn" onClick={() => setDialog('remove')}>
             <IconClose size="sm" /> Remove
           </button>

@@ -76,6 +76,7 @@ interface SourceRead {
   abi: Uint8Array | null
   actions: string[]
   tables: string[]
+  codePermission: boolean
   at: number
 }
 
@@ -88,12 +89,42 @@ export type CopySignOutcome = { status: 'sent'; transactionId: string } | { stat
 export interface ContractCopyDeps {
   local: LocalAccountsDeps
   /** get_raw_code_and_abi of `account` on the saved network `networkId` (a read; nothing is signed there). */
-  readSource: (networkId: string, account: string) => Promise<{ network: string; wasm: string; abi: string }>
+  readSource: (networkId: string, account: string) => Promise<{ network: string; wasm: string; abi: string; codePermission: boolean }>
   plan: typeof planDeploy
   actions: typeof deployActions
   /** Signs from the vault with the normal confirmation and sends to the network. */
   sign: (networkId: string, actions: ActionRequest[]) => Promise<CopySignOutcome>
   now: () => number
+}
+
+/**
+ * True when a get_account answer has a permission `active` whose authority holds `<name>@eosio.code`
+ * (B132 (b)); false for anything else. Never throws.
+ */
+export function hasCodePermission(account: unknown, name: string): boolean {
+  try {
+    const perms = (account as { permissions?: unknown } | null)?.permissions
+    if (!Array.isArray(perms)) return false
+    return perms.some((p: { perm_name?: unknown; required_auth?: { accounts?: unknown } } | null) => {
+      if (!p || p.perm_name !== 'active') return false
+      const accounts = p.required_auth?.accounts
+      if (!Array.isArray(accounts)) return false
+      return accounts.some(
+        (a: { permission?: { actor?: unknown; permission?: unknown } } | null) => a?.permission?.actor === name && a.permission.permission === 'eosio.code'
+      )
+    })
+  } catch {
+    return false
+  }
+}
+
+/** Whether the source account has eosio.code on its active permission; a failed read gives false, so the copy never fails because of it. */
+export async function sourceCodePermission(account: string, read: () => Promise<unknown>): Promise<boolean> {
+  try {
+    return hasCodePermission(await read(), account)
+  } catch {
+    return false
+  }
 }
 
 export function defaultContractCopyDeps(sign: ContractCopyDeps['sign']): ContractCopyDeps {
@@ -104,7 +135,8 @@ export function defaultContractCopyDeps(sign: ContractCopyDeps['sign']): Contrac
       const raw = await readCall((ep) => chain.getRawCodeAndAbi(ep, account), n).catch((e) => {
         throw plainAccountError(e, account, n.name)
       })
-      return { network: n.name, wasm: raw.wasm ?? '', abi: raw.abi ?? '' }
+      const codePermission = await sourceCodePermission(account, () => readCall((ep) => chain.getAccount(ep, account), n))
+      return { network: n.name, wasm: raw.wasm ?? '', abi: raw.abi ?? '', codePermission }
     },
     plan: planDeploy,
     actions: deployActions,
@@ -135,7 +167,8 @@ function summary(networkId: string, r: SourceRead): ContractCopySource {
     codeSize: r.wasm.length,
     abiSize: r.abi?.length ?? 0,
     actions: r.actions,
-    tables: r.tables
+    tables: r.tables,
+    codePermission: r.codePermission
   }
 }
 
@@ -151,7 +184,7 @@ async function readSource(input: ContractReadInput, deps: ContractCopyDeps): Pro
     throw new Error(`The code of ${account} is ${wasm.length.toLocaleString('en-US')} bytes; at most ${MAX_COPY_CODE / 1024 / 1024} MB is copied.`)
   }
   const abiBytes = fromBase64(raw.abi)
-  const r: SourceRead = { network: raw.network, account, wasm, abi: null, actions: [], tables: [], at: deps.now() }
+  const r: SourceRead = { network: raw.network, account, wasm, abi: null, actions: [], tables: [], codePermission: raw.codePermission === true, at: deps.now() }
   if (abiBytes.length > 0) {
     try {
       const def = abiFromBinary(abiBytes)
@@ -248,8 +281,14 @@ function normalizeKey(k: string): string {
  * The actions that create a copy's target: those of B109 point 4 (1 MiB of RAM, 100 WAX CPU and NET,
  * 10,000 WAX) and one more `buyrambytes` for ten times the code, so the account holds 10 x code + 1 MiB.
  */
-export function copyAccountActions(name: string, publicKey: string, codeSize: number, abis: { system: AbiDef; token: AbiDef }): Action[] {
-  const base = newAccountActions(name, publicKey, abis)
+export function copyAccountActions(
+  name: string,
+  publicKey: string,
+  codeSize: number,
+  abis: { system: AbiDef; token: AbiDef },
+  codePermission = false
+): Action[] {
+  const base = newAccountActions(name, publicKey, abis, codePermission)
   const more = copyRamBytes(codeSize) - BASE_RAM
   if (more <= 0) return base
   const extra: Action = {
@@ -301,10 +340,16 @@ export async function copyContract(input: ContractCopyInput, deps: ContractCopyD
   let created = false
   if (!there) {
     const r = await ready(deps.local)
-    const actions = copyAccountActions(target, publicKey, src.wasm.length, {
-      system: await readAbi(deps.local, 'eosio.system'),
-      token: await readAbi(deps.local, 'eosio.token')
-    })
+    const actions = copyAccountActions(
+      target,
+      publicKey,
+      src.wasm.length,
+      {
+        system: await readAbi(deps.local, 'eosio.system'),
+        token: await readAbi(deps.local, 'eosio.token')
+      },
+      src.codePermission
+    )
     await sendAsEosio(r, deps.local, actions)
     created = true
     deps.local.star(target)
@@ -330,6 +375,15 @@ export async function copyContract(input: ContractCopyInput, deps: ContractCopyD
     transactionId = out.transactionId
   }
   const localHash = await codeHashAt(endpoint, target, deps.local)
+  // An account that was there before is never changed; the dialog says what to tick when it lacks eosio.code.
+  let codePermission: ContractCopyResult['codePermission'] = 'none'
+  if (src.codePermission) {
+    if (created) codePermission = 'given'
+    else {
+      const acct = await deps.local.request<unknown>(endpoint, '/v1/chain/get_account', { account_name: target }).catch(() => null)
+      if (!hasCodePermission(acct, target)) codePermission = 'needed'
+    }
+  }
   return {
     networkId: input.networkId,
     account,
@@ -339,7 +393,8 @@ export async function copyContract(input: ContractCopyInput, deps: ContractCopyD
     sourceHash,
     localHash,
     same: localHash === sourceHash,
-    transactionId
+    transactionId,
+    codePermission
   }
 }
 

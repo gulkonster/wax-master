@@ -108,7 +108,7 @@ A WAX game calls contracts such as `atomicassets`. The local chain does not have
 3. Keep the same name here or type another, and pick a key. If the account does not exist, it is made as in New account.
 4. Press **Read**: the dialog shows the SHA-256 of the code on the source and on the local chain. Press **Copy** and approve the confirmation. Afterwards the dialog shows both again; they must be the same.
 
-A copied contract that sends actions itself (inline actions, as `atomicassets` does) needs `eosio.code` on its `active` permission, as on its own network: on its Account page open **Keys and permissions** and tick **Allow this account's contract to send actions (eosio.code)**. `atomicassets` also needs `init`, and its collection format (`admincoledit`, signed by `atomicassets`) before a collection's `data` can hold a `name`; with `data` = `[]` a collection works without it.
+A contract that sends actions itself (inline actions, as `atomicassets` does) needs `eosio.code` on its `active` permission. When the source account has it and Copy makes the account here, the new account gets it too. An account that was already here is not changed: on its Account page open **Keys and permissions** and tick **Allow this account's contract to send actions (eosio.code)**; the dialog says so after the copy. `atomicassets` also needs `init`, and its collection format (`admincoledit`, signed by `atomicassets`) before a collection's `data` can hold a `name`; with `data` = `[]` a collection works without it.
 
 See [AtomicAssets in short](doc:nft-atomicassets).
 

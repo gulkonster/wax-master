@@ -8,6 +8,8 @@ vi.mock('../../src/main/keys-service', () => ({ vault: vi.fn() }))
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
+  EOSIO_ABI,
+  decodeAction,
   generatePrivateKey,
   hexToBytes,
   parseSignature,
@@ -136,6 +138,23 @@ describe('new account', () => {
     expect(c.stars).toEqual(['newuser12345'])
     // No key text leaves in the result.
     expect(JSON.stringify(r)).not.toContain('PVT_')
+  })
+
+  it('makes owner and active the chosen key alone, without eosio.code (B132 (b))', async () => {
+    const c = fakeChain()
+    await createLocalAccount({ name: 'newuser12345', publicKey: c.user.pub }, c.deps)
+    const t = sentTransaction(c.sent)!
+    const na = decodeAction(EOSIO_ABI, 'newaccount', hexToBytes(t.trx.actions[0].data as string)) as {
+      owner: { threshold: number; keys: { key: string; weight: number }[]; accounts: unknown[] }
+      active: { threshold: number; keys: { key: string; weight: number }[]; accounts: unknown[] }
+    }
+    for (const auth of [na.owner, na.active]) {
+      expect(auth.threshold).toBe(1)
+      expect(auth.keys).toHaveLength(1)
+      expect(auth.keys[0].weight).toBe(1)
+      expect(auth.accounts).toEqual([])
+    }
+    expect(na.active).toEqual(na.owner)
   })
 
   it('refuses a key outside the vault, a taken name and a stopped chain before anything is sent', async () => {
