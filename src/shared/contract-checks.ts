@@ -355,12 +355,12 @@ function notifyFault(value: string): string | null {
   const head = `Notification '${value}' is not valid: `
   const parts = value.split('::')
   if (parts.length !== 2) {
-    return `${head}it must be two parts joined by '::', like "eosio.token::transfer". A part may be '*' for any.`
+    return `${head}write it as "contract::action", for example "eosio.token::transfer". Either part may be '*' for any contract or any action.`
   }
   for (const part of parts) {
     if (part === '*') continue
     const fault = nameFault(part)
-    if (fault !== null) return `${head}'${part}' is not a valid name: ${fault}. ${NAME_RULE} A part may be '*' for any.`
+    if (fault !== null) return `${head}in '${part}', ${fault}. ${NAME_RULE} Either part may be '*' for any contract or any action.`
   }
   return null
 }

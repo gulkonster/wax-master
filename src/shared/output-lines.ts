@@ -2,6 +2,8 @@
 // each line with it, the Problems list is filled from it and the status-bar
 // counts come from the Problems list, so the three cannot disagree.
 
+import { NAME_RULE } from './contract-checks'
+
 /** Colour of a line: error (red), warning (yellow), note (grey), plain (normal text). */
 export type LineSeverity = 'error' | 'warning' | 'note' | 'plain'
 
@@ -81,7 +83,7 @@ export function isRicardianWarning(message: string): boolean {
 }
 
 /** The name rule as the Problems row of a refused name carries it (the sentence of the editor's name messages). */
-export const NAME_HINT = "Names use a-z, 1-5 and '.', at most 12 characters (a 13th may be 1-5 or a-j), and do not end with a dot."
+export const NAME_HINT = NAME_RULE
 
 /** True for the ABI generator's refusals of a name: not normalized, or more than 13 characters. */
 export function isNameRuleError(message: string): boolean {

@@ -138,7 +138,7 @@ describe('tables and notifications', () => {
     const c = contractChecks('[[eosio::on_notify("EosioToken::transfer")]] void f();')
     expect(c).toHaveLength(1)
     expect(c[0].code).toBe('notify-name')
-    expect(c[0].message).toContain("'EosioToken' is not a valid name: 'E' is not allowed.")
+    expect(c[0].message).toContain("Notification 'EosioToken::transfer' is not valid: in 'EosioToken', 'E' is not allowed.")
     expect(contractChecks('[[eosio::on_notify("transfer")]] void f();')[0].code).toBe('notify-name')
     expect(contractChecks('[[eosio::on_notify("a::b::c")]] void f();')[0].code).toBe('notify-name')
   })
