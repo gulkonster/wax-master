@@ -9,7 +9,9 @@ vi.mock('electron', () => ({
 }))
 
 import {
+  DAMAGED_TEXT,
   DIRTY_TEXT,
+  endedText,
   ENDED_TEXT,
   UNAVAILABLE_TEXT,
   exitOutcome,
@@ -113,7 +115,19 @@ describe('repair and start with the app (B108 points 3, 4, 9)', () => {
     expect(exitOutcome(1, 'listen failed: Address already in use', true, 8888)).toMatchObject({ repair: { kind: 'reset' } })
   })
   it('does not replay for an end that is not a dirty database', () => {
-    expect(exitOutcome(254, blockLog, false, 8888)).toMatchObject({ kind: 'failed', repair: { kind: 'none' } })
+    expect(exitOutcome(254, blockLog, false, 8888)).not.toEqual({ kind: 'replay' })
+  })
+  it('names a damaged block log or database and offers Reset', () => {
+    expect(exitOutcome(254, blockLog, false, 8888)).toEqual({ kind: 'failed', reason: DAMAGED_TEXT, repair: { kind: 'reset' } })
+    expect(exitOutcome(1, 'x fork_database_exception y', false, 8888)).toMatchObject({ reason: DAMAGED_TEXT })
+    expect(exitOutcome(1, 'bad database version', false, 8888)).toMatchObject({ reason: DAMAGED_TEXT })
+  })
+  it('keeps the generic text in genesis mode and for other ends', () => {
+    expect(exitOutcome(254, blockLog, false, 8888, true)).toEqual({ kind: 'failed', reason: endedText(254), repair: { kind: 'none' } })
+    expect(endedText(3)).toBe('The node ended at start (exit 3). Open the log to see why. If Start fails again, Reset makes a new empty chain.')
+    expect(DAMAGED_TEXT).toBe(
+      "The chain's data is damaged and the node cannot start with it. Reset makes a new empty chain; the accounts and contracts on it are lost. The log has the node's own words."
+    )
   })
   it('says what happened when the node ends while it runs', () => {
     expect(ENDED_TEXT).toBe('The node ended unexpectedly. Start checks its data and repairs it if needed.')

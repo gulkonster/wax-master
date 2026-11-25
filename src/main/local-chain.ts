@@ -35,6 +35,11 @@ import { log } from './log'
 export const UNAVAILABLE_TEXT = 'The local chain needs WSL 2 (virtualization on). The compiler works without it; the local chain does not.'
 export const DIRTY_TEXT =
   "The chain's data was not closed cleanly and could not be repaired. Reset makes a new empty chain; the accounts and contracts on it are lost."
+export const DAMAGED_TEXT =
+  "The chain's data is damaged and the node cannot start with it. Reset makes a new empty chain; the accounts and contracts on it are lost. The log has the node's own words."
+export function endedText(code: number): string {
+  return `The node ended at start (exit ${code}). Open the log to see why. If Start fails again, Reset makes a new empty chain.`
+}
 export function portTakenText(port: number): string {
   return `Port ${port} is used by another program.`
 }
@@ -84,13 +89,15 @@ export function logTail(text: string, keep = LOG_KEEP_BYTES): string {
   return nl >= 0 ? cut.slice(nl + 1) : cut
 }
 
+const DAMAGED_PATTERN = /block_log_exception|fork_database_exception|database_exception|bad database version/i
+
 export type ExitOutcome = { kind: 'replay' } | { kind: 'failed'; reason: string; repair: LocalChainRepair; portTaken?: boolean }
 
 /**
  * What to do when the node ended without being asked to (B108 point 4): a dirty database gets one start
  * with `--replay-blockchain`; if that ends too, the chain can only be reset.
  */
-export function exitOutcome(code: number, tail: string, replayTried: boolean, port: number): ExitOutcome {
+export function exitOutcome(code: number, tail: string, replayTried: boolean, port: number, genesis = false): ExitOutcome {
   if (tail.includes(LOCAL_CHAIN_DIRTY_FLAG_TEXT)) {
     return replayTried ? { kind: 'failed', reason: DIRTY_TEXT, repair: { kind: 'reset' } } : { kind: 'replay' }
   }
@@ -98,7 +105,8 @@ export function exitOutcome(code: number, tail: string, replayTried: boolean, po
   if (/address already in use|address in use/i.test(tail)) {
     return { kind: 'failed', reason: portTakenText(port), repair: { kind: 'none' }, portTaken: true }
   }
-  return { kind: 'failed', reason: `The node ended (exit ${code}). Open the log to see why.`, repair: { kind: 'none' } }
+  if (!genesis && DAMAGED_PATTERN.test(tail)) return { kind: 'failed', reason: DAMAGED_TEXT, repair: { kind: 'reset' } }
+  return { kind: 'failed', reason: endedText(code), repair: { kind: 'none' } }
 }
 
 /** The first port from `from` up to the range's end for which `free` says yes; null when none is. */
@@ -516,7 +524,7 @@ async function startAnswering(port: number, mode: { genesis?: boolean; producerA
       setPhase('failed', silentText(port), { kind: 'none' })
       throw new HandledFailure()
     }
-    const out = exitOutcome(res.code, res.tail, replay, port)
+    const out = exitOutcome(res.code, res.tail, replay, port, !!mode.genesis)
     if (out.kind === 'replay' && !mode.genesis) {
       progress("The chain's data was not closed cleanly. Replaying its blocks...")
       replay = true
