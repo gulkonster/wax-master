@@ -28,7 +28,7 @@ The two built-in networks start with these addresses; you can change them (see [
 - Settings, networks and stars: `%APPDATA%\WAX Master`.
 - The vault with your keys: `%APPDATA%\WAX Master\vault.json`, encrypted.
 - The toolchain: `%LOCALAPPDATA%\WAX Master`.
-- The answers the node gave to the transactions you sent (`%APPDATA%WAX Mastersent`, one small file for each, at most 200 per network): they hold what the node says to anyone who sends that transaction, no key. They are what Open Transaction by Id reads first. A Reset or Remove of the local chain deletes those of the local chain; Clear All App Data removes all.
+- The answers the node gave to the transactions you sent (`%APPDATA%WAX Mastersent`, one small file for each, at most 200 per network): they hold what the node says to anyone who sends that transaction, no key. They are what Open Transaction by Id reads first. A Reset or Remove of the local chain deletes those of the local chain, removing a network in Manage Networks deletes those of that network, and Clear All App Data removes all.
 - The local chain, if you set it up: its private Linux and the chain's data, in `%LOCALAPPDATA%\WAX Master\local-chain`. Clear All App Data removes it too. See [The local chain](doc:local-chain).
 
 Building and editing work without any network. The toolchain installs offline from the installer.

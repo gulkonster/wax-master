@@ -107,7 +107,7 @@ reward                      game       console: reward 1: 100 points to <player>
     logreward (notified)    listener   RAM +252 bytes (the first row of heard)
 ```
 
-The two notified entries carry the same data as `logreward`: a notification is the same action, delivered to one more account. See [Simulate and the transaction inspector](doc:simulate-inspector).
+The console line of `reward` is shown when the endpoint returns console output: the local chain does; the WAX Testnet endpoint returned none in the run ("Console output was not returned by this endpoint"). The two notified entries carry the same data as `logreward`: a notification is the same action, delivered to one more account. See [Simulate and the transaction inspector](doc:simulate-inspector).
 
 ## The player's history
 
@@ -157,6 +157,8 @@ async function playerFeed(history, contract, player) {
   return answer.actions.map((a) => ({ time: a['@timestamp'], transaction: a.trx_id, ...a.act.data }))
 }
 ```
+
+The first sample gives the numbers as numbers (`"points": 100`); a history service gives them as text (`"points": "100"`), so convert them before you add them up.
 
 A contract can also hand a result back as an action return value, which the answer of the send carries. A log action is still the usual way, because it is kept in every account's history it names and it can notify other contracts; a return value notifies nobody.
 

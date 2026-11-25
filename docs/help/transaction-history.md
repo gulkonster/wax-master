@@ -10,7 +10,7 @@ An account's transactions:
 2. The **Transactions** section lists the latest actions: time, contract and action, data. The newest come first, 20 to a page.
 3. **Older** and **Newer** move between pages. When the history service reports the number of matching actions, the page line shows "Page 2 of 7". The refresh button reads the page again.
 4. To filter, fill in **Action** (an action name such as `transfer`; actions of that name on any contract are listed), **From day** and **To day** (days in your computer's time zone; either one can stay empty), and press **Filter** or Enter. **Clear** removes the filter.
-5. Click a row to open the transaction in the transaction view: the same four parts as for a transaction you just sent, with the actions caused by others as a tree (see [The transaction view](doc:simulate-inspector)).
+5. Click a row to open the transaction in the transaction view: the same four parts as for a transaction you just sent, with the actions caused by others as a tree (see [The transaction view](doc:simulate-inspector)). A transaction you sent from WAX Master opens from its kept answer first (see below).
 
 A transaction by its id:
 
@@ -21,7 +21,7 @@ A transaction by its id:
 
 Where an opened transaction comes from, in this order:
 
-1. The **kept answer**: WAX Master keeps the answer the node gave for each transaction it sent and the node accepted, at most 200 per network. It has the console output and every link between the actions. The line under the head says "From the answer the node gave when WAX Master sent it" with the time.
+1. The **kept answer**: WAX Master keeps the answer the node gave for each transaction it sent and the node accepted, at most 200 per network. It has every link between the actions, and the console output when the node returned it (the WAX Testnet endpoint returns none, so a kept answer of WAX Testnet has none either). The line under the head says "From the answer the node gave when WAX Master sent it" with the time.
 2. The **history service** of the network, when there is no kept answer. The line says "Read from the history service" with its address. It keeps no console output, and some links are placed by the order of execution (marked `placed by order`).
 
 When both exist the view has a button to change: **Read from the history service** on a kept answer, **Show the node's answer** on a history answer. While it reads, the button is off.
@@ -39,7 +39,7 @@ After the deploy in [Your first contract from zero](doc:first-contract), the Acc
 
 ## What is needed
 
-- A history service for the network. Without one, the Account page says "This network has no history service configured", and Open Transaction by Id opens only the transactions WAX Master sent. Add one in Network > Manage Networks > Edit > History service. See [Endpoints](doc:endpoints).
+- A history service for the network. Without one, the Transactions section of the Account page says so (below), and Open Transaction by Id opens only the transactions WAX Master sent. Add one in Network > Manage Networks > Edit > History service. See [Endpoints](doc:endpoints).
 - The local chain has no history service: its Account page says so. A transaction you sent on the local chain is opened again from its kept answer, from Network > Open Transaction by Id; transactions that were not sent from WAX Master cannot be opened there. A Reset or Remove of the local chain deletes its kept answers. See [The local chain](doc:local-chain).
 - A network without a history service: the Transactions section of its Account page says "This network has no history service. Transactions you sent from WAX Master are in Network > Open Transaction by Id."
 - A moment after sending: a history service can show a new transaction a few seconds later.
