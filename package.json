@@ -1,7 +1,7 @@
 {
   "name": "wax-master",
   "productName": "WAX Master",
-  "version": "1.0.0-rc31",
+  "version": "1.0.0-rc32",
   "description": "Desktop studio for writing, building and deploying Antelope smart contracts, made for WAX.",
   "author": "gulkonster",
   "license": "MIT",
