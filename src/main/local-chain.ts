@@ -52,6 +52,8 @@ const MIN_FREE_BYTES = 2 * 1024 * 1024 * 1024
 const ANSWER_WAIT_MS = 20_000
 const REPLAY_WAIT_MS = 30 * 60_000
 const STOP_WAIT_MS = 15_000
+const IRREVERSIBLE_WAIT_MS = 10_000
+const IRREVERSIBLE_POLL_MS = 200
 const LOG_KEEP_BYTES = 2 * 1024 * 1024
 const LOG_TRIM_AT = LOG_KEEP_BYTES + 512 * 1024
 const TAIL_KEEP = 16 * 1024
@@ -106,6 +108,37 @@ export async function firstFreePort(free: (port: number) => Promise<boolean>, fr
     if (await free(p)) return p
   }
   return null
+}
+
+export interface BlockNums {
+  head: number
+  irreversible: number
+}
+
+export type IrreversibleOutcome = 'irreversible' | 'no-answer' | 'timeout'
+
+/**
+ * Waits until the last irreversible block passes the head block read at the call, so the block with the
+ * last transactions is written before the node is stopped (a SIGINT drops the block being built). Ends
+ * after `limitMs` at the latest; a node that does not answer at the first read is not waited for.
+ */
+export async function waitIrreversible(
+  read: () => Promise<BlockNums | null>,
+  limitMs = IRREVERSIBLE_WAIT_MS,
+  pollMs = IRREVERSIBLE_POLL_MS,
+  now: () => number = Date.now
+): Promise<IrreversibleOutcome> {
+  const end = now() + limitMs
+  const first = await read()
+  if (!first) return 'no-answer'
+  const target = first.head
+  if (first.irreversible > target) return 'irreversible'
+  while (now() < end) {
+    await new Promise((r) => setTimeout(r, Math.max(0, Math.min(pollMs, end - now()))))
+    const nums = await read()
+    if (nums && nums.irreversible > target) return 'irreversible'
+  }
+  return 'timeout'
 }
 
 /** The `--exec` arguments that run one command of the setup script as root. */
@@ -192,6 +225,7 @@ export async function portFree(port: number): Promise<boolean> {
 interface ChainInfo {
   chain_id: string
   head_block_num: number
+  last_irreversible_block_num?: number
   server_version_string?: string
 }
 
@@ -400,12 +434,27 @@ async function waitForAnswer(proc: NodeProc, port: number, ms: number): Promise<
   return { kind: 'silent' }
 }
 
-/** Stops the node as B108 point 3 says: SIGINT, up to 15 s, then `wsl --terminate`. */
+/** Waits (at most 10 s) until the node's last transactions are in an irreversible block; logs one line when it gives up. */
+async function settleBlocks(port: number): Promise<void> {
+  const outcome = await waitIrreversible(async () => {
+    const info = await getInfo(port, 1000)
+    if (!info || typeof info.last_irreversible_block_num !== 'number') return null
+    return { head: info.head_block_num, irreversible: info.last_irreversible_block_num }
+  })
+  if (outcome === 'timeout') log.warn('Local chain: the last block did not become irreversible within 10 s; stopping the node anyway')
+}
+
+/**
+ * Stops the node as B108 point 3 says, after its last block became irreversible (up to 10 s; a SIGINT
+ * drops the block being built): SIGINT, up to 15 s, then `wsl --terminate`.
+ */
 async function stopProcess(): Promise<void> {
   const proc = node
   if (proc && !proc.exited) {
     proc.stopping = true
     progress('Stopping the node...')
+    const statePort = readState()?.port
+    if (statePort) await settleBlocks(statePort)
     await script('stop-node', [], { timeoutMs: 30_000 }).catch(() => null)
     const ended = await Promise.race([proc.done.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), STOP_WAIT_MS))])
     if (!ended) {
@@ -432,6 +481,8 @@ async function stopLeftover(): Promise<void> {
   const m = r ? /RUNNING (\d+)/.exec(clean(r.output)) : null
   if (!m || m[1] === '0') return
   progress('A node left from an earlier session is still running; stopping it first...')
+  const port = readState()?.port
+  if (port) await settleBlocks(port)
   await script('stop-node', [], { timeoutMs: 30_000 }).catch(() => null)
   for (let i = 0; i < 30; i++) {
     await new Promise((res) => setTimeout(res, 500))
@@ -512,6 +563,8 @@ async function freshChain(state: LocalChainState, key: string): Promise<LocalCha
     setPhase('failed', `The chain could not be filled with the system contracts: ${hideKeys(msg)}`, { kind: 'reset' })
     throw new HandledFailure()
   }
+  // The bootstrap's last block must be irreversible before the stop, or the next start lacks it.
+  await settleBlocks(state.port)
   saveState((state = { ...state, bootstrapped: true }))
   await stopProcess()
   progress('The chain is ready.')

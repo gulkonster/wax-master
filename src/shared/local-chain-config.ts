@@ -108,6 +108,9 @@ export function configIni(input: ConfigIniInput): string {
     `signature-provider = ${publicKey}=KEY:${privateKey}`,
     `http-server-address = 127.0.0.1:${port}`,
     `http-alias = ${LOCAL_CHAIN_HTTP_ALIAS_HOST}:${port}`,
+    // The node loads its net plugin whatever the config says and would listen for peers on 0.0.0.0:9876;
+    // an empty endpoint keeps it from listening at all (B108 point 2).
+    'p2p-listen-endpoint =',
     'contracts-console = true',
     'enable-account-queries = true'
   ]

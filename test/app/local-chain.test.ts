@@ -20,7 +20,8 @@ import {
   nodeArgs,
   portTakenText,
   scriptArgs,
-  silentText
+  silentText,
+  waitIrreversible
 } from '../../src/main/local-chain'
 import { generatePrivateKey, privateKeyToString } from '../../src/chain-core'
 import { LOCAL_CHAIN_DISTRO } from '../../src/shared/local-chain'
@@ -152,5 +153,54 @@ describe('log and key hiding', () => {
     expect(tail.startsWith('line ')).toBe(true)
     expect(tail.endsWith('line 999\n')).toBe(true)
     expect(logTail('short', 100)).toBe('short')
+  })
+})
+
+describe('stop keeps the last transactions (stage 37 fix)', () => {
+  it('waits until the irreversible block passes the head read at the call', async () => {
+    const answers = [
+      { head: 10, irreversible: 9 },
+      { head: 11, irreversible: 10 },
+      { head: 12, irreversible: 11 }
+    ]
+    const seen: number[] = []
+    const out = await waitIrreversible(async () => {
+      const a = answers.shift() ?? null
+      if (a) seen.push(a.irreversible)
+      return a
+    }, 5000, 1)
+    expect(out).toBe('irreversible')
+    // Block 10 irreversible is not enough: the head was 10 and the pending block 11 holds the last transactions.
+    expect(seen).toEqual([9, 10, 11])
+  })
+  it('does not wait for a node that does not answer, and keeps trying through a missed answer', async () => {
+    expect(await waitIrreversible(async () => null, 5000, 1)).toBe('no-answer')
+    const answers = [{ head: 5, irreversible: 4 }, null, { head: 7, irreversible: 6 }]
+    expect(await waitIrreversible(async () => answers.shift() ?? null, 5000, 1)).toBe('irreversible')
+  })
+  it('gives up at the time limit', async () => {
+    let t = 0
+    const out = await waitIrreversible(
+      async () => {
+        t += 1000
+        return { head: 20, irreversible: 3 }
+      },
+      10_000,
+      1,
+      () => t
+    )
+    expect(out).toBe('timeout')
+    expect(t).toBeLessThanOrEqual(12_000)
+  })
+  it('settles the blocks before every SIGINT and before Set up marks the chain bootstrapped', () => {
+    const src = readFileSync(join(__dirname, '../../src/main/local-chain.ts'), 'utf8')
+    const stopFn = src.slice(src.indexOf('async function stopProcess'), src.indexOf('async function stopLeftover'))
+    expect(stopFn.indexOf('settleBlocks(')).toBeGreaterThan(0)
+    expect(stopFn.indexOf("script('stop-node'")).toBeGreaterThan(stopFn.indexOf('settleBlocks('))
+    const leftover = src.slice(src.indexOf('async function stopLeftover'), src.indexOf('async function portFailure'))
+    expect(leftover.indexOf("script('stop-node'")).toBeGreaterThan(leftover.indexOf('settleBlocks('))
+    const fresh = src.slice(src.indexOf('async function freshChain'), src.indexOf('async function startChain'))
+    expect(fresh.indexOf('bootstrapped: true')).toBeGreaterThan(fresh.indexOf('settleBlocks('))
+    expect(src).toContain('const IRREVERSIBLE_WAIT_MS = 10_000')
   })
 })

@@ -64,11 +64,15 @@ describe('genesis and config.ini', () => {
       `signature-provider = ${pub}=KEY:${priv}`,
       'http-server-address = 127.0.0.1:8890',
       'http-alias = localhost:8890',
+      'p2p-listen-endpoint =',
       'contracts-console = true',
       'enable-account-queries = true'
     ])
     expect(text).not.toContain('producer_api')
     expect(text).not.toContain('net_plugin')
+    // The node loads its net plugin anyway; an empty listen endpoint keeps it from listening (B108 point 2).
+    expect(lines.filter((l) => l.startsWith('p2p-'))).toEqual(['p2p-listen-endpoint ='])
+    expect(text).not.toContain('0.0.0.0')
     expect(configIni({ port: 8890, publicKey: pub, privateKey: priv, webPages: true })).toContain('access-control-allow-origin = *')
     expect(() => configIni({ port: 0, publicKey: pub, privateKey: priv, webPages: false })).toThrow()
     expect(() => configIni({ port: 8888, publicKey: priv, privateKey: pub, webPages: false })).toThrow()
