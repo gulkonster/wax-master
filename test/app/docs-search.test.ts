@@ -160,7 +160,10 @@ const NEW_PAGES: [string, string][] = [
   ['mutable data', 'nft-atomicassets'],
   ['backed tokens', 'nft-atomicassets'],
   ['price oracle', 'wax-services'],
-  ['random number does not answer on testnet', 'example-random-number']
+  ['random number does not answer on testnet', 'example-random-number'],
+  ['autocomplete', 'editor'],
+  ['red line', 'editor'],
+  ['format', 'editor']
 ]
 
 function topThree(question: string, words: SearchWords = searchWords): string[] {

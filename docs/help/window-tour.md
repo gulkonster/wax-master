@@ -34,11 +34,11 @@ The vault item of the Accounts menu changes with the vault: **Create Vault...**,
 
 ## Bottom panel
 
-Three tabs: **Terminal** (PowerShell, Command Prompt or the toolchain's Linux shell), **Output** (build and transaction lines) and **Problems** (errors and warnings of the last build). Ctrl+` opens it on the Terminal tab or closes it; the panel button in the status bar opens or closes it too.
+Three tabs: **Terminal** (PowerShell, Command Prompt or the toolchain's Linux shell), **Output** (build and transaction lines) and **Problems** (the editor's live errors and the last build's, in one list; see [The editor](doc:editor)). Ctrl+` opens it on the Terminal tab or closes it; the panel button in the status bar opens or closes it too.
 
 ## Status bar
 
-From left to right: the vault state (click to unlock or to open Manage Keypairs), **Lock** while the vault is open, the network and endpoint with its status dot (click to manage networks), the toolchain of the project (click to choose another), the editor engine state (`C++: ready`), the cursor place, the error and warning counts (click for Problems) and the panel button.
+From left to right: the vault state (click to unlock or to open Manage Keypairs), **Lock** while the vault is open, the network and endpoint with its status dot (click to manage networks), the toolchain of the project (click to choose another), the editor engine state (`C++: ready`; see [The editor](doc:editor)), the cursor place, the error and warning counts (click for Problems) and the panel button.
 
 ## Example
 

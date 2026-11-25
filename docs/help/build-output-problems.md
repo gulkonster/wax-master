@@ -37,6 +37,6 @@ Click `src/hello.cpp:5:31` to jump to the line, fix it, press Ctrl+B again.
 ## What is needed
 
 - The toolchain (Help > Setup). Without it the build cannot start.
-- The editor shows live errors while you type (status bar `C++: ready`). The build output is the final word on errors.
+- The editor shows live errors while you type (status bar `C++: ready`). The build output is the final word on errors. What the editor cannot see before the build is listed in [The editor](doc:editor).
 
 See also [Common compiler errors](doc:compiler-errors).

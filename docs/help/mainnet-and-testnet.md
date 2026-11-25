@@ -6,7 +6,7 @@ A network is one chain, reached through one or more API endpoints and known by i
 |---|---|---|
 | mainnet | Tokens have real value | Red confirmation; deploys and permission changes need the account name typed |
 | testnet | A test chain, tokens have no value | Normal confirmation |
-| local | A chain on this computer | Normal confirmation |
+| local | A chain on this computer, such as Local chain | Normal confirmation |
 
 WAX Mainnet and WAX Testnet are in the list by default.
 
@@ -33,6 +33,6 @@ You add a private test chain at `https://test.example.org`. The app reads its ch
 
 ## What is needed
 
-- A node of your own on this computer: see [Your own local node](doc:local-node).
+- A chain on this computer: the one WAX Master runs for you ([The local chain](doc:local-chain)), or a node of your own ([Your own local node](doc:local-node)).
 - WAX Testnet for learning and testing. See [Create a testnet account](doc:create-testnet-account).
 - Care on mainnet: read [The mainnet confirmation](doc:mainnet-confirmation).

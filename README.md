@@ -12,6 +12,7 @@ Windows 10 22H2 or Windows 11, x64.
 - **Build**: WAX CDT runs in a private Linux environment (WSL) that the app sets up by itself from files inside the installer. One button or Ctrl+B. Errors appear in the editor and in Problems.
 - **Terminal**: a real integrated terminal (PowerShell, Command Prompt, and a Linux shell with the toolchain), so Git and your other tools work as usual.
 - **Networks**: WAX Mainnet and WAX Testnet built in (they can be removed and restored); add any Antelope chain by its API address. A status mark shows whether the endpoint answers and keeps up with the chain; the Network page shows the chain state and the latest blocks.
+- **Local chain**: Network > Local Chain sets up a private WAX chain on your own computer from files inside the installer (which is therefore about 415 MB): no Docker, no download, no faucet limit. New accounts with 10,000 WAX, the WAX system contract, reset at will. It needs WSL 2.
 - **Accounts and contracts**: balances, resources, permissions and history of any account; call any action of any contract with typed forms; browse contract tables.
 - **Keys**: generate or import keys into an encrypted vault (password, scrypt and AES-256-GCM). It locks when Windows sleeps or locks and after inactivity. A recovery code, shown once, sets a new password if you forget it. Keys that exist only in the vault are marked until you back them up (a backup file, an exported vault, or the key written down).
 - **Themes**: follows the Windows light or dark mode, or always Dark or Light (File > Settings > Appearance).

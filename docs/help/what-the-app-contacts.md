@@ -12,6 +12,7 @@ WAX Master sends nothing anywhere on its own except to the addresses below. It h
 | An address you type in Add Network | When you press Connect | - |
 | GitHub (`api.github.com`) | The update check, once a day | File > Settings > Updates |
 | The WAX Testnet faucet (`faucet.waxsweden.org`) | Only when you press Create account in Create Testnet Account, or Request tokens, Request test tokens or Request testnet tokens | Do not press them |
+| `127.0.0.1` on this computer | The local chain (Network > Local Chain...) runs only on this computer and listens on `127.0.0.1`; it connects to no one and no other computer can reach it. Copy contract reads from the saved network you choose | Do not set it up |
 | A web page you open | Only after the app shows you the address and you press **Open** | - |
 | Microsoft (Windows itself) | When you press Enable WSL in Setup and WSL is not installed: Windows downloads WSL | Do not press it; install WSL yourself |
 
@@ -26,6 +27,7 @@ The two built-in networks start with these addresses; you can change them (see [
 - Settings, networks and stars: `%APPDATA%\WAX Master`.
 - The vault with your keys: `%APPDATA%\WAX Master\vault.json`, encrypted.
 - The toolchain: `%LOCALAPPDATA%\WAX Master`.
+- The local chain, if you set it up: its private Linux and the chain's data, in `%LOCALAPPDATA%\WAX Master\local-chain`. Clear All App Data removes it too. See [The local chain](doc:local-chain).
 
 Building and editing work without any network. The toolchain installs offline from the installer.
 

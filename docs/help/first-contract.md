@@ -81,6 +81,8 @@ See [Deploy](doc:deploy) for what the dialog compares and why code needs RAM.
 
 See [Run actions](doc:run-actions).
 
+Want the same without the faucet and without waiting? The same steps work on the chain WAX Master runs on this computer: see [The local chain](doc:local-chain).
+
 ## If something goes wrong
 
 - **Create account is disabled**: the current network is not WAX Testnet. Use the **Switch to WAX Testnet** button in the dialog.

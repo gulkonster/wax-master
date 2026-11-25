@@ -31,3 +31,5 @@ You started a node on port 8888 and created the account `alice` with your node's
 - A node that listens on `127.0.0.1`. The app accepts `http://` only for an address on this computer. See [Mainnet and testnet](doc:mainnet-and-testnet).
 - The private keys of your node's accounts, imported by you. This page never shows a key and you never paste one into a file.
 - See also [Add and remove networks](doc:add-remove-networks).
+
+Want a chain without running anything yourself? WAX Master has its own: see [The local chain](doc:local-chain).

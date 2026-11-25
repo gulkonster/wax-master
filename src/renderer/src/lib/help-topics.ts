@@ -11,6 +11,7 @@ export const HELP_TOPICS = {
   addNetwork: 'add-remove-networks',
   manageNetworks: 'add-remove-networks',
   networkPage: 'network-page',
+  localChain: 'local-chain',
   projectSettings: 'project-files',
   settings: 'window-tour',
   setup: 'first-start',
@@ -70,7 +71,9 @@ export const HELP_TOPICS = {
   /** "Read more" next to a Ricardian warning in Problems. */
   ricardianWarning: 'ricardian',
   /** "Read more" under the name rule hint of a build error in Problems. */
-  nameRule: 'compiler-errors'
+  nameRule: 'compiler-errors',
+  /** "Read more" at the editor engine item of the status bar. */
+  editor: 'editor'
 } as const
 
 export type HelpPlace = keyof typeof HELP_TOPICS

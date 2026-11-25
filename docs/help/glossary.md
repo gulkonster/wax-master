@@ -32,6 +32,7 @@ The words of WAX and of this program, in alphabetical order, each with the page 
 | History service | A service that indexes old transactions and token balances | [Transaction history](doc:transaction-history) |
 | Inline action | An action a contract sends while it runs, in the same transaction | [Inline actions](doc:contract-inline-actions) |
 | `linkauth` | Lets a custom permission sign one action of a contract | [Linked actions (linkauth)](doc:linked-actions) |
+| Local chain | A private WAX chain that WAX Master runs on this computer: your own accounts, tokens and contracts, no faucet, reset at will | [The local chain](doc:local-chain) |
 | Log action | An action of `atomicassets` that only tells the collection's notify accounts what happened, such as `logmint` and `logtransfer` | [AtomicAssets notifications](doc:nft-notifications) |
 | Look-alike token | A token with the same symbol as a real one, issued by another contract | [Accepting tokens safely](doc:contract-accept-tokens) |
 | Mainnet | The real chain, where tokens have value | [Mainnet and testnet](doc:mainnet-and-testnet) |

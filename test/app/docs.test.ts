@@ -463,6 +463,7 @@ const FEATURE_TOPICS: [string, keyof typeof HELP_TOPICS][] = [
   ['Add Network dialog', 'addNetwork'],
   ['Manage Networks dialog', 'manageNetworks'],
   ['Network page', 'networkPage'],
+  ['Local Chain dialog', 'localChain'],
   ['Project Settings page', 'projectSettings'],
   ['Settings page', 'settings'],
   ['Setup page', 'setup'],
@@ -512,7 +513,8 @@ const FEATURE_TOPICS: [string, keyof typeof HELP_TOPICS][] = [
   ['Refused transaction (inspector, Contract page result, wallet forms)', 'txRefusal'],
   ['ABI check', 'abiCheck'],
   ['Ricardian warning in Problems', 'ricardianWarning'],
-  ['Name rule hint of a build error in Problems', 'nameRule']
+  ['Name rule hint of a build error in Problems', 'nameRule'],
+  ['Editor engine item of the status bar', 'editor']
 ]
 
 /**
@@ -547,6 +549,7 @@ const DIALOG_HELP: Record<string, keyof typeof HELP_TOPICS | null> = {
   'remove-network': 'manageNetworks',
   'manage-networks': 'manageNetworks',
   'edit-network': 'editNetwork',
+  'local-chain': 'localChain',
   'starred-accounts': 'starredAccounts',
   'new-project': 'newProject',
   'testnet-account': 'testnetAccount',

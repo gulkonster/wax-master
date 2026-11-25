@@ -6,6 +6,7 @@ import { countProblems } from '../../../shared/output-lines'
 import { networkStore } from '../lib/networks'
 import { networkStatusStore, statusFor } from '../lib/network-status'
 import { StatusDot } from './StatusDot'
+import { ReadMore } from './HelpButton'
 import { askUnlock, vaultStore } from '../lib/vault'
 import { emit } from '../lib/bus'
 import { restartEditorEngine } from '../lib/lsp/engine'
@@ -49,14 +50,17 @@ export function StatusBar(): React.JSX.Element {
       </button>
       <ToolchainPicker ready={tc.ready} label={tc.label} />
       {state.project && state.view === 'project' && (
-        <button
-          className={`sb-item sb-engine ${engine.state}`}
-          title={`Code intelligence (clangd): ${engine.detail}${engine.state === 'error' ? ' Click to restart.' : ''}\nThe build output (Ctrl+B) is the final word on errors.`}
-          onClick={() => engine.state === 'error' && restartEditorEngine()}
-        >
-          {ENGINE_LABEL[engine.state]}
-          {engine.state === 'indexing' && engine.progress ? ` ${engine.progress}` : ''}
-        </button>
+        <>
+          <button
+            className={`sb-item sb-engine ${engine.state}`}
+            title={`Code intelligence (clangd): ${engine.detail}${engine.state === 'error' ? ' Click to restart.' : ''}\nThe build output (Ctrl+B) is the final word on errors.`}
+            onClick={() => engine.state === 'error' && restartEditorEngine()}
+          >
+            {ENGINE_LABEL[engine.state]}
+            {engine.state === 'indexing' && engine.progress ? ` ${engine.progress}` : ''}
+          </button>
+          <ReadMore place="editor" />
+        </>
       )}
       {state.cursor && state.view === 'project' && (
         <div className="sb-item">

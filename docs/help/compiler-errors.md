@@ -50,4 +50,4 @@ The compiler reports that `hi` does not match any declaration in `hello`. Make t
 
 - The toolchain set up. If the build does not start at all, open Help > Setup.
 
-See also [Build, Output and Problems](doc:build-output-problems) and [ABI check messages](doc:abi-check).
+See also [The editor](doc:editor) (what it marks while you type, and what only the build finds), [Build, Output and Problems](doc:build-output-problems) and [ABI check messages](doc:abi-check).

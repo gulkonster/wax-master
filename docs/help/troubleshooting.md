@@ -9,6 +9,7 @@ Find what you see in the left column of a section, then follow the fix or the li
 | The build does not start; the status bar says "Toolchain not set up" | The toolchain is not installed | Help > Setup; see [First start and the toolchain](doc:first-start) |
 | Builds stopped working after a Windows update | The Linux environment of the toolchain is damaged | Help > Setup > **Repair toolchain** |
 | Red lines in Output | Errors in the source | Fix the **first** red line first; see [Common compiler errors](doc:compiler-errors) |
+| The editor shows no error and the build does, or no marks and no completion at all | The mistake is one only the build finds, or the editor engine is off | [The editor](doc:editor) |
 | `ABI check:` lines, Deploy stopped | A table or action uses a type the ABI does not define | [ABI check messages](doc:abi-check) |
 | An action is missing from the ABI | No `[[eosio::action]]`, or the contract name in Project Settings differs from `[[eosio::contract("...")]]` | [Common compiler errors](doc:compiler-errors) |
 | Ricardian warnings | Actions without plain-language text | Contract > Create Ricardian Files; see [Ricardian contracts](doc:ricardian) |
@@ -56,6 +57,7 @@ Find what you see in the left column of a section, then follow the fix or the li
 |---|---|
 | The status dot is orange or red | Hover over it for the reason; see [The status mark](doc:network-status) and [Endpoints](doc:endpoints) |
 | "No rows." for a table that has rows | Another scope; many contracts use the user's account as scope; see [Read tables](doc:read-tables) |
+| The local chain does not start, or says its data was not closed cleanly | Press the button the dialog offers (Reset, or Use port); see [The local chain](doc:local-chain) |
 | "This account has no contract (no ABI)" | The account has no contract on this network, or you are on another network; see [Mainnet and testnet](doc:mainnet-and-testnet) |
 
 ## NFTs, tokens and examples

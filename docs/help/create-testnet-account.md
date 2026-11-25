@@ -12,6 +12,8 @@ WAX Testnet is a copy of WAX where tokens have no value. Its faucet, a free serv
 6. A **Back up this key** step follows for each key. See [Backing up keys](doc:key-backups).
 7. **Request test tokens** asks the faucet for test WAX for the new account. **Open account** opens it on the Account page.
 
+For accounts without a faucet and without limits, WAX Master can run a chain on this computer: see [The local chain](doc:local-chain).
+
 To get test tokens for an account you already have: type its name in the field and press **Request tokens**, or use **Request testnet tokens** in the **Testnet faucet** section of its Account page.
 
 [Create Testnet Account](app:create-testnet-account)

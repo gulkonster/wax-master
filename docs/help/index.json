@@ -8,7 +8,8 @@
         { "id": "what-is-wax-master", "title": "What WAX Master is", "keywords": ["about", "overview", "features"] },
         { "id": "first-start", "title": "First start and the toolchain", "keywords": ["setup", "wsl", "install", "cdt", "toolchain"] },
         { "id": "first-contract", "title": "Your first contract from zero", "keywords": ["tutorial", "hello world", "testnet", "faucet", "deploy", "ram", "hi"] },
-        { "id": "window-tour", "title": "A tour of the window", "keywords": ["menu", "top bar", "status bar", "panel", "layout"] }
+        { "id": "window-tour", "title": "A tour of the window", "keywords": ["menu", "top bar", "status bar", "panel", "layout"] },
+        { "id": "editor", "title": "The editor: errors, completion, and what only the build finds", "keywords": ["editor", "error", "underline", "red line", "completion", "autocomplete", "suggest", "snippet", "format", "clang-format", "problems", "squiggle", "header", "intellisense", "quick fix", "format document"] }
       ]
     },
     {
@@ -67,6 +68,7 @@
       "topics": [
         { "id": "mainnet-and-testnet", "title": "Mainnet and testnet", "keywords": ["mainnet", "testnet", "local", "kind", "chain id"] },
         { "id": "add-remove-networks", "title": "Add and remove networks", "keywords": ["add network", "remove network", "restore", "manage networks"] },
+        { "id": "local-chain", "title": "The local chain", "keywords": ["local chain", "local node", "nodeos", "localhost", "127.0.0.1", "offline", "private chain", "local testnet", "faucet limit", "reset chain", "docker"] },
         { "id": "local-node", "title": "Your own local node", "keywords": ["local node", "nodeos", "127.0.0.1", "localhost", "own chain", "private chain", "docker", "kind local"] },
         { "id": "network-page", "title": "The Network page", "keywords": ["network page", "blocks", "ram price", "producer", "chain state"] },
         { "id": "network-status", "title": "The status mark", "keywords": ["status", "green", "orange", "red", "dot", "not reachable"] },
