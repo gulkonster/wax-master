@@ -5,7 +5,7 @@ Deploying puts your contract on an account. Two system actions do it: `eosio::se
 ## How to do it here
 
 1. Open the project and press Contract > Deploy (or the **Deploy** button above the file tree).
-2. **Account**: a starred account of the current network; nothing can be typed. **Permission**: usually `active`. The last choice is remembered per project and network.
+2. **Account**: a starred account of the current network, chosen from the list (the Filter field narrows the list; no other name can be entered). **Permission**: usually `active`. The last choice is remembered per project and network.
 3. The dialog builds the project only if it changed since the last build ("Build is up to date (built 14:05)"), then compares the build with the account.
 4. For WASM and ABI it shows the SHA-256 of this build, the hash on the account now, and **Sent**: `yes (setcode)` / `yes (setabi)`, or `unchanged`. Only what changed is sent. "Nothing to deploy: the account already has this build." means both are the same.
 5. It shows the RAM needed and the RAM available.

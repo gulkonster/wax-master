@@ -6,7 +6,7 @@ A star marks an account you work with. Stars are kept per network. Starred accou
 
 | Place | Uses |
 |---|---|
-| Deploy, Deploy to Account, Simulate Deploy | Starred accounts only; nothing can be typed |
+| Deploy, Deploy to Account, Simulate Deploy | Starred accounts only; the Filter field narrows the list, no other name can be entered |
 | Clear Contract Code | Starred accounts only |
 | Project Settings > Deploy to | Starred accounts of each network |
 | Contracts and Account buttons in the top bar | The list under the arrow |
