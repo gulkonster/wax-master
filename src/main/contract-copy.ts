@@ -27,7 +27,7 @@ import {
 import { LOCAL_CHAIN_NETWORK_ID } from '../shared/local-chain'
 import type { ContractCopyInput, ContractCopyResult, ContractCopySource, ContractCopyTarget, ContractReadInput } from '../shared/api'
 import { assertLocalChain } from './local-chain-boot'
-import { NOT_RUNNING_TEXT, defaultLocalAccountsDeps, newAccountActions, type LocalAccountsDeps } from './local-chain-accounts'
+import { NOT_RUNNING_TEXT, defaultLocalAccountsDeps, keepSent, newAccountActions, type LocalAccountsDeps } from './local-chain-accounts'
 import { deployActions, planDeploy } from './deploy'
 import { getNetwork, readCall } from './networks'
 import { chain, type ChainInfo } from './rpc'
@@ -237,8 +237,10 @@ async function sendAsEosio(r: Ready, deps: LocalAccountsDeps, actions: Action[])
   const packed = packTransaction({ ...headerFromChainInfo(info, 120, true), actions })
   const sig = signDigest(signingDigest(r.chainId, packed), parsePrivateKey(r.key))
   const body = { signatures: [signatureToString(sig)], compression: 0, packed_context_free_data: '', packed_trx: bytesToHex(packed) }
-  await deps.request(r.endpoint, '/v1/chain/send_transaction', body, 60_000)
-  return transactionId(packed)
+  const answer = await deps.request<unknown>(r.endpoint, '/v1/chain/send_transaction', body, 60_000)
+  const id = transactionId(packed)
+  keepSent(deps, id, actions, r.endpoint, answer)
+  return id
 }
 
 function isMissing(e: unknown): boolean {

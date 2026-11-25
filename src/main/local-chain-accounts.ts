@@ -32,6 +32,8 @@ import { resourcesDir } from './paths'
 import * as chain from './local-chain'
 import * as networks from './networks'
 import { vault } from './keys-service'
+import { sentStore } from './sent-store'
+import { log } from './log'
 
 export const LOCAL_ACCOUNT_RAM_BYTES = 1_048_576
 export const LOCAL_ACCOUNT_STAKE = '100.00000000 WAX'
@@ -54,6 +56,8 @@ export interface LocalAccountsDeps {
   inVault: (publicKey: string) => boolean
   /** Stars the account on the network `local-chain`. */
   star: (account: string) => void
+  /** Keeps the node's answer of an accepted send for Open Transaction by Id; may fail without failing the send. */
+  keep: (id: string, actions: Action[], endpoint: string, answer: unknown) => void
 }
 
 
@@ -134,7 +138,30 @@ export function defaultLocalAccountsDeps(): LocalAccountsDeps {
     },
     star: (account) => {
       networks.setStar(LOCAL_CHAIN_NETWORK_ID, account, true)
+    },
+    keep: (id, actions, endpoint, answer) => {
+      let network = 'Local chain'
+      try {
+        network = networks.getNetwork(LOCAL_CHAIN_NETWORK_ID).name
+      } catch {
+        // the entry is missing: the usual name is kept
+      }
+      sentStore().keep(
+        LOCAL_CHAIN_NETWORK_ID,
+        id,
+        { network, endpoint, first: actions[0] ? `${actions[0].account}::${actions[0].name}` : '', count: actions.length },
+        answer
+      )
     }
+  }
+}
+
+/** Keeps the answer of an accepted send by `eosio`; a failure is logged and never fails the call. */
+export function keepSent(deps: LocalAccountsDeps, id: string, actions: Action[], endpoint: string, answer: unknown): void {
+  try {
+    deps.keep(id, actions, endpoint, answer)
+  } catch (e) {
+    log.warn(`Answer of transaction ${id} not kept: ${e instanceof Error ? e.message : 'unknown error'}`)
   }
 }
 
@@ -159,8 +186,10 @@ async function send(r: Ready, deps: LocalAccountsDeps, actions: Action[]): Promi
   const packed = packTransaction({ ...headerFromChainInfo(info, 120, true), actions })
   const sig = signDigest(signingDigest(r.chainId, packed), parsePrivateKey(r.key))
   const body = { signatures: [signatureToString(sig)], compression: 0, packed_context_free_data: '', packed_trx: bytesToHex(packed) }
-  await deps.request(r.endpoint, '/v1/chain/send_transaction', body, 60_000)
-  return transactionId(packed)
+  const answer = await deps.request<unknown>(r.endpoint, '/v1/chain/send_transaction', body, 60_000)
+  const id = transactionId(packed)
+  keepSent(deps, id, actions, r.endpoint, answer)
+  return id
 }
 
 async function exists(endpoint: string, name: string, deps: LocalAccountsDeps): Promise<boolean> {

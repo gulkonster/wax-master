@@ -16,7 +16,7 @@ import * as chain from './local-chain'
 import * as networks from './networks'
 import { createLocalAccount, giveLocalTokens, localAccountExists } from './local-chain-accounts'
 import { copyContract, copyRead, copyTarget, defaultContractCopyDeps, type CopySignOutcome } from './contract-copy'
-import { preflight } from './ipc-tx'
+import { keepAnswer, preflight } from './ipc-tx'
 import { signer, vault } from './keys-service'
 import { getSettings } from './store'
 import { openConfirmation } from './confirm-window'
@@ -38,7 +38,10 @@ async function signFromVault(win: BrowserWindow | null, networkId: string, actio
   const { record, secret } = await signer().prepare({ networkId, actions, kind: 'deploy' })
   const outcome = await openConfirmation(win, record, secret)
   if (outcome.approved && getSettings().lockAfterSignature) vault().lock()
-  if (outcome.approved) return { status: 'sent', transactionId: record.transactionId }
+  if (outcome.approved) {
+    keepAnswer(networkId, record, outcome.result.response)
+    return { status: 'sent', transactionId: record.transactionId }
+  }
   if (outcome.reason === 'error') {
     const ctx = { source: 'sent' as const, network: record.network.name, endpoint: record.endpoint }
     const trace = outcome.details ? fromNodeError(outcome.details, ctx, record.transactionId) : null

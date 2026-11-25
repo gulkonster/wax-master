@@ -55,6 +55,7 @@ import {
   publicKeyToString,
   recoverPublicKey,
   signingDigest,
+  transactionId,
   unpackTransaction
 } from '../../src/chain-core'
 import type { LocalChainStatus } from '../../src/shared/local-chain'
@@ -115,6 +116,8 @@ function world(
     codePermission?: boolean
     /** get_account answers of existing local accounts by name. */
     localAccounts?: Record<string, unknown>
+    /** The kept-answer write throws. */
+    keepFails?: boolean
   } = {}
 ) {
   const system = newKey()
@@ -125,6 +128,7 @@ function world(
   const stars: string[] = []
   const signed: ActionRequest[][] = []
   const sourceReads: string[] = []
+  const kept: { id: string; actions: string[]; answer: unknown }[] = []
   const status: LocalChainStatus = {
     phase: 'running',
     port: 8890,
@@ -139,6 +143,10 @@ function world(
     readResource: (rel) => readFile(join(process.cwd(), 'resources', 'local-chain', ...rel.split('/'))),
     inVault: (k) => k === user.pub,
     star: (a) => stars.push(a),
+    keep: (id, actions, _endpoint, answer) => {
+      if (opts.keepFails) throw new Error('disk full')
+      kept.push({ id, actions: actions.map((a) => `${a.account}::${a.name}`), answer })
+    },
     request: async <T,>(endpoint: string, path: string, body: unknown): Promise<T> => {
       expect(endpoint).toBe('http://127.0.0.1:8890')
       sent.push({ path, body: body as Record<string, unknown> })
@@ -166,7 +174,7 @@ function world(
         const trx = unpackTransaction(hexToBytes((body as { packed_trx: string }).packed_trx))
         const created = trx.actions.find((a) => a.name === 'newaccount')
         if (created) accounts.set((decodeAction(EOSIO_ABI, 'newaccount', hexToBytes(created.data as string)) as { name: string }).name, '')
-        return { transaction_id: 'x' } as T
+        return { transaction_id: 'x', processed: { receipt: { status: 'executed' } } } as T
       }
       throw new Error(`unexpected ${path}`)
     }
@@ -201,7 +209,7 @@ function world(
     },
     now: () => Date.now()
   }
-  return { deps, sent, stars, signed, sourceReads, system, user, accounts }
+  return { deps, sent, stars, signed, sourceReads, kept, system, user, accounts }
 }
 
 function eosioTransaction(sent: Sent[]) {
@@ -454,5 +462,30 @@ describe('eosio.code of the source (B132 (b))', () => {
     const r = await copyContract({ networkId: 'wax-mainnet', account: 'atomicassets', target: 'atomicassets', publicKey: w.user.pub }, w.deps)
     expect(r).toMatchObject({ created: true, same: true, codePermission: 'none' })
     expect(newAccountOf(w.sent).active.accounts).toEqual([])
+  })
+})
+
+describe('kept answer of the account creation', () => {
+  it('keeps the answer of the eosio send once, with its transaction id', async () => {
+    const w = world()
+    await copyContract({ networkId: 'wax-mainnet', account: 'atomicassets', target: 'atomicassets', publicKey: w.user.pub }, w.deps)
+    const tx = w.sent.find((x) => x.path === '/v1/chain/send_transaction')!
+    expect(w.kept).toHaveLength(1)
+    expect(w.kept[0].id).toBe(transactionId(hexToBytes(tx.body.packed_trx as string)))
+    expect(w.kept[0].actions[0]).toBe('eosio::newaccount')
+    expect(w.kept[0].answer).toEqual({ transaction_id: 'x', processed: { receipt: { status: 'executed' } } })
+  })
+
+  it('keeps nothing when no account is made', async () => {
+    const w = world({ accounts: { atomicassets: 'bb'.repeat(32) } })
+    await copyContract({ networkId: 'wax-mainnet', account: 'atomicassets', target: 'atomicassets', replace: true }, w.deps)
+    expect(w.kept).toEqual([])
+  })
+
+  it('a failing keep does not fail the copy', async () => {
+    const w = world({ keepFails: true })
+    const r = await copyContract({ networkId: 'wax-mainnet', account: 'atomicassets', target: 'atomicassets', publicKey: w.user.pub }, w.deps)
+    expect(r).toMatchObject({ created: true, same: true })
+    expect(w.signed).toHaveLength(1)
   })
 })

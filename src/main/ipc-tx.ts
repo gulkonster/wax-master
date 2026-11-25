@@ -16,7 +16,7 @@ import { KEPT_PER_NETWORK, sentStore, type KeptFile } from './sent-store'
 import { WAX_TESTNET_CHAIN, currentNetwork, endpointOf, getNetwork } from './networks'
 import { chain, history } from './rpc'
 import { clearCodeActions, deployActions, planDeploy } from './deploy'
-import { BUSY_MESSAGE, LOCKED_MESSAGE, type ActionRequest, type PrepareKind } from './signer'
+import { BUSY_MESSAGE, LOCKED_MESSAGE, type ActionRequest, type ApprovalRecord, type PrepareKind } from './signer'
 import { changeKeyActions, createAccountActions } from './accounts'
 import { createTestnetAccount, randomTestnetName, requestTokens } from './faucet'
 import { bool, int } from '../shared/validate'
@@ -77,6 +77,28 @@ async function addResources(t: InspectedTransaction, account: string, endpoint: 
   return withResourceState(t, account, (a) => chain.getAccount(endpoint, a))
 }
 
+/**
+ * Keeps the node's answer of an accepted send, so Open Transaction by Id can show it again.
+ * A failed write never fails the send: it is logged and gives false.
+ */
+export function keepAnswer(
+  networkId: string,
+  record: Pick<ApprovalRecord, 'transactionId' | 'endpoint'> & { network: { name: string }; actions: { account: string; name: string }[] },
+  response: unknown
+): boolean {
+  return sentStore().keep(
+    networkId,
+    record.transactionId,
+    {
+      network: record.network.name,
+      endpoint: record.endpoint,
+      first: record.actions[0] ? `${record.actions[0].account}::${record.actions[0].name}` : '',
+      count: record.actions.length
+    },
+    response
+  )
+}
+
 async function signAndSend(win: BrowserWindow | null, networkId: string, actions: ActionRequest[], kind: PrepareKind): Promise<TxOutcome> {
   preflight(win)
   // A recovery code on screen (the unlock just converted the vault): the transaction
@@ -91,18 +113,7 @@ async function signAndSend(win: BrowserWindow | null, networkId: string, actions
   if (outcome.approved && getSettings().lockAfterSignature) vault().lock()
   const ctx = { source: 'sent' as const, network: record.network.name, endpoint: record.endpoint }
   if (outcome.approved) {
-    // B120 point 1: the accepted answer is kept; a failed write never fails the send.
-    const kept = sentStore().keep(
-      networkId,
-      record.transactionId,
-      {
-        network: record.network.name,
-        endpoint: record.endpoint,
-        first: record.actions[0] ? `${record.actions[0].account}::${record.actions[0].name}` : '',
-        count: record.actions.length
-      },
-      outcome.result.response
-    )
+    const kept = keepAnswer(networkId, record, outcome.result.response)
     const trace = fromNodeAnswer(outcome.result.response, ctx)
     return { status: 'sent', trace: { ...trace, hasKept: kept, hasHistory: hasHistoryService(networkId) } }
   }

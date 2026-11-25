@@ -43,12 +43,20 @@ interface Sent {
   body: Record<string, unknown>
 }
 
-function fakeChain(opts: { phase?: LocalChainStatus['phase']; chainId?: string; eosioKey?: string; accounts?: string[] } = {}) {
+interface Kept {
+  id: string
+  actions: string[]
+  endpoint: string
+  answer: unknown
+}
+
+function fakeChain(opts: { phase?: LocalChainStatus['phase']; chainId?: string; eosioKey?: string; accounts?: string[]; keepFails?: boolean } = {}) {
   const system = newKey()
   const user = newKey()
   const accounts = new Set(opts.accounts ?? ['eosio'])
   const sent: Sent[] = []
   const stars: string[] = []
+  const kept: Kept[] = []
   const status: LocalChainStatus = {
     phase: opts.phase ?? 'running',
     port: 8890,
@@ -63,6 +71,10 @@ function fakeChain(opts: { phase?: LocalChainStatus['phase']; chainId?: string; 
     readResource: (rel) => readFile(join(process.cwd(), 'resources', 'local-chain', ...rel.split('/'))),
     inVault: (k) => k === user.pub,
     star: (a) => stars.push(a),
+    keep: (id, actions, endpoint, answer) => {
+      if (opts.keepFails) throw new Error('disk full')
+      kept.push({ id, actions: actions.map((a) => `${a.account}::${a.name}`), endpoint, answer })
+    },
     request: async <T,>(endpoint: string, path: string, body: unknown): Promise<T> => {
       expect(endpoint).toBe('http://127.0.0.1:8890')
       sent.push({ path, body: body as Record<string, unknown> })
@@ -84,11 +96,11 @@ function fakeChain(opts: { phase?: LocalChainStatus['phase']; chainId?: string; 
         if (accounts.has(name)) return { account_name: name } as T
         throw new Error(`unknown key (eosio::chain::name): ${name}`)
       }
-      if (path === '/v1/chain/send_transaction') return { transaction_id: 'x' } as T
+      if (path === '/v1/chain/send_transaction') return { transaction_id: 'x', processed: { receipt: { status: 'executed' } } } as T
       throw new Error(`unexpected ${path}`)
     }
   }
-  return { deps, sent, stars, system, user, accounts }
+  return { deps, sent, stars, kept, system, user, accounts }
 }
 
 function sentTransaction(sent: Sent[]) {
@@ -198,5 +210,45 @@ describe('give tokens and the free check', () => {
     const c = fakeChain({ accounts: ['eosio', 'takenname123'] })
     expect(await localAccountExists('takenname123', c.deps)).toBe(true)
     expect(await localAccountExists('freename1234', c.deps)).toBe(false)
+  })
+})
+
+describe('kept answers', () => {
+  it('keeps the answer of New account once, with its transaction id and actions', async () => {
+    const c = fakeChain()
+    const r = await createLocalAccount({ name: 'newuser12345', publicKey: c.user.pub }, c.deps)
+    expect(c.kept).toHaveLength(1)
+    expect(c.kept[0]).toEqual({
+      id: r.transactionId,
+      actions: ['eosio::newaccount', 'eosio::buyrambytes', 'eosio::delegatebw', 'eosio.token::transfer'],
+      endpoint: 'http://127.0.0.1:8890',
+      answer: { transaction_id: 'x', processed: { receipt: { status: 'executed' } } }
+    })
+  })
+
+  it('keeps the answer of Give tokens once', async () => {
+    const c = fakeChain({ accounts: ['eosio', 'someone12345'] })
+    const r = await giveLocalTokens({ account: 'someone12345', amount: 5 }, c.deps)
+    expect(c.kept.map((k) => [k.id, k.actions])).toEqual([[r.transactionId, ['eosio.token::transfer']]])
+  })
+
+  it('a failing keep does not fail the call', async () => {
+    const c = fakeChain({ keepFails: true, accounts: ['eosio', 'someone12345'] })
+    const a = await createLocalAccount({ name: 'newuser12345', publicKey: c.user.pub }, c.deps)
+    expect(a.transactionId).toMatch(/^[0-9a-f]{64}$/)
+    expect(c.stars).toEqual(['newuser12345'])
+    const t = await giveLocalTokens({ account: 'someone12345', amount: 5 }, c.deps)
+    expect(t.transactionId).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('keeps nothing when the node refuses the send', async () => {
+    const c = fakeChain({ accounts: ['eosio', 'someone12345'] })
+    const request = c.deps.request
+    c.deps.request = async <T,>(endpoint: string, path: string, body: unknown): Promise<T> => {
+      if (path === '/v1/chain/send_transaction') throw new Error('the node said no')
+      return request<T>(endpoint, path, body)
+    }
+    await expect(giveLocalTokens({ account: 'someone12345', amount: 5 }, c.deps)).rejects.toThrow('the node said no')
+    expect(c.kept).toEqual([])
   })
 })
