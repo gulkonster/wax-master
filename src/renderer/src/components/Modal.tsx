@@ -1,7 +1,8 @@
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { DialogSize } from '../../../shared/api'
 import { AppContext } from '../state'
 import { errorText } from '../lib/toast'
+import { popLayer, pushLayer, takeEscape } from '../lib/dialog-stack'
 import { IconClose } from './Icons'
 import { HelpButton } from './HelpButton'
 import type { HelpPlace } from '../lib/help-topics'
@@ -20,6 +21,9 @@ function limits(): { minW: number; minH: number; maxW: number; maxH: number } {
   const maxH = window.innerHeight - token('--titlebar') - token('--dialog-top')
   return { minW: Math.min(token('--dialog-min-w'), maxW), minH: Math.min(token('--dialog-min-h'), maxH), maxW, maxH }
 }
+
+/** z-index of .modal-backdrop in styles.css; each open dialog goes one above the last. */
+const DIALOG_Z = 100
 
 const clamp = (v: number, lo: number, hi: number): number => Math.round(Math.max(lo, Math.min(hi, v)))
 
@@ -48,13 +52,23 @@ export function Modal({
   const boxRef = useRef<HTMLDivElement>(null)
   const current = dragged ?? stored
 
+  // The layer over every dialog already open: a dialog opened later is on top even when it
+  // comes earlier in the page (one opened from the help window over another dialog).
+  const [layer, setLayer] = useState(0)
+  const layerRef = useRef(0)
+  useLayoutEffect(() => {
+    const l = pushLayer()
+    layerRef.current = l
+    setLayer(l)
+    return () => popLayer(l)
+  }, [])
+
   useEffect(() => {
     if (!onClose) return
     const h = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return
       // Only the dialog on top closes (the unlock prompt over a form, a dialog over another).
-      const all = document.querySelectorAll('.modal')
-      if (all.length > 0 && all[all.length - 1] !== boxRef.current) return
+      if (!takeEscape(e, layerRef.current)) return
       onClose()
     }
     window.addEventListener('keydown', h)
@@ -104,7 +118,11 @@ export function Modal({
   }
 
   return (
-    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
+    <div
+      className="modal-backdrop"
+      style={layer ? { zIndex: DIALOG_Z + layer } : undefined}
+      onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
+    >
       <div
         ref={boxRef}
         className={`modal size-${size}${current ? ' sized' : ''}`}

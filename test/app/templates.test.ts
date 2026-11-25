@@ -139,6 +139,32 @@ public:
 };
 `)
   })
+
+  it('never names the class after eosio::contract, a C++ keyword or a name the template code uses', () => {
+    // Empty with its default project name "contract" did not build: the class clashed with eosio::contract.
+    const empty = templateFiles('empty', 'contract')
+    expect(empty['include/contract.hpp']).toContain('class [[eosio::contract("contract")]] c_contract : public contract {')
+    expect(empty['src/contract.cpp']).toContain('void c_contract::doit(name user) {')
+    for (const id of ['empty', 'hello', 'token'] as const) {
+      expect(templateFiles(id, 'contract')['include/contract.hpp']).toContain(' c_contract : public contract {')
+      expect(templateFiles(id, 'name')['include/name.hpp']).toContain(' c_name : public contract {')
+      expect(templateFiles(id, 'delete')['include/delete.hpp']).toContain(' c_delete : public contract {')
+    }
+    // A member of the template: a class cannot have a member with its own name.
+    expect(templateFiles('token', 'transfer')['include/transfer.hpp']).toContain(' c_transfer : public contract {')
+    expect(templateFiles('hello', 'hi')['include/hi.hpp']).toContain(' c_hi : public contract {')
+    // Words in comments and strings do not count.
+    expect(templateFiles('token', 'token')['include/token.hpp']).toContain(' token : public contract {')
+    expect(classNameFor('contract')).toBe('c_contract')
+    expect(classNameFor('hello')).toBe('hello')
+  })
+
+  it('keeps the offered project name as the class name for every other template and example', () => {
+    for (const { id, name } of [...TEMPLATES.filter((t) => t.id !== 'empty').map((t) => ({ id: t.id, name: t.id })), ...EXAMPLES]) {
+      const f = templateFiles(id, name)
+      expect(f[`include/${name}.hpp`], id).toContain(`[[eosio::contract("${name}")]] ${name} `)
+    }
+  })
 })
 
 describe('token template', () => {

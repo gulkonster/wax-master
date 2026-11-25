@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { Problem } from '../../../shared/api'
+import { emit } from './bus'
 
 export class Store<T> {
   private listeners = new Set<() => void>()
@@ -38,6 +39,21 @@ export function clearOutput(): void {
 }
 
 export const problemsStore = new Store<Problem[]>([])
+
+/**
+ * Output and Problems belong to the open project: when another project is
+ * opened (or the project is closed) both are emptied, and the editor markers
+ * follow. The first call only records the project.
+ */
+let shownProject: string | null | undefined
+export function panelsFollowProject(path: string | null): void {
+  const changed = shownProject !== undefined && shownProject !== path
+  shownProject = path
+  if (!changed) return
+  clearOutput()
+  problemsStore.set([])
+  emit('problems-updated')
+}
 
 export interface ToolchainLabel {
   ready: boolean

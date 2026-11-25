@@ -3765,14 +3765,15 @@ button.sb-item.mainnet:hover {
   line-height: var(--lh-card);
   font-weight: 600;
   color: var(--text-strong);
-  word-break: break-all;
+  /* Wrap at spaces; a word breaks only when it alone is wider than the card. */
+  overflow-wrap: break-word;
 }
 .sum-sub {
   font-family: var(--font-mono);
   font-size: var(--fs-data);
   line-height: var(--lh-data);
   color: var(--text-2);
-  word-break: break-all;
+  overflow-wrap: break-word;
 }
 .wallet-layout {
   display: grid;

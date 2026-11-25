@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import type { TxAction } from '../../../../shared/api'
-import { accountRamDefault, formatCost, formatUnits, ramCost, ramSellReturn } from '../../../../shared/ram-market'
+import { accountRamDefault, formatCost, formatUnits, RAM_SELL_MARGIN, ramCost, ramSellable, ramSellReturn } from '../../../../shared/ram-market'
 import { BuyRamPanel, useRamMarket } from '../../components/BuyRamPanel'
 import { PermissionPicker } from '../../components/AccountPicker'
 import { HelpButton } from '../../components/HelpButton'
@@ -14,7 +14,6 @@ export function RamSection({ ctx }: { ctx: WalletContext }): React.JSX.Element {
   const { price, error } = useRamMarket()
   const market = price && price.available ? price : null
   const unlimited = view.ram.quota < 0
-  const free = unlimited ? 0 : Math.max(0, view.ram.quota - view.ram.usage)
   const perKb = market ? ramCost(market, 1024) : null
   const [form, setForm] = useState<'buy' | 'sell'>('buy')
 
@@ -50,7 +49,7 @@ export function RamSection({ ctx }: { ctx: WalletContext }): React.JSX.Element {
             />
           )}
           {form === 'sell' && !unlimited ? (
-            <SellRam ctx={ctx} free={free} />
+            <SellRam ctx={ctx} free={ramSellable(view.ram.usage, view.ram.quota)} />
           ) : (
             <BuyRamPanel
               receiver={view.name}
@@ -94,7 +93,9 @@ function SellRam({ ctx, free }: { ctx: WalletContext; free: number }): React.JSX
   return (
     <div className="buy-ram">
       <div className="buy-ram-title">Sell RAM of {view.name}</div>
-      <div className="hint">Only RAM the account does not use can be sold: {free.toLocaleString()} bytes now.</div>
+      <div className="hint">
+        Only RAM the account does not use can be sold, less a margin of {RAM_SELL_MARGIN.toLocaleString()} bytes for the sale itself: {free.toLocaleString()} bytes now.
+      </div>
       <div className="buy-ram-fields">
         <div className="field buy-ram-bytes">
           <label>Bytes</label>

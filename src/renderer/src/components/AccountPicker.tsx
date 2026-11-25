@@ -107,12 +107,18 @@ function useOutside(open: boolean, close: () => void, refs: React.RefObject<HTML
 function placeUnder(el: HTMLElement | null): React.CSSProperties | undefined {
   if (!el) return undefined
   const r = el.getBoundingClientRect()
-  const below = window.innerHeight - r.bottom
+  // The list stays clear of the title bar and the status bar with a small gap, so its
+  // last row is never under the window's edge; it scrolls inside when longer.
+  const css = getComputedStyle(document.documentElement)
+  const px = (name: string): number => parseFloat(css.getPropertyValue(name)) || 0
+  const gap = px('--sp-2')
+  const below = Math.max(0, window.innerHeight - r.bottom - px('--statusbar') - gap)
+  const above = Math.max(0, r.top - px('--titlebar') - gap)
   const style: React.CSSProperties = { left: r.left, width: r.width }
-  if (below < r.top && below < window.innerHeight / 3) {
+  if (below < above && below < window.innerHeight / 3) {
     style.top = 'auto'
     style.bottom = window.innerHeight - r.top
-    style.maxHeight = r.top
+    style.maxHeight = above
   } else {
     style.top = r.bottom
     style.maxHeight = below
@@ -441,8 +447,17 @@ export function PermissionPicker({
     if (d !== value) onChange(d)
   }, [account, valid, isCurrent, names, entry, value, onChange])
 
+  // No account chosen yet: a neutral placeholder, not a permission with a "view only" mark.
+  if (!valid) {
+    return (
+      <select className="select" disabled value="">
+        <option value="">(choose the account first)</option>
+      </select>
+    )
+  }
+
   return (
-    <select className="select" disabled={!valid} value={value} onChange={(e) => onChange(e.target.value)}>
+    <select className="select" value={value} onChange={(e) => onChange(e.target.value)}>
       {options.map((p) => (
         <option key={p} value={p}>
           {p}

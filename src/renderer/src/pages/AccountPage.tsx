@@ -11,8 +11,10 @@ import { IconClose, IconContract, IconKey, IconPlus, IconRefresh, IconStar, Icon
 import { HelpButton } from '../components/HelpButton'
 import { AccountBody } from './account/AccountBody'
 import { NAME } from './account/common'
+import { useApp } from '../state'
 
 export function AccountPage(): React.JSX.Element {
+  const { actions } = useApp()
   const net = useStore(networkStore)
   const [tabs, setTabs] = useState<string[]>([])
   const [active, setActive] = useState<string | null>(null)
@@ -27,6 +29,12 @@ export function AccountPage(): React.JSX.Element {
   }, [])
 
   useEffect(() => on('open-account', (n) => open(n as string)), [open])
+
+  // "Open as contract": the Contract page of this account, as the Contract section does.
+  const openContract = (name: string): void => {
+    actions.setView('contract')
+    setTimeout(() => emit('open-contract', name), 0)
+  }
 
   // Arrived from "Find an account": the search field has the focus, and once an account is
   // starred the page offers the way back to the dialog that asked.
@@ -93,7 +101,7 @@ export function AccountPage(): React.JSX.Element {
             <IconStar filled={starred} />
           </button>
         </div>
-        <button className="icon-btn" title="Open as contract" disabled={!active} onClick={() => active && emit('open-contract', active)}>
+        <button className="icon-btn" title="Open as contract" disabled={!active} onClick={() => active && openContract(active)}>
           <IconContract />
         </button>
         <button className="icon-btn" title="Keys" disabled={!active} onClick={() => emit('open-keys', active)}>

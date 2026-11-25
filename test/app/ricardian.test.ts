@@ -307,7 +307,9 @@ describe('Problems hint on the Ricardian warnings', () => {
       'Warning, something else'
     ].join('\n')
     const problems = parseProblems(out, 'C:\\p')
-    expect(problems.map((p) => isRicardianWarning(p.message))).toEqual([true, true, true, false])
+    // The warning without a place gives way to the same warning with its place.
+    expect(problems.map((p) => isRicardianWarning(p.message))).toEqual([true, true, false])
+    expect(problems[1].file).toBe('src/hello.cpp')
     expect(classifyLine('Warning, empty ricardian clause file').severity).toBe('warning')
     expect(RICARDIAN_HINT).toBe('Contract > Create Ricardian Files writes the missing sections')
   })

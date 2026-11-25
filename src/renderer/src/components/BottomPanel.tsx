@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Problem } from '../../../shared/api'
 import { useApp, type PanelTab } from '../state'
 import { emit } from '../lib/bus'
-import { appendOutput, clearOutput, outputStore, problemsStore, useStore } from '../lib/stores'
+import { appendOutput, clearOutput, outputStore, panelsFollowProject, problemsStore, useStore } from '../lib/stores'
 import { IconClose, IconError, IconInfo, IconWarning } from './Icons'
-import { RICARDIAN_HINT, classifyLine, cleanLine, countProblems, isRicardianWarning, type ClassifiedLine } from '../../../shared/output-lines'
+import { RICARDIAN_HINT, classifyLine, cleanLine, countProblems, isRicardianWarning, orderProblems, type ClassifiedLine } from '../../../shared/output-lines'
 import { ReadMore } from './HelpButton'
 
 const TABS: { id: PanelTab; label: string }[] = [
@@ -23,6 +23,13 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
   const bodyRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => window.wax.on('output', (e) => appendOutput(e.text)), [])
+
+  const projectPath = state.project?.path ?? null
+  useEffect(() => {
+    panelsFollowProject(projectPath)
+  }, [projectPath])
+
+  const ordered = useMemo(() => orderProblems(problems), [problems])
 
   useEffect(() => {
     if (state.panelTab === 'output') bodyRef.current?.scrollTo(0, bodyRef.current.scrollHeight)
@@ -117,7 +124,7 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
               <div className="panel-note" style={{ marginBottom: 'var(--sp-1)' }}>
                 {errors} error(s), {warnings} warning(s)
               </div>
-              {problems.map((p, i) => (
+              {ordered.map((p, i) => (
                 <div key={i} className={`problem-row${p.file ? '' : ' no-place'}`} onClick={p.file ? () => reveal(p) : undefined}>
                   <span className={`out-${p.severity === 'info' ? 'note' : p.severity}`}>
                     {p.severity === 'error' ? <IconError size="sm" /> : p.severity === 'warning' ? <IconWarning size="sm" /> : <IconInfo size="sm" />}
@@ -141,7 +148,7 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
                   )}
                   {p.source === 'abi' && (
                     <span className="problem-hint" onClick={(ev) => ev.stopPropagation()}>
-                      <ReadMore place="abiCheck" />
+                      <span title="Found by the ABI check after the compile">abi</span> <ReadMore place="abiCheck" />
                     </span>
                   )}
                   {p.file && (

@@ -88,6 +88,37 @@ export function problemSeverity(c: ClassifiedLine): ProblemSeverity | null {
   return c.severity === 'error' ? 'error' : c.severity === 'warning' ? 'warning' : c.severity === 'note' ? 'info' : null
 }
 
+const SEVERITY_ORDER: Record<string, number> = { error: 0, warning: 1, info: 2 }
+
+/** The Problems list order: errors, then warnings, then notes; the build's order within each. */
+export function orderProblems<T extends { severity: string }>(list: readonly T[]): T[] {
+  return list
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => (SEVERITY_ORDER[a.p.severity] ?? 3) - (SEVERITY_ORDER[b.p.severity] ?? 3) || a.i - b.i)
+    .map((x) => x.p)
+}
+
+/**
+ * Each problem once. The toolchain prints a missing Ricardian section of an
+ * action three times (once with its place in the source, twice as a line
+ * without a place) and the empty clause file twice: the entry with a place is
+ * kept, otherwise the first.
+ */
+export function uniqueProblems<T extends { file: string; line: number; column: number; severity: string; message: string; source: string }>(list: readonly T[]): T[] {
+  const keyOf = (p: T): string => {
+    const action = /action <([^>]+)> does not have a ricardian contract/i.exec(p.message)
+    if (action) return ['ricardian', p.severity, action[1]].join('\u0000')
+    return [p.source, p.severity, p.file, p.line, p.column, p.message].join('\u0000')
+  }
+  const best = new Map<string, T>()
+  for (const p of list) {
+    const k = keyOf(p)
+    const had = best.get(k)
+    if (!had || (!had.file && p.file)) best.set(k, p)
+  }
+  return list.filter((p) => best.get(keyOf(p)) === p)
+}
+
 /** Error and warning counts for the Problems tab and the status bar. */
 export function countProblems(list: readonly { severity: string }[]): { errors: number; warnings: number } {
   let errors = 0

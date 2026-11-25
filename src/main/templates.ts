@@ -72,10 +72,36 @@ function isExample(id: TemplateId): id is ExampleId {
   return EXAMPLES.some((e) => e.id === id)
 }
 
-/** A C++ class name for a contract name ("my.tok" -> "my_tok", "1abc" -> "c_1abc"). */
-export function classNameFor(contract: string): string {
+/** C++ keywords, and the base class and namespace every contract uses: a class cannot be named after them. */
+const RESERVED_NAMES = new Set(
+  ('contract eosio alignas alignof and and_eq asm auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl concept ' +
+    'const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do double ' +
+    'dynamic_cast else enum explicit export extern false final float for friend goto if import inline int long module mutable ' +
+    'namespace new noexcept not not_eq nullptr operator or or_eq override private protected public register reinterpret_cast ' +
+    'requires return short signed sizeof static static_assert static_cast struct switch template this thread_local throw true ' +
+    'try typedef typeid typename union unsigned using virtual void volatile wchar_t while xor xor_eq').split(' ')
+)
+
+/** The identifiers a template's code uses (comments, strings and markers left out). */
+export function codeIdentifiers(code: string): Set<string> {
+  const bare = code
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/\/\/.*$/gm, ' ')
+    .replace(/"(?:[^"\\\n]|\\.)*"/g, ' ')
+    .replace(/'(?:[^'\\\n]|\\.)*'/g, ' ')
+    .replace(/%[A-Z]+%/g, ' ')
+  return new Set(bare.match(/[A-Za-z_]\w*/g) ?? [])
+}
+
+/**
+ * A C++ class name for a contract name ("my.tok" -> "my_tok", "1abc" -> "c_1abc").
+ * A name that is a C++ keyword or one of the identifiers the template's code
+ * uses (`contract` is the base class eosio::contract; `name`; a member such as
+ * `transfer`) gets the prefix too: "contract" -> "c_contract".
+ */
+export function classNameFor(contract: string, used: ReadonlySet<string> = new Set()): string {
   const id = contract.replace(/[^a-z0-9_]/g, '_')
-  return /^[0-9]/.test(id) ? `c_${id}` : id
+  return /^[0-9]/.test(id) || RESERVED_NAMES.has(id) || used.has(id) ? `c_${id}` : id
 }
 
 /** Fills the template markers; line ends are always "\n" whatever the checkout used. */
@@ -85,7 +111,7 @@ export function fillTemplate(text: string, contract: string, className: string):
 
 export function templateFiles(template: TemplateId, contract: string): Record<string, string> {
   const s = isExample(template) ? exampleSource(template) : SOURCES[template]
-  const name = classNameFor(contract)
+  const name = classNameFor(contract, codeIdentifiers(s.hpp + '\n' + s.cpp))
   const fill = (text: string): string => fillTemplate(text, contract, name)
   const files: Record<string, string> = {
     [`src/${contract}.cpp`]: fill(s.cpp),

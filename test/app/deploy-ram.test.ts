@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => ({ dataDir: '' }))
 vi.mock('electron', () => ({ app: { getPath: () => h.dataDir, isPackaged: false, getAppPath: () => h.dataDir }, BrowserWindow: class {}, dialog: {} }))
-import { base64Size, chainCodeSize, deployRam, readCodeHash } from '../../src/main/deploy'
+import { base64Size, chainAbiHashOf, chainCodeSize, deployRam, readCodeHash } from '../../src/main/deploy'
 import { CODE_SIZE_UNREAD, deployRamText, ramToBuy } from '../../src/shared/ram-market'
 
 const n = (x: number): string => x.toLocaleString()
@@ -99,6 +99,18 @@ describe('the size of the code on the account', () => {
     )
     // Only the ABI sent: no code is counted, nothing to say.
     expect(await chainCodeSize(false, read, false)).toEqual({ size: 0, unread: false })
+  })
+
+  it('an account without an ABI shows no ABI hash, like no code', () => {
+    // A node reports the SHA-256 of zero bytes (or zeros) when the account has no ABI.
+    const empty = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+    expect(chainAbiHashOf({ abi_hash: empty, abi: '' })).toBe('')
+    expect(chainAbiHashOf({ abi_hash: empty })).toBe('')
+    expect(chainAbiHashOf({ abi_hash: '0'.repeat(64), abi: '' })).toBe('')
+    expect(chainAbiHashOf(null)).toBe('')
+    expect(chainAbiHashOf({ abi_hash: 'ab'.repeat(32), abi: 'AAAA' })).toBe('ab'.repeat(32))
+    const src = readFileSync(join(__dirname, '../../src/main/deploy.ts'), 'utf8')
+    expect(src).toContain('const chainAbiHash = chainAbiHashOf(rawAbi)')
   })
 
   it('the deployment plan passes a failed hash read on', () => {

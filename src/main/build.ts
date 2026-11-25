@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, promises as fsp } from 'node:fs'
 import { join } from 'node:path'
 import type { AbiFinding, BuildCheck, BuildOutcome, BuildResult, Problem } from '../shared/api'
-import { classifyLine, cleanLine, problemSeverity } from '../shared/output-lines'
+import { classifyLine, cleanLine, problemSeverity, uniqueProblems } from '../shared/output-lines'
 import { effectiveInclude, effectiveOutput, effectiveResource, type ProjectConfig } from '../shared/project'
 import { MAX_ABI_JSON, abiProblems, checkAbi, describeAbi, moreFindingsLine, readSources } from './abi-check'
 import { BuildStateStore, projectFingerprint, type StoredBuild } from './build-state'
@@ -54,7 +54,8 @@ export function problemPath(raw: string, projectRoot: string): string {
 /**
  * Problems from the compiler output, by the same classifier that colours the
  * Output lines: diagnostics with their place, and errors or warnings without a
- * place (linker, ABI generator) with an empty file.
+ * place (linker, ABI generator) with an empty file. A line the compiler
+ * prints twice (the ABI generator's Ricardian warnings) is one problem.
  */
 export function parseProblems(output: string, projectRoot: string): Problem[] {
   const out: Problem[] = []
@@ -68,7 +69,7 @@ export function parseProblems(output: string, projectRoot: string): Problem[] {
       out.push({ file: '', line: 0, column: 0, severity, message: c.message ?? cleanLine(raw), source: 'build' })
     }
   }
-  return out
+  return uniqueProblems(out)
 }
 
 // ---------------------------------------------------------------- stored build state

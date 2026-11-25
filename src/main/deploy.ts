@@ -81,6 +81,19 @@ export async function readCodeHash(read: () => Promise<{ code_hash: string }>): 
   }
 }
 
+/** SHA-256 of zero bytes: the abi_hash a node reports for an account without an ABI. */
+const EMPTY_SHA256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+
+/**
+ * Hash of the ABI now on an account ('' for none). A node reports zeros or the
+ * SHA-256 of an empty ABI for an account that has none; both mean "(none)".
+ */
+export function chainAbiHashOf(raw: { abi_hash?: string; abi?: string } | null): string {
+  if (!raw || !raw.abi_hash || /^0+$/.test(raw.abi_hash)) return ''
+  if (raw.abi_hash.toLowerCase() === EMPTY_SHA256 || raw.abi === '') return ''
+  return raw.abi_hash
+}
+
 /**
  * Size of the code now on an account. Read only when the account has code and
  * new code is sent; a failed read counts as zero and is reported as unread.
@@ -160,7 +173,7 @@ export async function planDeploy(input: { networkId?: string; account: string; p
   const hashRead = await readCodeHash(() => readCall((ep) => chain.getCodeHash(ep, input.account), network))
   const codeHash = hashRead.hash
   const rawAbi = await readCall((ep) => chain.getRawAbi(ep, input.account), network).catch(() => null)
-  const chainAbiHash = rawAbi && rawAbi.abi_hash && !/^0+$/.test(rawAbi.abi_hash) ? rawAbi.abi_hash : ''
+  const chainAbiHash = chainAbiHashOf(rawAbi)
   const account = await readCall((ep) => chain.getAccount(ep, input.account), network)
   const wasmHash = wasm ? sha(wasm) : undefined
   const abiHash = abi ? sha(abi) : undefined

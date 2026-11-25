@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ app: { getPath: () => '', isPackaged: false }, BrowserWindow: class {}, dialog: {} }))
-import { classifyLine, countProblems, problemSeverity } from '../../src/shared/output-lines'
+import { classifyLine, countProblems, orderProblems, problemSeverity, uniqueProblems } from '../../src/shared/output-lines'
 import { parseProblems } from '../../src/main/build'
 
 const ROOT = 'C:\\Users\\me\\proj'
@@ -12,6 +12,7 @@ const CLANG_FATAL = "/mnt/c/Users/me/proj/src/hello.cpp:1:10: fatal error: 'miss
 const CLANG_WARNING = '/mnt/c/Users/me/proj/src/hello.cpp:8:22: warning: abigen warning (Action <hi> does not have a ricardian contract)'
 const CLANG_NOTE = "./include/hello.hpp:4:3: note: previous definition is here"
 const ABIGEN_WARNING = 'Warning, action <hi> does not have a ricardian contract'
+const ABIGEN_CLAUSE_WARNING = 'Warning, empty ricardian clause file'
 const ABIGEN_ERROR = 'Error, unable to find the contract class'
 const LINKER_ERROR = 'wasm-ld: error: hello.cpp.o: undefined symbol: foo'
 const LLD_ERROR = 'ld.lld: error: duplicate symbol: bar'
@@ -74,7 +75,7 @@ describe('Problems from the same classifier', () => {
     CLANG_WARNING,
     SOURCE_LINE,
     CARET,
-    ABIGEN_WARNING,
+    ABIGEN_CLAUSE_WARNING,
     CLANG_ERROR,
     CLANG_NOTE,
     LINKER_ERROR,
@@ -91,7 +92,7 @@ describe('Problems from the same classifier', () => {
       ['info', 'include/hello.hpp', 4],
       ['error', '', 0]
     ])
-    expect(p[1].message).toBe('action <hi> does not have a ricardian contract')
+    expect(p[1].message).toBe('empty ricardian clause file')
   })
 
   it('gives the status bar the same counts as the coloured lines', () => {
@@ -100,5 +101,48 @@ describe('Problems from the same classifier', () => {
     const lines = output.split('\n').map(classifyLine).filter((c) => problemSeverity(c))
     expect(lines.filter((c) => c.severity === 'error')).toHaveLength(2)
     expect(lines.filter((c) => c.severity === 'warning')).toHaveLength(2)
+  })
+})
+
+describe('Problems: each warning once, errors first', () => {
+  it('lists a missing Ricardian section once per action, with its place, and the empty clause file once', () => {
+    // As cdt-cpp 4.1 prints it for a project without its two Ricardian files.
+    const actions = ['create', 'issue']
+    const output = [
+      ...actions.map((a, i) => `/mnt/c/Users/me/proj/src/token.cpp:${i + 3}:18: warning: abigen warning (Action <${a}> does not have a ricardian contract)`),
+      '2 warnings generated.',
+      'Warning, empty ricardian clause file',
+      'Warning, empty ricardian clause file',
+      ...actions.map((a) => `Warning, action <${a}> does not have a ricardian contract`),
+      ...actions.map((a) => `Warning, action <${a}> does not have a ricardian contract`)
+    ].join('\n')
+    const p = parseProblems(output, ROOT)
+    expect(p.map((x) => [x.file, x.line, x.message])).toEqual([
+      ['src/token.cpp', 3, 'abigen warning (Action <create> does not have a ricardian contract)'],
+      ['src/token.cpp', 4, 'abigen warning (Action <issue> does not have a ricardian contract)'],
+      ['', 0, 'empty ricardian clause file']
+    ])
+    expect(countProblems(p)).toEqual({ errors: 0, warnings: 3 })
+  })
+
+  it('keeps a Ricardian warning without a place when the compiler gave none', () => {
+    const p = parseProblems([ABIGEN_WARNING, ABIGEN_WARNING].join('\n'), ROOT)
+    expect(p.map((x) => x.message)).toEqual(['action <hi> does not have a ricardian contract'])
+  })
+
+  it('keeps two different diagnostics at one place', () => {
+    const base = { file: 'a.cpp', line: 1, column: 1, severity: 'error', source: 'build' }
+    expect(uniqueProblems([{ ...base, message: 'x' }, { ...base, message: 'y' }, { ...base, message: 'x' }])).toHaveLength(2)
+  })
+
+  it('orders errors before warnings before notes, the build order within each', () => {
+    const list = [
+      { severity: 'warning', id: 1 },
+      { severity: 'info', id: 2 },
+      { severity: 'warning', id: 3 },
+      { severity: 'error', id: 4 },
+      { severity: 'error', id: 5 }
+    ]
+    expect(orderProblems(list).map((x) => x.id)).toEqual([4, 5, 1, 3, 2])
   })
 })

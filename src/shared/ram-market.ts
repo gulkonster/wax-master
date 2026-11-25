@@ -161,3 +161,16 @@ export function ramSellReturn(market: RamMarket, bytes: number): number {
   const out = Math.trunc((market.quoteReserve * bytes) / (market.ramReserve + bytes))
   return Math.max(0, out - ramFeeUnits(out))
 }
+
+/**
+ * Bytes kept back when selling RAM. The `sellram` transaction itself adds to the
+ * account's RAM use (a node refused selling 16,200 of 16,342 unused bytes,
+ * short by about 100 bytes), so selling every unused byte is refused.
+ */
+export const RAM_SELL_MARGIN = 512
+
+/** Most bytes the Sell form offers: the unused RAM less `RAM_SELL_MARGIN`. */
+export function ramSellable(usage: number, quota: number): number {
+  if (quota < 0) return 0
+  return Math.max(0, quota - usage - RAM_SELL_MARGIN)
+}

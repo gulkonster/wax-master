@@ -12,7 +12,7 @@ Open the Account page, then the RAM section. It shows the RAM used and the total
 
 - **By bytes**: enter the number of bytes. The form shows the cost estimated from the chain's RAM market. It sends `eosio::buyrambytes`.
 - **By amount**: enter the amount to spend, for example `1.00000000`. The form shows the bytes you get. It sends `eosio::buyram`.
-- **Sell**: enter the bytes to sell. Only RAM the account does not use can be sold. The form shows the WAX you get. It sends `eosio::sellram`.
+- **Sell**: enter the bytes to sell. Only RAM the account does not use can be sold, and the form keeps back 512 bytes of it: the sale itself uses some RAM, and a node refuses a sale of every unused byte. The form shows the most you can sell and the WAX you get. It sends `eosio::sellram`.
 
 To buy, choose the payer and its permission in **Paid by**; to sell, choose the permission of this account. Press **Command** to see the action, then approve in the confirmation window. The balance and the gauges are read again right after the transaction is sent, and twice more a few seconds later.
 

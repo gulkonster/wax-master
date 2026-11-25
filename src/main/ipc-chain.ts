@@ -11,6 +11,7 @@ import { dataDir } from './paths'
 import { chain, history, request } from './rpc'
 import { vault } from './keys-service'
 import { linksFromAccount, linksFromHistory } from './wallet-permissions'
+import { chainAbiHashOf } from './deploy'
 import { nameAuctions, nameBidLookup, powerupState, powerupStateRow, proxyInfo, systemFeatures, votingView } from './wallet-system'
 import { bidNameProblem } from '../shared/name-bids'
 import { checkActionsFilter } from '../shared/history-filter'
@@ -233,7 +234,7 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
     const hash = (v: unknown): string => (typeof v === 'string' && /^[0-9a-f]{64}$/.test(v) && !/^0+$/.test(v) ? v : '')
     const codeHash = hash(raw.code_hash)
     const last = typeof a.last_code_update === 'string' && /^\d{4}-\d\d-\d\dT[\d:.]+$/.test(a.last_code_update) ? a.last_code_update : ''
-    return { hasCode: codeHash !== '', codeHash, abiHash: hash(raw.abi_hash), lastCodeUpdate: codeHash && !last.startsWith('1970-') ? last : '' }
+    return { hasCode: codeHash !== '', codeHash, abiHash: hash(chainAbiHashOf({ abi_hash: typeof raw.abi_hash === 'string' ? raw.abi_hash : undefined, abi: typeof raw.abi === 'string' ? raw.abi : undefined })), lastCodeUpdate: codeHash && !last.startsWith('1970-') ? last : '' }
   })
   // The tokens added for the current network, or for a named one (the question before a network is removed).
   handle('wallet:addedTokens', (_e, networkId) => {
