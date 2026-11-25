@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Problem } from '../../../shared/api'
 import { useApp, type PanelTab } from '../state'
 import { emit } from '../lib/bus'
-import { appendOutput, clearOutput, outputStore, panelsFollowProject, problemsStore, useStore } from '../lib/stores'
+import { appendOutput, clearOutput, outputStore, mergedProblemsStore, panelsFollowProject, useStore } from '../lib/stores'
 import { IconClose, IconError, IconInfo, IconWarning } from './Icons'
-import { RICARDIAN_HINT, classifyLine, cleanLine, countProblems, isRicardianWarning, orderProblems, type ClassifiedLine } from '../../../shared/output-lines'
+import { NAME_HINT, RICARDIAN_HINT, classifyLine, cleanLine, countProblems, isNameRuleError, isRicardianWarning, type ClassifiedLine } from '../../../shared/output-lines'
 import { ReadMore } from './HelpButton'
 
 const TABS: { id: PanelTab; label: string }[] = [
@@ -19,7 +19,7 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
   const drag = useRef<{ y: number; h: number } | null>(null)
   const [dragging, setDragging] = useState(false)
   const output = useStore(outputStore)
-  const problems = useStore(problemsStore)
+  const problems = useStore(mergedProblemsStore)
   const bodyRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => window.wax.on('output', (e) => appendOutput(e.text)), [])
@@ -28,8 +28,6 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
   useEffect(() => {
     panelsFollowProject(projectPath)
   }, [projectPath])
-
-  const ordered = useMemo(() => orderProblems(problems), [problems])
 
   useEffect(() => {
     if (state.panelTab === 'output') bodyRef.current?.scrollTo(0, bodyRef.current.scrollHeight)
@@ -118,13 +116,13 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
           ))}
         {state.panelTab === 'problems' &&
           (problems.length === 0 ? (
-            <div className="panel-note">No problems have been detected.</div>
+            <div className="panel-note">No problems in the open files or the last build.</div>
           ) : (
             <>
               <div className="panel-note" style={{ marginBottom: 'var(--sp-1)' }}>
                 {errors} error(s), {warnings} warning(s)
               </div>
-              {ordered.map((p, i) => (
+              {problems.map((p, i) => (
                 <div key={i} className={`problem-row${p.file ? '' : ' no-place'}`} onClick={p.file ? () => reveal(p) : undefined}>
                   <span className={`out-${p.severity === 'info' ? 'note' : p.severity}`}>
                     {p.severity === 'error' ? <IconError size="sm" /> : p.severity === 'warning' ? <IconWarning size="sm" /> : <IconInfo size="sm" />}
@@ -144,6 +142,11 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
                         {RICARDIAN_HINT}
                       </span>{' '}
                       <ReadMore place="ricardianWarning" />
+                    </span>
+                  )}
+                  {p.source === 'build' && isNameRuleError(p.message) && (
+                    <span className="problem-hint" onClick={(ev) => ev.stopPropagation()}>
+                      {NAME_HINT} <ReadMore place="nameRule" />
                     </span>
                   )}
                   {p.source === 'abi' && (

@@ -2,7 +2,7 @@
 
 import type { BuildCheck, BuildResult } from '../../../shared/api'
 import { emit } from './bus'
-import { appendOutput, clearOutput, problemsStore } from './stores'
+import { appendOutput, clearOutput, problemsStore, recordBuiltVersions, refreshMerged } from './stores'
 import { errorText, toast } from './toast'
 
 let running = false
@@ -17,6 +17,7 @@ export async function startBuild(showPanel: (tab: 'output' | 'problems') => void
   running = true
   try {
     await saveAll()
+    recordBuiltVersions()
     clearOutput()
     showPanel('output')
     const r = await window.wax.build.run()
@@ -25,6 +26,7 @@ export async function startBuild(showPanel: (tab: 'output' | 'problems') => void
       return r
     }
     problemsStore.set(r.problems)
+    refreshMerged()
     emit('problems-updated')
     if (r.outcome === 'abi-not-deployable') {
       toast('Built, ABI not deployable', 'The ABI check explains the cause and the fix in Output and Problems.', 'error')
@@ -54,6 +56,7 @@ export async function ensureBuild(showPanel: (tab: 'output' | 'problems') => voi
   running = true
   try {
     await saveAll()
+    recordBuiltVersions()
     if (always) {
       clearOutput()
       showPanel('output')
@@ -69,6 +72,7 @@ export async function ensureBuild(showPanel: (tab: 'output' | 'problems') => voi
       // Up to date: keep the other problems, refresh the ABI ones.
       problemsStore.set([...problemsStore.get().filter((p) => p.source !== 'abi'), ...r.abiProblems])
     }
+    refreshMerged()
     emit('problems-updated')
     return r
   } catch (e) {

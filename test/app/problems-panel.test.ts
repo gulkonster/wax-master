@@ -30,11 +30,11 @@ describe('Output and Problems follow the open project', () => {
     off()
   })
 
-  it('the bottom panel calls it with the open project and lists the problems in order', () => {
+  it('the bottom panel calls it with the open project and lists the merged problems', () => {
     const src = readFileSync(join(__dirname, '../../src/renderer/src/components/BottomPanel.tsx'), 'utf8')
     expect(src).toMatch(/useEffect\(\(\) => \{\s*panelsFollowProject\(projectPath\)\s*\}, \[projectPath\]\)/)
-    expect(src).toContain('orderProblems(problems)')
-    expect(src).toContain('{ordered.map((p, i) => (')
+    expect(src).toContain('useStore(mergedProblemsStore)')
+    expect(src).toContain('{problems.map((p, i) => (')
   })
 })
 

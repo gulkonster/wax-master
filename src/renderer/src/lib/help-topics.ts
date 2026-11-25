@@ -68,7 +68,9 @@ export const HELP_TOPICS = {
   /** "Read more" under the ABI check text. */
   abiCheck: 'abi-check',
   /** "Read more" next to a Ricardian warning in Problems. */
-  ricardianWarning: 'ricardian'
+  ricardianWarning: 'ricardian',
+  /** "Read more" under the name rule hint of a build error in Problems. */
+  nameRule: 'compiler-errors'
 } as const
 
 export type HelpPlace = keyof typeof HELP_TOPICS

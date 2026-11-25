@@ -11,7 +11,7 @@ import { ProjectSettings, type SettingsSaver } from './ProjectSettings'
 import { Modal } from '../components/Modal'
 import { failureText, type SaveAllResult, type SaveFailure } from '../lib/save-result'
 import { startBuild } from '../lib/build'
-import { problemsStore } from '../lib/stores'
+import { mergedProblemsStore, setVersionSource } from '../lib/stores'
 import type { Problem, WasmInfo } from '../../../shared/api'
 import { WasmInfoView } from './WasmInfoView'
 import { documentSaved, openDocument, startEditorEngine, switchHeaderSource } from '../lib/lsp/engine'
@@ -670,30 +670,50 @@ export function ProjectView({ project }: { project: OpenProject }): React.JSX.El
     [dirty, selected, tree]
   )
 
-  // Build problems as editor markers.
+  // Build problems that are still in the merged list, as editor markers: each covers the word at its column.
   const applyMarkers = useCallback(() => {
-    const problems = problemsStore.get()
+    const problems = mergedProblemsStore.get().filter((p: Problem) => p.source !== 'editor')
     for (const [id, d] of docs.current) {
       if (!d.model || !id.startsWith('file:')) continue
+      const model = d.model
       const rel = id.slice(5)
       const ms = problems
         .filter((p: Problem) => p.file === rel)
-        .map((p: Problem) => ({
-          startLineNumber: p.line,
-          startColumn: p.column,
-          endLineNumber: p.line,
-          endColumn: d.model!.getLineMaxColumn(Math.min(p.line, d.model!.getLineCount())),
-          message: p.message,
-          severity:
-            p.severity === 'error'
-              ? monaco.MarkerSeverity.Error
-              : p.severity === 'warning'
-                ? monaco.MarkerSeverity.Warning
-                : monaco.MarkerSeverity.Info,
-          source: 'build'
-        }))
-      monaco.editor.setModelMarkers(d.model, 'build', ms)
+        .map((p: Problem) => {
+          const line = Math.min(Math.max(p.line, 1), model.getLineCount())
+          const max = model.getLineMaxColumn(line)
+          const column = Math.min(Math.max(p.column, 1), max)
+          const word = model.getWordAtPosition({ lineNumber: line, column })
+          const endColumn = word && word.endColumn > column ? word.endColumn : Math.min(column + 1, max)
+          return {
+            startLineNumber: line,
+            startColumn: column,
+            endLineNumber: line,
+            endColumn: Math.max(endColumn, column),
+            message: p.message,
+            severity:
+              p.severity === 'error'
+                ? monaco.MarkerSeverity.Error
+                : p.severity === 'warning'
+                  ? monaco.MarkerSeverity.Warning
+                  : monaco.MarkerSeverity.Info,
+            source: 'build'
+          }
+        })
+      monaco.editor.setModelMarkers(model, 'build', ms)
     }
+  }, [])
+
+  // The text version of every open project file, for "changed since the build".
+  useEffect(() => {
+    setVersionSource(() => {
+      const m = new Map<string, number>()
+      for (const model of monaco.editor.getModels()) {
+        if (model.uri.scheme === 'project') m.set(relOf(model.uri), model.getAlternativeVersionId())
+      }
+      return m
+    })
+    return () => setVersionSource(() => new Map())
   }, [])
 
   useEffect(() => on('problems-updated', applyMarkers), [applyMarkers])

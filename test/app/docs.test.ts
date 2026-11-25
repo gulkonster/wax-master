@@ -511,7 +511,8 @@ const FEATURE_TOPICS: [string, keyof typeof HELP_TOPICS][] = [
   ['CPU / NET / RAM refusal', 'resourceRefusal'],
   ['Refused transaction (inspector, Contract page result, wallet forms)', 'txRefusal'],
   ['ABI check', 'abiCheck'],
-  ['Ricardian warning in Problems', 'ricardianWarning']
+  ['Ricardian warning in Problems', 'ricardianWarning'],
+  ['Name rule hint of a build error in Problems', 'nameRule']
 ]
 
 /**
