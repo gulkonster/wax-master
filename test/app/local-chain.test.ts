@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -8,6 +8,72 @@ vi.mock('electron', () => ({
   shell: { openPath: async () => '' },
   utilityProcess: { fork: () => ({ on: () => undefined, postMessage: () => undefined }) }
 }))
+
+// Fakes for the calls of the chain's life: the node process, the WSL calls, the ports and the data folder.
+// The pure helpers tested further up do not use them.
+const fake = vi.hoisted(() => ({
+  dir: '',
+  distros: [] as string[],
+  verifyError: null as Error | null,
+  nodeRuns: 0,
+  endNode: null as ((code: number) => void) | null,
+  scriptCalls: [] as string[]
+}))
+
+vi.mock('../../src/main/helper', async (orig) => ({
+  ...(await orig<typeof import('../../src/main/helper')>()),
+  run: () => {
+    fake.nodeRuns++
+    return new Promise((resolve) => {
+      fake.endNode = (code) => resolve({ code, output: '' })
+    })
+  }
+}))
+
+vi.mock('../../src/main/toolchain', async (orig) => ({
+  ...(await orig<typeof import('../../src/main/toolchain')>()),
+  wslExe: () => process.execPath,
+  toolchainState: () => null,
+  listDistros: async () => fake.distros,
+  verifyParts: async () => {
+    if (fake.verifyError) throw fake.verifyError
+  },
+  wsl: async (args: string[]) => {
+    const at = args.indexOf('setup-distro')
+    const command = at >= 0 ? args[at + 1] : args.join(' ')
+    fake.scriptCalls.push(command)
+    if (command === 'stop-node') setTimeout(() => fake.endNode?.(0), 10)
+    return { code: 0, output: command === 'node-running' ? 'RUNNING 0\n' : '' }
+  }
+}))
+
+vi.mock('../../src/main/paths', async (orig) => ({
+  ...(await orig<typeof import('../../src/main/paths')>()),
+  localDataDir: () => fake.dir
+}))
+
+vi.mock('../../src/main/log', async (orig) => ({
+  ...(await orig<typeof import('../../src/main/log')>()),
+  log: { info: () => undefined, warn: () => undefined, error: () => undefined, debug: () => undefined }
+}))
+
+// Every port is free and nobody answers on it.
+vi.mock('node:net', async (orig) => {
+  const { EventEmitter } = await import('node:events')
+  return {
+    ...(await orig<typeof import('node:net')>()),
+    createConnection: () => {
+      const sock = Object.assign(new EventEmitter(), { setTimeout: () => undefined, destroy: () => undefined })
+      setTimeout(() => sock.emit('error', new Error('ECONNREFUSED')), 0)
+      return sock
+    },
+    createServer: () => ({
+      once: () => undefined,
+      listen: (_o: unknown, cb: () => void) => cb(),
+      close: (cb: () => void) => cb()
+    })
+  }
+})
 
 import {
   DAMAGED_TEXT,
@@ -90,6 +156,12 @@ describe('exit handling (B108 point 4)', () => {
   it('replays once on a dirty database, then offers Reset', () => {
     expect(exitOutcome(2, dirty, false, 8888)).toEqual({ kind: 'replay' })
     expect(exitOutcome(2, dirty, true, 8888)).toEqual({ kind: 'failed', reason: DIRTY_TEXT, repair: { kind: 'reset' } })
+  })
+  it('replays once when the node asks for a replay after a stopped replay, then offers Reset', () => {
+    const stoppedReplay =
+      '3060005 bad_database_version_exception: Database is an unknown or unsupported version\nstate database version pre-dates versioning, please restore from a compatible snapshot or replay!'
+    expect(exitOutcome(254, stoppedReplay, false, 8888)).toEqual({ kind: 'replay' })
+    expect(exitOutcome(254, stoppedReplay, true, 8888)).toEqual({ kind: 'failed', reason: DIRTY_TEXT, repair: { kind: 'reset' } })
   })
   it('names a port taken inside WSL', () => {
     const o = exitOutcome(1, 'listen failed: Address already in use', false, 8890)
@@ -239,5 +311,97 @@ describe('empty chain folder (B134)', () => {
     } finally {
       rmSync(root, { recursive: true, force: true })
     }
+  })
+})
+
+describe('the chain life with fakes (failed Set up, Stop during a start, another chain on the port)', () => {
+  type Chain = typeof import('../../src/main/local-chain')
+  let root = ''
+
+  const load = async (): Promise<Chain> => {
+    vi.resetModules()
+    return import('../../src/main/local-chain')
+  }
+  const writeState = (chainId: string): void => {
+    mkdirSync(join(fake.dir, 'local-chain'), { recursive: true })
+    const state = { port: 8888, chainId, nodeVersion: 'v1', contractsVersion: 'c1', options: { webPages: false, startWithApp: false }, bootstrapped: true }
+    writeFileSync(join(fake.dir, 'local-chain', 'state.json'), JSON.stringify(state))
+  }
+  const answer = (chainId: string | null): void => {
+    vi.stubGlobal('fetch', async () => {
+      if (!chainId) throw new Error('ECONNREFUSED')
+      return { ok: true, json: async () => ({ chain_id: chainId, head_block_num: 5 }) }
+    })
+  }
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'lc-life-'))
+    fake.dir = root
+    fake.distros = []
+    fake.verifyError = null
+    fake.nodeRuns = 0
+    fake.endNode = null
+    fake.scriptCalls = []
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('a Set up that fails before the state file offers Set up again, and so does Start then', async () => {
+    const chain = await load()
+    fake.verifyError = new Error('The part "wax-node" failed its SHA-256 check.')
+    const s = await chain.setUp()
+    expect(s.phase).toBe('failed')
+    expect(s.repair).toEqual({ kind: 'set-up' })
+    expect(s.reason).toBe('Set up did not finish: The part "wax-node" failed its SHA-256 check.')
+    expect(existsSync(join(root, 'local-chain', 'state.json'))).toBe(false)
+    const again = await chain.start()
+    expect(again).toMatchObject({ phase: 'failed', repair: { kind: 'set-up' } })
+    expect(chain.fallbackRepair(true)).toEqual({ kind: 'none' })
+  })
+
+  it('Stop during a start does not wait behind it: the node is ended and the start ends stopped', async () => {
+    fake.distros = [LOCAL_CHAIN_DISTRO]
+    writeState('aa'.repeat(32))
+    answer(null)
+    const chain = await load()
+    const phases: string[] = []
+    chain.onStatus((st) => phases.push(st.phase))
+    const starting = chain.start()
+    await vi.waitFor(() => expect(fake.nodeRuns).toBe(1), { timeout: 3000 })
+    expect(phases).toContain('starting')
+    const t0 = Date.now()
+    const stopped = await chain.stop()
+    expect(Date.now() - t0).toBeLessThan(5000)
+    expect(stopped.phase).toBe('stopped')
+    expect((await starting).phase).toBe('stopped')
+    expect(fake.scriptCalls).toContain('stop-node')
+    expect(phases).not.toContain('failed')
+    expect(phases).not.toContain('running')
+    expect(phases.slice(phases.indexOf('stopping'))).toContain('stopped')
+    expect(chain.localChainRunning()).toBe(false)
+  })
+
+  it('a node of another chain on the port is stopped and the port is named as taken', async () => {
+    fake.distros = [LOCAL_CHAIN_DISTRO]
+    writeState('aa'.repeat(32))
+    answer('bb'.repeat(32))
+    const chain = await load()
+    const s = await chain.start()
+    expect(s.phase).toBe('failed')
+    expect(s.reason).toBe('Port 8888 is used by another program.')
+    expect(s.repair).toEqual({ kind: 'use-port', port: 8889 })
+    expect(fake.scriptCalls).toContain('stop-node')
+    expect(chain.localChainRunning()).toBe(false)
+  })
+
+  it('a node of its own chain id runs', async () => {
+    fake.distros = [LOCAL_CHAIN_DISTRO]
+    writeState('aa'.repeat(32))
+    answer('aa'.repeat(32))
+    const chain = await load()
+    expect((await chain.start()).phase).toBe('running')
+    fake.endNode?.(0)
   })
 })

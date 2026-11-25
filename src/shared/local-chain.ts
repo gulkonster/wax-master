@@ -34,6 +34,8 @@ export interface LocalChainOptions {
 export type LocalChainRepair =
   | { kind: 'reset' }
   | { kind: 'use-port'; port: number }
+  /** Set up did not finish (no state file): the way back is Set up again. */
+  | { kind: 'set-up' }
   | { kind: 'none' }
 
 export interface LocalChainStatus {

@@ -89,7 +89,9 @@ export function logTail(text: string, keep = LOG_KEEP_BYTES): string {
   return nl >= 0 ? cut.slice(nl + 1) : cut
 }
 
-const DAMAGED_PATTERN = /block_log_exception|fork_database_exception|database_exception|bad database version/i
+/** The node's words when its state needs a replay of its own blocks (seen after a replay that was stopped). */
+const REPLAY_HINT = /restore from a compatible snapshot or replay/i
+const DAMAGED_PATTERN =/block_log_exception|fork_database_exception|database_exception|bad database version/i
 
 export type ExitOutcome = { kind: 'replay' } | { kind: 'failed'; reason: string; repair: LocalChainRepair; portTaken?: boolean }
 
@@ -98,7 +100,8 @@ export type ExitOutcome = { kind: 'replay' } | { kind: 'failed'; reason: string;
  * with `--replay-blockchain`; if that ends too, the chain can only be reset.
  */
 export function exitOutcome(code: number, tail: string, replayTried: boolean, port: number, genesis = false): ExitOutcome {
-  if (tail.includes(LOCAL_CHAIN_DIRTY_FLAG_TEXT)) {
+  // A replay that was stopped leaves a state the node itself says to replay; it is treated as a dirty database.
+  if (tail.includes(LOCAL_CHAIN_DIRTY_FLAG_TEXT) || REPLAY_HINT.test(tail)) {
     return replayTried ? { kind: 'failed', reason: DIRTY_TEXT, repair: { kind: 'reset' } } : { kind: 'replay' }
   }
   if (replayTried) return { kind: 'failed', reason: DIRTY_TEXT, repair: { kind: 'reset' } }
@@ -327,9 +330,25 @@ interface NodeProc {
 }
 let node: NodeProc | null = null
 let queue: Promise<unknown> = Promise.resolve()
+/** The call that runs at the moment; Stop during a start waits for it to end. */
+let active: Promise<unknown> | null = null
+/** Set by Stop while a start runs; the start ends at its next step. Cleared when that call ends. */
+let stopAsked = false
+/** The Stop that ends a running start, so a second press joins it. */
+let stopping: Promise<LocalChainStatus> | null = null
 
 function serial<T>(fn: () => Promise<T>): Promise<T> {
-  const next = queue.then(fn, fn)
+  const runIt = async (): Promise<T> => {
+    const p = fn()
+    active = p
+    try {
+      return await p
+    } finally {
+      active = null
+      stopAsked = false
+    }
+  }
+  const next = queue.then(runIt, runIt)
   queue = next.catch(() => undefined)
   return next
 }
@@ -461,6 +480,7 @@ type WaitResult = { kind: 'answer'; info: ChainInfo } | { kind: 'exited'; code: 
 async function waitForAnswer(proc: NodeProc, port: number, ms: number): Promise<WaitResult> {
   const end = Date.now() + ms
   while (Date.now() < end) {
+    if (stopAsked) return { kind: 'silent' }
     if (proc.exited) return { kind: 'exited', code: proc.code ?? -1, tail: proc.tail }
     const info = await getInfo(port, 1000)
     if (info) return { kind: 'answer', info }
@@ -484,13 +504,17 @@ async function settleBlocks(port: number): Promise<void> {
  * Stops the node as B108 point 3 says, after its last block became irreversible (up to 10 s; a SIGINT
  * drops the block being built): SIGINT, up to 15 s, then `wsl --terminate`.
  */
-async function stopProcess(): Promise<void> {
+async function stopProcess(opts: { settle?: boolean } = {}): Promise<void> {
   const proc = node
-  if (proc && !proc.exited) {
+  if (proc && !proc.exited && proc.stopping) {
+    // Another call is stopping it already (Stop during a start): wait for that end, with a limit.
+    await Promise.race([proc.done, new Promise((r) => setTimeout(r, STOP_WAIT_MS + 75_000))])
+  } else if (proc && !proc.exited) {
     proc.stopping = true
     progress('Stopping the node...')
     const statePort = readState()?.port
-    if (statePort) await settleBlocks(statePort)
+    // A node that is still starting, or one of another chain, has no blocks of ours to wait for.
+    if (statePort && opts.settle !== false) await settleBlocks(statePort)
     await script('stop-node', [], { timeoutMs: 30_000 }).catch(() => null)
     const ended = await Promise.race([proc.done.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), STOP_WAIT_MS))])
     if (!ended) {
@@ -537,6 +561,13 @@ async function portFailure(port: number): Promise<never> {
 /** A failure already shown in the status; the call returns the status instead of throwing. */
 class HandledFailure extends Error {}
 
+/** Stop was pressed while the chain was starting; the start ends here and the chain ends stopped. */
+class StopAsked extends HandledFailure {}
+
+function checkStop(): void {
+  if (stopAsked) throw new StopAsked()
+}
+
 /**
  * Starts the node and waits until it answers. A dirty database gets one replay (B108 point 4 a);
  * a taken port and a silent node fail with their texts.
@@ -544,8 +575,10 @@ class HandledFailure extends Error {}
 async function startAnswering(port: number, mode: { genesis?: boolean; producerApi?: boolean } = {}): Promise<ChainInfo> {
   let replay = false
   for (;;) {
+    checkStop()
     const proc = launch({ ...mode, replay })
     const res = await waitForAnswer(proc, port, replay ? REPLAY_WAIT_MS : ANSWER_WAIT_MS)
+    checkStop()
     if (res.kind === 'answer') return res.info
     if (res.kind === 'silent') {
       await stopProcess()
@@ -594,6 +627,7 @@ async function freshChain(state: LocalChainState, key: string): Promise<LocalCha
       expect: { port: state.port, chainId: info.chain_id, networkId: LOCAL_CHAIN_NETWORK_ID }
     })
   } catch (err) {
+    checkStop()
     await stopProcess()
     const msg = err instanceof Error ? err.message : String(err)
     setPhase('failed', `The chain could not be filled with the system contracts: ${hideKeys(msg)}`, { kind: 'reset' })
@@ -612,8 +646,10 @@ async function startChain(): Promise<void> {
   const state = readState()
   if (!state) throw new Error('The local chain is not set up.')
   if (node && !node.exited) return
+  checkStop()
   setPhase('starting')
   await stopLeftover()
+  checkStop()
   if (!(await portFree(state.port))) {
     // A relay left from a node that just ended lets go within about a second.
     await new Promise((r) => setTimeout(r, 2000))
@@ -622,20 +658,34 @@ async function startChain(): Promise<void> {
   let s = state
   if (!s.bootstrapped) s = await freshChain(s, await localChainSystemKey())
   const info = await startAnswering(s.port)
-  if (s.chainId && info.chain_id !== s.chainId) log.warn('Local chain answered with another chain id than its state')
+  if (s.chainId && info.chain_id !== s.chainId) {
+    // Another chain's node answers on the port: ours is stopped and the port is named as taken.
+    log.warn(`Local chain: port ${s.port} answered with another chain id than the local chain's; stopping the node`)
+    await stopProcess({ settle: false })
+    await portFailure(s.port)
+  }
+  checkStop()
   if (!s.chainId) saveState({ ...s, chainId: info.chain_id })
   setPhase('running')
   log.info(`Local chain running at 127.0.0.1:${s.port}`)
+}
+
+/** The repair of a failure that named none: without a state file the chain was never set up, so Set up is the way back. */
+export function fallbackRepair(hasState: boolean): LocalChainRepair {
+  return hasState ? { kind: 'none' } : { kind: 'set-up' }
 }
 
 async function guarded(fn: () => Promise<void>, failedPrefix?: string): Promise<LocalChainStatus> {
   try {
     await fn()
   } catch (err) {
-    if (!(err instanceof HandledFailure)) {
+    if (err instanceof StopAsked) {
+      await stopProcess({ settle: false })
+      setPhase('stopped')
+    } else if (!(err instanceof HandledFailure)) {
       const msg = hideKeys(err instanceof Error ? err.message : String(err))
       log.warn(`Local chain: ${msg}`)
-      if (phase !== 'unavailable') setPhase('failed', failedPrefix ? `${failedPrefix} ${msg}` : msg, { kind: 'none' })
+      if (phase !== 'unavailable') setPhase('failed', failedPrefix ? `${failedPrefix} ${msg}` : msg, fallbackRepair(readState() !== null))
     }
   }
   return getStatus()
@@ -738,7 +788,40 @@ export function start(): Promise<LocalChainStatus> {
   })
 }
 
+/** Time a Stop during a start waits for that start to end after the node was stopped. */
+const START_END_WAIT_MS = 60_000
+
+/**
+ * Stop while the chain starts (a replay can take many minutes) does not wait in the queue behind the
+ * start: the node is ended at once, the start sees that at its next step, and the chain ends stopped.
+ */
+function stopWhileStarting(): Promise<LocalChainStatus> {
+  if (stopping) return stopping
+  stopAsked = true
+  const starting = active
+  setPhase('stopping')
+  stopping = (async () => {
+    try {
+      await stopProcess({ settle: false })
+      if (starting) {
+        let timer: NodeJS.Timeout | undefined
+        await Promise.race([starting.catch(() => undefined), new Promise((r) => (timer = setTimeout(r, START_END_WAIT_MS)))])
+        clearTimeout(timer)
+      }
+      if (phase === 'stopping' && !localChainRunning()) setPhase('stopped')
+    } catch (err) {
+      log.warn(`Local chain: stop during start: ${hideKeys(err instanceof Error ? err.message : String(err))}`)
+    } finally {
+      stopping = null
+    }
+    return getStatus()
+  })()
+  return stopping
+}
+
 export function stop(): Promise<LocalChainStatus> {
+  if (phase === 'starting' && active) return stopWhileStarting()
+  if (stopping) return stopping
   return serial(async () => {
     const p = await determinePhase()
     if (p !== 'running' && p !== 'starting' && !node) return getStatus()

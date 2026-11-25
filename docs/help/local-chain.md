@@ -75,7 +75,7 @@ After a Reset make your accounts again. A project keeps the name of its deploy a
 
 Both are off at first, in the dialog:
 
-- **Web pages on this computer may call the local chain**: lets a page you run on this computer (a game in development) send requests to the chain. The node restarts when you change it.
+- **Web pages on this computer may call the local chain**: lets a page you run on this computer (a game in development) send requests to the chain. The node restarts when you change it. While it is on, any web page open in a browser on this computer can read the local chain, also a page from the internet. It cannot sign anything: the keys stay in the vault. Leave it off when you do not need it.
 - **Start the local chain with WAX Master**: the chain starts when the app opens.
 
 ## What differs from WAX Mainnet
@@ -96,6 +96,8 @@ The dialog shows one of these texts with its button:
 - **"The local chain needs WSL 2 (virtualization on). The compiler works without it; the local chain does not."** Turn virtualization on in the computer's firmware settings and set up WSL 2 (see [First start and the toolchain](doc:first-start)).
 
 Whenever the node ended and the dialog shows a problem, **Reset** is offered beside **Open log** and **Remove**. If Start fails again and the log names no cause you can remove, press Reset.
+
+If Set up did not finish, the dialog says why and offers Set up again.
 
 If the app was closed by force (for example in Task Manager) while the chain ran, the next Start finds the data not closed cleanly and rebuilds it from the chain's own blocks before it runs (a few seconds; a chain with many transactions takes longer). **Open log** shows the node's last lines (the last 2 MB are kept). The log never holds a key.
 

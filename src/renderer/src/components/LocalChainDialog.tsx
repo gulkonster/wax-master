@@ -24,6 +24,9 @@ const PHASE_WORDS: Record<LocalChainPhase, string> = {
 }
 
 const BUSY: LocalChainPhase[] = ['setting-up', 'starting', 'stopping']
+/** A normal start answers within this time; after it, or once a replay began, Stop is offered. */
+const STOP_OFFER_MS = 20_000
+const REPLAY_LINE = 'Replaying its blocks'
 
 export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
   const [status, setStatus] = useState<LocalChainStatus | null>(null)
@@ -62,6 +65,16 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
 
   const phase = status?.phase ?? null
   const busy = pending || (phase !== null && BUSY.includes(phase))
+  // A start goes on in the main process when the dialog closes; the status bar and the Network page follow its events.
+  const closeLocked = phase === 'setting-up' || phase === 'stopping' || (pending && phase !== 'starting')
+  const setUpFailed = phase === 'failed' && status?.repair?.kind === 'set-up'
+
+  const [startingSince, setStartingSince] = useState<number | null>(null)
+  useEffect(() => {
+    setStartingSince((since) => (phase === 'starting' ? (since ?? Date.now()) : null))
+  }, [phase])
+  const offerStop =
+    phase === 'starting' && (lines.some((l) => l.includes(REPLAY_LINE)) || (startingSince !== null && Date.now() - startingSince >= STOP_OFFER_MS))
 
   const run = async (call: () => Promise<LocalChainStatus>, clearLines = false): Promise<void> => {
     setError('')
@@ -152,8 +165,30 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
           </>
         )
         break
+      case 'starting':
+        if (offerStop) {
+          primary = (
+            <button className="btn primary" onClick={() => void run(() => api().stop())}>
+              Stop
+            </button>
+          )
+        }
+        break
       case 'failed': {
         const repair = status.repair
+        if (repair?.kind === 'set-up') {
+          primary = (
+            <button className="btn primary" disabled={busy} onClick={() => void run(() => api().setUp(), true)}>
+              Set up
+            </button>
+          )
+          left = (
+            <button className="btn" onClick={openLog}>
+              Open log
+            </button>
+          )
+          break
+        }
         if (repair?.kind === 'reset') {
           primary = (
             <button className="btn primary" disabled={busy} onClick={() => void run(() => api().reset())}>
@@ -203,11 +238,11 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
       name="local-chain"
       help="localChain"
       title="Local Chain"
-      onClose={busy ? undefined : onClose}
+      onClose={closeLocked ? undefined : onClose}
       footer={
         <>
           <div className="left">{left}</div>
-          <button className="btn" onClick={onClose} disabled={busy}>
+          <button className="btn" onClick={onClose} disabled={closeLocked}>
             Close
           </button>
           {primary}
@@ -307,7 +342,7 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
         </div>
       )}
 
-      {status && (status.phase === 'stopped' || status.phase === 'running' || status.phase === 'failed') && (
+      {status && (status.phase === 'stopped' || status.phase === 'running' || (status.phase === 'failed' && !setUpFailed)) && (
         <div className="lc-options">
           <label className="check-label">
             <input type="checkbox" checked={status.options.webPages} disabled={busy} onChange={() => toggle('webPages')} />
