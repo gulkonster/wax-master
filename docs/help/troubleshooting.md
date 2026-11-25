@@ -75,6 +75,15 @@ The first column is the text the chain or an example contract answers with. The 
 | Minting or moving assets of a collection stops with a message of your contract | A notify account's handler of `logmint` or `logtransfer` refused, and that refuses the mint or transfer | The handler of a notify account never fails; see [AtomicAssets notifications](doc:nft-notifications) |
 | The roll stays without a result and cannot be removed | The random number service has not answered yet | Wait; see [Random numbers (ORNG)](doc:contract-random) and [Example: Random number (ORNG)](doc:example-random-number) |
 | Rows of a table cannot be read after a new deployment | A field was added to the row struct, so old rows are shorter than the new type | [Changing a table: what breaks and how to migrate](doc:contract-table-migration) |
+| `must increase bid by 10%` | A name bid is not more than a tenth above the highest bid | Bid at least the **Smallest next bid** shown in **Name bids**; see [Name bids](doc:name-bids) |
+| `account is already highest bidder` | The same account bid again while it holds the highest bid | Wait until another account bids higher; see [Name bids](doc:name-bids) |
+| `refund not found` | The outbid amount was claimed already, or this account was never outbid on that name | Nothing to claim; see [Name bids](doc:name-bids) |
+| `send with the memo stake` | An NFT was sent to the NFT staking example without the memo `stake` | Send again with the memo `stake`; see [Example: NFT staking](doc:example-nft-staking) |
+| `the assets sent are not the ingredients of this recipe` | The assets sent to the NFT blend example are not the recipe's templates | Send exactly the recipe's templates; see [Example: NFT blend](doc:example-nft-blend) |
+| `The drop has a maximum per account of 1 and this account already claimed 1` | The drop's `account_limit` is reached for this account | Another account claims; see [Drops (atomicdropsx)](doc:nft-drops) |
+| `The pack has already been completed` | `addpackroll` after `completepack` | Rolls cannot change after `completepack`; announce a new pack; see [Packs (atomicpacksx)](doc:nft-packs) |
+| `No unbox asset with the origin roll id 0 exists` | The pack was sent to be opened, but the random number service has not answered yet | Wait; on WAX Testnet it may not come; see [Packs (atomicpacksx)](doc:nft-packs) |
+| `Native backing has been deprecated on the AtomicAssets Contract` | `backasset` on `atomicassets` 2.0.0 | Assets cannot be backed with tokens any more; see [AtomicAssets in short](doc:nft-atomicassets) |
 
 [Contracts and services a WAX game uses](doc:wax-services) lists the contracts these messages come from.
 
