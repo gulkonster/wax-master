@@ -4,7 +4,7 @@ A **pack** is an NFT that is opened: the owner sends it to the contract `atomicp
 
 `atomicpacksx` has the same code on WAX Testnet and on WAX mainnet (the code hashes were compared on 2026-11-25). Its table `identifier` names its version (`1.2.0` on that day). Its source and README are public on GitHub, in the repository `pinknetworkx/atomicpacks-contract`.
 
-> Note: Opening a pack needs the WAX random number service, `orng.wax`. On WAX Testnet the service does not answer `atomicpacksx`: you can set up a pack, mint it and send it to be opened, but it is never opened. Everything after the `unbox` transfer below is marked "Not tried on WAX Testnet".
+> Note: Opening a pack needs the WAX random number service, `orng.wax`. On WAX Testnet the service did not answer any request when this page was written (none since 2026-10-21), and `atomicpacksx` is not among the contracts it would call back there: you can set up a pack, mint it and send it to be opened, but it is never opened. Everything after the `unbox` transfer below is marked "Not tried on WAX Testnet".
 
 ## How a pack works
 
@@ -55,7 +55,7 @@ The contract draws a number from 0 to `total_odds` − 1 and walks the outcomes 
 
 1. Open `atomicassets` and make three templates in a schema of the collection, as in [Example: AtomicAssets](doc:example-atomicassets), step 9: two for the outcomes with `max_supply` = `0`, and one for the pack with `transferable` and `burnable` ticked. Note the three `template_id`s (`lognewtempl` in the inspector, or table `templates` with **Scope** = `<collection>`).
 2. On `atomicassets` run `addcolauth`: `{"collection_name": "<collection>", "account_to_add": "atomicpacksx"}`, signed by the collection's author. Skip it when `atomicpacksx` is already in `authorized_accounts` (table `collections`).
-3. Deposit RAM: on the Account page of an account with WAX, section **Transfer**: **To** `atomicpacksx`, **Amount** for example `1`, **Memo** `deposit_collection_ram:<collection>`. Then open `atomicpacksx`, table `rambalances`, **Lower bound** = `<collection>`, **Limit** = `1`: `byte_balance` is the balance in bytes.
+3. Deposit RAM: on the Account page of an account with WAX, section **Transfer**: **To** `atomicpacksx`, **Amount** for example `1`, **Memo** `deposit_collection_ram:<collection>`. Then open `atomicpacksx`, table `rambalances`, **Lower bound** and **Upper bound** = `<collection>`: `byte_balance` is the balance in bytes (the first deposit of a collection also pays 128 bytes for its row).
 4. On the `atomicpacksx` tab run `announcepack`:
 
 ```json
