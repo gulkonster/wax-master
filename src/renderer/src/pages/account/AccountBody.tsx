@@ -20,6 +20,8 @@ import { RamSection } from './RamSection'
 import { CpuNetSection } from './CpuNetSection'
 import { PermissionsSection } from './PermissionsSection'
 import { FaucetSection } from './FaucetSection'
+import { LocalTokensSection } from './LocalTokensSection'
+import { LOCAL_CHAIN_NETWORK_ID } from '../../../../shared/local-chain'
 import { TransactionsSection } from './TransactionsSection'
 import { LinksSection } from './LinksSection'
 import { ContractSection } from './ContractSection'
@@ -28,7 +30,7 @@ import { VotingSection } from './VotingSection'
 import { PowerupSection } from './PowerupSection'
 import { NameBidsSection } from './NameBidsSection'
 
-type SectionId = 'tokens' | 'transfer' | 'ram' | 'cpunet' | 'keys' | 'links' | 'contract' | 'create' | 'namebids' | 'voting' | 'powerup' | 'faucet' | 'transactions'
+type SectionId = 'tokens' | 'transfer' | 'ram' | 'cpunet' | 'keys' | 'links' | 'contract' | 'create' | 'namebids' | 'voting' | 'powerup' | 'faucet' | 'localtokens' | 'transactions'
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'tokens', label: 'Tokens' },
@@ -43,6 +45,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'voting', label: 'Voting and rewards' },
   { id: 'powerup', label: 'PowerUp' },
   { id: 'faucet', label: 'Testnet faucet' },
+  { id: 'localtokens', label: 'Local tokens' },
   { id: 'transactions', label: 'Transactions' }
 ]
 
@@ -162,8 +165,9 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
   const viewOnly = view.control.length === 0
   const ctx: WalletContext = { view, viewOnly, reason: viewOnlyReason(view.name), reload, afterSend, readTick }
   const testnet = isWaxTestnet(net)
+  const localChain = net?.id === LOCAL_CHAIN_NETWORK_ID
   const shown = SECTIONS.filter(
-    (s) => (s.id !== 'faucet' || testnet) && (s.id !== 'voting' || system.voting) && (s.id !== 'powerup' || system.powerup) && (s.id !== 'namebids' || system.nameBids)
+    (s) => (s.id !== 'faucet' || testnet) && (s.id !== 'localtokens' || localChain) && (s.id !== 'voting' || system.voting) && (s.id !== 'powerup' || system.powerup) && (s.id !== 'namebids' || system.nameBids)
   )
   const current = shown.some((s) => s.id === section) ? section : 'tokens'
 
@@ -265,6 +269,7 @@ export function AccountBody({ name }: { name: string }): React.JSX.Element {
           {current === 'voting' && <VotingSection ctx={ctx} />}
           {current === 'powerup' && <PowerupSection ctx={ctx} />}
           {current === 'faucet' && <FaucetSection ctx={ctx} />}
+          {current === 'localtokens' && <LocalTokensSection ctx={ctx} />}
           {current === 'transactions' && <TransactionsSection name={view.name} refresh={txTick} />}
         </div>
       </div>

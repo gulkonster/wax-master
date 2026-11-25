@@ -10,7 +10,7 @@ import type { AccountActionsFilter, NameAuctions, NameBidLookup, PowerupStateVie
 import type { AccountActionsPage, AccountView, AddedToken, ContractInfoView, LinkedActionsView, NetworkInfo, NetworkKind, NetworkStatus, PermissionIntent, PermissionPlanView, TokenBalance, WalletTokens } from './chain-types'
 import type { AuthLevel, ContractAbiView, ContractHistoryEntry, ContractHistoryKind, ContractHistoryList, PackResult, RowsQuery, RowsResult, ScopesResult } from './chain-types'
 import type { WindowErrorReport } from './window-error'
-import type { LocalChainApi } from './local-chain'
+import type { LocalAccountInput, LocalChainApi, LocalTokensInput } from './local-chain'
 
 /** How a vault key can be had back without the vault: none, a text file, shown once, brought by the user, in an exported vault. */
 export type KeyBackupState = 'none' | 'file' | 'shown' | 'imported' | 'vault-export'
@@ -502,7 +502,7 @@ export interface WaxApi {
     nameAuctions(): Promise<NameAuctions>
   }
   /** The app's local chain (Network > Local Chain). */
-  localChain: LocalChainApi
+  localChain: LocalChainApi & LocalAccountsApi
   networkInfo: {
     /** Chain state of a saved network for the Network page: get_info, RAM, RAM price, core token. */
     overview(networkId: string): Promise<NetworkOverview>
@@ -636,4 +636,26 @@ declare global {
     wax: WaxApi
     waxTerminal: WaxTerminalApi
   }
+}
+
+/** What New account on the local chain sent (B109 point 4). */
+export interface LocalAccountResult {
+  account: string
+  transactionId: string
+}
+
+/** What Give tokens on the local chain sent (B109 point 5). */
+export interface LocalTokensResult {
+  account: string
+  /** As sent, for example "1000.00000000 WAX". */
+  quantity: string
+  transactionId: string
+}
+
+/** Accounts and tokens of the app's local chain, sent by its `eosio` account (B109 points 4-5). */
+export interface LocalAccountsApi {
+  /** Whether the name exists on the running local chain. */
+  accountExists(name: string): Promise<boolean>
+  createAccount(input: LocalAccountInput): Promise<LocalAccountResult>
+  giveTokens(input: LocalTokensInput): Promise<LocalTokensResult>
 }

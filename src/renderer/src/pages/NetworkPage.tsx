@@ -16,6 +16,8 @@ import { IconCopy, IconPencil, IconClose } from '../components/Icons'
 import { StatusDot } from '../components/StatusDot'
 import { EditNetworkDialog, RemoveNetworkDialog } from '../components/NetworkDialogs'
 import { HelpButton } from '../components/HelpButton'
+import { emit } from '../lib/bus'
+import { LOCAL_CHAIN_NETWORK_ID, type LocalChainStatus } from '../../../shared/local-chain'
 
 /** How often the page reads get_info and the head block while it is visible. */
 export const HEAD_INTERVAL_MS = 2000
@@ -90,6 +92,59 @@ export function NetworkPage(): React.JSX.Element {
   if (!n) return <div className="coming">No network is selected.</div>
   const endpoint = n.endpoints[n.currentEndpoint] ?? n.endpoints[0] ?? ''
   return <NetworkBody key={`${n.id}:${endpoint}`} network={n} endpoint={endpoint} />
+}
+
+/** The line shown on the local chain's page while the chain does not run (B110 point 3). */
+function LocalChainLine(): React.JSX.Element | null {
+  const [status, setStatus] = useState<LocalChainStatus | null>(null)
+  const [error, setError] = useState('')
+  const [pending, setPending] = useState(false)
+  useEffect(() => {
+    let alive = true
+    const refresh = (): void => {
+      void window.wax.localChain
+        .status()
+        .then((s) => alive && setStatus(s))
+        .catch(() => undefined)
+    }
+    refresh()
+    const off = window.wax.localChain.onStatus((s) => setStatus(s))
+    const timer = window.setInterval(refresh, 2000)
+    return () => {
+      alive = false
+      off()
+      window.clearInterval(timer)
+    }
+  }, [])
+  if (!status || status.phase === 'running') return null
+  const notSetUp = status.phase === 'not-set-up'
+  const working = pending || status.phase === 'setting-up' || status.phase === 'starting' || status.phase === 'stopping'
+  const start = async (): Promise<void> => {
+    setError('')
+    setPending(true)
+    try {
+      setStatus(await window.wax.localChain.start())
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setPending(false)
+    }
+  }
+  return (
+    <div className="lc-line">
+      <span>{notSetUp ? 'The local chain is not set up.' : 'The local chain is stopped.'}</span>
+      {notSetUp || status.phase === 'unavailable' || status.phase === 'failed' ? (
+        <button className="btn primary" onClick={() => emit('dialog', 'local-chain')}>
+          {notSetUp ? 'Set it up' : 'Local Chain...'}
+        </button>
+      ) : (
+        <button className="btn primary" disabled={working} onClick={() => void start()}>
+          Start
+        </button>
+      )}
+      {error && <span className="error-text">{error}</span>}
+    </div>
+  )
 }
 
 function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint: string }): React.JSX.Element {
@@ -233,6 +288,8 @@ function NetworkBody({ network: n, endpoint }: { network: NetworkInfo; endpoint:
         </div>
         {(overviewError || headError) && <div className="error-text">{headError || overviewError}</div>}
       </div>
+
+      {n.id === LOCAL_CHAIN_NETWORK_ID && <LocalChainLine />}
 
       <div className="network-cards">
         <section>

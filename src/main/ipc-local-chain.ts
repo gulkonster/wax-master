@@ -2,7 +2,7 @@
 // process module, and the network entry follows the node's port and chain id.
 
 import type { BrowserWindow } from 'electron'
-import { bool, int, obj } from '../shared/validate'
+import { bool, chainName, int, obj, str } from '../shared/validate'
 import {
   LOCAL_CHAIN_NETWORK_ID,
   LOCAL_CHAIN_PORT_MAX,
@@ -14,6 +14,7 @@ import {
 import { handle } from './ipc'
 import * as chain from './local-chain'
 import * as networks from './networks'
+import { createLocalAccount, giveLocalTokens, localAccountExists } from './local-chain-accounts'
 import { log } from './log'
 
 const CHAIN_ID_FORM = /^[0-9a-f]{64}$/
@@ -63,4 +64,15 @@ export function registerLocalChainIpc(getWindow: () => BrowserWindow | null): vo
     return chain.setOptions({ webPages: bool(o.webPages, 'webPages'), startWithApp: bool(o.startWithApp, 'startWithApp') })
   })
   handle('localChain:openLog', async () => chain.openLog())
+  // B109 points 4-5: sent by eosio and signed in the main process after the local chain guard.
+  handle('localChain:accountExists', async (_e, name) => localAccountExists(chainName(name, 'account')))
+  handle('localChain:createAccount', async (_e, input) => {
+    const i = obj(input, 'input')
+    return createLocalAccount({ name: chainName(i.name, 'name'), publicKey: str(i.publicKey, 'publicKey', 200) })
+  })
+  handle('localChain:giveTokens', async (_e, input) => {
+    const i = obj(input, 'input')
+    if (typeof i.amount !== 'number') throw new Error('amount: must be a number')
+    return giveLocalTokens({ account: chainName(i.account, 'account'), amount: i.amount })
+  })
 }

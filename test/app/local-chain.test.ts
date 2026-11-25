@@ -10,6 +10,7 @@ vi.mock('electron', () => ({
 
 import {
   DIRTY_TEXT,
+  ENDED_TEXT,
   UNAVAILABLE_TEXT,
   exitOutcome,
   firstFreePort,
@@ -101,6 +102,30 @@ describe('exit handling (B108 point 4)', () => {
     expect(silentText(8889)).toBe(
       "The node runs but does not answer at 127.0.0.1:8889. WSL's localhost forwarding may be switched off (localhostForwarding in .wslconfig)."
     )
+  })
+})
+
+describe('repair and start with the app (B108 points 3, 4, 9)', () => {
+  const blockLog = '3190000 block_log_exception: Block log exception'
+  it('offers Reset when the replay itself ends, whatever the node says', () => {
+    expect(exitOutcome(254, blockLog, true, 8888)).toEqual({ kind: 'failed', reason: DIRTY_TEXT, repair: { kind: 'reset' } })
+    expect(exitOutcome(1, 'listen failed: Address already in use', true, 8888)).toMatchObject({ repair: { kind: 'reset' } })
+  })
+  it('does not replay for an end that is not a dirty database', () => {
+    expect(exitOutcome(254, blockLog, false, 8888)).toMatchObject({ kind: 'failed', repair: { kind: 'none' } })
+  })
+  it('says what happened when the node ends while it runs', () => {
+    expect(ENDED_TEXT).toBe('The node ended unexpectedly. Start checks its data and repairs it if needed.')
+  })
+  it('holds the quit for a running chain and starts it with the app only on request', () => {
+    const index = readFileSync(join(__dirname, '../../src/main/index.ts'), 'utf8')
+    const quit = index.slice(index.indexOf("'before-quit'"))
+    expect(quit.indexOf('localChainRunning()')).toBeGreaterThan(0)
+    expect(quit.indexOf('e.preventDefault()')).toBeGreaterThan(quit.indexOf('localChainRunning()'))
+    expect(quit.indexOf('stopForQuit()')).toBeGreaterThan(quit.indexOf('e.preventDefault()'))
+    expect(index).toContain('void startIfAsked()')
+    const chain = readFileSync(join(__dirname, '../../src/main/local-chain.ts'), 'utf8')
+    expect(chain).toContain('if (!state?.options.startWithApp) return null')
   })
 })
 

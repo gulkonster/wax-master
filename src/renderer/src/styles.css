@@ -4183,3 +4183,24 @@ button.sb-item.mainnet:hover {
   align-items: center;
   gap: var(--sp-2);
 }
+
+/* Local chain on the pages (B110) */
+.lc-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius);
+  background: var(--bg-surface-2);
+}
+.lc-accounts {
+  margin-top: var(--sp-3);
+}
+.lc-accounts h3 {
+  margin-bottom: var(--sp-1);
+}
+.lc-accounts .hint {
+  margin-bottom: var(--sp-2);
+}

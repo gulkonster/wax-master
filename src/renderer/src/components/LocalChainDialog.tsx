@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Modal } from './Modal'
+import { LocalAccountDialog } from './LocalAccountDialog'
 import { copyText } from '../lib/clipboard'
 import { errorText, toast } from '../lib/toast'
 import { selectNetwork } from '../lib/networks'
@@ -18,7 +19,7 @@ const PHASE_WORDS: Record<LocalChainPhase, string> = {
   starting: 'Starting',
   running: 'Running',
   stopping: 'Stopping',
-  failed: 'Did not start'
+  failed: 'Problem'
 }
 
 const BUSY: LocalChainPhase[] = ['setting-up', 'starting', 'stopping']
@@ -28,6 +29,7 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
   const [lines, setLines] = useState<string[]>([])
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
+  const [newAccount, setNewAccount] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -211,24 +213,29 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
         </div>
       )}
 
-      {status?.phase === 'unavailable' && <p>{status.reason || 'The local chain needs WSL 2, which this computer does not have.'}</p>}
+      {status?.phase === 'unavailable' && (
+        <p>{status.reason || 'The local chain needs WSL 2 (virtualization on). The compiler works without it; the local chain does not.'}</p>
+      )}
 
       {status?.phase === 'not-set-up' && (
         <>
           <p>
-            The local chain is a WAX node that runs on this computer only, in a private Linux of its own. It has the WAX system contract and the WAX token, and it starts empty, so you can deploy and try contracts without
-            the faucet and without waiting. You can reset it or remove it at any time.
+            The local chain is a WAX node that runs only on this computer, in a private Linux of its own. It starts empty, with the WAX system contract and the WAX token (8 decimals), so accounts, RAM, CPU and NET work as on
+            WAX. You make accounts and test WAX yourself, with no faucet and no waiting, and you can reset or remove the chain at any time.
           </p>
-          <p>Set up needs about 700 MB of disk space and takes a few minutes. Everything it needs is inside WAX Master; nothing is downloaded.</p>
+          <p>Set up uses about 400 MB of disk space and takes less than a minute. Everything it needs is inside WAX Master; nothing is downloaded. While the chain runs, WSL uses about 1 GB of memory.</p>
         </>
       )}
 
-      {status?.phase === 'setting-up' && <p>Setting up the local chain. This takes a few minutes; the lines below show what is done.</p>}
+      {status?.phase === 'setting-up' && <p>Setting up the local chain. The lines below show what is done.</p>}
       {status?.phase === 'starting' && <p>Starting the local chain...</p>}
       {status?.phase === 'stopping' && <p>Stopping the local chain. The node is closed cleanly so that its data stays whole.</p>}
 
       {status?.phase === 'stopped' && (
-        <p>The local chain is stopped. Start runs it again from where it was; its accounts and contracts are kept. Reset makes a new empty chain; Remove deletes the chain and its private Linux.</p>
+        <p>
+          The local chain is stopped. Start runs it again from where it was: its accounts, contracts and tables are kept. Reset makes a new empty chain with the same chain id. Remove deletes the chain and its private Linux
+          from this computer.
+        </p>
       )}
 
       {status?.phase === 'failed' && <div className="error-text lc-reason">{status.reason || 'The local chain did not start.'}</div>}
@@ -268,6 +275,18 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
         </div>
       )}
 
+      {status?.phase === 'running' && (
+        <div className="lc-accounts">
+          <h3>Accounts</h3>
+          <p className="hint">
+            A new account gets 10,000 WAX, 1 MiB of RAM and 100 WAX each of CPU and NET from the chain. Its key comes from your vault. Give tokens is in the account's own page, under Local tokens.
+          </p>
+          <button className="btn" disabled={busy} onClick={() => setNewAccount(true)}>
+            New account...
+          </button>
+        </div>
+      )}
+
       {showLog && (
         <div className="lc-log mono-small" ref={logRef}>
           {lines.map((l, i) => (
@@ -290,6 +309,7 @@ export function LocalChainDialog({ onClose }: { onClose: () => void }): React.JS
       )}
 
       {error && <div className="error-text">{error}</div>}
+      {newAccount && <LocalAccountDialog onClose={() => setNewAccount(false)} />}
     </Modal>
   )
 }

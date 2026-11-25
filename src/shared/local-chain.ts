@@ -77,3 +77,16 @@ export interface LocalChainApi {
 
 export const LOCAL_CHAIN_STATUS_EVENT = 'local-chain-status'
 export const LOCAL_CHAIN_PROGRESS_EVENT = 'local-chain-progress'
+
+/** New account on the local chain (B109 point 4): one vault key (public form) for owner and active. */
+export interface LocalAccountInput {
+  name: string
+  publicKey: string
+}
+
+/** Give tokens on the local chain (B109 point 5): WAX from `eosio` to an existing account. */
+export interface LocalTokensInput {
+  account: string
+  /** Whole WAX, up to 8 decimals; more than 0 and at most 1,000,000. */
+  amount: number
+}

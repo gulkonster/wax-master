@@ -7,6 +7,8 @@ import { networkStore, refreshNetworks, selectNetwork } from '../lib/networks'
 import { nextNetworkAfterRemoval, suggestNetworkName } from '../lib/network-names'
 import { WAX_TESTNET_CHAIN_ID } from '../../../shared/ram-market'
 import { useStore } from '../lib/stores'
+import { emit } from '../lib/bus'
+import { LOCAL_CHAIN_NETWORK_ID } from '../../../shared/local-chain'
 
 function isLocalUrl(u: string): boolean {
   try {
@@ -409,9 +411,15 @@ export function ManageNetworksDialog({ onClose }: { onClose: () => void }): Reac
                 Use
               </button>
             )}
-            <button className="btn" onClick={() => setEditing(n)}>
-              Edit
-            </button>
+            {n.id === LOCAL_CHAIN_NETWORK_ID ? (
+              <button className="btn" onClick={() => emit('dialog', 'local-chain')}>
+                Local Chain...
+              </button>
+            ) : (
+              <button className="btn" onClick={() => setEditing(n)}>
+                Edit
+              </button>
+            )}
             <button className="btn" disabled={last} title={last ? 'The last network cannot be removed' : undefined} onClick={() => setRemoving(n)}>
               Remove
             </button>
