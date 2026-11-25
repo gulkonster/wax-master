@@ -32,7 +32,7 @@ struct [[eosio::table]] player {
 
 The compiler and Deploy accept it; nothing on the chain compares the new struct with the stored rows. The three old rows still have 12 bytes, and this struct reads 16.
 
-- **Reading the table.** The node turns rows into JSON with the contract's ABI, which now lists `level`. For an old row it runs out of bytes. On the Contract page, **Run query** on `players` answers: <<NODE-WORDS: the error shown by Run query on players after version 2 (plain) is deployed>>
+- **Reading the table.** The node turns rows into JSON with the contract's ABI, which now lists `level`. For an old row it runs out of bytes. On the Contract page, **Run query** on `players` shows no rows and the node's words `Stream unexpectedly ended; unable to unpack field 'level' of struct 'player'`, followed by the number of endpoints tried.
 - **An action that reads an old row.** `find`, `require_find` and `get` unpack the whole row. `setscore` on an old player is refused with `assertion failure with message: datastream attempted to read past the end`. The same happens to `modify` and `erase`, because both need the row found first: an old row can no longer be changed or removed by this code.
 - **New rows work.** `add` of a new player writes all 16 bytes, and this version reads that row. This is why the fault is easy to miss in a test with fresh rows only.
 
@@ -177,7 +177,7 @@ public:
 
 - The limit matters: a transaction has a CPU limit, and a loop over every row of a big table is refused as a whole, with nothing moved. Choose the number per call with **Simulate**, which shows the CPU time.
 - Between the calls, a player is in one of the two tables. Every action must know that: here `add` refuses a player still in `players`, and the other actions say to run `move` first. A real contract can also move one player's row on its own the first time he acts.
-- RAM: each moved row is erased from the old table in the same call, both paid by the contract here, so the contract's RAM use stays about the same; a row without `level` grows by 4 bytes, and the first row of the new table costs about 112 bytes more.
+- RAM: each moved row is erased from the old table in the same call, both paid by the contract here, so the contract's RAM use stays about the same; a row without `level` grows by 4 bytes, and the first row of the new table costs about 112 bytes more, which come back when the last row of the old table is erased.
 - When `players` is empty, a later version can remove the `player` struct and table from the code.
 
 ## Never reorder, remove or retype a field
