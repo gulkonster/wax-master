@@ -1,5 +1,7 @@
 # WAX Master
 
+<img src="build/icon.png" alt="WAX Master logo" width="96">
+
 A desktop studio for writing, building, deploying and using smart contracts on WAX and any other Antelope chain. Install it, open it, and build your first contract without Docker and without a terminal.
 
 Windows 10 22H2 or Windows 11, x64.
@@ -9,9 +11,10 @@ Windows 10 22H2 or Windows 11, x64.
 - **Projects and editor**: contract projects with a C++ editor that understands contract code (completion, live errors, go to definition into the CDT headers, find references, rename, formatting).
 - **Build**: WAX CDT runs in a private Linux environment (WSL) that the app sets up by itself from files inside the installer. One button or Ctrl+B. Errors appear in the editor and in Problems.
 - **Terminal**: a real integrated terminal (PowerShell, Command Prompt, and a Linux shell with the toolchain), so Git and your other tools work as usual.
-- **Networks**: WAX Mainnet and WAX Testnet built in; add any Antelope chain by its API address.
+- **Networks**: WAX Mainnet and WAX Testnet built in (they can be removed and restored); add any Antelope chain by its API address. A status mark shows whether the endpoint answers and keeps up with the chain; the Network page shows the chain state and the latest blocks.
 - **Accounts and contracts**: balances, resources, permissions and history of any account; call any action of any contract with typed forms; browse contract tables.
-- **Keys**: generate or import keys into an encrypted vault (password, scrypt and AES-256-GCM). It locks when Windows sleeps or locks and after inactivity.
+- **Keys**: generate or import keys into an encrypted vault (password, scrypt and AES-256-GCM). It locks when Windows sleeps or locks and after inactivity. A recovery code, shown once, sets a new password if you forget it. Keys that exist only in the vault are marked until you back them up (a backup file, an exported vault, or the key written down).
+- **Themes**: follows the Windows light or dark mode, or always Dark or Light (File > Settings > Appearance).
 - **Transactions you can check**: every signature is shown in a separate confirmation window that decodes the exact bytes to be signed: network, chain id, endpoint, account, permission, actions, and for a deployment the SHA-256 of the WASM and ABI. Simulate runs a transaction without sending it (unsigned) and shows the full trace in the transaction inspector.
 - **Deploy**: build and deploy from a button. The deploy checks what is already on the account, skips unchanged parts, estimates RAM, and warns when the contract uses host functions the chain has not activated.
 - **Wallet**: transfers, RAM, CPU and NET, PowerUp, voting and rewards, keys and permissions, linked actions, and name bids for short (premium) account names, all from the Account page.
@@ -64,14 +67,14 @@ Existing EOS Studio projects open as they are (File > Open Project); settings ar
 
 - A computer that is already infected cannot be made safe by this app.
 - Keep the owner keys of valuable accounts out of the app. Use dedicated permissions for deploying and daily actions.
-- When the vault is created you get a recovery code, shown once: keep it away from this computer. With it, "Forgot password?" on the unlock prompt sets a new password. Without the password and the code the keys cannot be opened, so also export a backup (Manage Keypairs > Vault > Export vault; encrypted with the same password) or back up single keys.
+- When the vault is created you get a recovery code, shown once: keep it away from this computer. With it, "Forgot password?" on the unlock prompt sets a new password. Without the password and the code the keys cannot be opened, so also export a backup (Manage Keypairs > Vault > Export vault; it opens with the same password or the recovery code) or back up single keys. A single-key backup file holds the private key as readable text: keep it off this computer.
 - The terminal is your own shell; commands you run there act with your rights.
 - A project's custom build command runs only after you approve it, and runs with your rights inside the toolchain environment.
 - Simulation runs against the current chain state and skips authorization checks, so a real transaction can still fail.
 - Verify installers as described above before first use.
 - A copied private key stays in Windows clipboard history (Win+V) or in clipboard tools if you use them; the app clears only the normal clipboard after 30 seconds.
 - Networks you add yourself count as mainnet (red confirmation, typed account names) unless they are marked as test networks; the WAX Mainnet chain id is always treated as mainnet.
-- The app contacts only the chain endpoints you choose, the GitHub release check (can be turned off), and the WAX Testnet faucet (https://faucet.waxsweden.org) when you press Create Testnet Account or Request test tokens.
+- The app contacts only the endpoints and history services of the networks in your network list, the GitHub release check (can be turned off), the WAX Testnet faucet (https://faucet.waxsweden.org) when you press Create Testnet Account or a request-tokens button, and pages you open yourself. Help > Documentation > "What the app contacts" lists every case and the addresses of the built-in networks.
 
 See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
