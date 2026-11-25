@@ -149,6 +149,7 @@ export const MENU_MODEL: readonly MenuModelMenu[] = [
       sep,
       cmd('Add Network...', 'add-network'),
       cmd('Manage Networks...', 'manage-networks'),
+      cmd('Local Chain...', 'local-chain'),
       cmd('Network Page', 'network-page'),
       sep,
       cmd('Open Transaction by Id...', 'open-transaction')

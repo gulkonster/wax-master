@@ -59,11 +59,11 @@ export type Progress = (line: string) => void
 
 const MIN_FREE_BYTES = 3 * 1024 * 1024 * 1024
 
-function wslExe(): string {
+export function wslExe(): string {
   return join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'wsl.exe')
 }
 
-function partsDir(): string {
+export function partsDir(): string {
   return app.isPackaged ? join(process.resourcesPath, 'toolchain-parts') : join(app.getAppPath(), 'toolchain-parts')
 }
 
@@ -113,7 +113,7 @@ export function fromWslPath(p: string): string | null {
   return `${m[1].toUpperCase()}:${(m[2] ?? '/').replace(/\//g, '\\')}`
 }
 
-function wsl(args: string[], opts: { onOutput?: Progress; timeoutMs?: number; cwd?: string; input?: string } = {}): Promise<RunResult> {
+export function wsl(args: string[], opts: { onOutput?: Progress; timeoutMs?: number; cwd?: string; input?: string } = {}): Promise<RunResult> {
   return run(wslExe(), args, {
     env: { WSL_UTF8: '1' },
     input: opts.input,
@@ -124,11 +124,11 @@ function wsl(args: string[], opts: { onOutput?: Progress; timeoutMs?: number; cw
 }
 
 /** wsl.exe prints UTF-16 when WSL_UTF8 is not honoured; strip NULs either way. */
-function clean(s: string): string {
+export function clean(s: string): string {
   return s.replace(/\0/g, '').replace(/\r/g, '')
 }
 
-async function listDistros(): Promise<string[]> {
+export async function listDistros(): Promise<string[]> {
   const r = await wsl(['--list', '--quiet'], { timeoutMs: 30000 })
   if (r.code !== 0) return []
   return clean(r.output)
@@ -196,7 +196,7 @@ export async function enableWsl(compat: boolean): Promise<RunResult> {
   return run(ps, ['-NoProfile', '-NonInteractive', '-Command', cmd], { timeoutMs: 30 * 60 * 1000 })
 }
 
-async function sha256File(path: string): Promise<string> {
+export async function sha256File(path: string): Promise<string> {
   const h = createHash('sha256')
   await new Promise<void>((resolve, reject) => {
     createReadStream(path)
@@ -207,8 +207,8 @@ async function sha256File(path: string): Promise<string> {
   return h.digest('hex')
 }
 
-function partsFor(def: ToolchainDef): Part[] {
-  const ids = [def.base, ...def.packages]
+function partsFor(def: ToolchainDef | string[]): Part[] {
+  const ids = Array.isArray(def) ? def : [def.base, ...def.packages]
   return ids.map((id) => {
     const p = PARTS.find((x) => x.id === id)
     if (!p) throw new Error(`Manifest has no part "${id}"`)
@@ -216,7 +216,8 @@ function partsFor(def: ToolchainDef): Part[] {
   })
 }
 
-export async function verifyParts(def: ToolchainDef, progress: Progress): Promise<void> {
+/** Checks size and SHA-256 of a toolchain's parts, or of the parts named by id. */
+export async function verifyParts(def: ToolchainDef | string[], progress: Progress): Promise<void> {
   const dir = partsDir()
   const parts = partsFor(def)
   let i = 0

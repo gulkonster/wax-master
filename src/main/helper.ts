@@ -7,7 +7,7 @@ import { childEnvironment } from './clean-env'
 import { log } from './log'
 
 let proc: UtilityProcess | null = null
-const waiters = new Map<string, { onOut?: (s: string, stream: 'stdout' | 'stderr') => void; done: (r: RunResult) => void; out: string[] }>()
+const waiters = new Map<string, { onOut?: (s: string, stream: 'stdout' | 'stderr') => void; done: (r: RunResult) => void; out: string[]; keep: boolean }>()
 
 export interface RunResult {
   code: number
@@ -34,7 +34,7 @@ function ensure(): UtilityProcess {
     const w = waiters.get(m.id)
     if (!w) return
     if (m.type === 'out' && m.data !== undefined) {
-      w.out.push(m.data)
+      if (w.keep) w.out.push(m.data)
       w.onOut?.(m.data, m.stream ?? 'stdout')
     } else if (m.type === 'exit') {
       waiters.delete(m.id)
@@ -59,6 +59,8 @@ export interface RunOptions {
   input?: string
   onOutput?: (text: string, stream: 'stdout' | 'stderr') => void
   timeoutMs?: number
+  /** False for a process kept open for hours: its output goes only to `onOutput`, not into the result. */
+  keepOutput?: boolean
 }
 
 export function run(file: string, args: string[], opts: RunOptions = {}): Promise<RunResult> {
@@ -69,6 +71,7 @@ export function run(file: string, args: string[], opts: RunOptions = {}): Promis
     waiters.set(id, {
       onOut: opts.onOutput,
       out: [],
+      keep: opts.keepOutput !== false,
       done: (r) => {
         if (timer) clearTimeout(timer)
         resolve(r)

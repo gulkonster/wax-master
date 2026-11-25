@@ -146,6 +146,7 @@ const BEFORE = [
   'Network > ---',
   'Network > Add Network...',
   'Network > Manage Networks...',
+  'Network > Local Chain...',
   'Network > Network Page',
   'Network > ---',
   'Network > Open Transaction by Id...',

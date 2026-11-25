@@ -27,6 +27,7 @@ extraResources:
     to: resources
     filter:
       - 'templates/**'
+      - 'local-chain/**'
   - from: docs/help
     to: resources/docs
     filter:

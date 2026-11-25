@@ -204,6 +204,7 @@
   --terminal-list: 190px;
   --action-pane-min: 380px;
   --query-col: 220px;
+  --lc-log-h: 220px;
   --cell-max: 480px;
   --line-col: 48px;
   --find-min: 360px;
@@ -4124,4 +4125,61 @@ button.sb-item.mainnet:hover {
   justify-content: center;
   gap: var(--sp-3);
   margin: var(--sp-3) 0 var(--sp-4);
+}
+
+/* Local Chain dialog (B108) */
+.lc-state {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.lc-dot {
+  width: var(--status-dot);
+  height: var(--status-dot);
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.lc-dot.lc-running {
+  background: var(--green-text);
+}
+.lc-dot.lc-failed {
+  background: var(--red-text);
+}
+.lc-dot.lc-setting-up,
+.lc-dot.lc-starting,
+.lc-dot.lc-stopping {
+  background: var(--warn-text);
+}
+.lc-reason {
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+}
+.lc-copy {
+  margin-left: var(--sp-2);
+}
+.lc-facts {
+  margin-bottom: var(--sp-3);
+}
+.lc-log {
+  max-height: var(--lc-log-h);
+  overflow: auto;
+  padding: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-3);
+  border-radius: var(--radius);
+  background: var(--bg-surface-2);
+  color: var(--text-2);
+  white-space: pre-wrap;
+}
+.lc-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+.lc-options .check-label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
 }

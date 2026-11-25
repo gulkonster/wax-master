@@ -8,6 +8,7 @@ import type { WaxApi, WaxTerminalApi } from '../shared/api'
 import { themeFromArgv } from '../shared/theme'
 import { devUrlFromArgv, interfaceFor } from '../shared/preload-exposure'
 import { WINDOW_ERROR_CHANNEL } from '../shared/window-error'
+import { LOCAL_CHAIN_PROGRESS_EVENT, LOCAL_CHAIN_STATUS_EVENT, type LocalChainStatus } from '../shared/local-chain'
 
 // The resolved theme (dark or light) on <html data-theme>: from the start
 // arguments before the first paint, then from the main process on each change.
@@ -51,7 +52,7 @@ const exposed = interfaceFor(
   devUrlFromArgv(process.argv)
 )
 
-const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'network-changed', 'network-status', 'vault-changed', 'update-available', 'editor-status', 'editor-message'])
+const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'network-changed', 'network-status', 'vault-changed', 'update-available', 'editor-status', 'editor-message', LOCAL_CHAIN_STATUS_EVENT, LOCAL_CHAIN_PROGRESS_EVENT])
 const TERMINAL_EVENTS = new Set(['terminal-data', 'terminal-exit'])
 
 function subscribe(allowed: Set<string>, event: string, cb: (...args: never[]) => void): () => void {
@@ -173,6 +174,19 @@ const api: WaxApi = {
     powerup: call('wallet:powerup'),
     nameBid: call('wallet:nameBid'),
     nameAuctions: call('wallet:nameAuctions')
+  },
+  localChain: {
+    status: call('localChain:status'),
+    setUp: call('localChain:setUp'),
+    start: call('localChain:start'),
+    stop: call('localChain:stop'),
+    reset: call('localChain:reset'),
+    remove: call('localChain:remove'),
+    usePort: call('localChain:usePort'),
+    setOptions: call('localChain:setOptions'),
+    openLog: call('localChain:openLog'),
+    onStatus: (cb: (status: LocalChainStatus) => void): (() => void) => subscribe(EVENTS, LOCAL_CHAIN_STATUS_EVENT, cb as (...args: never[]) => void),
+    onProgress: (cb: (line: string) => void): (() => void) => subscribe(EVENTS, LOCAL_CHAIN_PROGRESS_EVENT, cb as (...args: never[]) => void)
   },
   networkInfo: {
     overview: call('networkInfo:overview'),

@@ -9,6 +9,7 @@ import { dataDir } from './paths'
 import { NETWORKS_V1_BACKUP } from './networks'
 import { checkForUpdates, dailyCheck } from './updates'
 import { installedToolchains, remove as removeToolchain } from './toolchain'
+import { isLocalChainSetUp, remove as removeLocalChain } from './local-chain'
 import { confirmNative, vault } from './keys-service'
 import { log } from './log'
 import { keptVaultCopies } from './vault'
@@ -40,11 +41,12 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
     // Both questions are asked here, in the main process; the window cannot answer them.
     const toolchains = installedToolchains()
     const list = toolchains.length ? toolchains.map((t) => `  ${t.id}`).join('\n') : '  (none installed)'
+    const localChain = isLocalChainSetUp()
     const win = getWindow()
     const first = await confirmNative(
       win,
       'Clear all app data?',
-      `This removes:\n- settings, networks, stars, added tokens, saved queries and the build record\n- the log files\n- the installed toolchains:\n${list}\n\nProjects are not touched. WAX Master restarts afterwards.`,
+      `This removes:\n- settings, networks, stars, added tokens, saved queries and the build record\n- the log files\n- the installed toolchains:\n${list}${localChain ? '\n- the local chain (accounts and contracts on it)' : ''}\n\nProjects are not touched. WAX Master restarts afterwards.`,
       'Clear data'
     )
     if (!first) return
@@ -71,6 +73,10 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
       } catch (err) {
         log.warn(`Could not remove toolchain ${t.id}: ${err instanceof Error ? err.message : String(err)}`)
       }
+    }
+    if (localChain) {
+      const lc = await removeLocalChain()
+      if (lc.phase !== 'not-set-up') log.warn(`Could not remove the local chain: ${lc.reason ?? lc.phase}`)
     }
     vault().lock()
     for (const f of appDataFiles()) rmSync(join(dataDir(), f), { force: true })

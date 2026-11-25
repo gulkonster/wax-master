@@ -24,6 +24,7 @@ import type { InspectedTransaction } from '../../shared/trace-types'
 import { ContractPage } from './pages/ContractPage'
 import { NetworkPage } from './pages/NetworkPage'
 import { AddNetworkDialog, ManageNetworksDialog, StarredManager } from './components/NetworkDialogs'
+import { LocalChainDialog } from './components/LocalChainDialog'
 import { refreshNetworks, watchNetworkEvents } from './lib/networks'
 import { errorText, toast } from './lib/toast'
 import { failureText, type SaveAllResult } from './lib/save-result'
@@ -63,7 +64,7 @@ export function App(): React.JSX.Element {
   const dirtyRef = useRef(0)
   const [dirtyNames, setDirtyNames] = useState<string[]>([])
   useEffect(() => on('dirty-names', (n) => setDirtyNames(n as string[])), [])
-  const [dialog, setDialog] = useState<null | 'add-network' | 'manage-networks' | 'starred'>(null)
+  const [dialog, setDialog] = useState<null | 'add-network' | 'manage-networks' | 'local-chain' | 'starred'>(null)
   const [keysOpen, setKeysOpen] = useState<null | { filter: string | null }>(null)
   const [inspect, setInspect] = useState<InspectedTransaction | null>(null)
   const [update, setUpdate] = useState<UpdateResult | null>(null)
@@ -122,7 +123,7 @@ export function App(): React.JSX.Element {
   }, [openTransaction])
 
   useEffect(() => on('menu-command', (c) => (c === 'create-account' ? setChainDialog('create-account') : setComing(c as string))), [])
-  useEffect(() => on('dialog', (d) => setDialog(d as 'add-network' | 'manage-networks' | 'starred')), [])
+  useEffect(() => on('dialog', (d) => setDialog(d as 'add-network' | 'manage-networks' | 'local-chain' | 'starred')), [])
   useEffect(() => {
     void refreshNetworks()
     return watchNetworkEvents()
@@ -339,6 +340,7 @@ export function App(): React.JSX.Element {
           break
         case 'add-network':
         case 'manage-networks':
+        case 'local-chain':
           setDialog(cmd)
           break
         case 'about':
@@ -472,6 +474,7 @@ export function App(): React.JSX.Element {
       )}
       {dialog === 'add-network' && <AddNetworkDialog onClose={() => setDialog(null)} />}
       {dialog === 'manage-networks' && <ManageNetworksDialog onClose={() => setDialog(null)} />}
+      {dialog === 'local-chain' && <LocalChainDialog onClose={() => setDialog(null)} />}
       {dialog === 'starred' && <StarredManager onClose={() => setDialog(null)} />}
       {keysOpen && <KeysDialog filterAccount={keysOpen.filter} onClose={() => setKeysOpen(null)} />}
       {inspect && <InspectorDialog t={inspect} onClose={() => setInspect(null)} />}

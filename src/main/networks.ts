@@ -12,6 +12,10 @@ import { log } from './log'
 import { oneLineText, plainTextOrEmpty } from '../shared/network-info'
 import { addedTokens } from './wallet-tokens'
 
+import { LOCAL_CHAIN_NETWORK_ID } from '../shared/local-chain'
+
+export const LOCAL_CHAIN_NAME = 'Local chain'
+export const LOCAL_CHAIN_EDIT_REFUSAL = "This network belongs to the app's local chain. Change it in Network > Local Chain."
 export const WAX_MAINNET_ID = 'wax-mainnet'
 export const WAX_TESTNET_ID = 'wax-testnet'
 
@@ -574,6 +578,7 @@ export async function updateNetwork(
   patch: { name?: string; kind?: NetworkKind; endpoints?: string[]; history?: string | null },
   confirmTestnet: ConfirmTestnet
 ): Promise<NetworkInfo> {
+  if (id === LOCAL_CHAIN_NETWORK_ID) throw new Error(LOCAL_CHAIN_EDIT_REFUSAL)
   const found = load().networks.find((x) => x.id === id)
   if (!found) throw new Error('Unknown network')
   const isDefault = isDefaultId(id)
@@ -607,6 +612,43 @@ export async function updateNetwork(
   c.history = history
   save()
   return getNetwork(id)
+}
+
+/** The entry of the app's local chain (decision B110): added if missing, address and chain id corrected. */
+export function ensureLocalChainNetwork(input: { port: number; chainId: string }): NetworkInfo {
+  if (!Number.isInteger(input.port) || input.port < 1 || input.port > 65535) throw new Error('Port is not valid')
+  if (!CHAIN_ID_FORM.test(input.chainId)) throw new Error('Chain id must be 64 hex characters')
+  const endpoint = normalizeEndpoint(`http://127.0.0.1:${input.port}`)
+  const f = load()
+  const found = f.networks.find((x) => x.id === LOCAL_CHAIN_NETWORK_ID)
+  if (found) {
+    const same = found.chainId === input.chainId && found.endpoints.length === 1 && found.endpoints[0] === endpoint && found.kind === 'local'
+    if (!same) {
+      found.chainId = input.chainId
+      found.kind = 'local'
+      delete found.testnetConfirmed
+      found.endpoints = [endpoint]
+      found.currentEndpoint = 0
+      found.history = undefined
+      readEndpoints.delete(LOCAL_CHAIN_NETWORK_ID)
+      save()
+    }
+    return getNetwork(LOCAL_CHAIN_NETWORK_ID)
+  }
+  const taken = f.networks.some((x) => x.name.toLowerCase() === LOCAL_CHAIN_NAME.toLowerCase())
+  f.networks.push({
+    id: LOCAL_CHAIN_NETWORK_ID,
+    name: taken ? `${LOCAL_CHAIN_NAME} (WAX Master)` : LOCAL_CHAIN_NAME,
+    kind: 'local',
+    chainId: input.chainId,
+    symbol: 'WAX',
+    precision: 8,
+    endpoints: [endpoint],
+    preset: false,
+    currentEndpoint: 0
+  })
+  save()
+  return getNetwork(LOCAL_CHAIN_NETWORK_ID)
 }
 
 /**
@@ -650,4 +692,18 @@ export function setStarOrder(networkId: string, accounts: string[]): string[] {
   f.stars[networkId] = [...new Set(accounts)]
   save()
   return [...f.stars[networkId]]
+}
+
+/** After a Reset of the local chain: its accounts are gone, so the stars and added tokens of its entry go too. */
+export function clearLocalChainMemory(): void {
+  const f = load()
+  if (f.stars[LOCAL_CHAIN_NETWORK_ID] !== undefined) {
+    delete f.stars[LOCAL_CHAIN_NETWORK_ID]
+    save()
+  }
+  try {
+    addedTokens().forget(LOCAL_CHAIN_NETWORK_ID)
+  } catch (e) {
+    log.warn(`Local chain reset; its added tokens could not be forgotten: ${e instanceof Error ? e.message : 'unknown error'}`)
+  }
 }

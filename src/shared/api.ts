@@ -10,6 +10,7 @@ import type { AccountActionsFilter, NameAuctions, NameBidLookup, PowerupStateVie
 import type { AccountActionsPage, AccountView, AddedToken, ContractInfoView, LinkedActionsView, NetworkInfo, NetworkKind, NetworkStatus, PermissionIntent, PermissionPlanView, TokenBalance, WalletTokens } from './chain-types'
 import type { AuthLevel, ContractAbiView, ContractHistoryEntry, ContractHistoryKind, ContractHistoryList, PackResult, RowsQuery, RowsResult, ScopesResult } from './chain-types'
 import type { WindowErrorReport } from './window-error'
+import type { LocalChainApi } from './local-chain'
 
 /** How a vault key can be had back without the vault: none, a text file, shown once, brought by the user, in an exported vault. */
 export type KeyBackupState = 'none' | 'file' | 'shown' | 'imported' | 'vault-export'
@@ -348,6 +349,7 @@ export type MenuCommand =
   | 'clear-code'
   | 'add-network'
   | 'manage-networks'
+  | 'local-chain'
   /** Opens the Network page of the current network. */
   | 'network-page'
   | 'open-transaction'
@@ -499,6 +501,8 @@ export interface WaxApi {
     /** The open name auctions of the current network, highest bid first (at most 100), and the chain's last close. */
     nameAuctions(): Promise<NameAuctions>
   }
+  /** The app's local chain (Network > Local Chain). */
+  localChain: LocalChainApi
   networkInfo: {
     /** Chain state of a saved network for the Network page: get_info, RAM, RAM price, core token. */
     overview(networkId: string): Promise<NetworkOverview>

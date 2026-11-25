@@ -24,6 +24,7 @@ import { createRicardianFiles } from './ricardian'
 import { run as runHelper } from './helper'
 import { docsDir, readDocsFile } from './docs'
 import { join, resolve } from 'node:path'
+import { registerLocalChainIpc } from './ipc-local-chain'
 
 type Handler = (e: IpcMainInvokeEvent, ...args: unknown[]) => unknown
 
@@ -350,4 +351,5 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   )
   handleTerminal('terminal:kill', (_e, id) => terminal.killTerminal(str(id, 'id', 64)))
   handle('build:defaultCommand', () => defaultBuildArgs().join(' '))
+  registerLocalChainIpc(getWindow)
 }

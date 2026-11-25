@@ -1,0 +1,78 @@
+{
+  "source": {
+    "repository": "https://github.com/worldwide-asset-exchange/wax-system-contracts",
+    "tag": "wax-3.4.1",
+    "commit": "a8c19f8b480f9101aff31b6e2a749c960f30c81a",
+    "url": "https://github.com/worldwide-asset-exchange/wax-system-contracts/archive/refs/tags/wax-3.4.1.tar.gz",
+    "sha256": "7c74db85e2f01ab96b32c8d1144d1d53713d32bc1bd158024c8650be92c85c8f",
+    "license": "MIT",
+    "kind": "built from source with cdt-cpp",
+    "cdt": "cdt-cpp version 4.1.1wax01"
+  },
+  "build": {
+    "commands": "cdt-cpp -abigen per contract; eosio.system with -DSYSTEM_CONFIGURABLE_WASM_LIMITS -DSYSTEM_BLOCKCHAIN_PARAMETERS",
+    "ricardian": "contracts.md.in files filled from contracts/CMakeLists.txt"
+  },
+  "contracts": [
+    {
+      "name": "eosio.boot",
+      "files": [
+        {
+          "file": "eosio.boot.wasm",
+          "bytes": 4938,
+          "sha256": "a6db2040cc98a80f889b3ba33dbdaa14cc5d84d517a0982d44c46cd422f03b30"
+        },
+        {
+          "file": "eosio.boot.abi",
+          "bytes": 12505,
+          "sha256": "d4622d6e39d36d1a5c07df859e3ad5af808c92c428e8d5b089ba1d7e4c9da398"
+        }
+      ]
+    },
+    {
+      "name": "eosio.system",
+      "files": [
+        {
+          "file": "eosio.system.wasm",
+          "bytes": 357275,
+          "sha256": "6d81d67d1d2a797d1d06124dda51fa36698e18ecafedbb1ae15c7f027593d29f"
+        },
+        {
+          "file": "eosio.system.abi",
+          "bytes": 148347,
+          "sha256": "19ffbb886d0f391cc6e4c79eaef70ffd2b558ce76f9b5058afe213e556f617da"
+        }
+      ]
+    },
+    {
+      "name": "eosio.token",
+      "files": [
+        {
+          "file": "eosio.token.wasm",
+          "bytes": 15322,
+          "sha256": "708b2eca04f43faf698c7df5a6cde55fabc4ef9c0f60a2ef25f989d2525cc4b1"
+        },
+        {
+          "file": "eosio.token.abi",
+          "bytes": 8603,
+          "sha256": "ccdba15c7738a0c0c2f1d267cef56b0fefe250d635b457d56f3e85f74b6ca4c6"
+        }
+      ]
+    },
+    {
+      "name": "eosio.msig",
+      "files": [
+        {
+          "file": "eosio.msig.wasm",
+          "bytes": 37556,
+          "sha256": "93f537d03dd1c09bc359d08adb944be13bebf6b3bfb671e2e236b7c00ebd3dd3"
+        },
+        {
+          "file": "eosio.msig.abi",
+          "bytes": 12203,
+          "sha256": "8c6a8f989e869e4d0054c5b9c90c50ae81369f9b85a85cba78fc965e47c92216"
+        }
+      ]
+    }
+  ]
+}
