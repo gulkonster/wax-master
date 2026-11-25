@@ -14,6 +14,8 @@ Windows 10 22H2 or Windows 11, x64.
 - **Keys**: generate or import keys into an encrypted vault (password, scrypt and AES-256-GCM). It locks when Windows sleeps or locks and after inactivity.
 - **Transactions you can check**: every signature is shown in a separate confirmation window that decodes the exact bytes to be signed: network, chain id, endpoint, account, permission, actions, and for a deployment the SHA-256 of the WASM and ABI. Simulate runs a transaction without sending it (unsigned) and shows the full trace in the transaction inspector.
 - **Deploy**: build and deploy from a button. The deploy checks what is already on the account, skips unchanged parts, estimates RAM, and warns when the contract uses host functions the chain has not activated.
+- **Wallet**: transfers, RAM, CPU and NET, PowerUp, voting and rewards, keys and permissions, linked actions, and name bids for short (premium) account names, all from the Account page.
+- **Examples and documentation**: New Project offers example contracts with step-by-step READMEs, tried on WAX Testnet as far as its services answer: a transfer listener, staking, AtomicAssets minting, an Alcor swap, a random number request, NFT staking, an NFT blend and token payments that refuse look-alike tokens. Help > Documentation covers writing contracts (accepting tokens safely, checking input, changing tables, who pays for RAM and CPU, a checklist before mainnet), NFTs and game tools (AtomicAssets and its notifications, drops, packs, the services a WAX game uses), and searches by word forms, similar words and typing mistakes.
 
 ## Install
 
