@@ -2,6 +2,7 @@
 // Nothing is signed by the user; the main process signs as the chain's system account (B109).
 
 import { useState } from 'react'
+import { HelpButton } from '../../components/HelpButton'
 import { errorText, toast } from '../../lib/toast'
 import type { WalletContext } from './common'
 
@@ -33,6 +34,7 @@ export function LocalTokensSection({ ctx }: { ctx: WalletContext }): React.JSX.E
     <section className="wallet-section">
       <div className="wallet-section-head">
         <h3>Local tokens</h3>
+        <HelpButton place="localChain" />
       </div>
       <p className="wallet-lead">
         Sends WAX from the local chain's own account to {ctx.view.name}. These tokens exist only on this computer; nothing is signed by you. At most {MAX_AMOUNT.toLocaleString('en-US')} WAX at a time.
