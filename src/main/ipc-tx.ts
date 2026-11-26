@@ -16,7 +16,7 @@ import { KEPT_PER_NETWORK, sentStore, type KeptFile } from './sent-store'
 import { WAX_TESTNET_CHAIN, currentNetwork, endpointOf, getNetwork } from './networks'
 import { chain, history } from './rpc'
 import { clearCodeActions, deployActions, planDeploy } from './deploy'
-import { BUSY_MESSAGE, LOCKED_MESSAGE, type ActionRequest, type ApprovalRecord, type PrepareKind } from './signer'
+import { BUSY_MESSAGE, LOCKED_MESSAGE, type ActionRequest, type ApprovalRecord, type PrepareKind, type PrepareRequest } from './signer'
 import { changeKeyActions, createAccountActions } from './accounts'
 import { createTestnetAccount, randomTestnetName, requestTokens } from './faucet'
 import { bool, int } from '../shared/validate'
@@ -99,7 +99,13 @@ export function keepAnswer(
   )
 }
 
-async function signAndSend(win: BrowserWindow | null, networkId: string, actions: ActionRequest[], kind: PrepareKind): Promise<TxOutcome> {
+async function signAndSend(
+  win: BrowserWindow | null,
+  networkId: string,
+  actions: ActionRequest[],
+  kind: PrepareKind,
+  sequence?: PrepareRequest['sequence']
+): Promise<TxOutcome> {
   preflight(win)
   // A recovery code on screen (the unlock just converted the vault): the transaction
   // is built and confirmed only after its window is closed, so the confirmation
@@ -108,7 +114,7 @@ async function signAndSend(win: BrowserWindow | null, networkId: string, actions
     await new Promise<void>((resolve) => afterCodeWindows(resolve))
     preflight(win)
   }
-  const { record, secret } = await signer().prepare({ networkId, actions, kind })
+  const { record, secret } = await signer().prepare({ networkId, actions, kind, sequence })
   const outcome = await openConfirmation(win, record, secret)
   if (outcome.approved && getSettings().lockAfterSignature) vault().lock()
   const ctx = { source: 'sent' as const, network: record.network.name, endpoint: record.endpoint }
@@ -282,19 +288,21 @@ export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
       target: oneOf(o.target, 'target', ['both', 'wasm', 'abi'] as const)
     })
   })
-  handle('deploy:simulate', async (_e, planId) => {
+  handle('deploy:simulate', async (_e, planId, part) => {
     // Simulation uses a copy of the plan's actions; the plan stays usable for Deploy.
     const id = str(planId, 'plan', 64)
-    const { networkId, actions } = deployActions(id, { keep: true })
+    const p = part === undefined || part === null ? undefined : oneOf(part, 'part', ['code', 'abi'] as const)
+    const { networkId, actions } = deployActions(id, { keep: true, part: p })
     const t = await simulate(actions, networkId)
     return addResources(t, firstAuthorizer(actions), t.endpoint)
   })
-  handle('deploy:run', (_e, planId) => {
+  handle('deploy:run', (_e, planId, part) => {
     const id = str(planId, 'plan', 64)
+    const p = part === undefined || part === null ? undefined : oneOf(part, 'part', ['code', 'abi'] as const)
     // Checked before the plan is used up, so Deploy works again after unlocking.
     preflight(getWindow())
-    const { networkId, actions } = deployActions(id)
-    return signAndSend(getWindow(), networkId, actions, 'deploy')
+    const { networkId, actions, sequence } = deployActions(id, { part: p })
+    return signAndSend(getWindow(), networkId, actions, 'deploy', sequence)
   })
   handle('accounts:clearCode', (_e, account, permission) => {
     const acc = chainName(account, 'account')

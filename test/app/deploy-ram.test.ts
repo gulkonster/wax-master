@@ -120,3 +120,14 @@ describe('the size of the code on the account', () => {
     expect(src).toContain('sendWasm && hashRead.unread')
   })
 })
+
+describe('one transaction or two (E59)', () => {
+  it('splits when code, ABI and room pass the limit', async () => {
+    const { needsTwoTransactions, DEFAULT_MAX_TX_NET } = await import('../../src/main/deploy')
+    // The owner's contract: 468,962 + 60,007 bytes used 529,123 > 524,288.
+    expect(needsTwoTransactions(468_962, 60_007, DEFAULT_MAX_TX_NET)).toBe(true)
+    expect(needsTwoTransactions(100_000, 20_000, DEFAULT_MAX_TX_NET)).toBe(false)
+    expect(needsTwoTransactions(522_240 - 100, 100, DEFAULT_MAX_TX_NET)).toBe(false)
+    expect(needsTwoTransactions(522_240 - 100, 101, DEFAULT_MAX_TX_NET)).toBe(true)
+  })
+})

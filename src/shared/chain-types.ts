@@ -367,6 +367,12 @@ export interface DeployPlan {
   /** Free RAM of the account in bytes; -1 = unlimited. */
   ramAvailable: number
   missingFeatures: { name: string; feature: string }[]
+  /** Code and ABI together pass the chain's net limit for one transaction: sent as two, code first (E59). */
+  split: boolean
+  /** The chain's max_transaction_net_usage (or its default when it could not be read). */
+  netLimit: number
+  /** Set when the code or the ABI alone is too big for one transaction: it cannot be deployed. */
+  partTooBig: string | null
 }
 
 /** Status mark of the selected network: `checking` until the first answer. */

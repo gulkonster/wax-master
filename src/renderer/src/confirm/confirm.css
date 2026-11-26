@@ -13,6 +13,10 @@
 .c-page * {
   animation: none;
 }
+/* The busy ring is no entrance motion: it turns here as in the main window (E56). */
+.c-page .spinner {
+  animation: spin 0.8s linear infinite;
+}
 /* Test and local networks: chrome grey with a 3 px orange line. Mainnet: filled red. */
 .c-header {
   padding: var(--sp-5) var(--dialog-pad);
@@ -59,6 +63,14 @@
   min-width: 0;
   color: var(--text);
   word-break: break-all;
+}
+/* A split deployment (E59): both transactions, the one of this window in bold. */
+.c-sequence ol {
+  margin: var(--sp-2) 0 0;
+  padding-left: var(--sp-5);
+}
+.c-sequence-now {
+  font-weight: 600;
 }
 .c-section {
   margin: var(--sp-4) 0 var(--sp-2);

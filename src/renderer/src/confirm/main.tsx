@@ -35,6 +35,8 @@ interface Approval {
   }
   typedName?: string
   blocked?: string
+  /** One of the transactions of a split deployment (E59). */
+  sequence?: { index: number; count: number; parts: string[] }
   /** Approve is accepted this long after the window is shown and focused. */
   approveDelayMs: number
 }
@@ -162,12 +164,31 @@ function Confirm(): React.JSX.Element {
   return (
     <div className="c-page">
       <div className={`c-header${mainnet ? ' mainnet' : ' test'}`}>
-        <div className="c-title">{a.title}</div>
+        <div className="c-title">
+          {a.title}
+          {a.sequence && `: transaction ${a.sequence.index} of ${a.sequence.count}`}
+        </div>
         <div>
           {a.network.name} · {mainnet ? 'MAINNET (real value)' : a.network.kind}
         </div>
       </div>
       <div className="c-body">
+        {a.sequence && (
+          <div className="banner warn c-gap c-sequence">
+            <div>
+              Code and ABI together are too big for one transaction, so this deployment is sent as {a.sequence.count} transactions, each with its own
+              confirmation:
+            </div>
+            <ol>
+              {a.sequence.parts.map((p, i) => (
+                <li key={i} className={i + 1 === a.sequence!.index ? 'c-sequence-now' : undefined}>
+                  {p}
+                  {i + 1 === a.sequence!.index ? ' (this confirmation)' : i + 1 < a.sequence!.index ? ' (sent before)' : ' (next confirmation)'}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
         <Row label="Network">{a.network.name}</Row>
         <Row label="Chain id" mono>{a.network.chainId}</Row>
         <Row label="Endpoint" mono>{a.endpoint}</Row>

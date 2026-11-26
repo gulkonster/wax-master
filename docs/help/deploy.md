@@ -13,6 +13,10 @@ Deploying puts your contract on an account. Two system actions do it: `eosio::se
 5. It shows the RAM needed and the RAM available.
 6. Press **Deploy**. The confirmation window shows the contract account, the WASM and ABI hashes in this transaction and the code now on the account. Press **Approve and send**.
 
+## A big contract: two transactions
+
+One transaction may carry at most the chain's net limit (524,288 bytes on WAX). When the code and the ABI together do not fit, the dialog says so and **Deploy** sends two transactions, each with its own confirmation: first the code (`setcode`), then the ABI (`setabi`). The dialog shows which one runs ("Transaction 1 of 2 (the code, ... bytes)"), and each confirmation lists both. If the second one is cancelled or refused, the dialog says that the code was deployed and the ABI was not; press **Deploy** again and it sends only the ABI. **Simulate Deploy** simulates both. When the code or the ABI alone is too big, the dialog says that it cannot be deployed.
+
 Footer buttons: **Rebuild** compiles again and compares; **Simulate Deploy** runs the deployment without sending it (see [Simulate and the transaction inspector](doc:simulate-inspector)).
 
 Other commands in the Contract menu: **Deploy to Account...** (the same dialog, the account not saved to the project) and **Simulate Deploy** (opens the Deploy dialog, where Simulate Deploy is in the footer). Accounts > **Clear Contract Code...** removes code and ABI from an account; its tables stay, and the account name must be typed in the confirmation on every network.

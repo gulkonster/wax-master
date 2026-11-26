@@ -288,6 +288,24 @@ describe('copying', () => {
     expect(JSON.stringify(r)).not.toContain('PVT_')
   })
 
+  it('sends a copy too big for one transaction as two: the code first, then the ABI (E59)', async () => {
+    // A valid module made big by one custom section: code + ABI + room pass 524,288 bytes, the code alone does not.
+    const total = 522_200
+    const n = total - 8 - 1 - 3
+    const big = new Uint8Array(total)
+    big.set([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0, 0, 0x80 | (n & 0x7f), 0x80 | ((n >> 7) & 0x7f), n >> 14, 1, 0x78])
+    const w = world({ source: { wasm: big, abi: ABI_BIN } })
+    const sequences: unknown[] = []
+    const sign = w.deps.sign
+    w.deps.sign = (networkId, actions, sequence) => (sequences.push(sequence), sign(networkId, actions))
+    await copyContract({ networkId: 'wax-mainnet', account: 'atomicassets', target: 'atomicassets', publicKey: w.user.pub }, w.deps)
+    expect(w.signed.map((acts) => acts.map((a) => a.name))).toEqual([['setcode'], ['setabi']])
+    expect(sequences).toEqual([
+      { index: 1, count: 2, parts: [`setcode: the code, ${total.toLocaleString('en-US')} bytes`, `setabi: the ABI, ${ABI_BIN.length.toLocaleString('en-US')} bytes`] },
+      { index: 2, count: 2, parts: [`setcode: the code, ${total.toLocaleString('en-US')} bytes`, `setabi: the ABI, ${ABI_BIN.length.toLocaleString('en-US')} bytes`] }
+    ])
+  })
+
   it('copies under another name and reads the source when Read was not called', async () => {
     const w = world()
     const r = await copyContract({ networkId: 'wax-mainnet', account: 'atomicassets', target: 'myassets1234', publicKey: w.user.pub }, w.deps)

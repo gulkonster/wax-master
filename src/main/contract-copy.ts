@@ -28,7 +28,7 @@ import { LOCAL_CHAIN_NETWORK_ID } from '../shared/local-chain'
 import type { ContractCopyInput, ContractCopyResult, ContractCopySource, ContractCopyTarget, ContractReadInput } from '../shared/api'
 import { assertLocalChain } from './local-chain-boot'
 import { NOT_RUNNING_TEXT, defaultLocalAccountsDeps, keepSent, newAccountActions, type LocalAccountsDeps } from './local-chain-accounts'
-import { deployActions, planDeploy } from './deploy'
+import { deployActions, planDeploy, type DeploySequence } from './deploy'
 import { getNetwork, readCall } from './networks'
 import { chain, type ChainInfo } from './rpc'
 import { plainAccountError } from './account-pick'
@@ -93,7 +93,7 @@ export interface ContractCopyDeps {
   plan: typeof planDeploy
   actions: typeof deployActions
   /** Signs from the vault with the normal confirmation and sends to the network. */
-  sign: (networkId: string, actions: ActionRequest[]) => Promise<CopySignOutcome>
+  sign: (networkId: string, actions: ActionRequest[], sequence?: DeploySequence) => Promise<CopySignOutcome>
   now: () => number
 }
 
@@ -368,13 +368,21 @@ export async function copyContract(input: ContractCopyInput, deps: ContractCopyD
   if ((plan.sendWasm || plan.sendAbi) && plan.ramAvailable >= 0 && plan.ramNeeded > plan.ramAvailable) {
     throw new Error(ramShortText(target, plan.ramNeeded, plan.ramAvailable))
   }
+  if (plan.partTooBig) throw new Error(plan.partTooBig)
   let transactionId: string | null = null
   if (plan.sendWasm || plan.sendAbi) {
-    const { networkId, actions } = deps.actions(plan.id)
-    const out = await deps.sign(networkId, actions)
-    if (out.status === 'cancelled') throw new Error(created ? `${COPY_CANCELLED} ${target} was made on Local chain and has no code.` : COPY_CANCELLED)
-    if (out.status === 'failed') throw new Error(out.error)
-    transactionId = out.transactionId
+    // Too big for one transaction (E59): the code first, then the ABI, each with its own confirmation.
+    const parts = plan.split ? (['code', 'abi'] as const) : ([undefined] as const)
+    for (const part of parts) {
+      const { networkId, actions, sequence } = deps.actions(plan.id, part ? { part } : {})
+      const out = await deps.sign(networkId, actions, sequence)
+      const codeOnly = part === 'abi' ? ` The code was copied (transaction 1 of 2), the ABI was not; copy again to send it.` : ''
+      if (out.status === 'cancelled') {
+        throw new Error(codeOnly ? COPY_CANCELLED + codeOnly : created ? `${COPY_CANCELLED} ${target} was made on Local chain and has no code.` : COPY_CANCELLED)
+      }
+      if (out.status === 'failed') throw new Error(out.error + codeOnly)
+      transactionId = out.transactionId
+    }
   }
   const localHash = await codeHashAt(endpoint, target, deps.local)
   // An account that was there before is never changed; the dialog says what to tick when it lacks eosio.code.

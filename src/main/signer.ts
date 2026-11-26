@@ -74,6 +74,8 @@ export interface PrepareRequest {
   networkId: string
   actions: ActionRequest[]
   kind?: PrepareKind
+  /** One of the transactions of a split deployment (E59); set by main-process code only. */
+  sequence?: { index: number; count: number; parts: string[] }
 }
 
 export interface ApprovalAction {
@@ -110,6 +112,8 @@ export interface ApprovalRecord {
     /** The transaction removes the contract (empty setcode). */
     clear: boolean
   }
+  /** This transaction is one of several of one deployment: which one, and what each carries (E59). */
+  sequence?: { index: number; count: number; parts: string[] }
   /** Account name the user must type in the confirmation window. */
   typedName?: string
   /** Signing on this network is switched off in this build. */
@@ -473,6 +477,7 @@ export class Signer {
       actions: shown,
       signers,
       artifacts,
+      sequence: req.sequence ? { index: req.sequence.index, count: req.sequence.count, parts: [...req.sequence.parts] } : undefined,
       // Mainnet-like: every guarded action. Clear Contract Code: on every network.
       typedName: guarded && (mainnetLike || clear) ? guarded : undefined,
       blocked:

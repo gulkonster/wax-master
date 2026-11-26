@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { DEPLOY_PLAN_EXPIRED, type DeployPlan } from '../../../shared/chain-types'
 import type { InspectedTransaction } from '../../../shared/trace-types'
-import type { OpenProject } from '../../../shared/api'
+import type { OpenProject, TxOutcome } from '../../../shared/api'
 import { Modal } from './Modal'
 import { InspectorBody } from './Inspector'
 import { ReadMore } from './HelpButton'
@@ -28,7 +28,7 @@ function short(h: string | null): string {
 }
 
 /** The step a long wait is in (E56). */
-type Step = null | 'ensure' | 'build' | 'plan' | 'ram' | 'simulate' | 'deploy'
+type Step = null | 'ensure' | 'build' | 'plan' | 'ram' | 'simulate' | 'deploy' | 'deploy1' | 'deploy2'
 
 /** The last lines of the build output, as the Output panel shows them. */
 function lastLines(text: string, n: number): string {
@@ -250,12 +250,86 @@ export function DeployDialog({
     setError('')
     setSendNote('')
     try {
-      setTrace(await withPlan(plan.id, (id) => window.wax.deploy.simulate(id)))
+      if (!plan.split) {
+        setTrace(await withPlan(plan.id, (id) => window.wax.deploy.simulate(id)))
+        return
+      }
+      // Two transactions (E59): each part is simulated as it will be sent; a failing part is shown.
+      const code = await withPlan(plan.id, (id) => window.wax.deploy.simulate(id, 'code'))
+      if (code.status !== 'executed') {
+        setTrace(code)
+        return
+      }
+      const abi = await withPlan(plan.id, (id) => window.wax.deploy.simulate(id, 'abi'))
+      setTrace(abi.status !== 'executed' ? abi : code)
+      if (abi.status === 'executed') setSendNote('Both transactions were simulated: the code (shown below), then the ABI. Both would run.')
     } catch (e) {
       setError(errorText(e))
     } finally {
       setBusy(null)
     }
+  }
+
+  /** After a deployment reached the chain: the notice, open Contract tabs, and the project file. */
+  const deployed = async (what: string): Promise<void> => {
+    toast(what, `${account} on ${net?.name}`, 'success')
+    // An open Contract tab of this account reads its ABI again until the new one is there.
+    emit('contract-changed', account)
+    // The project file records the account of a deployment, never one that was only looked at.
+    if (net && !askAccount && (saved?.account !== account || saved?.permission !== permission)) {
+      const cfg = { ...project.config, deploy: { ...project.config.deploy, networks: { ...project.config.deploy.networks, [net.id]: { account, permission } } } }
+      try {
+        // The window's copy of the project follows, so the dialog opens with this account next time.
+        actions.projectUpdated(await window.wax.projects.saveConfig(cfg))
+      } catch (e) {
+        toast('Deployed, but the project file was not saved', errorText(e), 'error')
+      }
+    }
+  }
+
+  /** A send that did not reach the chain: the plan is prepared again from the same build; the reason is shown once. */
+  const notSent = async (r: TxOutcome, before = ''): Promise<void> => {
+    await loadPlan().catch(() => undefined)
+    if (r.status === 'failed' && r.trace) setTrace(r.trace)
+    // A cancel is a neutral note; a refusal is explained once, by the inspector below when it has the text.
+    const line = outcomeLine(r, CANCELLED_NOT_SENT)
+    if (line?.kind === 'error') setError(before + line.text)
+    else if (line) {
+      if (before) setError(before + line.text)
+      else setSendNote(line.text)
+    }
+  }
+
+  /** Code and ABI as two transactions, code first (E59). */
+  const deploySplit = async (p: DeployPlan): Promise<void> => {
+    setBusy('deploy1')
+    const first = await withPlan(p.id, (id) => withVault(() => window.wax.deploy.run(id, 'code')))
+    if (first.status !== 'sent') {
+      setPlan(null)
+      await notSent(first)
+      return
+    }
+    setTrace(first.trace)
+    emit('contract-changed', account)
+    const codeSent = `The code was deployed (transaction 1 of 2, ${first.trace.id.slice(0, 12)}…), but the ABI was not, so ${account} now runs the new code with its old ABI. Press Deploy again: it sends only the ABI. Transaction 2 of 2: `
+    setBusy('deploy2')
+    let second: TxOutcome
+    try {
+      // The plan of the code part is kept for this part; if it ran out meanwhile, a new plan sends only the ABI.
+      second = await withPlan(p.id, (id) => withVault(() => window.wax.deploy.run(id, 'abi')))
+    } catch (e) {
+      setPlan(null)
+      await loadPlan().catch(() => undefined)
+      setError(codeSent + (isUnlockCancelled(e) ? CANCELLED_NOT_SENT : errorText(e)))
+      return
+    }
+    setPlan(null)
+    if (second.status !== 'sent') {
+      await notSent(second, codeSent)
+      return
+    }
+    setTrace(second.trace)
+    await deployed('Deployed (2 transactions)')
   }
 
   const deploy = async (): Promise<void> => {
@@ -264,34 +338,18 @@ export function DeployDialog({
     setError('')
     setSendNote('')
     try {
+      if (plan.split) {
+        await deploySplit(plan)
+        return
+      }
       // A locked vault is asked for here; the same plan is sent after the unlock. A plan that
       // was used up by an earlier attempt is prepared again from the same build (no compile).
       const r = await withPlan(plan.id, (id) => withVault(() => window.wax.deploy.run(id)))
       setPlan(null)
       if (r.status === 'sent') {
         setTrace(r.trace)
-        toast('Deployed', `${account} on ${net?.name}`, 'success')
-        // An open Contract tab of this account reads its ABI again until the new one is there.
-        emit('contract-changed', account)
-        // The project file records the account of a deployment, never one that was only looked at.
-        if (net && !askAccount && (saved?.account !== account || saved?.permission !== permission)) {
-          const cfg = { ...project.config, deploy: { ...project.config.deploy, networks: { ...project.config.deploy.networks, [net.id]: { account, permission } } } }
-          try {
-            // The window's copy of the project follows, so the dialog opens with this account next time.
-            actions.projectUpdated(await window.wax.projects.saveConfig(cfg))
-          } catch (e) {
-            toast('Deployed, but the project file was not saved', errorText(e), 'error')
-          }
-        }
-      } else {
-        // The plan is used up: it is prepared again from the same build, so Deploy can be pressed again.
-        await loadPlan().catch(() => undefined)
-        if (r.status === 'failed' && r.trace) setTrace(r.trace)
-        // A cancel is a neutral note; a refusal is explained once, by the inspector below when it has the text.
-        const line = outcomeLine(r, CANCELLED_NOT_SENT)
-        if (line?.kind === 'error') setError(line.text)
-        else if (line) setSendNote(line.text)
-      }
+        await deployed('Deployed')
+      } else await notSent(r)
     } catch (e) {
       // Failed after the plan was used (for example a network error while the transaction was
       // prepared): the plan is prepared again from the same build, so Deploy can be pressed again.
@@ -318,6 +376,10 @@ export function DeployDialog({
         return `Simulating the deployment to ${where}...`
       case 'deploy':
         return 'Waiting for your confirmation, then for the network...'
+      case 'deploy1':
+        return `Transaction 1 of 2 (the code, ${(plan?.wasmSize ?? 0).toLocaleString('en-US')} bytes): waiting for your confirmation, then for the network...`
+      case 'deploy2':
+        return `Transaction 2 of 2 (the ABI, ${(plan?.abiSize ?? 0).toLocaleString('en-US')} bytes): waiting for your confirmation, then for the network...`
     }
   }
 
@@ -337,7 +399,7 @@ export function DeployDialog({
             <button className="btn" disabled={!valid || !!busy || !net} title="Compile the project again, then compare with the account" onClick={() => check(true)}>
               {busy === 'build' ? 'Building...' : busy === 'ensure' || busy === 'plan' || busy === 'ram' ? 'Checking...' : 'Rebuild'}
             </button>
-            <button className="btn" disabled={!plan || !!nothing || !!busy} onClick={() => void simulate()}>
+            <button className="btn" disabled={!plan || !!nothing || !!busy || !!plan?.partTooBig} onClick={() => void simulate()}>
               {busy === 'simulate' ? 'Simulating...' : 'Simulate Deploy'}
             </button>
           </div>
@@ -346,11 +408,11 @@ export function DeployDialog({
           </button>
           <button
             className={`btn ${net?.kind === 'mainnet' ? 'danger' : 'primary'}`}
-            disabled={!plan || !!nothing || !!busy || keyMissing}
+            disabled={!plan || !!nothing || !!busy || keyMissing || !!plan?.partTooBig}
             title={keyMissing ? `The vault has no key for ${account}@${permission}` : undefined}
             onClick={() => void deploy()}
           >
-            {busy === 'deploy' ? 'Waiting for confirmation...' : 'Deploy'}
+            {busy === 'deploy' || busy === 'deploy1' || busy === 'deploy2' ? 'Waiting for confirmation...' : 'Deploy'}
           </button>
         </>
       }
@@ -455,6 +517,13 @@ export function DeployDialog({
             />
           )}
           {ramNote && <div className="hint">{ramNote}</div>}
+          {plan.split && !plan.partTooBig && (
+            <div className="banner warn">
+              Code and ABI together ({((plan.wasmSize ?? 0) + (plan.abiSize ?? 0)).toLocaleString('en-US')} bytes) are too big for one transaction ({plan.network} allows{' '}
+              {plan.netLimit.toLocaleString('en-US')} bytes of net usage). Deploy sends two transactions, each with its own confirmation: the code first, then the ABI.
+            </div>
+          )}
+          {plan.partTooBig && <div className="c-blocked">{plan.partTooBig}</div>}
           {plan.missingFeatures.length > 0 && (
             <div className="c-blocked">
               The contract calls host functions that {plan.network} has not activated:{' '}

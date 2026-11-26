@@ -20,6 +20,37 @@ import type { ActionRequest } from './signer'
 
 const MAX_WASM = 8 * 1024 * 1024
 
+/** The chain's limit of net usage for one transaction when it cannot be read (the default of Antelope and WAX). */
+export const DEFAULT_MAX_TX_NET = 524_288
+/** Room for the transaction around the code and ABI bytes (header, actions, signature); a real deploy used 154 bytes. */
+export const TX_NET_OVERHEAD = 2048
+
+/** True when setcode and setabi together would pass the limit, so they go as two transactions (E59). */
+export function needsTwoTransactions(codeBytes: number, abiBytes: number, limit: number): boolean {
+  return codeBytes + abiBytes + TX_NET_OVERHEAD > limit
+}
+
+/** The part of a split deployment a transaction carries. */
+export type DeployPart = 'code' | 'abi'
+
+/** What a confirmation of a split deployment tells about both transactions. */
+export interface DeploySequence {
+  index: number
+  count: number
+  parts: string[]
+}
+
+/** max_transaction_net_usage from the system contract's global table; the default when it cannot be read. */
+async function maxTransactionNet(networkId: string): Promise<number> {
+  try {
+    const r = await readCall((ep) => chain.getTableRows(ep, { code: 'eosio', scope: 'eosio', table: 'global', json: true, limit: 1 }), getNetwork(networkId))
+    const v = Number((r.rows[0] as { max_transaction_net_usage?: unknown } | undefined)?.max_transaction_net_usage)
+    return Number.isFinite(v) && v > 0 ? v : DEFAULT_MAX_TX_NET
+  } catch {
+    return DEFAULT_MAX_TX_NET
+  }
+}
+
 /** Host functions that need a protocol feature (by its builtin codename). */
 export const FEATURE_OF_IMPORT: Record<string, string> = {
   set_action_return_value: 'ACTION_RETURN_VALUE',
@@ -221,6 +252,15 @@ export async function planDeploy(input: {
   const abiHash = abi ? sha(abi) : undefined
   const sendWasm = !!wasm && wasmHash !== codeHash
   const sendAbi = !!abi && abiHash !== chainAbiHash
+  // One transaction may carry at most the chain's net limit: a big contract goes as code first, then ABI.
+  const netLimit = sendWasm || sendAbi ? await maxTransactionNet(network.id) : DEFAULT_MAX_TX_NET
+  const split = sendWasm && sendAbi && needsTwoTransactions(wasm!.length, abi!.length, netLimit)
+  const partTooBig =
+    sendWasm && wasm!.length + TX_NET_OVERHEAD > netLimit
+      ? `The code (${wasm!.length.toLocaleString('en-US')} bytes) is larger than one transaction may carry on ${network.name} (${netLimit.toLocaleString('en-US')} bytes of net usage), so it cannot be deployed. Make the contract smaller (for example build with -O3 or -Oz, or split it into two contracts).`
+      : sendAbi && abi!.length + TX_NET_OVERHEAD > netLimit
+        ? `The ABI (${abi!.length.toLocaleString('en-US')} bytes) is larger than one transaction may carry on ${network.name} (${netLimit.toLocaleString('en-US')} bytes of net usage), so it cannot be deployed.`
+        : null
   // Feature check of host functions.
   const missing: { name: string; feature: string }[] = []
   if (wasm) {
@@ -283,22 +323,46 @@ export async function planDeploy(input: {
     ramReplaced: ram.replacedBytes,
     chainCodeUnread: onAccount.unread,
     ramAvailable: quota < 0 ? -1 : Math.max(0, quota - usage),
-    missingFeatures: missing
+    missingFeatures: missing,
+    split,
+    netLimit,
+    partTooBig
   }
 }
 
-/** Builds setcode/setabi for a plan with the exact bytes read when the plan was made. */
-export function deployActions(planId: string, opts: { clear?: boolean; keep?: boolean } = {}): { networkId: string; actions: ActionRequest[] } {
+/**
+ * Builds setcode/setabi for a plan with the exact bytes read when the plan was made.
+ * With `part` only one of them (a split deployment, E59): the code part keeps the plan
+ * for the ABI part; the ABI part uses it up. `sequence` then says what the confirmation
+ * shows about both transactions.
+ */
+export function deployActions(
+  planId: string,
+  opts: { clear?: boolean; keep?: boolean; part?: DeployPart } = {}
+): { networkId: string; actions: ActionRequest[]; sequence?: DeploySequence } {
   const p = plans.get(planId)
   if (!p) throw new Error(DEPLOY_PLAN_EXPIRED)
-  if (!opts.keep) plans.delete(planId)
+  if (opts.part === 'code' && !p.wasm) throw new Error('This plan sends no code.')
+  if (opts.part === 'abi' && !p.abi) throw new Error('This plan sends no ABI.')
+  if (!opts.keep && opts.part !== 'code') plans.delete(planId)
   const auth = [{ actor: p.account, permission: p.permission }]
   const actions: ActionRequest[] = []
-  if (p.wasm) actions.push({ account: 'eosio', name: 'setcode', authorization: auth, data: { account: p.account, vmtype: 0, vmversion: 0, code: bytesToHex(p.wasm) } })
-  if (p.abi) actions.push({ account: 'eosio', name: 'setabi', authorization: auth, data: { account: p.account, abi: bytesToHex(p.abi) } })
+  const withCode = opts.part !== 'abi'
+  const withAbi = opts.part !== 'code'
+  let sequence: DeploySequence | undefined
+  if (opts.part && p.wasm && p.abi) {
+    const size = (n: number): string => `${n.toLocaleString('en-US')} bytes`
+    sequence = {
+      index: opts.part === 'code' ? 1 : 2,
+      count: 2,
+      parts: [`setcode: the code, ${size(p.wasm.length)}`, `setabi: the ABI, ${size(p.abi.length)}`]
+    }
+  }
+  if (p.wasm && withCode) actions.push({ account: 'eosio', name: 'setcode', authorization: auth, data: { account: p.account, vmtype: 0, vmversion: 0, code: bytesToHex(p.wasm) } })
+  if (p.abi && withAbi) actions.push({ account: 'eosio', name: 'setabi', authorization: auth, data: { account: p.account, abi: bytesToHex(p.abi) } })
   if (actions.length === 0 && !opts.clear) throw new Error('Nothing to deploy: the account already has this WASM and ABI.')
   // The signer computes the shown hashes and sizes from these bytes as packed in the transaction.
-  return { networkId: p.networkId, actions }
+  return { networkId: p.networkId, actions, sequence }
 }
 
 /** Clear Contract Code: empty setcode and setabi. */

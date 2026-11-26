@@ -22,20 +22,20 @@ import { getSettings } from './store'
 import { openConfirmation } from './confirm-window'
 import { afterCodeWindows, codeWindowOpen } from './key-windows'
 import { failedSendError, fromNodeError } from './trace'
-import type { ActionRequest } from './signer'
+import type { ActionRequest, PrepareRequest } from './signer'
 import { log } from './log'
 import { sentStore } from './sent-store'
 
 const CHAIN_ID_FORM = /^[0-9a-f]{64}$/
 
 /** The vault-signed send of a copy's deployment: the same steps and confirmation as Deploy. */
-async function signFromVault(win: BrowserWindow | null, networkId: string, actions: ActionRequest[]): Promise<CopySignOutcome> {
+async function signFromVault(win: BrowserWindow | null, networkId: string, actions: ActionRequest[], sequence?: PrepareRequest['sequence']): Promise<CopySignOutcome> {
   preflight(win)
   if (codeWindowOpen()) {
     await new Promise<void>((resolve) => afterCodeWindows(resolve))
     preflight(win)
   }
-  const { record, secret } = await signer().prepare({ networkId, actions, kind: 'deploy' })
+  const { record, secret } = await signer().prepare({ networkId, actions, kind: 'deploy', sequence })
   const outcome = await openConfirmation(win, record, secret)
   if (outcome.approved && getSettings().lockAfterSignature) vault().lock()
   if (outcome.approved) {
@@ -140,7 +140,7 @@ export function registerLocalChainIpc(getWindow: () => BrowserWindow | null): vo
   })
   // Read on the source network (nothing is signed there); a missing target is made by
   // eosio; the deployment is signed from the vault with the normal confirmation.
-  const copyDeps = (): ReturnType<typeof defaultContractCopyDeps> => defaultContractCopyDeps((n, a) => signFromVault(getWindow(), n, a))
+  const copyDeps = (): ReturnType<typeof defaultContractCopyDeps> => defaultContractCopyDeps((n, a, seq) => signFromVault(getWindow(), n, a, seq))
   handle('localChain:copyRead', async (_e, input) => {
     const i = obj(input, 'input')
     return copyRead({ networkId: str(i.networkId, 'networkId', 64), account: chainName(i.account, 'account') }, copyDeps())

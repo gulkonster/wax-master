@@ -586,8 +586,9 @@ export interface WaxApi {
   }
   deploy: {
     plan(input: { networkId: string; account: string; permission: string; target: 'both' | 'wasm' | 'abi' }): Promise<DeployPlan>
-    simulate(planId: string): Promise<InspectedTransaction>
-    run(planId: string): Promise<TxOutcome>
+    /** With `part`: only the code or only the ABI of a split deployment (E59). */
+    simulate(planId: string, part?: 'code' | 'abi'): Promise<InspectedTransaction>
+    run(planId: string, part?: 'code' | 'abi'): Promise<TxOutcome>
   }
   faucet: {
     create(name: string): Promise<{ ok: boolean; message: string; account?: string; ownerPublic?: string; activePublic?: string }>
