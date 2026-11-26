@@ -10,8 +10,8 @@ import { abiFromBinary, abiToBinary, bytesToHex } from '../chain-core'
 import { effectiveOutput, type DeployTarget } from '../shared/project'
 import { DEPLOY_PLAN_EXPIRED, type DeployPlan } from '../shared/chain-types'
 import { currentProject, resolveInProject } from './projects'
-import { abiRefusal, storedBuild } from './build'
-import { buildForKind, variantFits, variantLabel } from './build-variant'
+import { abiRefusal, filesRefusal, storedBuild } from './build'
+import { buildForKind } from './build-variant'
 import { currentNetwork, effectiveKind, endpointOf, getNetwork, readCall } from './networks'
 import { chain } from './rpc'
 import { plainAccountError } from './account-pick'
@@ -219,12 +219,12 @@ export async function planDeploy(input: {
   } else {
     const p = currentProject()
     if (!p) throw new Error('No project is open')
-    // E64: the files on disk must be the build this network takes (Deploy builds it first by itself).
+    // E64, E69: the files on disk must be the build this network takes, made by WAX Master when the
+    // sources use the macros (Deploy builds it first by itself unless automatic build is off).
     const takes = buildForKind(effectiveKind(network))
+    const refusal = await filesRefusal(p.root, p.config, takes, network.name)
+    if (refusal) throw new Error(refusal)
     build = storedBuild(p.root)?.variant ?? 'any'
-    if (!variantFits(build, takes)) {
-      throw new Error(`The files on disk are the ${variantLabel(build)}, and ${network.name} takes the ${takes} build. Press Rebuild in Deploy to build it.`)
-    }
     wasmRel = effectiveOutput(p.config)
     abiRel = wasmRel.replace(/\.wasm$/i, '') + '.abi'
     if (input.target !== 'abi') {

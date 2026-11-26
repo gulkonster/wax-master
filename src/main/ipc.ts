@@ -18,7 +18,7 @@ import * as toolchain from './toolchain'
 import * as terminal from './terminal'
 import { wasmInfo } from './wasm-info'
 import { openNotices } from './project-notices'
-import { runBuild, defaultBuildArgs, ensureBuilt, rebuild } from './build'
+import { runBuild, defaultBuildArgs, ensureBuilt, rebuild, buildStatus } from './build'
 import { optStr } from '../shared/validate'
 import { createRicardianFiles } from './ricardian'
 import { run as runHelper } from './helper'
@@ -110,6 +110,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     }
     if ('lockAfterSignature' in p) patch.lockAfterSignature = bool(p.lockAfterSignature, 'lockAfterSignature')
     if ('updateCheck' in p) patch.updateCheck = bool(p.updateCheck, 'updateCheck')
+    if ('autoBuildOnDeploy' in p) patch.autoBuildOnDeploy = bool(p.autoBuildOnDeploy, 'autoBuildOnDeploy')
     if ('terminalProfile' in p) patch.terminalProfile = oneOf(p.terminalProfile, 'terminalProfile', ['powershell', 'cmd', 'toolchain'] as const)
     if ('setupDismissed' in p) patch.setupDismissed = bool(p.setupDismissed, 'setupDismissed')
     if ('theme' in p) patch.theme = oneOf(p.theme, 'theme', THEME_SETTINGS)
@@ -316,6 +317,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   // No arguments: both act on the open project only.
   handle('build:ensure', (e, networkId) => ensureBuilt(e.sender, optStr(networkId, 'networkId', 64)))
   handle('build:rebuild', (e, networkId) => rebuild(e.sender, optStr(networkId, 'networkId', 64)))
+  handle('build:status', (_e, networkId) => buildStatus(optStr(networkId, 'networkId', 64)))
   // No arguments: reads the open project's built ABI and writes only inside its resource folder.
   handle('ricardian:create', async (e, ...rest) => {
     if (rest.length > 0) throw new Error('No arguments expected')

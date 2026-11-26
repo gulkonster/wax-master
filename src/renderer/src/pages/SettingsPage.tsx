@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ThemeSetting } from '../../../shared/api'
 import { useApp } from '../state'
 import { Modal } from '../components/Modal'
 import { errorText, toast } from '../lib/toast'
 import { HelpButton } from '../components/HelpButton'
+import { settingId, takeRequestedSetting } from '../lib/open-setting'
 
 const VAULT_WORDS = 'delete my keys'
 
@@ -11,6 +12,21 @@ export function SettingsPage(): React.JSX.Element {
   const { state, actions } = useApp()
   const s = state.settings
   const [clearing, setClearing] = useState(false)
+  const [flash, setFlash] = useState<string | null>(null)
+  // Opened from a link to one setting (Deploy): scroll to it and focus it.
+  const loaded = !!s
+  useEffect(() => {
+    if (!loaded) return
+    const key = takeRequestedSetting()
+    if (!key) return
+    const el = document.getElementById(settingId(key))
+    if (!el) return
+    el.scrollIntoView({ block: 'center' })
+    el.focus()
+    setFlash(key)
+    const t = setTimeout(() => setFlash(null), 2000)
+    return () => clearTimeout(t)
+  }, [loaded])
   if (!s) return <div className="coming">Loading...</div>
   const set = (patch: Parameters<typeof actions.updateSettings>[0]): void => {
     actions.updateSettings(patch).catch((e) => toast('Could not save the setting', errorText(e), 'error'))
@@ -68,6 +84,24 @@ export function SettingsPage(): React.JSX.Element {
               Browse...
             </button>
           </div>
+        </div>
+        </div>
+        <h2 className="with-help">
+          Build and deploy
+          <HelpButton place="settingsBuild" />
+        </h2>
+        <div className="card">
+        <label className={`check-label${flash === 'autoBuildOnDeploy' ? ' flash' : ''}`}>
+          <input
+            id={settingId('autoBuildOnDeploy')}
+            type="checkbox"
+            checked={s.autoBuildOnDeploy}
+            onChange={(e) => set({ autoBuildOnDeploy: e.target.checked })}
+          />{' '}
+          Build automatically on Deploy (Deploy builds the contract for the network it deploys to when the project changed)
+        </label>
+        <div className="hint">
+          Off: Deploy sends the WASM and ABI of the last build as they are; Rebuild in Deploy still builds. A testnet build is never sent to a mainnet, and a mainnet build never to a test network.
         </div>
         </div>
         <h2 className="with-help">

@@ -61,6 +61,7 @@ export const HELP_TOPICS = {
   settingsEditor: 'window-tour',
   settingsVault: 'vault',
   settingsUpdates: 'what-the-app-contacts',
+  settingsBuild: 'deploy',
   settingsData: 'what-the-app-contacts',
   /** "Read more" under a CPU / NET / RAM refusal. */
   resourceRefusal: 'troubleshooting',

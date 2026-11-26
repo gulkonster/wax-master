@@ -76,6 +76,8 @@ export interface Settings {
   theme: ThemeSetting
   /** Sizes the user gave to dialogs, by dialog name. */
   dialogSizes: Record<string, DialogSize>
+  /** Deploy builds the contract for the network it deploys to by itself (E69); off: it sends the files of the last build. */
+  autoBuildOnDeploy: boolean
 }
 
 export type ThemeSetting = 'system' | 'dark' | 'light'
@@ -244,6 +246,21 @@ export interface BuildCheck {
   build: BuildResult | null
   /** Which build the files on disk are (E64); null when no build ran. */
   variant: BuildVariant | null
+}
+
+/** What the files on disk are, without compiling (E69: Deploy with automatic build off). */
+export interface BuildStatus {
+  /** Time of the stored build; null when WAX Master has not built this project. */
+  builtAt: number | null
+  result: BuildOutcome | null
+  /** Which build the stored build is; null when there is none. */
+  variant: BuildVariant | null
+  /** The build the network takes when the sources use WAXMASTER_TESTNET / WAXMASTER_MAINNET; 'any' otherwise. */
+  takes: BuildVariant
+  /** The WASM and ABI on disk are the ones the stored build wrote. */
+  filesMatch: boolean
+  /** The project changed since the stored build (sources, command or toolchain). */
+  changed: boolean
 }
 
 /** Answer of Contract > Create Ricardian Files. Paths are project-relative. */
@@ -632,6 +649,8 @@ export interface WaxApi {
     ensure(networkId?: string): Promise<BuildCheck>
     /** Always compiles; answers in the same form as ensure(). */
     rebuild(networkId?: string): Promise<BuildCheck>
+    /** What the files on disk are for that network, without compiling (E69). */
+    status(networkId?: string): Promise<BuildStatus>
     defaultCommand(): Promise<string>
   }
   ricardian: {

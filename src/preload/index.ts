@@ -265,6 +265,7 @@ const api: WaxApi = {
     run: call('build:run'),
     ensure: call('build:ensure'),
     rebuild: call('build:rebuild'),
+    status: call('build:status'),
     defaultCommand: call('build:defaultCommand')
   },
   ricardian: {

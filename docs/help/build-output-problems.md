@@ -20,7 +20,7 @@ After every successful compile the app checks the ABI. Lines starting with `ABI 
 ## Build again or not
 
 - Contract > Build and Ctrl+B always compile.
-- Deploy and Simulate Deploy compile only when something in the project folder changed since the last build. Otherwise the dialog says "Build is up to date (built 14:05)". **Rebuild** in the Deploy dialog always compiles.
+- Deploy and Simulate Deploy compile only when something in the project folder changed since the last build. Otherwise the dialog says "Build is up to date (built 14:05)". **Rebuild** in the Deploy dialog always compiles. With **Build automatically on Deploy** off (File > Settings), Deploy does not compile at all; see [Deploy](doc:deploy).
 
 ## The WASM view
 

@@ -60,6 +60,8 @@ export interface StoredBuild {
   abiSha256: string
   /** Testnet build, mainnet build, or one build for every network (E64); a record from before counts as "any". */
   variant: BuildVariant
+  /** SHA-256 of the WASM and ABI the build wrote ('' when missing), so changed or foreign files on disk are told apart (E69). */
+  outputSha256: { wasm: string; abi: string }
 }
 
 /**
@@ -148,7 +150,11 @@ function sanitize(v: unknown): StoredBuild | null {
     command: typeof s.command === 'string' ? s.command : '',
     abiFindings: Array.isArray(s.abiFindings) ? s.abiFindings.filter(isFinding).slice(0, MAX_STORED_FINDINGS).map(storedFinding) : [],
     abiSha256: typeof s.abiSha256 === 'string' ? s.abiSha256 : '',
-    variant: s.variant === 'testnet' || s.variant === 'mainnet' ? s.variant : 'any'
+    variant: s.variant === 'testnet' || s.variant === 'mainnet' ? s.variant : 'any',
+    outputSha256: {
+      wasm: typeof s.outputSha256?.wasm === 'string' ? s.outputSha256.wasm : '',
+      abi: typeof s.outputSha256?.abi === 'string' ? s.outputSha256.abi : ''
+    }
   }
 }
 

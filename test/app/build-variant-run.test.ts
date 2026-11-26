@@ -30,7 +30,8 @@ vi.mock('../../src/main/toolchain', async () => {
   }
 })
 
-import { ensureBuilt, runBuild } from '../../src/main/build'
+import { buildStatus, ensureBuilt, filesRefusal, runBuild } from '../../src/main/build'
+import { currentProject } from '../../src/main/projects'
 import { openProject } from '../../src/main/projects'
 
 function project(source: string): string {
@@ -68,5 +69,35 @@ describe('testnet and mainnet builds in the build path (E64)', () => {
     const same = await ensureBuilt(sender, 'wax-mainnet')
     expect(same.upToDate).toBe(true)
     expect(h.calls).toHaveLength(2)
+  })
+})
+
+describe('Deploy with automatic build off (E69)', () => {
+  it('the files of a build here fit their own network only; changed files are refused when the sources use the macros', async () => {
+    const root = project('#ifdef WAXMASTER_TESTNET\nint test_only;\n#endif\n')
+    openProject(root)
+    await runBuild(sender, 'wax-testnet')
+    const p = currentProject()!
+    expect(await filesRefusal(root, p.config, 'testnet', 'WAX Testnet')).toBeNull()
+    expect(await filesRefusal(root, p.config, 'mainnet', 'WAX Mainnet')).toContain('takes the mainnet build')
+    expect(await buildStatus('wax-testnet')).toMatchObject({ variant: 'testnet', takes: 'testnet', filesMatch: true, changed: false })
+    // Built elsewhere afterwards: WAX Master cannot tell which build the files are.
+    writeFileSync(join(root, 'game.wasm'), 'other')
+    expect(await filesRefusal(root, p.config, 'testnet', 'WAX Testnet')).toContain('cannot tell')
+    expect((await buildStatus('wax-testnet')).filesMatch).toBe(false)
+    // Automatic build builds again when the files changed.
+    expect((await ensureBuilt(sender, 'wax-testnet')).upToDate).toBe(false)
+    expect(await filesRefusal(root, p.config, 'testnet', 'WAX Testnet')).toBeNull()
+  })
+
+  it('sources without the macros: changed files on disk may be sent; a source change shows as changed', async () => {
+    const root = project('int x;')
+    openProject(root)
+    await runBuild(sender, 'wax-testnet')
+    const p = currentProject()!
+    writeFileSync(join(root, 'game.wasm'), 'other')
+    expect(await filesRefusal(root, p.config, 'mainnet', 'WAX Mainnet')).toBeNull()
+    writeFileSync(join(root, 'src', 'game.cpp'), 'int y;')
+    expect((await buildStatus('wax-mainnet')).changed).toBe(true)
   })
 })

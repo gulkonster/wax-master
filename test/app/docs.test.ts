@@ -702,6 +702,7 @@ const FEATURE_TOPICS: [string, keyof typeof HELP_TOPICS][] = [
   ['Settings: Editor', 'settingsEditor'],
   ['Settings: Key vault', 'settingsVault'],
   ['Settings: Updates', 'settingsUpdates'],
+  ['Settings: Build and deploy', 'settingsBuild'],
   ['Settings: Data and Clear All App Data dialog', 'settingsData'],
   ['CPU / NET / RAM refusal', 'resourceRefusal'],
   ['Refused transaction (inspector, Contract page result, wallet forms)', 'txRefusal'],

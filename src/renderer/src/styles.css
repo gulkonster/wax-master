@@ -950,6 +950,12 @@ input[type='radio'] {
   gap: var(--sp-2);
   cursor: pointer;
 }
+/* A setting opened from a link elsewhere (Deploy) is marked for a moment. */
+.check-label.flash {
+  background: var(--sel-bg);
+  border-radius: var(--radius);
+  outline: var(--sp-1) solid var(--sel-bg);
+}
 
 /* Widths of fields on form pages (sized to what they hold). */
 .w-num {

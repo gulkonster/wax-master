@@ -20,7 +20,7 @@ A project that names neither macro has one build that fits every network, as bef
 1. Put the values that differ per network in one header, for example `include/network.hpp`, and include it where they are used.
 2. Put the guard (below) at the top of that header.
 3. Wrap test-only actions in `#ifdef WAXMASTER_TESTNET`. Never write them as `#ifndef WAXMASTER_MAINNET`.
-4. Select the network and build or deploy as usual. Build (Ctrl+B) builds for the selected network; Deploy builds for the network it deploys to, by itself. The first line of Output says which build it is.
+4. Select the network and build or deploy as usual. Build (Ctrl+B) builds for the selected network; Deploy builds for the network it deploys to, by itself (unless automatic build is off, see [Deploy](doc:deploy)). The first line of Output says which build it is.
 5. The confirmation window shows the build ("Testnet build", "Mainnet build" or "One build for every network"). A testnet build is never sent to a mainnet, and a mainnet build never to a test network.
 
 ## The guard: stop a build that is not one of the two

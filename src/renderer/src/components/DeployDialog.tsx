@@ -11,6 +11,8 @@ import { outputStore, useStore } from '../lib/stores'
 import { cleanLine } from '../../../shared/output-lines'
 import { WorkLine } from './Busy'
 import { ensureBuild } from '../lib/build'
+import { filesOnDiskLine } from '../lib/auto-build'
+import { requestSetting } from '../lib/open-setting'
 import { withVault } from '../lib/vault'
 import { emit } from '../lib/bus'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
@@ -54,7 +56,14 @@ export function DeployDialog({
   showPanel: (t: 'output' | 'problems') => void
   onClose: () => void
 }): React.JSX.Element {
-  const { actions } = useApp()
+  const { state, actions } = useApp()
+  // E69: Deploy builds by itself unless this is switched off in Settings.
+  const autoBuild = state.settings?.autoBuildOnDeploy !== false
+  const openAutoBuildSetting = (): void => {
+    requestSetting('autoBuildOnDeploy')
+    onClose()
+    actions.setView('settings')
+  }
   const nets = useStore(networkStore)
   const net = nets.current
   const topAccount = useStore(lastOpened).account
@@ -166,6 +175,16 @@ export function DeployDialog({
     setRamNote('')
     setSendNote('')
     try {
+      if (!always && !autoBuild) {
+        // E69: no build; the files of the last build are sent as they are (the plan still
+        // refuses another network's build and files it cannot tell apart).
+        setBusy('plan')
+        const line = filesOnDiskLine(await window.wax.build.status(net.id))
+        setBuildLine(line.text)
+        if (!line.fits) return
+        await loadPlan()
+        return
+      }
       setBusy(always ? 'build' : 'ensure')
       const r = await ensureBuild(showPanel, always, net.id)
       if (!r) {
@@ -211,7 +230,7 @@ export function DeployDialog({
     const t = setTimeout(() => check(false), 150)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [account, permission, net?.id])
+  }, [account, permission, net?.id, autoBuild])
 
   // After RAM was bought: the comparison is read again, without building, until the
   // purchase is in a block (the available RAM changed) or the reads after a send are done.
@@ -446,7 +465,7 @@ export function DeployDialog({
       )}
       <div className="hint">
         Deploys {project.config.deploy.target === 'both' ? 'WASM and ABI' : project.config.deploy.target === 'wasm' ? 'WASM only' : 'ABI only'} (Project Settings).{' '}
-        {buildLine ? `${buildLine}.` : 'The project is built first if it changed.'}
+        {buildLine ? (buildLine.endsWith('.') ? buildLine : `${buildLine}.`) : autoBuild ? 'The project is built first if it changed.' : ''}
         {plan?.build && (
           <>
             {' '}
@@ -454,6 +473,21 @@ export function DeployDialog({
           </>
         )}
       </div>
+      {autoBuild ? (
+        <div className="hint">
+          Automatic build is on: Deploy builds for the network it deploys to by itself. It can be switched off in Settings.
+          <button className="btn subtle sm" style={{ marginLeft: 'var(--sp-2)' }} disabled={!!busy} onClick={openAutoBuildSetting}>
+            Open setting
+          </button>
+        </div>
+      ) : (
+        <div className="acct-note warn">
+          Automatic build is off: Deploy sends the files of the last build. Press Rebuild to build for this network.
+          <button className="btn subtle sm" disabled={!!busy} onClick={openAutoBuildSetting}>
+            Switch it on in Settings
+          </button>
+        </div>
+      )}
       {busy && <WorkLine text={stepText(busy)} since={busySince} />}
       {busy === 'build' && (
         <>

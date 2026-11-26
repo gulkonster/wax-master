@@ -8,7 +8,7 @@ Deploying puts your contract on an account. Two system actions do it: `eosio::se
 
 1. Open the project and press Contract > Deploy (or the **Deploy** button above the file tree).
 2. **Account**: a starred account of the current network, chosen from the list (the Filter field narrows the list; no other name can be entered). **Permission**: usually `active`. The last choice is remembered per project and network.
-3. The dialog builds the project only if it changed since the last build ("Build is up to date (built 14:05)"), then compares the build with the account.
+3. The dialog builds the project only if it changed since the last build ("Build is up to date (built 14:05)"), then compares the build with the account. This automatic build can be switched off (see below).
 4. For WASM and ABI it shows the SHA-256 of this build, the hash on the account now, and **Sent**: `yes (setcode)` / `yes (setabi)`, or `unchanged`. Only what changed is sent. "Nothing to deploy: the account already has this build." means both are the same.
 5. It shows the RAM needed and the RAM available.
 6. Press **Deploy**. The confirmation window shows the contract account, the WASM and ABI hashes in this transaction and the code now on the account. Press **Approve and send**.
@@ -16,6 +16,14 @@ Deploying puts your contract on an account. Two system actions do it: `eosio::se
 ## A big contract: two transactions
 
 One transaction may carry at most the chain's net limit (524,288 bytes on WAX). When the code and the ABI together do not fit, the dialog says so and **Deploy** sends two transactions, each with its own confirmation: first the code (`setcode`), then the ABI (`setabi`). The dialog shows which one runs ("Transaction 1 of 2 (the code, ... bytes)"), and each confirmation lists both. If the second one is cancelled or refused, the dialog says that the code was deployed and the ABI was not; press **Deploy** again and it sends only the ABI. **Simulate Deploy** simulates both. When the code or the ABI alone is too big, the dialog says that it cannot be deployed.
+
+## Automatic build on or off
+
+By default Deploy builds by itself (File > Settings > Build and deploy > **Build automatically on Deploy**). The dialog says "Automatic build is on"; **Open setting** goes to the setting.
+
+With the setting off, Deploy does not compile. It sends the WASM and ABI of the last build as they are, and says which build and from when ("Sends the testnet build from 14:05."), and when the project changed since then. A small warning "Automatic build is off" stays in the dialog; **Switch it on in Settings** goes to the setting. **Rebuild** still builds.
+
+The rule of [Testnet and mainnet builds](doc:network-builds) stays: a testnet build is never sent to a mainnet, and a mainnet build never to a test network. When the sources use `WAXMASTER_TESTNET` or `WAXMASTER_MAINNET` and the files on disk are not the ones the last build here wrote (changed afterwards, or built elsewhere), WAX Master cannot tell which build they are, and Deploy asks for Rebuild.
 
 Footer buttons: **Rebuild** compiles again and compares; **Simulate Deploy** runs the deployment without sending it (see [Simulate and the transaction inspector](doc:simulate-inspector)).
 

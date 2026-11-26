@@ -5,11 +5,11 @@ import { BrowserWindow, dialog, type WebContents } from 'electron'
 import { createHash } from 'node:crypto'
 import { existsSync, promises as fsp } from 'node:fs'
 import { join } from 'node:path'
-import type { AbiFinding, BuildCheck, BuildOutcome, BuildResult, BuildVariant, Problem } from '../shared/api'
+import type { AbiFinding, BuildCheck, BuildOutcome, BuildResult, BuildStatus, BuildVariant, Problem } from '../shared/api'
 import { classifyLine, cleanLine, placeToolchainProblems, problemSeverity, uniqueProblems } from '../shared/output-lines'
 import { effectiveInclude, effectiveOutput, effectiveResource, type ProjectConfig } from '../shared/project'
 import { abiProblems, checkAbi, describeAbi, moreFindingsLine, readSources } from './abi-check'
-import { buildForKind, checkNetworkMacros, macroProblems, usesNetworkMacros, variantEnv, variantFlags, variantLabel, variantOf, type BuildFor } from './build-variant'
+import { buildForKind, checkNetworkMacros, macroProblems, usesNetworkMacros, variantEnv, variantFlags, variantFits, variantLabel, variantOf, type BuildFor } from './build-variant'
 import { currentNetwork, effectiveKind, getNetwork } from './networks'
 import { BuildStateStore, projectFingerprint, type StoredBuild } from './build-state'
 import { log } from './log'
@@ -104,6 +104,66 @@ async function variantFor(root: string, buildFor: BuildFor): Promise<BuildVarian
 
 function sha256Text(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex')
+}
+
+/** SHA-256 of a project file; '' when it is missing. */
+async function fileSha256(root: string, rel: string): Promise<string> {
+  const bytes = await fsp.readFile(join(root, rel)).catch(() => null)
+  return bytes ? createHash('sha256').update(bytes).digest('hex') : ''
+}
+
+/** The SHA-256 of the WASM and ABI on disk now. */
+async function outputHashes(root: string, config: ProjectConfig): Promise<{ wasm: string; abi: string }> {
+  const { wasm, abi } = outputFiles(config)
+  return { wasm: await fileSha256(root, wasm), abi: await fileSha256(root, abi) }
+}
+
+/** E69: the files on disk are the ones the stored build wrote (the parts that exist on disk are compared). */
+function sameOutputs(stored: StoredBuild, now: { wasm: string; abi: string }): boolean {
+  const s = stored.outputSha256
+  return !!s && s.wasm === now.wasm && s.abi === now.abi && (s.wasm !== '' || s.abi !== '')
+}
+
+/**
+ * Whether the files on disk may be deployed as a build of this project to a network that takes
+ * `takes` (E64, E69): when the sources use the macros, they must be the files of a stored build of
+ * that network's variant; otherwise any files fit. null: they fit; otherwise the reason.
+ */
+export async function filesRefusal(root: string, config: ProjectConfig, takes: BuildFor, networkName: string): Promise<string | null> {
+  const sources = await readSources(root).catch(() => [])
+  const stored = buildState.get(root)
+  const uses = usesNetworkMacros(sources)
+  if (!uses && (!stored || stored.variant === 'any')) return null
+  if (!stored || !sameOutputs(stored, await outputHashes(root, config))) {
+    return `The files on disk are not a build WAX Master made of this project (they changed after the last build, or were built elsewhere), so it cannot tell whether they are the testnet or the mainnet build. Press Rebuild in Deploy to build the ${takes} build for ${networkName}.`
+  }
+  if (!variantFits(stored.variant, takes)) {
+    return `The files on disk are the ${variantLabel(stored.variant)}, and ${networkName} takes the ${takes} build. Press Rebuild in Deploy to build it.`
+  }
+  return null
+}
+
+/** What the files on disk are for a network, without compiling (E69). */
+export async function buildStatus(networkId?: string): Promise<BuildStatus> {
+  const p = currentProject()
+  if (!p) throw new Error('No project is open')
+  const target = networkOf(networkId)
+  const sources = await readSources(p.root).catch(() => [])
+  const takes = variantOf(usesNetworkMacros(sources), target.buildFor)
+  const stored = buildState.get(p.root)
+  if (!stored) return { builtAt: null, result: null, variant: null, takes, filesMatch: false, changed: true }
+  const { wasm, abi } = outputFiles(p.config)
+  const tc = toolchainForProject(p.config.cdt)
+  const command = buildCommandText(p.config, stored.variant)
+  const fp = await projectFingerprint(p.root, { exclude: [wasm, abi], command, toolchain: tc.id }).catch(() => null)
+  return {
+    builtAt: stored.builtAt,
+    result: stored.result,
+    variant: stored.variant,
+    takes,
+    filesMatch: sameOutputs(stored, await outputHashes(p.root, p.config)),
+    changed: !fp || fp !== stored.fingerprint || stored.command !== command || stored.toolchain !== tc.id
+  }
 }
 
 /** The stored result of the last build of a project folder. */
@@ -213,7 +273,8 @@ export async function runBuild(sender: WebContents, networkId?: string): Promise
     const builtAt = Date.now()
     // Taken after the compile, so files the compiler itself writes do not count as a change next time.
     const fingerprint = await projectFingerprint(p.root, { exclude: [wasm, abi], command: shownCommand, toolchain: tc.id }).catch(() => null)
-    buildState.set(p.root, { fingerprint, result: outcome, builtAt, toolchain: tc.id, command: shownCommand, abiFindings, abiSha256: abiSha, variant })
+    const outputSha256 = ok ? await outputHashes(p.root, p.config) : { wasm: '', abi: '' }
+    buildState.set(p.root, { fingerprint, result: outcome, builtAt, toolchain: tc.id, command: shownCommand, abiFindings, abiSha256: abiSha, variant, outputSha256 })
     return { ok, problems: [...problems, ...abiProblems(abiFindings)], durationMs, outputs, outcome, builtAt, abiFindings, variant }
   } finally {
     building = false
@@ -250,7 +311,8 @@ export async function ensureBuilt(sender: WebContents, networkId?: string): Prom
     const command = buildCommandText(p.config, variant)
     const tc = toolchainForProject(p.config.cdt)
     const outputsThere = existsSync(join(p.root, wasm)) && existsSync(join(p.root, abi))
-    if (outputsThere && stored.command === command && stored.toolchain === tc.id) {
+    // E69: files changed after the build (or built elsewhere) are built again.
+    if (outputsThere && stored.command === command && stored.toolchain === tc.id && sameOutputs(stored, await outputHashes(p.root, p.config))) {
       const fp = await projectFingerprint(p.root, { exclude: [wasm, abi], command, toolchain: tc.id }).catch(() => null)
       if (fp && fp === stored.fingerprint) {
         return {

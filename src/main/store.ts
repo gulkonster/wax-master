@@ -24,7 +24,8 @@ function defaults(): StoreData {
       terminalProfile: 'powershell',
       setupDismissed: false,
       theme: 'system',
-      dialogSizes: {}
+      dialogSizes: {},
+      autoBuildOnDeploy: true
     },
     projects: [],
     trustedCommands: []
@@ -35,7 +36,12 @@ let cache: StoreData | null = null
 
 /** Values added in later versions are checked when read; a malformed one falls back to its default. */
 function cleanSettings(s: Settings, d: Settings): Settings {
-  return { ...s, theme: isThemeSetting(s.theme) ? s.theme : d.theme, dialogSizes: cleanDialogSizes(s.dialogSizes) }
+  return {
+    ...s,
+    theme: isThemeSetting(s.theme) ? s.theme : d.theme,
+    dialogSizes: cleanDialogSizes(s.dialogSizes),
+    autoBuildOnDeploy: typeof s.autoBuildOnDeploy === 'boolean' ? s.autoBuildOnDeploy : d.autoBuildOnDeploy
+  }
 }
 
 function file(): string {
