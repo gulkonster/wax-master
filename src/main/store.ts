@@ -70,8 +70,9 @@ export function updateSettings(patch: Partial<Settings>): Settings {
   return { ...s.settings }
 }
 
+/** The projects in the order they were added; opening one does not move it (E62). */
 export function listProjects(): ProjectEntry[] {
-  return [...load().projects].sort((a, b) => b.lastOpened - a.lastOpened)
+  return [...load().projects]
 }
 
 function samePath(a: string, b: string): boolean {
