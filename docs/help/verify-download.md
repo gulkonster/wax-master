@@ -4,6 +4,10 @@ An installer can be replaced on the way to you. Before the first use, check that
 
 ## How to do it here
 
+From the app: when a new version is available, **Download and install** in the notice does the quick check below by itself. It downloads the installer and `SHA256SUMS.txt` of the same release from GitHub, compares the SHA-256, and installs only when they match; otherwise it deletes the file and says why. Before the installer starts, WAX Master saves your open files and closes; a running local chain is stopped first, after you agree. While it downloads, the notice shows the percentage and the time passed; **Cancel download** stops it. **Open the release page** is still there for the manual way.
+
+By hand:
+
 Quick check, with the hash:
 
 1. Download `WAX-Master-Setup-<version>.exe` and `SHA256SUMS.txt` from the releases page.

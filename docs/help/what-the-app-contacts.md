@@ -12,6 +12,7 @@ WAX Master sends nothing anywhere on its own except to the addresses below. It h
 | The current endpoint of the selected network, for one block | Open Transaction by Id, after the history service answered: the block that holds the transaction is read from the network's node | Leave the history service empty |
 | An address you type in Add Network | When you press Connect | - |
 | GitHub (`api.github.com`) | The update check, once a day | File > Settings > Updates |
+| GitHub releases (`github.com` and its file storage `*.githubusercontent.com`) | Only when you press **Download and install** in the update notice: the installer and `SHA256SUMS.txt` of the new release | Do not press it |
 | The WAX Testnet faucet (`faucet.waxsweden.org`) | Only when you press Create account in Create Testnet Account, or Request tokens, Request test tokens or Request testnet tokens | Do not press them |
 | `127.0.0.1` on this computer | The local chain (Network > Local Chain...) runs only on this computer and listens on `127.0.0.1`; it connects to no one and no other computer can reach it. Copy contract reads from the saved network you choose | Do not set it up |
 | A web page you open | Only after the app shows you the address and you press **Open** | - |
@@ -46,4 +47,4 @@ You work offline on a train: editing and building work. The network dot turns re
 
 ## What is needed
 
-Nothing. The update check only shows a notice; nothing is downloaded or installed by it.
+Nothing. The update check only shows a notice; nothing is downloaded or installed until you press **Download and install** in it.

@@ -94,7 +94,7 @@ export function SettingsPage(): React.JSX.Element {
         </h2>
         <div className="card">
         <label className="check-label">
-          <input type="checkbox" checked={s.updateCheck} onChange={(e) => set({ updateCheck: e.target.checked })} /> Check GitHub for a new version once a day (only a notice; nothing is downloaded)
+          <input type="checkbox" checked={s.updateCheck} onChange={(e) => set({ updateCheck: e.target.checked })} /> Check GitHub for a new version once a day (only a notice; nothing is downloaded unless you press Download and install)
         </label>
         </div>
         <h2 className="with-help">

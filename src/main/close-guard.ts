@@ -17,6 +17,11 @@ export function registerCloseGuard(getWindow: () => BrowserWindow | null): void 
   })
 }
 
+/** The update install closes the app after the window saved its files; no question then. */
+export function allowQuit(): void {
+  allowClose = true
+}
+
 export function guardWindow(win: BrowserWindow): void {
   win.on('close', (e) => {
     if (allowClose || dirtyCount === 0) return

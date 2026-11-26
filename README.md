@@ -87,6 +87,8 @@ The same pictures are in the program under Help > Documentation, each on the pag
 2. Verify the download (next section).
 3. Run the installer. It installs for your Windows user and needs no administrator rights. The installers are not code-signed yet, so Windows SmartScreen shows "Windows protected your PC": choose **More info**, then **Run anyway**.
 
+Later versions: WAX Master tells you when a new version is out (once a day; can be turned off in Settings). Nothing is downloaded unless you press **Download and install**: the app then downloads the new installer, checks it against the release's `SHA256SUMS.txt`, saves your open files, closes and starts the installer.
+
 ## Verify your download
 
 Every release installer is built by the public [release workflow](.github/workflows/release.yml) from the tagged source, and GitHub records a signed build-provenance attestation for the exact file.

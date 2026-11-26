@@ -7,6 +7,7 @@ import { startBuild } from './lib/build'
 import { createRicardianFiles } from './lib/ricardian'
 import { Setup, refreshToolchainLabel } from './pages/Setup'
 import { Modal } from './components/Modal'
+import { UpdateDialog } from './components/UpdateDialog'
 import { AccountPage } from './pages/AccountPage'
 import { KeysDialog } from './components/KeysDialog'
 import { SettingsPage } from './pages/SettingsPage'
@@ -490,33 +491,7 @@ export function App(): React.JSX.Element {
         <OpenTransactionDialog onOpen={setInspect} onClose={() => setChainDialog(null)} />
       )}
       {changeKey && <ChangeKeyDialog {...changeKey} onClose={() => setChangeKey(null)} />}
-      {update && (
-        <Modal
-          size="s"
-          name="update-available"
-          help="updateAvailable"
-          title="A new version is available"
-          onClose={() => setUpdate(null)}
-          footer={
-            <>
-              <button className="btn" onClick={() => setUpdate(null)}>
-                Later
-              </button>
-              <button
-                className="btn primary"
-                onClick={() => {
-                  void window.wax.app.openExternal(update.url)
-                  setUpdate(null)
-                }}
-              >
-                Open the release page
-              </button>
-            </>
-          }
-        >
-          WAX Master {update.latest} is available (you have {update.current}). Download it from the release page and verify it as the README describes.
-        </Modal>
-      )}
+      {update && <UpdateDialog update={update} changedFiles={() => dirtyRef.current} onClose={() => setUpdate(null)} />}
       {helpTopic && (
         <HelpDialog
           topic={helpTopic}

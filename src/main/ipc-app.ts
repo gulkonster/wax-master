@@ -8,6 +8,8 @@ import { handle } from './ipc'
 import { dataDir } from './paths'
 import { NETWORKS_V1_BACKUP } from './networks'
 import { checkForUpdates, dailyCheck } from './updates'
+import { cancelUpdateDownload, downloadUpdate, installUpdate } from './update-install'
+import { allowQuit } from './close-guard'
 import { installedToolchains, remove as removeToolchain } from './toolchain'
 import { isLocalChainSetUp, remove as removeLocalChain } from './local-chain'
 import { confirmNative, vault } from './keys-service'
@@ -29,6 +31,13 @@ export function appDataFiles(): string[] {
 
 export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
   handle('app:checkUpdates', () => checkForUpdates())
+  handle('app:downloadUpdate', (e) =>
+    downloadUpdate((p) => {
+      if (!e.sender.isDestroyed()) e.sender.send('update-progress', p)
+    })
+  )
+  handle('app:cancelUpdateDownload', () => cancelUpdateDownload())
+  handle('app:installUpdate', () => installUpdate(allowQuit))
   setTimeout(() => {
     void dailyCheck((r) => getWindow()?.webContents.send('update-available', r)).catch(() => undefined)
   }, 5000)

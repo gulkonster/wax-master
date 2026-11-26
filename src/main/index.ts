@@ -5,6 +5,7 @@ import { buildMenu, watchMenuKey } from './menu'
 import { hasBlockedSwitch } from './switches'
 import { registerIpc } from './ipc'
 import { guardWindow, registerCloseGuard } from './close-guard'
+import { cleanUpdateFolder, runPendingInstaller } from './update-install'
 import { registerWindowErrors } from './window-errors'
 import { registerChainIpc } from './ipc-chain'
 import { networkStatus, watchWindowForStatus } from './network-status'
@@ -157,6 +158,7 @@ app.whenReady().then(() => {
   // The vault item of the Accounts menu reads Create, Unlock or Lock by the vault's state.
   vault().onChange(() => refreshMenu())
   createMainWindow()
+  cleanUpdateFolder()
   log.info(`WAX Master ${app.getVersion()} started`)
   // "Start the local chain with WAX Master"; off unless the user switched it on.
   void startIfAsked()
@@ -186,6 +188,7 @@ app.on('before-quit', (e) => {
 })
 
 app.on('will-quit', () => {
+  runPendingInstaller()
   killAllTerminals()
   stopEditor('The app is closing.', true)
   setTimeout(stopHelper, 300)

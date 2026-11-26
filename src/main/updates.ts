@@ -1,14 +1,14 @@
 // Update notice: asks the GitHub Releases API for the latest version at most
-// once a day (can be turned off) and only offers to open the release page.
-// Nothing is downloaded or installed by the app.
+// once a day (can be turned off). Nothing is downloaded or installed unless the
+// user presses Download and install (E58, see update-install.ts).
 
 import { app } from 'electron'
 import { getSettings, load, save } from './store'
 import { request } from './rpc'
 import { log } from './log'
 
-const LATEST = 'https://api.github.com'
-const PATH = '/repos/gulkonster/wax-master/releases/latest'
+export const LATEST = 'https://api.github.com'
+export const PATH = '/repos/gulkonster/wax-master/releases/latest'
 export const RELEASES_PAGE = 'https://github.com/gulkonster/wax-master/releases'
 const DAY = 24 * 60 * 60 * 1000
 
@@ -39,7 +39,7 @@ export function compareVersions(a: string, b: string): number {
 }
 
 /** The version compared against the release; a test setting can pretend an older one. */
-function currentVersion(): string {
+export function currentVersion(): string {
   const s = load() as unknown as { settings: { updateTestVersion?: string } }
   const test = s.settings.updateTestVersion
   return typeof test === 'string' && /^\d+\.\d+\.\d+/.test(test) ? test : app.getVersion()

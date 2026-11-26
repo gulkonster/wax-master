@@ -53,6 +53,18 @@ export interface UpdateResult {
   error?: string
 }
 
+export interface UpdateDownload {
+  version: string
+  bytes: number
+  sha256: string
+}
+
+export interface UpdateProgress {
+  received: number
+  /** 0 when GitHub did not give the size. */
+  total: number
+}
+
 export interface Settings {
   fontSize: number
   defaultProjectFolder: string
@@ -381,6 +393,11 @@ export interface WaxApi {
     openExternal(url: string): Promise<boolean>
     setDirty(count: number): Promise<void>
     checkUpdates(): Promise<UpdateResult>
+    /** Downloads the latest release's installer and checks it against its SHA256SUMS.txt (E58). */
+    downloadUpdate(): Promise<UpdateDownload>
+    cancelUpdateDownload(): Promise<void>
+    /** Checks the downloaded installer again, closes the app and starts the installer. */
+    installUpdate(): Promise<void>
     clearData(includeVault: boolean, typed: string): Promise<void>
     quitNow(): Promise<void>
     /** Sends an error of the page to the main log (one way, checked there). */
@@ -621,6 +638,7 @@ export interface WaxApi {
   on(event: 'menu', cb: (cmd: MenuCommand) => void): () => void
   on(event: 'output', cb: (e: OutputEvent) => void): () => void
   on(event: 'update-available', cb: (r: UpdateResult) => void): () => void
+  on(event: 'update-progress', cb: (p: UpdateProgress) => void): () => void
   on(event: 'vault-changed', cb: (s: VaultStatus) => void): () => void
   on(event: 'network-changed', cb: (n: NetworkInfo, note: string) => void): () => void
   on(event: 'network-status', cb: (s: NetworkStatus) => void): () => void
