@@ -8,7 +8,7 @@ import { THEME_SETTINGS, mergeDialogSizes, parseDialogSizesPatch } from '../shar
 import { applyThemeSetting } from './theme'
 import { bool, int, localAbsPath, obj, oneOf, relPath, str } from '../shared/validate'
 import { TEMPLATE_IDS, normalizeConfig } from '../shared/project'
-import { BUILD_COMMIT, BUILD_STAGE, MAINNET_SIGNING } from './build-info'
+import { BUILD_COMMIT, BUILD_STAGE } from './build-info'
 import { log } from './log'
 import { neutralizeLockedCode } from '../shared/vault-locked'
 import * as projects from './projects'
@@ -93,7 +93,6 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     version: app.getVersion(),
     commit: BUILD_COMMIT,
     stage: BUILD_STAGE,
-    mainnetSigning: MAINNET_SIGNING,
     platform: `${process.platform} ${process.arch}`
   }))
   handle('app:openExternal', (_e, url) => openExternalConfirmed(getWindow(), str(url, 'url', 2048)))

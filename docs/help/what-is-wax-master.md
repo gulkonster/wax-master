@@ -30,4 +30,4 @@ A typical session: open a project from the Home page, change a source file, pres
 - WSL (Windows Subsystem for Linux). The Setup page turns it on for you.
 - An internet connection for chain work. Editing and building work offline.
 
-> Note: Test builds of the app sign on test and local networks only; only release builds sign on mainnet. See [The mainnet confirmation](doc:mainnet-confirmation).
+> Note: Every transaction on WAX Mainnet goes through the red mainnet confirmation. See [The mainnet confirmation](doc:mainnet-confirmation).

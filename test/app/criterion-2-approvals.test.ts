@@ -98,7 +98,6 @@ function deps(over: Partial<SignerDeps> = {}): SignerDeps {
     },
     network: () => network,
     now: () => now,
-    mainnetSigning: false,
     ...over
   }
 }
@@ -163,14 +162,14 @@ describe('the network kind cannot switch off the mainnet protections', () => {
     expect(effectiveKind({ chainId: OTHER_CHAIN, kind: 'bogus', endpoints: [] })).toBe('mainnet')
   })
 
-  it('WAX Mainnet chain id saved as testnet: red, typed name, release-build block, Approve refused', async () => {
+  it('WAX Mainnet chain id saved as testnet: red and the typed name; with it Approve sends (E63: no build lock)', async () => {
     network = net('testnet', WAX_MAIN)
     const s = new Signer(deps())
     const { record, secret } = await s.prepare({ networkId: 'n1', actions: [updateauth('alice')] })
     expect(record.network.kind).toBe('mainnet')
     expect(record.typedName).toBe('alice')
-    expect(record.blocked).toMatch(/release build/)
-    await expect(s.approve(record.id, secret, 'alice')).rejects.toThrow(/release build/)
+    expect(record.blocked).toBeUndefined()
+    await expect(s.approve(record.id, secret, 'bob')).rejects.toThrow(/Type the account name/)
     expect(sent).toHaveLength(0)
   })
 
@@ -306,7 +305,7 @@ describe('the confirmation title is made by the main process', () => {
 describe('typed name', () => {
   it('is the account field of the decoded guarded action, not the first authorization', async () => {
     network = net('mainnet')
-    const s = new Signer(deps({ mainnetSigning: true }))
+    const s = new Signer(deps())
     const { record, secret } = await s.prepare({ networkId: 'n1', actions: [updateauth('alice', 'bob')] })
     expect(record.typedName).toBe('alice')
     await expect(s.approve(record.id, secret, 'bob')).rejects.toThrow(/Type the account name "alice"/)
@@ -321,12 +320,12 @@ describe('typed name', () => {
   it('missing or wrong typed name is refused (mainnet-like); the right one is sent', async () => {
     network = net('mainnet')
     for (const typed of [undefined, '', 'alicE', 'alice ']) {
-      const s = new Signer(deps({ mainnetSigning: true }))
+      const s = new Signer(deps())
       const { record, secret } = await s.prepare({ networkId: 'n1', actions: [updateauth('alice')] })
       await expect(s.approve(record.id, secret, typed)).rejects.toThrow(/Type the account name/)
     }
     expect(sent).toHaveLength(0)
-    const s = new Signer(deps({ mainnetSigning: true }))
+    const s = new Signer(deps())
     const { record, secret } = await s.prepare({ networkId: 'n1', actions: [updateauth('alice')] })
     await s.approve(record.id, secret, 'alice')
     expect(sent).toHaveLength(1)
@@ -341,7 +340,7 @@ describe('typed name', () => {
     ]
     for (const a of actions) {
       network = net('mainnet')
-      let s = new Signer(deps({ mainnetSigning: true }))
+      let s = new Signer(deps())
       let r = await s.prepare({ networkId: 'n1', actions: [a] })
       expect(r.record.typedName, a.name).toBe('alice')
       await expect(s.approve(r.record.id, r.secret, 'bob')).rejects.toThrow(/Type the account name/)

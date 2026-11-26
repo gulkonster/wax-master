@@ -70,7 +70,6 @@ function deps(over: Partial<SignerDeps> = {}): SignerDeps {
     getCodeHash: async () => '0'.repeat(64),
     network: () => network,
     now: () => now,
-    mainnetSigning: false,
     ...over
   }
 }
@@ -138,13 +137,14 @@ describe('signer approval integrity', () => {
     await expect(s.prepare({ networkId: 'n1', actions: [transfer] })).rejects.toThrow(/chain id/)
   })
 
-  it('mainnet signing is refused in this build', async () => {
+  it('signs on mainnet in every build (E63): no block on the record, the approval is sent', async () => {
     network = net('mainnet')
     const s = new Signer(deps())
     const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer] })
-    expect(record.blocked).toMatch(/release build/)
-    await expect(s.approve(record.id, secret)).rejects.toThrow(/release build/)
-    expect(sent).toHaveLength(0)
+    expect(record.blocked).toBeUndefined()
+    expect(record.network.kind).toBe('mainnet')
+    await s.approve(record.id, secret)
+    expect(sent).toHaveLength(1)
   })
 
   it('locking the vault cancels open approvals', async () => {

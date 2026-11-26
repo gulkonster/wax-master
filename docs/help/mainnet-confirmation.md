@@ -38,4 +38,3 @@ A deploy of `mycontract11` on WAX Mainnet: the header is red, the window shows t
 
 - The signer signs exactly the bytes shown and sends them only to the endpoint shown. An approval is used once.
 - A network counts as mainnet unless it is WAX Testnet, a chain you confirmed as a test network, or a chain on this computer. See [Mainnet and testnet](doc:mainnet-and-testnet).
-- Test builds of the app do not sign on mainnet at all: the window then says "Mainnet signing unlocks in the release build."

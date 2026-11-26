@@ -25,7 +25,6 @@ export function AboutDialog({ onClose }: { onClose: () => void }): React.JSX.Ele
         <div>
           Commit <span className="code-tag">{i?.commit}</span>
         </div>
-        <div>Mainnet signing: {i?.mainnetSigning ? 'on' : 'off in this build'}</div>
         <div style={{ marginTop: 'var(--sp-3)', color: 'var(--text-2)' }}>
           Open-source studio for Antelope smart contracts, made for WAX. MIT license.
         </div>

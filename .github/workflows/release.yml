@@ -63,9 +63,6 @@ jobs:
         run: node scripts/packaging-check.mjs --before-build
 
       - name: Build the installer
-        env:
-          # Mainnet signing only in a final release tag (no "-" suffix); release candidates keep it off.
-          WAXMASTER_RELEASE_MAINNET: ${{ !contains(github.ref_name, '-') && '1' || '0' }}
         run: npm run dist
 
       - name: Packaging check of the built app

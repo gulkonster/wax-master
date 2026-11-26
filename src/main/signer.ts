@@ -40,7 +40,6 @@ import {
 import { authorityProblem, readPermissions } from './authority-reach'
 import { isUnknownAccount, plainAccountError } from './account-pick'
 import type { NetworkInfo } from '../shared/chain-types'
-import { MAINNET_SIGNING } from './build-info'
 import { getNetwork, endpointOf, effectiveKind } from './networks'
 import { chain, request, RpcError, nodeErrorMessage } from './rpc'
 import type { Vault } from './vault'
@@ -177,7 +176,6 @@ export interface SignerDeps {
   send: (ep: string, body: unknown) => Promise<unknown>
   network: (id: string) => NetworkInfo
   now: () => number
-  mainnetSigning: boolean
 }
 
 export function defaultDeps(vault: Vault): SignerDeps {
@@ -199,8 +197,7 @@ export function defaultDeps(vault: Vault): SignerDeps {
     // repeat is refused as a duplicate, and approve() says so plainly.
     send: (ep, body) => request(ep, '/v1/chain/send_transaction', { body, timeoutMs: 30_000 }),
     network: (id) => getNetwork(id),
-    now: () => Date.now(),
-    mainnetSigning: MAINNET_SIGNING
+    now: () => Date.now()
   }
 }
 
@@ -479,11 +476,7 @@ export class Signer {
       artifacts,
       sequence: req.sequence ? { index: req.sequence.index, count: req.sequence.count, parts: [...req.sequence.parts] } : undefined,
       // Mainnet-like: every guarded action. Clear Contract Code: on every network.
-      typedName: guarded && (mainnetLike || clear) ? guarded : undefined,
-      blocked:
-        mainnetLike && !this.deps.mainnetSigning
-          ? 'Mainnet signing unlocks in the release build. This build signs on testnet and local networks only.'
-          : undefined
+      typedName: guarded && (mainnetLike || clear) ? guarded : undefined
     }
     if (this.approvals.size > 0) throw new SignerError(BUSY_MESSAGE)
     const secret = randomBytes(32)

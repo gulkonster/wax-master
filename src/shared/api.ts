@@ -41,7 +41,6 @@ export interface AppInfo {
   version: string
   commit: string
   stage: number
-  mainnetSigning: boolean
   platform: string
 }
 
