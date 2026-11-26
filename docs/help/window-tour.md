@@ -25,6 +25,10 @@ The vault item of the Accounts menu changes with the vault: **Create Vault...**,
 - **Account**: opens the Account page with the last account; its arrow has Create Account and your starred accounts.
 - **Network**: opens the Network page; its arrow lists the networks with their kind, Add Network, Manage Networks and Network Page. The dot shows whether the network answers (see [The status mark](doc:network-status)).
 
+## Notices
+
+Notices slide down at the top of the window, above any open dialog. While a build runs (Build, Rebuild, or the build that Deploy starts) one says **Building contract...** with a turning ring; it then turns into a green **Build completed** or a red **Build failed** with the first error. A transaction the node refused is also told in red here, besides its own window. Green notices go after 5 seconds, red ones after 15 seconds; the cross closes one at once.
+
 ## Pages
 
 - **Home**: your projects (Local and Starred tabs), New and Open.

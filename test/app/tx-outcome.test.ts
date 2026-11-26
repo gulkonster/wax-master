@@ -136,9 +136,9 @@ describe('the confirmation window after a refused send', () => {
     expect(confirm).toContain("setError(notSentText(r.error, r.failure ?? 'not-sent'))")
     expect(confirm).not.toMatch(/if \(error\) return/)
     expect(confirm).toMatch(/if \(kind === 'bare'\) return <div className="c-page">\{loadError\}<\/div>/)
-    // The rows and the line are in the same page, and Close replaces the buttons.
+    // The rows and the line are in the same page (the line in the footer, which never scrolls away, E60), and Close replaces the buttons.
     const rows = confirm.indexOf('<Row label="Transaction id"')
-    const line = confirm.indexOf('{error && <div className="error-text">{error}</div>}')
+    const line = confirm.indexOf('{error && <div className="error-text c-foot-outcome">{error}</div>}')
     expect(rows).toBeGreaterThan(0)
     expect(line).toBeGreaterThan(rows)
     expect(confirm).toMatch(/state === 'failed' \|\| state === 'done' \? \(\s*<button className="btn" onClick=\{\(\) => window\.close\(\)\}>\s*Close/)

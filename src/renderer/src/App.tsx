@@ -71,6 +71,8 @@ export function App(): React.JSX.Element {
   const [inspect, setInspect] = useState<InspectedTransaction | null>(null)
   const [update, setUpdate] = useState<UpdateResult | null>(null)
   useEffect(() => window.wax.on('update-available', (r: UpdateResult) => setUpdate(r)), [])
+  // E60: a refused transaction is told at the top of the window too, not only in its own window or dialog.
+  useEffect(() => window.wax.on('tx-failed', (p) => toast(`Not sent: ${p.title}`, `${p.network}: ${p.error}`, 'error')), [])
   const [deployOpen, setDeployOpen] = useState<null | { askAccount: boolean; account?: string }>(null)
   const [chainDialog, setChainDialog] = useState<null | 'create-account' | 'testnet-account' | 'clear-code' | 'open-transaction'>(null)
   const [changeKey, setChangeKey] = useState<null | Parameters<typeof ChangeKeyDialog>[0]>(null)

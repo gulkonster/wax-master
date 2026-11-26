@@ -243,11 +243,12 @@ function Confirm(): React.JSX.Element {
         <Row label="Expires">
           {a.expiration} UTC ({expired ? 'expired' : `${left} s left`})
         </Row>
-        {note && <div className="hint">{note}</div>}
-        {error && <div className="error-text">{error}</div>}
-        {state === 'done' && <div className="c-done">Sent.</div>}
       </div>
       <div className="c-foot">
+        {/* E60: the outcome stands in the footer, which never scrolls away. */}
+        {error && <div className="error-text c-foot-outcome">{error}</div>}
+        {state === 'done' && <div className="c-done c-foot-outcome">Sent.</div>}
+        {note && <div className="hint">{note}</div>}
         {state !== 'failed' && state !== 'done' && (
           <div className="c-foot-notes">
             {a.blocked && <div className="c-blocked">{a.blocked}</div>}

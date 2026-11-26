@@ -136,12 +136,19 @@ export function registerConfirmWindow(signer: Signer): void {
  * cancelled or closed. While a recovery-code window is open the window opens only
  * after it has closed; a lock in the meantime ends the request as closed.
  */
+/** Sent to the main window when an approved transaction was not taken by the node. */
+export const TX_FAILED_EVENT = 'tx-failed'
+
 export function openConfirmation(parent: BrowserWindow | null, record: ApprovalRecord, secret: Buffer): Promise<ConfirmOutcome> {
   return new Promise((resolve) => {
     let settled = false
     const settle = (r: ConfirmOutcome): void => {
       if (!settled) {
         settled = true
+        // E60: a transaction the node did not take is also told in the main window, at the top.
+        if (!r.approved && r.reason === 'error' && parent && !parent.isDestroyed()) {
+          parent.webContents.send(TX_FAILED_EVENT, { title: record.title, network: record.network.name, error: r.error })
+        }
         resolve(r)
       }
     }

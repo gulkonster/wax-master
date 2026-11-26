@@ -105,6 +105,11 @@
   max-height: var(--foot-notes-max);
   overflow: auto;
 }
+.c-foot-outcome {
+  margin: 0;
+  max-height: var(--foot-notes-max);
+  overflow: auto;
+}
 .c-foot .c-blocked {
   margin-top: 0;
 }

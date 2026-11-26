@@ -52,7 +52,7 @@ const exposed = interfaceFor(
   devUrlFromArgv(process.argv)
 )
 
-const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'network-changed', 'network-status', 'vault-changed', 'update-available', 'update-progress', 'editor-status', 'editor-message', LOCAL_CHAIN_STATUS_EVENT, LOCAL_CHAIN_PROGRESS_EVENT])
+const EVENTS = new Set(['menu', 'files-changed', 'output', 'setup-progress', 'network-changed', 'network-status', 'vault-changed', 'update-available', 'update-progress', 'tx-failed', 'editor-status', 'editor-message', LOCAL_CHAIN_STATUS_EVENT, LOCAL_CHAIN_PROGRESS_EVENT])
 const TERMINAL_EVENTS = new Set(['terminal-data', 'terminal-exit'])
 
 function subscribe(allowed: Set<string>, event: string, cb: (...args: never[]) => void): () => void {

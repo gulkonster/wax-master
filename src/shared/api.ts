@@ -640,6 +640,8 @@ export interface WaxApi {
   on(event: 'output', cb: (e: OutputEvent) => void): () => void
   on(event: 'update-available', cb: (r: UpdateResult) => void): () => void
   on(event: 'update-progress', cb: (p: UpdateProgress) => void): () => void
+  /** An approved transaction the node did not take (E60). */
+  on(event: 'tx-failed', cb: (p: { title: string; network: string; error: string }) => void): () => void
   on(event: 'vault-changed', cb: (s: VaultStatus) => void): () => void
   on(event: 'network-changed', cb: (n: NetworkInfo, note: string) => void): () => void
   on(event: 'network-status', cb: (s: NetworkStatus) => void): () => void

@@ -37,9 +37,11 @@ export const IconPlus = (p: P): React.JSX.Element => (
     <path d="M8 3.5v9M3.5 8h9" />
   </Svg>
 )
+/** Build: a hammer, solid head and handle (E60). */
 export const IconHammer = (p: P): React.JSX.Element => (
   <Svg {...p}>
-    <path d="M6.5 6.5l4-4 3 3-4 4zM8 8l-5.5 5.5" />
+    <path d="M6.6 4.6l2.2-2.2 4.8 4.8-2.2 2.2z" fill="currentColor" />
+    <path d="M8.9 7.1l-6.2 6.2" strokeWidth={2} />
   </Svg>
 )
 /** Deploy: an arrow up out of a tray. */

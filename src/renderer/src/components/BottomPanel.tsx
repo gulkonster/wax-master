@@ -6,6 +6,7 @@ import { appendOutput, clearOutput, outputStore, mergedProblemsStore, panelsFoll
 import { IconClose, IconError, IconInfo, IconWarning } from './Icons'
 import { NAME_HINT, RICARDIAN_HINT, classifyLine, cleanLine, countProblems, isNameRuleError, isRicardianWarning, type ClassifiedLine } from '../../../shared/output-lines'
 import { ReadMore } from './HelpButton'
+import { buildStarted } from '../lib/build'
 
 const TABS: { id: PanelTab; label: string }[] = [
   { id: 'terminal', label: 'Terminal' },
@@ -25,12 +26,16 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
   // A build that starts anywhere (Build, Rebuild, or Deploy's check) shows its output from the first line.
   const showOutput = useRef(actions.showPanel)
   showOutput.current = actions.showPanel
+  const projectName = useRef('')
+  projectName.current = state.project?.name ?? ''
   useEffect(
     () =>
       window.wax.on('output', (e) => {
         if (e.start) {
           clearOutput()
           showOutput.current('output')
+          // E60: a notice at the top while the build runs; build.ts replaces it with the result.
+          buildStarted(projectName.current)
         }
         appendOutput(e.text)
       }),

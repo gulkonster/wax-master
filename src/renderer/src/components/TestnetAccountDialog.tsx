@@ -21,6 +21,8 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
   const net = nets.current
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
+  // Which request runs: its own button shows the ring (E56).
+  const [asking, setAsking] = useState<'create' | 'tokens'>('create')
   const [created, setCreated] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [failed, setFailed] = useState(false)
@@ -39,6 +41,7 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
   const create = async (): Promise<void> => {
     setNameTouched(true)
     if (!nameOk) return
+    setAsking('create')
     setBusy(true)
     setMessage('')
     setFailed(false)
@@ -62,6 +65,7 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
   }
 
   const tokens = async (account: string): Promise<void> => {
+    setAsking('tokens')
     setBusy(true)
     try {
       const r = await window.wax.faucet.tokens(account)
@@ -111,14 +115,14 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
                 title="Ask the faucet for test tokens for an account that already exists under the name in the field"
                 onClick={() => void tokens(name)}
               >
-                Request tokens
+                {busy && asking === 'tokens' ? <Busy text="Asking the faucet..." /> : 'Request tokens'}
               </button>
             </div>
             <button className="btn" disabled={busy} onClick={onClose}>
               Close
             </button>
             <button className="btn primary" disabled={busy || !onTestnet} onClick={() => void create()}>
-              {busy ? <Busy text="Asking the faucet..." /> : 'Create account'}
+              {busy && asking === 'create' ? <Busy text="Asking the faucet..." /> : 'Create account'}
             </button>
           </>
         )

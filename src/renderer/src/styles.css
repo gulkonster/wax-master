@@ -193,8 +193,8 @@
   --menu-wide: 300px;
   --menu-note: 320px;
   --pick-max: 320px;
-  --toast-min: 320px;
-  --toast-max: 520px;
+  --toast-min: 360px;
+  --toast-max: 600px;
   --field-num: 112px;
   --field-select: 360px;
   --field-account: 360px;
@@ -1894,27 +1894,65 @@ button.sb-item.mainnet:hover {
 
 /* ------------------------------------------------------------------ toasts */
 
+/* Notices (E60): top centre, under the title bar, above dialogs; they slide down. */
+@keyframes toast-down {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--sp-5)));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 .toasts {
   position: fixed;
-  right: var(--sp-4);
-  bottom: calc(var(--statusbar) + var(--sp-4));
+  top: calc(var(--titlebar) + var(--sp-3));
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 300;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--sp-2);
+  pointer-events: none;
 }
 .toast {
+  pointer-events: auto;
   display: flex;
+  align-items: flex-start;
   gap: var(--sp-3);
   min-width: var(--toast-min);
   max-width: var(--toast-max);
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
   background: var(--bg-flyout);
   border: var(--bw) solid var(--border-control);
+  border-left: var(--bw-3) solid var(--info-text);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-flyout);
-  animation: flyout-in 120ms ease-out;
+  animation: toast-down 180ms ease-out;
   user-select: text;
+}
+.toast.success {
+  background: linear-gradient(var(--green-tint), var(--green-tint)), var(--bg-flyout);
+  border-color: var(--green-fill);
+  border-left-color: var(--green-fill);
+}
+.toast.error {
+  background: linear-gradient(var(--red-tint), var(--red-tint)), var(--bg-flyout);
+  border-color: var(--red-fill);
+  border-left-color: var(--red-fill);
+}
+.toast.progress {
+  border-left-color: var(--accent);
+}
+.toast .t-body {
+  flex: 1;
+  min-width: 0;
+}
+.toast .t-close {
+  flex: none;
+  margin: calc(-1 * var(--sp-1)) 0;
 }
 .toast .t-icon {
   display: inline-flex;
@@ -1926,6 +1964,9 @@ button.sb-item.mainnet:hover {
 }
 .toast.error .t-icon {
   color: var(--red-text);
+}
+.toast.progress .t-icon {
+  color: var(--accent);
 }
 .toast .t-title {
   font-weight: 600;
