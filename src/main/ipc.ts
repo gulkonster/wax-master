@@ -312,10 +312,10 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     await runHelper(join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'shutdown.exe'), ['/r', '/t', '5'])
   })
 
-  handle('build:run', (e) => runBuild(e.sender))
+  handle('build:run', (e, networkId) => runBuild(e.sender, optStr(networkId, 'networkId', 64)))
   // No arguments: both act on the open project only.
-  handle('build:ensure', (e) => ensureBuilt(e.sender))
-  handle('build:rebuild', (e) => rebuild(e.sender))
+  handle('build:ensure', (e, networkId) => ensureBuilt(e.sender, optStr(networkId, 'networkId', 64)))
+  handle('build:rebuild', (e, networkId) => rebuild(e.sender, optStr(networkId, 'networkId', 64)))
   // No arguments: reads the open project's built ABI and writes only inside its resource folder.
   handle('ricardian:create', async (e, ...rest) => {
     if (rest.length > 0) throw new Error('No arguments expected')

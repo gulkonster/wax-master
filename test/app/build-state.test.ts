@@ -57,9 +57,9 @@ describe('stored build state', () => {
     const file = join(dir, 'build-state.json')
     const a = new BuildStateStore(() => file)
     const finding = { kind: 'table-type' as const, subject: 'coinconf', type: 'land_coinconf_s', text: 'ABI check: ...', place: { file: 'include/a.hpp', line: 3, column: 1 } }
-    a.set('C:\\Proj\\One', { fingerprint: 'f1', result: 'abi-not-deployable', builtAt: 5, toolchain: 't', command: 'c', abiFindings: [finding], abiSha256: 'h' })
+    a.set('C:\\Proj\\One', { fingerprint: 'f1', result: 'abi-not-deployable', builtAt: 5, toolchain: 't', command: 'c', abiFindings: [finding], abiSha256: 'h', variant: 'mainnet' })
     const b = new BuildStateStore(() => file)
-    expect(b.get('c:\\proj\\one\\')).toMatchObject({ fingerprint: 'f1', result: 'abi-not-deployable', abiFindings: [finding], abiSha256: 'h' })
+    expect(b.get('c:\\proj\\one\\')).toMatchObject({ fingerprint: 'f1', result: 'abi-not-deployable', abiFindings: [finding], abiSha256: 'h', variant: 'mainnet' })
     expect(b.get('C:\\Proj\\Two')).toBeNull()
     expect(JSON.parse(readFileSync(file, 'utf8')).version).toBe(1)
   })

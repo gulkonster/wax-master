@@ -34,8 +34,6 @@ import { chain, type ChainInfo } from './rpc'
 import { plainAccountError } from './account-pick'
 import type { ActionRequest } from './signer'
 
-/** The largest code that is copied. */
-export const MAX_COPY_CODE = 4 * 1024 * 1024
 /** RAM of a created target beyond ten times the code. */
 export const COPY_EXTRA_RAM = 1_048_576
 /** New account buys this much already; the copy buys the rest. */
@@ -180,9 +178,6 @@ async function readSource(input: ContractReadInput, deps: ContractCopyDeps): Pro
   const raw = await deps.readSource(input.networkId, account)
   const wasm = fromBase64(raw.wasm)
   if (wasm.length === 0) throw new Error(noCodeText(account, raw.network))
-  if (wasm.length > MAX_COPY_CODE) {
-    throw new Error(`The code of ${account} is ${wasm.length.toLocaleString('en-US')} bytes; at most ${MAX_COPY_CODE / 1024 / 1024} MB is copied.`)
-  }
   const abiBytes = fromBase64(raw.abi)
   const r: SourceRead = { network: raw.network, account, wasm, abi: null, actions: [], tables: [], codePermission: raw.codePermission === true, at: deps.now() }
   if (abiBytes.length > 0) {
@@ -368,7 +363,6 @@ export async function copyContract(input: ContractCopyInput, deps: ContractCopyD
   if ((plan.sendWasm || plan.sendAbi) && plan.ramAvailable >= 0 && plan.ramNeeded > plan.ramAvailable) {
     throw new Error(ramShortText(target, plan.ramNeeded, plan.ramAvailable))
   }
-  if (plan.partTooBig) throw new Error(plan.partTooBig)
   let transactionId: string | null = null
   if (plan.sendWasm || plan.sendAbi) {
     // Too big for one transaction (E59): the code first, then the ABI, each with its own confirmation.

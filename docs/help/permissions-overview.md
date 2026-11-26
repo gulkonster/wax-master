@@ -28,6 +28,5 @@ The account `mygameacct12` has `owner` and `active`, each with one key of weight
 ## What is needed
 
 - A key in your vault that satisfies the permission you sign with. To change `active`, sign with `active` or `owner`; to change `owner`, sign with `owner`.
-- Mainnet networks ask you to type the account name in the confirmation window for any permission change.
 
 See also [Thresholds and weights](doc:multisig-threshold), [Accounts and names](doc:accounts-and-names) and [The Account page as a wallet](doc:wallet-overview).

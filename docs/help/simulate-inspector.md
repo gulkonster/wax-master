@@ -26,7 +26,7 @@ Above the four parts the view shows:
 | Finality | Only for a transaction read from the history service: `irreversible`, or `not yet irreversible` |
 | Source line | Only for a transaction opened later: where the data comes from (see "Where the data comes from") |
 | Error | The node's error message in large text; **Show full error** opens the details |
-| Resources | After a CPU, NET or RAM refusal: the account's CPU, NET and RAM now, with the short one in red |
+| Resources | After a CPU, NET or RAM refusal: the account's CPU, NET and RAM now, with the short one in orange |
 
 Under them are the four tabs. The view opens on **Traces**; the tab you choose is kept while that window stays open, and the left and right arrow keys move between the tabs.
 

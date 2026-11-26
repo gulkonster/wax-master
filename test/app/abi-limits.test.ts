@@ -31,7 +31,7 @@ vi.mock('../../src/main/toolchain', async () => {
   }
 })
 
-import { MAX_ABI_JSON, MAX_EXPLAINED_FINDINGS, MAX_SEARCH_LINE, MAX_SOURCE_TOTAL, checkAbi, describeAbi, findPlace, moreFindingsLine, readSources } from '../../src/main/abi-check'
+import { MAX_EXPLAINED_FINDINGS, MAX_SEARCH_LINE, MAX_SOURCE_TOTAL, checkAbi, describeAbi, findPlace, moreFindingsLine, readSources } from '../../src/main/abi-check'
 import { abiRefusal, runBuild } from '../../src/main/build'
 import { openProject } from '../../src/main/projects'
 
@@ -56,15 +56,14 @@ beforeEach(() => {
   output = []
 })
 
-describe('ABI size limit', () => {
-  it('an ABI above the Deploy size limit is not checked; one Output line says so', async () => {
+describe('no ABI size limit of the app (E64)', () => {
+  it('an ABI over 2 MB is checked like any other; nothing is skipped', async () => {
     openProject(project())
-    h.abiText = brokenAbi(1) + ' '.repeat(MAX_ABI_JSON)
+    h.abiText = brokenAbi(1) + ' '.repeat(2 * 1024 * 1024)
     const r = await runBuild(sender)
     expect(r.ok).toBe(true)
-    expect(r.abiFindings).toEqual([])
-    const lines = output.join('').split('\n').filter((l) => l.startsWith('ABI check'))
-    expect(lines).toEqual(['ABI check skipped: game.abi is larger than 2 MB.'])
+    expect(r.abiFindings?.length).toBeGreaterThan(0)
+    expect(output.join('')).not.toContain('ABI check skipped')
   })
 })
 

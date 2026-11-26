@@ -53,4 +53,4 @@ Choose the action, fill in `account` and the other fields, and set Authorization
 
 - A network selected and the contract's account name.
 - To run: a key of the signing permission in your vault. To simulate: no key.
-- On a mainnet network, `updateauth`, `deleteauth`, `linkauth`, `unlinkauth`, `setcode` and `setabi` need the account name typed in the confirmation window. One transaction may change only one account this way.
+- One transaction may change the permissions or the contract (`updateauth`, `deleteauth`, `linkauth`, `unlinkauth`, `setcode`, `setabi`) of only one account.

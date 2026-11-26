@@ -63,7 +63,6 @@ import type { LocalAccountsDeps } from '../../src/main/local-chain-accounts'
 import { deployActions, planDeploy } from '../../src/main/deploy'
 import {
   COPY_CANCELLED,
-  MAX_COPY_CODE,
   clearReads,
   copyContract,
   copyRamBytes,
@@ -235,12 +234,13 @@ describe('reading the source', () => {
     expect(w.sent).toEqual([])
   })
 
-  it('refuses an account without code, a missing account, the local chain itself and code over 4 MB', async () => {
+  it('refuses an account without code, a missing account and the local chain itself; big code has no limit of the app (E64)', async () => {
     await expect(copyRead({ networkId: 'wax-mainnet', account: 'someone' }, world({ source: null }).deps)).rejects.toThrow(noCodeText('someone', 'WAX Mainnet'))
     await expect(copyRead({ networkId: 'wax-mainnet', account: 'nobody' }, world().deps)).rejects.toThrow('does not exist')
     await expect(copyRead({ networkId: 'local-chain', account: 'atomicassets' }, world().deps)).rejects.toThrow('local chain itself')
-    const big = new Uint8Array(MAX_COPY_CODE + 1)
-    await expect(copyRead({ networkId: 'wax-mainnet', account: 'bigcode' }, world({ source: { wasm: big, abi: null } }).deps)).rejects.toThrow('at most 4 MB')
+    const big = new Uint8Array(4 * 1024 * 1024 + 1)
+    big.set([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0])
+    await expect(copyRead({ networkId: 'wax-mainnet', account: 'bigcode' }, world({ source: { wasm: big, abi: null } }).deps)).resolves.toMatchObject({ codeSize: big.length })
   })
 })
 

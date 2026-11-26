@@ -3,7 +3,7 @@
 //   prepare(request)  builds the transaction with the chain core, decodes the
 //                     packed bytes back for display and stores an immutable
 //                     approval record (bytes, chain id, endpoint, keys).
-//   approve(id, secret, typedName)
+//   approve(id, secret)
 //                     signs exactly the stored bytes and sends them to exactly
 //                     the stored endpoint. Single use; expires with the
 //                     transaction. The secret is held only by the
@@ -75,6 +75,8 @@ export interface PrepareRequest {
   kind?: PrepareKind
   /** One of the transactions of a split deployment (E59); set by main-process code only. */
   sequence?: { index: number; count: number; parts: string[] }
+  /** Which build of the project is deployed (E64); set by main-process code only. */
+  build?: 'testnet' | 'mainnet' | 'any'
 }
 
 export interface ApprovalAction {
@@ -113,8 +115,8 @@ export interface ApprovalRecord {
   }
   /** This transaction is one of several of one deployment: which one, and what each carries (E59). */
   sequence?: { index: number; count: number; parts: string[] }
-  /** Account name the user must type in the confirmation window. */
-  typedName?: string
+  /** Which build of the project this deployment sends (E64). */
+  build?: 'testnet' | 'mainnet' | 'any'
   /** Signing on this network is switched off in this build. */
   blocked?: string
 }
@@ -460,6 +462,13 @@ export class Signer {
     }
 
     const mainnetLike = isMainnetLike(network)
+    // E64 (owner): a testnet build never goes to a mainnet.
+    if (req.build === 'testnet' && mainnetLike) {
+      throw new SignerError(`This is the testnet build of the contract; it is never sent to ${network.name}. Deploy builds the mainnet build by itself: close the confirmation and press Deploy again.`)
+    }
+    if (req.build === 'mainnet' && !mainnetLike) {
+      throw new SignerError(`This is the mainnet build of the contract; ${network.name} takes the testnet build. Press Deploy again: it builds the testnet build by itself.`)
+    }
     const now = this.deps.now()
     const expiresAt = Math.min(now + APPROVAL_SECONDS * 1000, Date.parse(`${header.expiration}Z`)) - 5000
     const record: ApprovalRecord = {
@@ -475,8 +484,7 @@ export class Signer {
       signers,
       artifacts,
       sequence: req.sequence ? { index: req.sequence.index, count: req.sequence.count, parts: [...req.sequence.parts] } : undefined,
-      // Mainnet-like: every guarded action. Clear Contract Code: on every network.
-      typedName: guarded && (mainnetLike || clear) ? guarded : undefined
+      build: req.build
     }
     if (this.approvals.size > 0) throw new SignerError(BUSY_MESSAGE)
     const secret = randomBytes(32)
@@ -506,7 +514,7 @@ export class Signer {
     for (const id of [...this.approvals.keys()]) this.cancel(id)
   }
 
-  async approve(id: string, secret: Buffer, typedName?: string): Promise<SendResult> {
+  async approve(id: string, secret: Buffer): Promise<SendResult> {
     const s = this.approvals.get(id)
     if (!s) throw new SignerError('This approval is no longer valid. Start the action again.')
     if (s.secret.length !== secret.length || !timingSafeEqual(s.secret, secret)) {
@@ -517,9 +525,6 @@ export class Signer {
     this.approvals.delete(id)
     if (this.deps.now() > s.record.expiresAt) throw new SignerError('This approval has expired. Start the action again.')
     if (s.record.blocked) throw new SignerError(s.record.blocked)
-    if (s.record.typedName && typedName !== s.record.typedName) {
-      throw new SignerError(`Type the account name "${s.record.typedName}" to confirm`)
-    }
     const digest = signingDigest(s.chainId, s.packed)
     const signatures: string[] = []
     for (const pub of s.keys) {

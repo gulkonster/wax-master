@@ -167,7 +167,7 @@ export function DeployDialog({
     setSendNote('')
     try {
       setBusy(always ? 'build' : 'ensure')
-      const r = await ensureBuild(showPanel, always)
+      const r = await ensureBuild(showPanel, always, net.id)
       if (!r) {
         setError('The build could not start or another build is running; see Output.')
         return
@@ -399,7 +399,7 @@ export function DeployDialog({
             <button className="btn" disabled={!valid || !!busy || !net} title="Compile the project again, then compare with the account" onClick={() => check(true)}>
               {busy === 'build' ? 'Building...' : busy === 'ensure' || busy === 'plan' || busy === 'ram' ? 'Checking...' : 'Rebuild'}
             </button>
-            <button className="btn" disabled={!plan || !!nothing || !!busy || !!plan?.partTooBig} onClick={() => void simulate()}>
+            <button className="btn" disabled={!plan || !!nothing || !!busy} onClick={() => void simulate()}>
               {busy === 'simulate' ? 'Simulating...' : 'Simulate Deploy'}
             </button>
           </div>
@@ -408,7 +408,7 @@ export function DeployDialog({
           </button>
           <button
             className={`btn ${net?.kind === 'mainnet' ? 'danger' : 'primary'}`}
-            disabled={!plan || !!nothing || !!busy || keyMissing || !!plan?.partTooBig}
+            disabled={!plan || !!nothing || !!busy || keyMissing}
             title={keyMissing ? `The vault has no key for ${account}@${permission}` : undefined}
             onClick={() => void deploy()}
           >
@@ -447,6 +447,12 @@ export function DeployDialog({
       <div className="hint">
         Deploys {project.config.deploy.target === 'both' ? 'WASM and ABI' : project.config.deploy.target === 'wasm' ? 'WASM only' : 'ABI only'} (Project Settings).{' '}
         {buildLine ? `${buildLine}.` : 'The project is built first if it changed.'}
+        {plan?.build && (
+          <>
+            {' '}
+            {plan.build === 'any' ? 'One build for every network.' : plan.build === 'mainnet' ? 'Mainnet build.' : 'Testnet build.'}
+          </>
+        )}
       </div>
       {busy && <WorkLine text={stepText(busy)} since={busySince} />}
       {busy === 'build' && (
@@ -517,13 +523,12 @@ export function DeployDialog({
             />
           )}
           {ramNote && <div className="hint">{ramNote}</div>}
-          {plan.split && !plan.partTooBig && (
+          {plan.split && (
             <div className="banner warn">
               Code and ABI together ({((plan.wasmSize ?? 0) + (plan.abiSize ?? 0)).toLocaleString('en-US')} bytes) are too big for one transaction ({plan.network} allows{' '}
               {plan.netLimit.toLocaleString('en-US')} bytes of net usage). Deploy sends two transactions, each with its own confirmation: the code first, then the ABI.
             </div>
           )}
-          {plan.partTooBig && <div className="c-blocked">{plan.partTooBig}</div>}
           {plan.missingFeatures.length > 0 && (
             <div className="c-blocked">
               The contract calls host functions that {plan.network} has not activated:{' '}

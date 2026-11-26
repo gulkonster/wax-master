@@ -10,7 +10,7 @@
 import { createHash } from 'node:crypto'
 import { promises as fsp, type Dirent } from 'node:fs'
 import { join, resolve } from 'node:path'
-import type { AbiFinding, BuildOutcome } from '../shared/api'
+import type { AbiFinding, BuildOutcome, BuildVariant } from '../shared/api'
 import { readJson, writeJson } from './jsonfile'
 
 /** Above this many files no fingerprint is made and every request builds. */
@@ -58,6 +58,8 @@ export interface StoredBuild {
   abiFindings: AbiFinding[]
   /** SHA-256 of the ABI file the findings are about (empty when none). */
   abiSha256: string
+  /** Testnet build, mainnet build, or one build for every network (E64); a record from before counts as "any". */
+  variant: BuildVariant
 }
 
 /**
@@ -145,7 +147,8 @@ function sanitize(v: unknown): StoredBuild | null {
     toolchain: typeof s.toolchain === 'string' ? s.toolchain : '',
     command: typeof s.command === 'string' ? s.command : '',
     abiFindings: Array.isArray(s.abiFindings) ? s.abiFindings.filter(isFinding).slice(0, MAX_STORED_FINDINGS).map(storedFinding) : [],
-    abiSha256: typeof s.abiSha256 === 'string' ? s.abiSha256 : ''
+    abiSha256: typeof s.abiSha256 === 'string' ? s.abiSha256 : '',
+    variant: s.variant === 'testnet' || s.variant === 'mainnet' ? s.variant : 'any'
   }
 }
 

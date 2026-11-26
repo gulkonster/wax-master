@@ -49,6 +49,12 @@
   --red-pressed: #A82723;
   --red-text: #FF8F87;
   --red-tint: rgba(196, 48, 43, 0.18);
+  /* Mainnet markers, warnings and destructive buttons (E66): orange, never red. Red is for errors only. */
+  --caution-fill: #C2611A;
+  --caution-hover: #CC6C24;
+  --caution-pressed: #A85315;
+  --caution-text: #F2A65E;
+  --caution-tint: rgba(222, 131, 52, 0.18);
   /* Success */
   --green-fill: #2F7D46;
   --green-hover: #32854A;
@@ -271,6 +277,8 @@
 
   --red-text: #B3261E;
   --red-tint: rgba(196, 48, 43, 0.10);
+  --caution-text: #A14F0C;
+  --caution-tint: rgba(222, 131, 52, 0.14);
   --green-text: #1B6E36;
   --green-tint: rgba(47, 125, 70, 0.12);
   --warn-text: #7A5600;
@@ -669,7 +677,7 @@ h3 {
   color: var(--text-3);
 }
 .dd-item .dd-x:hover {
-  color: var(--red-text);
+  color: var(--caution-text);
 }
 
 /* ------------------------------------------------------------------ buttons */
@@ -728,25 +736,25 @@ h3 {
   color: var(--accent-text);
 }
 .btn.danger {
-  background: var(--red-fill);
+  background: var(--caution-fill);
   border-color: transparent;
   color: var(--on-fill);
   font-weight: 600;
 }
 .btn.danger:hover {
-  background: var(--red-hover);
+  background: var(--caution-hover);
 }
 .btn.danger:active {
-  background: var(--red-pressed);
+  background: var(--caution-pressed);
 }
 .btn.danger-outline {
   background: transparent;
-  border-color: var(--red-fill);
-  color: var(--red-text);
+  border-color: var(--caution-fill);
+  color: var(--caution-text);
 }
 .btn.danger-outline:hover,
 .btn.danger-outline:active {
-  background: var(--red-tint);
+  background: var(--caution-tint);
 }
 .btn.success {
   background: var(--green-fill);
@@ -761,7 +769,7 @@ h3 {
   background: var(--green-pressed);
 }
 .btn.danger-text {
-  color: var(--red-text);
+  color: var(--caution-text);
 }
 .btn:disabled,
 .btn:disabled:hover {
@@ -1074,8 +1082,8 @@ input[type='radio'] {
   color: var(--green-text);
 }
 .badge.red {
-  background: var(--red-tint);
-  color: var(--red-text);
+  background: var(--caution-tint);
+  color: var(--caution-text);
 }
 .badge.warn {
   background: var(--warn-tint);
@@ -1126,8 +1134,8 @@ input[type='radio'] {
 .error-text,
 .tr-big-error,
 .banner.red {
-  border-left-color: var(--red-text);
-  background: var(--red-tint);
+  border-left-color: var(--caution-text);
+  background: var(--caution-tint);
 }
 .error-text {
   margin-top: var(--sp-2);
@@ -1152,7 +1160,7 @@ input[type='radio'] {
   font-size: var(--fs-card);
 }
 .mainnet-text {
-  color: var(--red-text);
+  color: var(--caution-text);
 }
 .ok-text {
   color: var(--green-text);
@@ -1229,7 +1237,7 @@ input[type='radio'] {
   height: var(--dot-sm);
   margin-right: var(--sp-1h);
   border-radius: 50%;
-  background: var(--red-text);
+  background: var(--caution-text);
   vertical-align: var(--sp-half);
 }
 .tb-arrow {
@@ -1868,11 +1876,11 @@ button.sb-item:hover {
   color: var(--green-text);
 }
 .sb-item.mainnet {
-  background: var(--red-fill);
+  background: var(--caution-fill);
   color: var(--on-fill);
 }
 button.sb-item.mainnet:hover {
-  background: var(--red-hover);
+  background: var(--caution-hover);
 }
 .sb-item .err {
   color: var(--red-text);
@@ -2520,7 +2528,7 @@ button.sb-item.mainnet:hover {
   background: var(--warn-text);
 }
 .res-bar > div.high {
-  background: var(--red-text);
+  background: var(--caution-text);
 }
 .perm-row {
   display: flex;
@@ -3070,8 +3078,8 @@ button.sb-item.mainnet:hover {
 .c-blocked {
   margin-top: var(--sp-3);
   padding: var(--sp-2) var(--sp-3);
-  background: var(--red-tint);
-  border-left: var(--bw-3) solid var(--red-text);
+  background: var(--caution-tint);
+  border-left: var(--bw-3) solid var(--caution-text);
   border-radius: var(--radius);
   color: var(--text);
 }
@@ -3171,7 +3179,8 @@ button.sb-item.mainnet:hover {
   z-index: 300;
   min-width: 0;
 }
-.acct-menu .acct-filter {
+.acct-menu .acct-filter,
+.dropdown > .acct-filter {
   margin-bottom: var(--sp-1);
 }
 .acct-mark {
@@ -3209,7 +3218,7 @@ button.sb-item.mainnet:hover {
   color: var(--text-3);
 }
 .acct-note.bad {
-  color: var(--red-text);
+  color: var(--caution-text);
 }
 .acct-note.good {
   color: var(--green-text);
@@ -3414,7 +3423,7 @@ button.sb-item.mainnet:hover {
 }
 .dd-item.danger,
 .dd-item.danger:hover {
-  color: var(--red-text);
+  color: var(--caution-text);
 }
 .modal-body .keys-note {
   margin: 0 0 var(--gap-field);

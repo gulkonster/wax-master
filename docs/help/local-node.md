@@ -10,7 +10,7 @@ A local node is a chain that runs on your own computer. You start it yourself an
 
    Your node's own documentation tells you the remaining options, such as where the data is kept and how the producer signs.
 2. In WAX Master choose Network > Add Network... and type `http://127.0.0.1:8888`. Use `127.0.0.1`, not `localhost`. Press **Connect**.
-3. The app reads the chain id. The kind is already **Local**: normal confirmation, no typed names. Check the name and press **Add**.
+3. The app reads the chain id. The kind is already **Local**: normal confirmation. Check the name and press **Add**.
 4. When the chain has no system contract, the app cannot read the core token from it. Type the core token symbol (and its precision) yourself.
 5. Import the keys of your node's accounts in Manage Keypairs, so that the app can sign for them.
 

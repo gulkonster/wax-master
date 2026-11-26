@@ -113,9 +113,9 @@ export function fromWslPath(p: string): string | null {
   return `${m[1].toUpperCase()}:${(m[2] ?? '/').replace(/\//g, '\\')}`
 }
 
-export function wsl(args: string[], opts: { onOutput?: Progress; timeoutMs?: number; cwd?: string; input?: string } = {}): Promise<RunResult> {
+export function wsl(args: string[], opts: { onOutput?: Progress; timeoutMs?: number; cwd?: string; input?: string; env?: Record<string, string> } = {}): Promise<RunResult> {
   return run(wslExe(), args, {
-    env: { WSL_UTF8: '1' },
+    env: { ...(opts.env ?? {}), WSL_UTF8: '1' },
     input: opts.input,
     cwd: opts.cwd,
     timeoutMs: opts.timeoutMs ?? 10 * 60 * 1000,
@@ -389,10 +389,23 @@ export async function buildProject(
 }
 
 /** Runs a custom build command through bash in the project folder (only after the user approved it). */
-export async function buildProjectShell(projectRoot: string, command: string, onOutput: (t: string) => void, toolchainId = DEFAULT_TOOLCHAIN): Promise<RunResult> {
+/**
+ * Runs a custom build command exactly as approved. `env` reaches the Linux side through
+ * WSLENV (E64: the custom command is told which build it is).
+ */
+export async function buildProjectShell(
+  projectRoot: string,
+  command: string,
+  onOutput: (t: string) => void,
+  toolchainId = DEFAULT_TOOLCHAIN,
+  env: Record<string, string> = {}
+): Promise<RunResult> {
   const state = toolchainState(toolchainId)
   if (!state) throw new Error('The toolchain is not set up. Open Help > Setup.')
+  const names = Object.keys(env)
+  const wslenv = names.length ? { ...env, WSLENV: [process.env.WSLENV, ...names.map((n) => `${n}/u`)].filter(Boolean).join(':') } : {}
   return wsl(['-d', state.distro, '--cd', projectRoot, '--exec', 'bash', '-lc', command], {
+    env: wslenv,
     onOutput: (t) => onOutput(clean(t)),
     timeoutMs: 15 * 60 * 1000
   })

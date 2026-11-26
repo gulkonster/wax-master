@@ -298,13 +298,13 @@ describe('colour tokens', () => {
     }
   })
 
-  it('the mainnet header of the confirmation window stays filled red with white text', () => {
+  it('the mainnet header of the confirmation window is filled orange with white text (E66: no red for mainnet)', () => {
     const css = read('confirm/confirm.css')
-    expect(css).toMatch(/\.c-header\.mainnet \{[^}]*background: var\(--red-fill\);[^}]*color: var\(--on-fill\);/)
+    expect(css).toMatch(/\.c-header\.mainnet \{[^}]*background: var\(--caution-fill\);[^}]*color: var\(--on-fill\);/)
     expect(css).toMatch(/\.c-header\.mainnet \.c-title \{[^}]*color: var\(--on-fill\);/)
-    // --on-fill and --red-fill are the same in both themes.
+    // --on-fill and --caution-fill are the same in both themes.
     expect(lightOnly().has('--on-fill')).toBe(false)
-    expect(lightOnly().has('--red-fill')).toBe(false)
+    expect(lightOnly().has('--caution-fill')).toBe(false)
   })
 
   it('only the weights 400 and 600 are used', () => {

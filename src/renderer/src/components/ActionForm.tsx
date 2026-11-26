@@ -49,6 +49,43 @@ export function PickMenu(props: {
   )
 }
 
+/**
+ * The action list (E67): a filter field has the focus when the list opens; typing narrows the
+ * list (any part of the name, case ignored); Enter picks the first action shown, Escape closes.
+ */
+function ActionList(props: { names: string[]; selected: string; onPick: (name: string) => void; close: () => void }): React.JSX.Element {
+  const [filter, setFilter] = useState('')
+  const f = filter.trim().toLowerCase()
+  const shown = f ? props.names.filter((n) => n.toLowerCase().includes(f)) : props.names
+  const pick = (name: string): void => {
+    props.close()
+    props.onPick(name)
+  }
+  return (
+    <>
+      <input
+        className="input acct-filter"
+        autoFocus
+        placeholder="Filter actions"
+        spellCheck={false}
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && shown.length > 0) pick(shown[0])
+          else if (e.key === 'Escape') props.close()
+        }}
+      />
+      {shown.length === 0 && <div className="dd-note">No action matches</div>}
+      {shown.map((name) => (
+        <div key={name} className={`dd-item mono${name === props.selected ? ' selected' : ''}`} onClick={() => pick(name)}>
+          <span className="dd-lead">{name === props.selected && <IconCheck />}</span>
+          {name}
+        </div>
+      ))}
+    </>
+  )
+}
+
 /** Heart and clock menus shared by the action and table panes. */
 export function SavedMenus(props: {
   kind: 'action' | 'query'
@@ -520,21 +557,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
             </>
           }
         >
-          {(close) =>
-            view.actions.map((a) => (
-              <div
-                key={a.name}
-                className={`dd-item mono${a.name === actionName ? ' selected' : ''}`}
-                onClick={() => {
-                  close()
-                  pickAction(a.name)
-                }}
-              >
-                <span className="dd-lead">{a.name === actionName && <IconCheck />}</span>
-                {a.name}
-              </div>
-            ))
-          }
+          {(close) => <ActionList names={view.actions.map((a) => a.name)} selected={actionName} onPick={pickAction} close={close} />}
         </PickMenu>
         <button className="btn primary" disabled={!action || !!running} title="Run (sign and send after confirmation)" onClick={() => void run()}>
           {running === 'run' ? (

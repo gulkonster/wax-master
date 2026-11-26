@@ -33,19 +33,18 @@ interface Approval {
     currentCodeHash: string | null
     clear: boolean
   }
-  typedName?: string
   blocked?: string
   /** One of the transactions of a split deployment (E59). */
   sequence?: { index: number; count: number; parts: string[] }
-  /** Approve is accepted this long after the window is shown and focused. */
-  approveDelayMs: number
+  /** Which build of the project is sent (E64). */
+  build?: 'testnet' | 'mainnet' | 'any'
 }
 
 declare global {
   interface Window {
     confirmation: {
       load(): Promise<Approval>
-      approve(id: string, typedName?: string): Promise<{ ok: boolean; transactionId?: string; error?: string; notReady?: boolean; failure?: SendFailure }>
+      approve(id: string): Promise<{ ok: boolean; transactionId?: string; error?: string; failure?: SendFailure }>
       cancel(id: string): Promise<boolean>
       revealLoad(): Promise<{ label: string; publicKey: string }>
       revealShow(password: string): Promise<string>
@@ -81,47 +80,15 @@ function shownData(act: Approval['actions'][number]): unknown {
   return { ...(act.data as Record<string, unknown>), [act.blob.field]: blobText(act.blob) }
 }
 
-/**
- * True once the window has been visible and focused for `delay` ms; any blur
- * starts it over. The main process applies the same rule to Approve.
- */
-function useArmed(delay: number): { armed: boolean; waitMs: number; focused: boolean } {
-  const [since, setSince] = useState<number | null>(() => (document.hasFocus() && document.visibilityState === 'visible' ? Date.now() : null))
-  const [now, setNow] = useState(Date.now())
-  useEffect(() => {
-    const on = (): void => setSince(Date.now())
-    const off = (): void => setSince(null)
-    const vis = (): void => (document.visibilityState === 'visible' && document.hasFocus() ? on() : off())
-    window.addEventListener('focus', on)
-    window.addEventListener('blur', off)
-    document.addEventListener('visibilitychange', vis)
-    // Focus can arrive before these listeners exist; notice it on the next tick too.
-    const t = setInterval(() => {
-      setNow(Date.now())
-      setSince((s) => (s === null && document.hasFocus() && document.visibilityState === 'visible' ? Date.now() : s))
-    }, 100)
-    return () => {
-      window.removeEventListener('focus', on)
-      window.removeEventListener('blur', off)
-      document.removeEventListener('visibilitychange', vis)
-      clearInterval(t)
-    }
-  }, [])
-  const waitMs = since === null ? delay : Math.max(0, since + delay - now)
-  return { armed: since !== null && waitMs === 0, waitMs, focused: since !== null }
-}
-
 function Confirm(): React.JSX.Element {
   const [a, setA] = useState<Approval | null>(null)
   // Nothing to load is the only bare page; a failed send keeps the transaction and adds one line.
   const [loadError, setLoadError] = useState('')
   const [error, setError] = useState('')
-  const [typed, setTyped] = useState('')
   const [left, setLeft] = useState(0)
   const [state, setState] = useState<'ready' | 'sending' | 'done' | 'failed'>('ready')
   const [showHex, setShowHex] = useState(false)
   const [note, setNote] = useState('')
-  const { armed, waitMs, focused } = useArmed(a?.approveDelayMs ?? 1500)
 
   useEffect(() => {
     window.confirmation
@@ -144,18 +111,15 @@ function Confirm(): React.JSX.Element {
 
   const mainnet = a.network.kind !== 'testnet' && a.network.kind !== 'local'
   const expired = left <= 0
-  const canApprove = state === 'ready' && armed && !expired && !a.blocked && (!a.typedName || typed === a.typedName)
+  // E65: one click on Approve and send; no typed name and no wait.
+  const canApprove = state === 'ready' && !expired && !a.blocked
 
   const approve = async (): Promise<void> => {
     setState('sending')
     setNote('')
-    const r = await window.confirmation.approve(a.id, a.typedName ? typed : undefined)
+    const r = await window.confirmation.approve(a.id)
     if (r.ok) setState('done')
-    else if (r.notReady) {
-      // Too early: nothing was used up; the button works again in a moment.
-      setState('ready')
-      setNote(r.error ?? '')
-    } else {
+    else {
       setState('failed')
       setError(notSentText(r.error, r.failure ?? 'not-sent'))
     }
@@ -207,6 +171,18 @@ function Confirm(): React.JSX.Element {
             <Row label={a.artifacts.clear ? 'Clears contract of' : 'Contract account'}>
               <b>{a.artifacts.account}</b>
             </Row>
+            {a.build && (
+              <Row label="Build">
+                <b>{a.build === 'mainnet' ? 'Mainnet build' : a.build === 'testnet' ? 'Testnet build' : 'One build for every network'}</b>{' '}
+                <span className="hint">
+                  {a.build === 'mainnet'
+                    ? '(WAXMASTER_MAINNET: no testnet-only code)'
+                    : a.build === 'testnet'
+                      ? '(WAXMASTER_TESTNET: testnet-only code included)'
+                      : '(the sources have no testnet or mainnet parts)'}
+                </span>
+              </Row>
+            )}
             {a.artifacts.wasmSha256 !== undefined && (
               <Row label="WASM (in this transaction)" mono>
                 {blobText({ size: a.artifacts.wasmSize ?? 0, sha256: a.artifacts.wasmSha256 })}
@@ -252,14 +228,6 @@ function Confirm(): React.JSX.Element {
         {state !== 'failed' && state !== 'done' && (
           <div className="c-foot-notes">
             {a.blocked && <div className="c-blocked">{a.blocked}</div>}
-            {a.typedName && !a.blocked && (
-              <div className="field">
-                <label>
-                  Type <b>{a.typedName}</b> to confirm this change on {a.network.name}:
-                </label>
-                <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} spellCheck={false} />
-              </div>
-            )}
           </div>
         )}
         <div className="c-foot-actions">
@@ -274,9 +242,9 @@ function Confirm(): React.JSX.Element {
             </button>
             <button className={`btn ${mainnet ? 'danger' : 'success'}`} disabled={!canApprove} onClick={() => void approve()}>
               {state === 'sending' ? (
-                <Busy text={approveLabel({ sending: true, armed, focused, waitMs, expired, blocked: !!a.blocked })} />
+                <Busy text={approveLabel(true)} />
               ) : (
-                approveLabel({ sending: false, armed, focused, waitMs, expired, blocked: !!a.blocked })
+                approveLabel(false)
               )}
             </button>
           </>

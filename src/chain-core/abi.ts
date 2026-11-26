@@ -3,7 +3,6 @@ import { ChainCoreError, withPath } from './errors'
 import { BUILTIN_CODECS, type CodecOptions } from './primitives'
 
 /** Maximum ABI size accepted, in bytes (JSON text or binary). */
-export const MAX_ABI_BYTES = 2 * 1024 * 1024
 /** Maximum nesting of types while encoding, decoding and resolving. */
 export const MAX_DEPTH = 32
 /** Arrays longer than the remaining bytes are rejected, except for this many zero-size items. */
@@ -111,7 +110,6 @@ function mapArr<T>(v: unknown, path: string, f: (o: Record<string, unknown>, p: 
 export function parseAbi(input: unknown): AbiDef {
   let raw: unknown = input
   if (typeof input === 'string') {
-    if (utf8Encode(input).length > MAX_ABI_BYTES) fail('abi', 'ABI JSON is larger than 2 MB')
     try {
       raw = JSON.parse(input)
     } catch {
@@ -577,13 +575,11 @@ export function abiToBinary(abi: AbiDef | string): Uint8Array {
     withExt.variants = variants
   }
   const out = encodeType(ABI_DEF_ABI, 'abi_def', withExt, 'abi')
-  if (out.length > MAX_ABI_BYTES) fail('abi', 'serialized ABI is larger than 2 MB')
   return out
 }
 
 /** Parses the binary `abi_def` (for example the result of `get_raw_abi`) into its JSON form. */
 export function abiFromBinary(bytes: Uint8Array): AbiDef {
-  if (bytes.length > MAX_ABI_BYTES) fail('abi', 'ABI is larger than 2 MB')
   const json = decodeType(ABI_DEF_ABI, 'abi_def', bytes, { path: 'abi' })
   const def = parseAbi(json)
   compileAbi(def)

@@ -60,10 +60,10 @@ The Contract page: each action of a contract is a form with a field for every ar
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/help/img/confirm-dark.png">
-  <img src="docs/help/img/confirm-light.png" alt="The confirmation window for a transfer on a test network: where it goes, who signs, and every action with its data. On a mainnet the header is red.">
+  <img src="docs/help/img/confirm-light.png" alt="The confirmation window for a transfer on a test network: where it goes, who signs, and every action with its data. On a mainnet the header is orange.">
 </picture>
 
-The confirmation window for a transfer on a test network: where it goes, who signs, and every action with its data. On a mainnet the header is red.
+The confirmation window for a transfer on a test network: where it goes, who signs, and every action with its data. On a mainnet the header is orange.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/help/img/transaction-view-dark.png">
@@ -143,7 +143,7 @@ Existing EOS Studio projects open as they are (File > Open Project); settings ar
 - Simulation runs against the current chain state and skips authorization checks, so a real transaction can still fail.
 - Verify installers as described above before first use.
 - A copied private key stays in Windows clipboard history (Win+V) or in clipboard tools if you use them; the app clears only the normal clipboard after 30 seconds.
-- Networks you add yourself count as mainnet (red confirmation, typed account names) unless they are marked as test networks; the WAX Mainnet chain id is always treated as mainnet.
+- Networks you add yourself count as mainnet (orange confirmation header) unless they are marked as test networks; the WAX Mainnet chain id is always treated as mainnet.
 - The app contacts only the endpoints and history services of the networks in your network list, the GitHub release check (can be turned off), the WAX Testnet faucet (https://faucet.waxsweden.org) when you press Create Testnet Account or a request-tokens button, and pages you open yourself. Help > Documentation > "What the app contacts" lists every case and the addresses of the built-in networks.
 
 See [SECURITY.md](SECURITY.md) to report a vulnerability.

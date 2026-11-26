@@ -27,11 +27,11 @@
   border-bottom: var(--bw-3) solid var(--accent);
 }
 .c-header.mainnet {
-  background: var(--red-fill);
+  background: var(--caution-fill);
   color: var(--on-fill);
   border-bottom: none;
 }
-/* The mainnet header stays filled red with white text in both themes. */
+/* The mainnet header is filled orange with white text in both themes (E66: no red for mainnet). */
 .c-header.mainnet .c-title {
   color: var(--on-fill);
 }

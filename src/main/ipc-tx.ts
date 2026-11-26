@@ -27,7 +27,6 @@ import { linksFromAccount, linksFromHistory, parsePermissionIntent, planPermissi
 
 const ACTION_NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 /** Same limit as contract:pack. */
-export const MAX_ACTION_DATA = 1024 * 1024
 
 export function parseActions(raw: unknown): ActionRequest[] {
   return arr(raw, 'actions', 20).map((a, i) => {
@@ -39,13 +38,11 @@ export function parseActions(raw: unknown): ActionRequest[] {
       return { actor: chainName(p.actor, 'actor'), permission: chainName(p.permission, 'permission') }
     })
     if (authorization.length === 0) throw new Error('Authorization is required')
-    let size: number
     try {
-      size = JSON.stringify(o.data ?? null).length
+      JSON.stringify(o.data ?? null)
     } catch {
       throw new Error(`actions[${i}].data: not valid JSON data`)
     }
-    if (size > MAX_ACTION_DATA) throw new Error(`actions[${i}].data: too large`)
     return { account: chainName(o.account, `actions[${i}].account`), name, authorization, data: o.data }
   })
 }
@@ -104,7 +101,8 @@ async function signAndSend(
   networkId: string,
   actions: ActionRequest[],
   kind: PrepareKind,
-  sequence?: PrepareRequest['sequence']
+  sequence?: PrepareRequest['sequence'],
+  build?: PrepareRequest['build']
 ): Promise<TxOutcome> {
   preflight(win)
   // A recovery code on screen (the unlock just converted the vault): the transaction
@@ -114,7 +112,7 @@ async function signAndSend(
     await new Promise<void>((resolve) => afterCodeWindows(resolve))
     preflight(win)
   }
-  const { record, secret } = await signer().prepare({ networkId, actions, kind, sequence })
+  const { record, secret } = await signer().prepare({ networkId, actions, kind, sequence, build })
   const outcome = await openConfirmation(win, record, secret)
   if (outcome.approved && getSettings().lockAfterSignature) vault().lock()
   const ctx = { source: 'sent' as const, network: record.network.name, endpoint: record.endpoint }
@@ -301,8 +299,8 @@ export function registerTxIpc(getWindow: () => BrowserWindow | null): void {
     const p = part === undefined || part === null ? undefined : oneOf(part, 'part', ['code', 'abi'] as const)
     // Checked before the plan is used up, so Deploy works again after unlocking.
     preflight(getWindow())
-    const { networkId, actions, sequence } = deployActions(id, { part: p })
-    return signAndSend(getWindow(), networkId, actions, 'deploy', sequence)
+    const { networkId, actions, sequence, build } = deployActions(id, { part: p })
+    return signAndSend(getWindow(), networkId, actions, 'deploy', sequence, build ?? undefined)
   })
   handle('accounts:clearCode', (_e, account, permission) => {
     const acc = chainName(account, 'account')

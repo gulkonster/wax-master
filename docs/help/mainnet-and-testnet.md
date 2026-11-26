@@ -6,7 +6,7 @@ A network is one chain, reached through one or more API endpoints and known by i
 
 | Kind | Meaning | Signing |
 |---|---|---|
-| mainnet | Tokens have real value | Red confirmation; deploys and permission changes need the account name typed |
+| mainnet | Tokens have real value | Confirmation with an orange header: "MAINNET (real value)" |
 | testnet | A test chain, tokens have no value | Normal confirmation |
 | local | A chain on this computer, such as Local chain | Normal confirmation |
 
@@ -23,7 +23,7 @@ The app decides the kind from the chain, not from the name you give:
 
 ## How to do it here
 
-1. Press the arrow of the **Network** button in the top bar. Each network shows its kind; mainnet networks are red.
+1. Press the arrow of the **Network** button in the top bar. Each network shows its kind; mainnet networks are orange.
 2. Click a network to select it. The Account page, Contract page, Deploy and all forms work on the selected network.
 3. The kind of a network you added yourself can be changed in Network > Manage Networks > **Edit**. The kind of a known chain is fixed.
 

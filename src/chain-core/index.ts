@@ -13,7 +13,6 @@ export {
   type CodecOptions
 } from './primitives'
 export {
-  MAX_ABI_BYTES,
   MAX_DEPTH,
   ABI_DEF_ABI,
   parseAbi,

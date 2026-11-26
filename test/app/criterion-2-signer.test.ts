@@ -259,11 +259,11 @@ describe('a send repeated after a broken connection', () => {
 describe('the kind of a failed approval', () => {
   it('no answer, a time limit and the duplicate case may have arrived; a node error is a refusal; a local failure sent nothing', async () => {
     const { RpcError, noAnswerMessage } = await import('../../src/main/rpc')
-    const fail = async (err: () => Error, after?: () => void, typed?: string): Promise<unknown> => {
+    const fail = async (err: () => Error, after?: () => void): Promise<unknown> => {
       const s = new Signer(deps({ send: async () => Promise.reject(err()) }))
       const { record, secret } = await s.prepare({ networkId: 'n1', actions: [transfer] })
       after?.()
-      return s.approve(record.id, secret, typed).catch((e) => e)
+      return s.approve(record.id, secret).catch((e) => e)
     }
     const timeLimit = (): Error => new RpcError(noAnswerMessage('https://node-a.example', new Error('aborted'), { timedOut: true, timeoutMs: 30_000 }), 0)
     const duplicate = (): Error => new RpcError('Duplicate transaction', 409, { code: 409, error: { code: 3040008, name: 'tx_duplicate', what: 'Duplicate transaction' } })

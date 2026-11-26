@@ -10,15 +10,15 @@ import { abiFromBinary, abiToBinary, bytesToHex } from '../chain-core'
 import { effectiveOutput, type DeployTarget } from '../shared/project'
 import { DEPLOY_PLAN_EXPIRED, type DeployPlan } from '../shared/chain-types'
 import { currentProject, resolveInProject } from './projects'
-import { abiRefusal } from './build'
-import { MAX_ABI_JSON } from './abi-check'
-import { currentNetwork, endpointOf, getNetwork, readCall } from './networks'
+import { abiRefusal, storedBuild } from './build'
+import { buildForKind, variantFits, variantLabel } from './build-variant'
+import { currentNetwork, effectiveKind, endpointOf, getNetwork, readCall } from './networks'
 import { chain } from './rpc'
 import { plainAccountError } from './account-pick'
 import { wasmInfo } from './wasm-info'
 import type { ActionRequest } from './signer'
+import type { BuildVariant } from '../shared/api'
 
-const MAX_WASM = 8 * 1024 * 1024
 
 /** The chain's limit of net usage for one transaction when it cannot be read (the default of Antelope and WAX). */
 export const DEFAULT_MAX_TX_NET = 524_288
@@ -154,6 +154,7 @@ interface PlanBytes {
   abi?: Uint8Array
   currentCodeHash: string
   createdAt: number
+  build: BuildVariant | null
 }
 
 const plans = new Map<string, PlanBytes>()
@@ -197,17 +198,17 @@ export async function planDeploy(input: {
   let abiRel: string
   let wasm: Uint8Array | undefined
   let abi: Uint8Array | undefined
+  /** Which build of the project is deployed (E64); null for bytes that are not a project build. */
+  let build: BuildVariant | null = null
   if (input.bytes) {
     const b = input.bytes
     wasmRel = `${b.label} (code)`
     abiRel = `${b.label} (ABI)`
     if (input.target !== 'abi') {
       if (b.wasm.length === 0) throw new Error(`${b.label} has no code`)
-      if (b.wasm.length > MAX_WASM) throw new Error(`The code of ${b.label} is larger than ${MAX_WASM / 1024 / 1024} MB`)
       wasm = b.wasm
     }
     if (input.target !== 'wasm' && b.abi && b.abi.length > 0) {
-      if (b.abi.length > MAX_ABI_JSON) throw new Error(`The ABI of ${b.label} is too large`)
       try {
         abiFromBinary(b.abi)
       } catch (e) {
@@ -218,18 +219,22 @@ export async function planDeploy(input: {
   } else {
     const p = currentProject()
     if (!p) throw new Error('No project is open')
+    // E64: the files on disk must be the build this network takes (Deploy builds it first by itself).
+    const takes = buildForKind(effectiveKind(network))
+    build = storedBuild(p.root)?.variant ?? 'any'
+    if (!variantFits(build, takes)) {
+      throw new Error(`The files on disk are the ${variantLabel(build)}, and ${network.name} takes the ${takes} build. Press Rebuild in Deploy to build it.`)
+    }
     wasmRel = effectiveOutput(p.config)
     abiRel = wasmRel.replace(/\.wasm$/i, '') + '.abi'
     if (input.target !== 'abi') {
       const st = await fsp.stat(resolveInProject(wasmRel)).catch(() => null)
       if (!st) throw new Error(`${wasmRel} was not found. Build the contract first.`)
-      if (st.size > MAX_WASM) throw new Error(`${wasmRel} is larger than ${MAX_WASM / 1024 / 1024} MB`)
       wasm = new Uint8Array(await fsp.readFile(resolveInProject(wasmRel)))
     }
     if (input.target !== 'wasm') {
       const text = await fsp.readFile(resolveInProject(abiRel), 'utf8').catch(() => null)
       if (text === null) throw new Error(`${abiRel} was not found. Build the contract first.`)
-      if (text.length > MAX_ABI_JSON) throw new Error(`${abiRel} is too large`)
       // An ABI the chain refuses stops Deploy and Simulate Deploy with the build's explanation.
       const refusal = await abiRefusal(p.root, abiRel, text)
       if (refusal) throw new Error(refusal)
@@ -255,12 +260,6 @@ export async function planDeploy(input: {
   // One transaction may carry at most the chain's net limit: a big contract goes as code first, then ABI.
   const netLimit = sendWasm || sendAbi ? await maxTransactionNet(network.id) : DEFAULT_MAX_TX_NET
   const split = sendWasm && sendAbi && needsTwoTransactions(wasm!.length, abi!.length, netLimit)
-  const partTooBig =
-    sendWasm && wasm!.length + TX_NET_OVERHEAD > netLimit
-      ? `The code (${wasm!.length.toLocaleString('en-US')} bytes) is larger than one transaction may carry on ${network.name} (${netLimit.toLocaleString('en-US')} bytes of net usage), so it cannot be deployed. Make the contract smaller (for example build with -O3 or -Oz, or split it into two contracts).`
-      : sendAbi && abi!.length + TX_NET_OVERHEAD > netLimit
-        ? `The ABI (${abi!.length.toLocaleString('en-US')} bytes) is larger than one transaction may carry on ${network.name} (${netLimit.toLocaleString('en-US')} bytes of net usage), so it cannot be deployed.`
-        : null
   // Feature check of host functions.
   const missing: { name: string; feature: string }[] = []
   if (wasm) {
@@ -298,7 +297,8 @@ export async function planDeploy(input: {
     wasm: sendWasm ? wasm : undefined,
     abi: sendAbi ? abi : undefined,
     currentCodeHash: codeHash,
-    createdAt: Date.now()
+    createdAt: Date.now(),
+    build
   })
   for (const [k, v] of plans) if (Date.now() - v.createdAt > PLAN_TTL_MS) plans.delete(k)
   return {
@@ -326,7 +326,7 @@ export async function planDeploy(input: {
     missingFeatures: missing,
     split,
     netLimit,
-    partTooBig
+    build
   }
 }
 
@@ -339,7 +339,7 @@ export async function planDeploy(input: {
 export function deployActions(
   planId: string,
   opts: { clear?: boolean; keep?: boolean; part?: DeployPart } = {}
-): { networkId: string; actions: ActionRequest[]; sequence?: DeploySequence } {
+): { networkId: string; actions: ActionRequest[]; sequence?: DeploySequence; build: BuildVariant | null } {
   const p = plans.get(planId)
   if (!p) throw new Error(DEPLOY_PLAN_EXPIRED)
   if (opts.part === 'code' && !p.wasm) throw new Error('This plan sends no code.')
@@ -362,7 +362,7 @@ export function deployActions(
   if (p.abi && withAbi) actions.push({ account: 'eosio', name: 'setabi', authorization: auth, data: { account: p.account, abi: bytesToHex(p.abi) } })
   if (actions.length === 0 && !opts.clear) throw new Error('Nothing to deploy: the account already has this WASM and ABI.')
   // The signer computes the shown hashes and sizes from these bytes as packed in the transaction.
-  return { networkId: p.networkId, actions, sequence }
+  return { networkId: p.networkId, actions, sequence, build: p.build }
 }
 
 /** Clear Contract Code: empty setcode and setabi. */

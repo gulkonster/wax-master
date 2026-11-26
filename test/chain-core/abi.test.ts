@@ -48,10 +48,9 @@ describe('ABI binary form against real on-chain data', () => {
       expect(def.version).toBe(sys.abi[account].version)
     })
   }
-  it('rejects truncated and oversize binary ABIs', () => {
+  it('rejects truncated binary ABIs; no size limit of its own (E64)', () => {
     const raw = new Uint8Array(Buffer.from(sys.raw['eosio.token'], 'base64'))
     expect(() => abiFromBinary(raw.slice(0, raw.length - 5))).toThrow()
-    expect(() => abiFromBinary(new Uint8Array(2 * 1024 * 1024 + 1))).toThrow(/2 MB/)
     expect(() => abiFromBinary(new Uint8Array(0))).toThrow()
     expect(() => abiFromBinary(concat(raw, new Uint8Array([0, 0, 0])))).toThrow(/trailing/)
   })
@@ -88,12 +87,12 @@ describe('ABI parsing', () => {
     expect(() => parseAbi({ version: 'eosio::abi/1.0', structs: 'x' })).toThrow(/array/)
     expect(() => parseAbi({ version: 'eosio::abi/1.0', structs: [{ fields: [] }] })).toThrow(/structs\[0\]\.name/)
   })
-  it('accepts and ignores kv_tables, parses JSON text, enforces the 2 MB text limit', () => {
+  it('accepts and ignores kv_tables, parses JSON text, and has no text size limit of its own (E64)', () => {
     const text = JSON.stringify({ version: 'eosio::abi/1.2', kv_tables: { t: { type: 'x' } }, structs: [] })
     const def = parseAbi(text)
     expect('kv_tables' in def).toBe(false)
     const big = JSON.stringify({ version: 'eosio::abi/1.0', ricardian_clauses: [{ id: 'a', body: 'x'.repeat(2 * 1024 * 1024) }] })
-    expect(() => parseAbi(big)).toThrow(/2 MB/)
+    expect(parseAbi(big).ricardian_clauses?.[0]?.body.length).toBe(2 * 1024 * 1024)
   })
   it('writes trailing extensions only when they carry data', () => {
     const none = bytesToHex(abiToBinary(parseAbi({ version: 'eosio::abi/1.2' })))

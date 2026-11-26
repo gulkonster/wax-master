@@ -208,6 +208,9 @@ export interface AbiFinding {
   place: { file: string; line: number; column: number } | null
 }
 
+/** Which build of the contract (E64): for test networks and the local chain, for a mainnet, or one for every network. */
+export type BuildVariant = 'testnet' | 'mainnet' | 'any'
+
 export interface BuildResult {
   ok: boolean
   problems: Problem[]
@@ -223,6 +226,8 @@ export interface BuildResult {
   builtAt?: number
   /** ABI check findings; empty when the ABI is consistent or the compile failed. */
   abiFindings?: AbiFinding[]
+  /** Which build this was (E64). */
+  variant?: BuildVariant
 }
 
 /** Answer of "build if needed" and "rebuild". */
@@ -237,6 +242,8 @@ export interface BuildCheck {
   abiProblems: Problem[]
   /** The build that ran now; null when the stored build was up to date. */
   build: BuildResult | null
+  /** Which build the files on disk are (E64); null when no build ran. */
+  variant: BuildVariant | null
 }
 
 /** Answer of Contract > Create Ricardian Files. Paths are project-relative. */
@@ -619,12 +626,12 @@ export interface WaxApi {
     remove(id: string): Promise<ToolchainInfo[]>
   }
   build: {
-    /** Always compiles (Contract > Build, Ctrl+B). */
-    run(): Promise<BuildResult>
-    /** Compiles only when the project changed since the stored build or its outputs are missing. */
-    ensure(): Promise<BuildCheck>
+    /** Always compiles (Contract > Build, Ctrl+B), the build of the given network (default: the selected one). */
+    run(networkId?: string): Promise<BuildResult>
+    /** Compiles only when the project changed since the stored build, its outputs are missing, or it is not this network's build (E64). */
+    ensure(networkId?: string): Promise<BuildCheck>
     /** Always compiles; answers in the same form as ensure(). */
-    rebuild(): Promise<BuildCheck>
+    rebuild(networkId?: string): Promise<BuildCheck>
     defaultCommand(): Promise<string>
   }
   ricardian: {

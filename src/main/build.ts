@@ -5,10 +5,12 @@ import { BrowserWindow, dialog, type WebContents } from 'electron'
 import { createHash } from 'node:crypto'
 import { existsSync, promises as fsp } from 'node:fs'
 import { join } from 'node:path'
-import type { AbiFinding, BuildCheck, BuildOutcome, BuildResult, Problem } from '../shared/api'
+import type { AbiFinding, BuildCheck, BuildOutcome, BuildResult, BuildVariant, Problem } from '../shared/api'
 import { classifyLine, cleanLine, placeToolchainProblems, problemSeverity, uniqueProblems } from '../shared/output-lines'
 import { effectiveInclude, effectiveOutput, effectiveResource, type ProjectConfig } from '../shared/project'
-import { MAX_ABI_JSON, abiProblems, checkAbi, describeAbi, moreFindingsLine, readSources } from './abi-check'
+import { abiProblems, checkAbi, describeAbi, moreFindingsLine, readSources } from './abi-check'
+import { buildForKind, usesNetworkMacros, variantEnv, variantFlags, variantLabel, variantOf, type BuildFor } from './build-variant'
+import { currentNetwork, effectiveKind, getNetwork } from './networks'
 import { BuildStateStore, projectFingerprint, type StoredBuild } from './build-state'
 import { log } from './log'
 import { dataDir } from './paths'
@@ -18,7 +20,7 @@ import { buildProject, buildProjectShell, fromWslPath, toolchainForProject } fro
 
 let building = false
 
-export function defaultBuildArgs(): string[] {
+export function defaultBuildArgs(variant: BuildVariant = 'any'): string[] {
   const p = currentProject()
   if (!p) throw new Error('No project is open')
   const c = p.config
@@ -33,6 +35,8 @@ export function defaultBuildArgs(): string[] {
     c.contract,
     '-o',
     `./${effectiveOutput(c)}`,
+    // E64: the testnet or the mainnet build (nothing for a build that fits every network).
+    ...variantFlags(variant),
     // The main file is passed without "./": cdt-cpp's abigen finds no actions otherwise.
     // Project paths never start with "-" (checked when the project file is read).
     c.main
@@ -82,8 +86,20 @@ function outputFiles(config: ProjectConfig): { wasm: string; abi: string } {
   return { wasm, abi: wasm.replace(/\.wasm$/, '') + '.abi' }
 }
 
-function buildCommandText(config: ProjectConfig): string {
-  return config.buildCommand.trim() || defaultBuildArgs().join(' ')
+function buildCommandText(config: ProjectConfig, variant: BuildVariant): string {
+  return config.buildCommand.trim() || defaultBuildArgs(variant).join(' ')
+}
+
+/** The network a build is for (the given one, or the selected one) and which build it takes (E64). */
+function networkOf(networkId?: string): { name: string; buildFor: BuildFor } {
+  const n = networkId ? getNetwork(networkId) : currentNetwork()
+  return { name: n.name, buildFor: buildForKind(effectiveKind(n)) }
+}
+
+/** The variant of the next build of this project for that network. */
+async function variantFor(root: string, buildFor: BuildFor): Promise<BuildVariant> {
+  const sources = await readSources(root).catch(() => [])
+  return variantOf(usesNetworkMacros(sources), buildFor)
 }
 
 function sha256Text(text: string): string {
@@ -129,7 +145,7 @@ async function askApproval(sender: WebContents, root: string, command: string): 
   return r.response === 1
 }
 
-export async function runBuild(sender: WebContents): Promise<BuildResult> {
+export async function runBuild(sender: WebContents, networkId?: string): Promise<BuildResult> {
   const p = currentProject()
   if (!p) throw new Error('No project is open')
   if (building) throw new Error('A build is already running')
@@ -154,11 +170,15 @@ export async function runBuild(sender: WebContents): Promise<BuildResult> {
   try {
     const tc = toolchainForProject(p.config.cdt)
     if (tc.fallback) emit(`The toolchain "${p.config.cdt}" is not installed; building with the default toolchain.\n`)
-    const shownCommand = buildCommandText(p.config)
+    const target = networkOf(networkId)
+    const variant = await variantFor(p.root, target.buildFor)
+    const shownCommand = buildCommandText(p.config, variant)
+    emit(variant === 'any' ? `Build: ${variantLabel(variant)} (the sources use neither WAXMASTER_TESTNET nor WAXMASTER_MAINNET).\n` : `Build: the ${variantLabel(variant)}, for ${target.name}.\n`)
     emit(`> ${shownCommand}\n`)
+    // A custom command is told which build it is (WAXMASTER_NETWORK, WAXMASTER_BUILD_FLAG).
     const r = custom
-      ? await buildProjectShell(p.root, custom, emit, tc.id)
-      : await buildProject(p.root, defaultBuildArgs(), emit, tc.id)
+      ? await buildProjectShell(p.root, custom, emit, tc.id, variantEnv(target.buildFor))
+      : await buildProject(p.root, defaultBuildArgs(variant), emit, tc.id)
     const problems = parseProblems(r.output, p.root)
     const ok = r.code === 0
     const { wasm, abi } = outputFiles(p.config)
@@ -172,17 +192,12 @@ export async function runBuild(sender: WebContents): Promise<BuildResult> {
     if (ok && existsSync(join(p.root, abi))) {
       let more: string | null = null
       try {
-        const st = await fsp.stat(join(p.root, abi))
-        if (st.size > MAX_ABI_JSON) {
-          emit(`ABI check skipped: ${abi} is larger than ${MAX_ABI_JSON / 1024 / 1024} MB.\n`)
-        } else {
-          const text = await fsp.readFile(join(p.root, abi), 'utf8')
-          const raw = checkAbi(text)
-          if (raw.length > 0) {
-            abiFindings = describeAbi(text, abi, await readSources(p.root), raw)
-            more = moreFindingsLine(raw.length)
-            abiSha = sha256Text(text)
-          }
+        const text = await fsp.readFile(join(p.root, abi), 'utf8')
+        const raw = checkAbi(text)
+        if (raw.length > 0) {
+          abiFindings = describeAbi(text, abi, await readSources(p.root), raw)
+          more = moreFindingsLine(raw.length)
+          abiSha = sha256Text(text)
         }
       } catch (e) {
         log.warn(`ABI check could not run: ${e instanceof Error ? e.message : String(e)}`)
@@ -194,8 +209,8 @@ export async function runBuild(sender: WebContents): Promise<BuildResult> {
     const builtAt = Date.now()
     // Taken after the compile, so files the compiler itself writes do not count as a change next time.
     const fingerprint = await projectFingerprint(p.root, { exclude: [wasm, abi], command: shownCommand, toolchain: tc.id }).catch(() => null)
-    buildState.set(p.root, { fingerprint, result: outcome, builtAt, toolchain: tc.id, command: shownCommand, abiFindings, abiSha256: abiSha })
-    return { ok, problems: [...problems, ...abiProblems(abiFindings)], durationMs, outputs, outcome, builtAt, abiFindings }
+    buildState.set(p.root, { fingerprint, result: outcome, builtAt, toolchain: tc.id, command: shownCommand, abiFindings, abiSha256: abiSha, variant })
+    return { ok, problems: [...problems, ...abiProblems(abiFindings)], durationMs, outputs, outcome, builtAt, abiFindings, variant }
   } finally {
     building = false
   }
@@ -209,7 +224,8 @@ function checkFrom(build: BuildResult): BuildCheck {
     result: build.outcome ?? null,
     abiFindings,
     abiProblems: abiProblems(abiFindings),
-    build
+    build,
+    variant: build.variant ?? null
   }
 }
 
@@ -218,14 +234,16 @@ function checkFrom(build: BuildResult): BuildCheck {
  * its outputs are missing, or the stored build failed; otherwise answers with
  * the stored result (including the ABI findings) without compiling.
  */
-export async function ensureBuilt(sender: WebContents): Promise<BuildCheck> {
+export async function ensureBuilt(sender: WebContents, networkId?: string): Promise<BuildCheck> {
   const p = currentProject()
   if (!p) throw new Error('No project is open')
   if (building) throw new Error('A build is already running')
   const stored = buildState.get(p.root)
-  if (stored && stored.result !== 'failed' && stored.fingerprint) {
+  // E64: the stored build counts only when it is the build this network takes.
+  const variant = await variantFor(p.root, networkOf(networkId).buildFor)
+  if (stored && stored.result !== 'failed' && stored.fingerprint && stored.variant === variant) {
     const { wasm, abi } = outputFiles(p.config)
-    const command = buildCommandText(p.config)
+    const command = buildCommandText(p.config, variant)
     const tc = toolchainForProject(p.config.cdt)
     const outputsThere = existsSync(join(p.root, wasm)) && existsSync(join(p.root, abi))
     if (outputsThere && stored.command === command && stored.toolchain === tc.id) {
@@ -237,15 +255,16 @@ export async function ensureBuilt(sender: WebContents): Promise<BuildCheck> {
           result: stored.result,
           abiFindings: stored.abiFindings,
           abiProblems: abiProblems(stored.abiFindings),
-          build: null
+          build: null,
+          variant: stored.variant
         }
       }
     }
   }
-  return checkFrom(await runBuild(sender))
+  return checkFrom(await runBuild(sender, networkId))
 }
 
 /** Always compiles; same answer form as ensureBuilt. */
-export async function rebuild(sender: WebContents): Promise<BuildCheck> {
-  return checkFrom(await runBuild(sender))
+export async function rebuild(sender: WebContents, networkId?: string): Promise<BuildCheck> {
+  return checkFrom(await runBuild(sender, networkId))
 }

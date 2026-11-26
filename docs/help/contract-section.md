@@ -19,6 +19,5 @@ On your testnet account with Hello World deployed: the section shows the code ha
 ## What is needed
 
 - A key of the account in an unlocked vault for Deploy and Clear code.
-- The account name typed in the confirmation window: for Clear code on every network, for Deploy on mainnet.
 
 > Note: Clearing code removes the contract. The data in its tables stays and keeps using RAM.

@@ -49,6 +49,5 @@ A redeployment after a contract grew (code 15,488 to 17,525 bytes, ABI 3,310 to 
 - A build without errors and without ABI faults (see [ABI check messages](doc:abi-check)).
 - A starred account (see [Starred accounts](doc:starred-accounts)) whose key for the chosen permission is in your vault. If it is not, the dialog says "The vault has no key for ..."; Simulate still works.
 - Enough RAM on the account.
-- On a mainnet network: the account name typed in the confirmation window.
 
 If the contract calls host functions that the network has not activated, the dialog names them: the deployment or the actions would fail there.

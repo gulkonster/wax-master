@@ -371,8 +371,8 @@ export interface DeployPlan {
   split: boolean
   /** The chain's max_transaction_net_usage (or its default when it could not be read). */
   netLimit: number
-  /** Set when the code or the ABI alone is too big for one transaction: it cannot be deployed. */
-  partTooBig: string | null
+  /** Which build of the project is deployed (E64); null when the bytes are not a project build. */
+  build: 'testnet' | 'mainnet' | 'any' | null
 }
 
 /** Status mark of the selected network: `checking` until the first answer. */

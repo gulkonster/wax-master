@@ -38,6 +38,5 @@ The chain refuses to delete a permission that is still linked. Unlink every acti
 ## What is needed
 
 - A custom permission and a signer as listed under "Who signs".
-- Mainnet networks ask you to type the account name in the confirmation window.
 
 See also [Run actions](doc:run-actions) and [Owner, active and permissions](doc:permissions-overview).

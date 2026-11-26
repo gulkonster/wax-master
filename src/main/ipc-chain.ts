@@ -63,9 +63,7 @@ function authList(v: unknown): AuthLevel[] {
 }
 
 function dataObject(v: unknown): Record<string, unknown> {
-  const o = obj(v, 'data')
-  if (JSON.stringify(o).length > 1024 * 1024) throw new Error('data: too large')
-  return o
+  return obj(v, 'data')
 }
 
 export function registerChainIpc(getWindow: () => BrowserWindow | null): void {

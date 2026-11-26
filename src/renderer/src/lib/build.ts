@@ -4,6 +4,7 @@ import type { BuildCheck, BuildResult } from '../../../shared/api'
 import { emit } from './bus'
 import { appendOutput, clearOutput, problemsStore, recordBuiltVersions, refreshMerged } from './stores'
 import { errorText, toast } from './toast'
+import { networkStore } from './networks'
 
 let running = false
 
@@ -50,7 +51,7 @@ export async function startBuild(showPanel: (tab: 'output' | 'problems') => void
     recordBuiltVersions()
     clearOutput()
     showPanel('output')
-    const r = await window.wax.build.run()
+    const r = await window.wax.build.run(networkStore.get().current?.id)
     if (r.needsApproval) {
       appendOutput('Build cancelled: the custom build command was not approved.\n')
       buildEnded(r)
@@ -77,7 +78,8 @@ export async function startBuild(showPanel: (tab: 'output' | 'problems') => void
  * filled as for Build; when the stored build is up to date, nothing is compiled
  * and the stored ABI findings are put back into Problems.
  */
-export async function ensureBuild(showPanel: (tab: 'output' | 'problems') => void, always = false): Promise<BuildCheck | null> {
+/** `networkId`: the network the build is for (E64: its testnet or mainnet build); default the selected one. */
+export async function ensureBuild(showPanel: (tab: 'output' | 'problems') => void, always = false, networkId?: string): Promise<BuildCheck | null> {
   if (running) return null
   running = true
   try {
@@ -87,7 +89,8 @@ export async function ensureBuild(showPanel: (tab: 'output' | 'problems') => voi
       clearOutput()
       showPanel('output')
     }
-    const r = always ? await window.wax.build.rebuild() : await window.wax.build.ensure()
+    const net = networkId ?? networkStore.get().current?.id
+    const r = always ? await window.wax.build.rebuild(net) : await window.wax.build.ensure(net)
     if (r.build) {
       buildEnded(r.build)
       if (r.build.needsApproval) {

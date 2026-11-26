@@ -159,7 +159,7 @@ vi.mock('electron', () => {
 })
 
 import { generatePrivateKey, privateKeyToString } from '../../src/chain-core'
-import { APPROVE_DELAY_MS, hasOpenConfirmation, openConfirmation, registerConfirmWindow } from '../../src/main/confirm-window'
+import { hasOpenConfirmation, openConfirmation, registerConfirmWindow } from '../../src/main/confirm-window'
 import { registerKeys, vault } from '../../src/main/keys-service'
 import { preflight } from '../../src/main/ipc-tx'
 import { applyThemeSetting } from '../../src/main/theme'
@@ -171,7 +171,7 @@ import { setLogSink } from '../../src/main/log'
 import { chain } from '../../src/main/rpc'
 import { FILE_EXISTS } from '../../src/main/key-backup'
 import { WRONG_CODE, WRONG_PASSWORD } from '../../src/main/vault'
-import { APPROVE_UNFOCUSED, approveLabel } from '../../src/renderer/src/confirm/approve-label'
+import { approveLabel } from '../../src/renderer/src/confirm/approve-label'
 
 const PW = 'correct horse battery staple'
 const EDITOR_ID = 1
@@ -297,66 +297,25 @@ describe('reveal:* only from the reveal window', () => {
   })
 })
 
-describe('Approve only 1.5 s after the window is shown and focused', () => {
-  it('a click right after the window appears is refused and uses up nothing', async () => {
+describe('Approve works at once (E65)', () => {
+  it('a click right after the window appears is taken; no wait, focused or not', async () => {
     approveCalls.length = 0
-    let now = 1_000_000
-    vi.spyOn(Date, 'now').mockImplementation(() => now)
     const { win } = openOne()
     win.emit('ready-to-show')
-    const r1 = (await call('confirm:approve', confirmEvent(win), 'appr-1')) as { ok: boolean; notReady?: boolean }
-    expect(r1).toMatchObject({ ok: false, notReady: true })
-    now += APPROVE_DELAY_MS - 100
-    expect(await call('confirm:approve', confirmEvent(win), 'appr-1')).toMatchObject({ notReady: true })
-    expect(approveCalls).toHaveLength(0)
-    now += 200
     expect(await call('confirm:approve', confirmEvent(win), 'appr-1')).toMatchObject({ ok: true })
     expect(approveCalls).toEqual(['appr-1'])
   })
-
-  it('losing focus starts the wait again; a shown but unfocused window cannot approve', async () => {
+  it('a shown window without focus can approve too', async () => {
     approveCalls.length = 0
-    let now = 2_000_000
-    vi.spyOn(Date, 'now').mockImplementation(() => now)
     const { win } = openOne()
-    // Shown without focus (for example behind another window).
     ;(win as unknown as { show(): void }).show()
-    now += 5000
-    expect(await call('confirm:approve', confirmEvent(win), 'appr-1')).toMatchObject({ notReady: true })
-    ;(win as unknown as { focus(): void }).focus()
-    now += APPROVE_DELAY_MS + 1
     win.focused = false
-    win.emit('blur')
-    expect(await call('confirm:approve', confirmEvent(win), 'appr-1')).toMatchObject({ notReady: true })
-    ;(win as unknown as { focus(): void }).focus()
-    now += 500
-    expect(await call('confirm:approve', confirmEvent(win), 'appr-1')).toMatchObject({ notReady: true })
-    now += APPROVE_DELAY_MS
     expect(await call('confirm:approve', confirmEvent(win), 'appr-1')).toMatchObject({ ok: true })
     expect(approveCalls).toHaveLength(1)
   })
-})
-
-describe('the Approve button says what it waits for', () => {
-  const base = { sending: false, armed: false, focused: false, waitMs: APPROVE_DELAY_MS, expired: false, blocked: false }
-  it('not focused: "click this window first"; focused: the countdown; armed: plain', () => {
-    expect(approveLabel(base)).toBe('Approve and send (click this window first)')
-    expect(APPROVE_UNFOCUSED).toBe('Approve and send (click this window first)')
-    expect(approveLabel({ ...base, focused: true, waitMs: 900 })).toBe('Approve and send (in 0.9 s)')
-    expect(approveLabel({ ...base, focused: true, armed: true, waitMs: 0 })).toBe('Approve and send')
-    expect(approveLabel({ ...base, sending: true })).toBe('Signing and sending...')
-    expect(approveLabel({ ...base, blocked: true })).toBe('Approve and send')
-  })
-  it('an approve call while the window is not focused is still answered notReady', async () => {
-    approveCalls.length = 0
-    let now = 3_000_000
-    vi.spyOn(Date, 'now').mockImplementation(() => now)
-    const { win } = openOne()
-    ;(win as unknown as { show(): void }).show()
-    win.focused = false
-    now += 60_000
-    expect(await call('confirm:approve', confirmEvent(win), 'appr-1')).toMatchObject({ ok: false, notReady: true })
-    expect(approveCalls).toHaveLength(0)
+  it('the button says Approve and send, and Signing and sending while it sends', () => {
+    expect(approveLabel(false)).toBe('Approve and send')
+    expect(approveLabel(true)).toBe('Signing and sending...')
   })
 })
 
@@ -439,7 +398,6 @@ describe('one confirmation at a time; a locked vault stops before any window', (
     vi.spyOn(Date, 'now').mockImplementation(() => now)
     const { win, done } = openOne('appr-locked')
     win.emit('ready-to-show')
-    now += APPROVE_DELAY_MS + 1
     const spy = vi.spyOn(fakeSigner, 'approve').mockRejectedValueOnce(new Error(LOCKED_MESSAGE))
     const r = (await call('confirm:approve', confirmEvent(win), 'appr-locked')) as { ok: boolean; error?: string }
     expect(spy).toHaveBeenCalled()

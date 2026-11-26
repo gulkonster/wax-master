@@ -2,9 +2,7 @@
 // record and offers exactly two calls, approve and cancel. Only this window can
 // approve; the editor window never sees the approval secret.
 //
-// Approve is accepted only APPROVE_DELAY_MS after the window was shown and
-// focused (a window that appears under a click cannot be approved by that
-// click), and only one confirmation is open at a time. While a recovery code is
+// Approve works at once (E65), and only one confirmation is open at a time. While a recovery code is
 // on screen (the vault was just converted or made) the confirmation waits until
 // that window is closed, so it never covers the code.
 
@@ -22,16 +20,12 @@ import { afterCodeWindows, focusKeyWindow } from './key-windows'
 const CONFIRM_WIDTH = 880
 const CONFIRM_HEIGHT = 860
 
-export const APPROVE_DELAY_MS = 1500
-
 interface Pending {
   record: ApprovalRecord
   secret: Buffer
   win: BrowserWindow
   settle: (r: ConfirmOutcome) => void
   busy: boolean
-  /** When the window was last shown and focused; null while hidden or not focused. */
-  armedAt: number | null
 }
 
 export type ConfirmOutcome =
@@ -88,20 +82,15 @@ export function registerConfirmWindow(signer: Signer): void {
   ipcMain.handle('confirm:load', (e) => {
     const p = fromConfirmWindow(e)
     if (!p) throw new Error('Refused')
-    return { ...p.record, approveDelayMs: APPROVE_DELAY_MS }
+    return p.record
   })
-  ipcMain.handle('confirm:approve', async (e, id: unknown, typedName: unknown) => {
+  ipcMain.handle('confirm:approve', async (e, id: unknown) => {
     const p = fromConfirmWindow(e)
     if (!p || typeof id !== 'string' || id !== p.record.id) throw new Error('Refused')
-    if (typedName !== undefined && (typeof typedName !== 'string' || typedName.length > 13)) throw new Error('Refused')
     if (p.busy) throw new Error('Already sending')
-    // Too early after showing or focusing: refused without using up the approval.
-    if (p.armedAt === null || Date.now() - p.armedAt < APPROVE_DELAY_MS) {
-      return { ok: false, notReady: true, error: 'Approve works 1.5 seconds after this window is shown and focused. Press it again.' }
-    }
     p.busy = true
     try {
-      const result = await signerRef!.approve(p.record.id, p.secret, typedName as string | undefined)
+      const result = await signerRef!.approve(p.record.id, p.secret)
       p.secret.fill(0)
       p.settle({ approved: true, result })
       pendingByWindow.delete(e.sender.id)
@@ -186,23 +175,11 @@ function showConfirmation(parent: BrowserWindow | null, record: ApprovalRecord, 
   })
   win.setMenu(null)
   followTheme(win, 'content')
-  const pending: Pending = { record, secret, win, settle, busy: false, armedAt: null }
+  const pending: Pending = { record, secret, win, settle, busy: false }
   pendingByWindow.set(win.webContents.id, pending)
-  const arm = (): void => {
-    pending.armedAt = win.isVisible() && win.isFocused() ? Date.now() : null
-  }
-  const disarm = (): void => {
-    pending.armedAt = null
-  }
-  win.on('show', arm)
-  win.on('focus', arm)
-  win.on('blur', disarm)
-  win.on('hide', disarm)
-  win.on('minimize', disarm)
   win.once('ready-to-show', () => {
     win.show()
     win.focus()
-    arm()
   })
   win.on('closed', () => {
     const p = [...pendingByWindow.entries()].find(([, v]) => v.win === win)

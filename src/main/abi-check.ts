@@ -26,8 +26,6 @@ export interface RawAbiFinding {
 
 const REFUSED = 'The chain refuses such an ABI, so Deploy is stopped.'
 
-/** Above this size (the limit Deploy has too) the ABI is not checked. */
-export const MAX_ABI_JSON = 2 * 1024 * 1024
 /** At most this many findings are explained (and stored); the rest are counted in one line. */
 export const MAX_EXPLAINED_FINDINGS = 50
 

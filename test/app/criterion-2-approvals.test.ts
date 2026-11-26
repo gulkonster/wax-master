@@ -162,15 +162,14 @@ describe('the network kind cannot switch off the mainnet protections', () => {
     expect(effectiveKind({ chainId: OTHER_CHAIN, kind: 'bogus', endpoints: [] })).toBe('mainnet')
   })
 
-  it('WAX Mainnet chain id saved as testnet: red and the typed name; with it Approve sends (E63: no build lock)', async () => {
+  it('WAX Mainnet chain id saved as testnet: shown as mainnet (red); Approve sends at once (E63, E65)', async () => {
     network = net('testnet', WAX_MAIN)
     const s = new Signer(deps())
     const { record, secret } = await s.prepare({ networkId: 'n1', actions: [updateauth('alice')] })
     expect(record.network.kind).toBe('mainnet')
-    expect(record.typedName).toBe('alice')
     expect(record.blocked).toBeUndefined()
-    await expect(s.approve(record.id, secret, 'bob')).rejects.toThrow(/Type the account name/)
-    expect(sent).toHaveLength(0)
+    await s.approve(record.id, secret)
+    expect(sent).toHaveLength(1)
   })
 
   it('networks:add with the WAX Mainnet chain id and kind testnet is saved as mainnet', async () => {
@@ -294,22 +293,39 @@ describe('the confirmation title is made by the main process', () => {
     expect(r.record.title).toBe('Run eosio.token::transfer')
   })
 
-  it('tx:run takes no title from the editor; action data is limited to 1 MB', () => {
+  it('tx:run takes no title from the editor; action data has no size limit of the app (E64)', () => {
     const big = { ...transfer, data: { ...transfer.data, memo: 'x'.repeat(1024 * 1024) } }
-    expect(() => parseActions([big])).toThrow(/too large/)
+    expect(parseActions([big])).toHaveLength(1)
     expect(parseActions([transfer])).toHaveLength(1)
     expect(Object.keys(parseActions([{ ...transfer, purpose: 'SIMULATION ONLY - nothing is sent' }])[0])).not.toContain('purpose')
   })
 })
 
-describe('typed name', () => {
-  it('is the account field of the decoded guarded action, not the first authorization', async () => {
+describe('which build a deployment sends (E64)', () => {
+  it('a testnet build is never prepared for a mainnet, a mainnet build never for a test network; the record names the build', async () => {
+    network = net('mainnet')
+    let s = new Signer(deps())
+    await expect(s.prepare({ networkId: 'n1', actions: [transfer], kind: 'deploy', build: 'testnet' })).rejects.toThrow(/testnet build/)
+    const ok = await s.prepare({ networkId: 'n1', actions: [transfer], kind: 'deploy', build: 'mainnet' })
+    expect(ok.record.build).toBe('mainnet')
+    s.cancel(ok.record.id)
+    network = net('testnet')
+    s = new Signer(deps())
+    await expect(s.prepare({ networkId: 'n1', actions: [transfer], kind: 'deploy', build: 'mainnet' })).rejects.toThrow(/mainnet build/)
+    const any = await s.prepare({ networkId: 'n1', actions: [transfer], kind: 'deploy', build: 'any' })
+    expect(any.record.build).toBe('any')
+    expect(sent).toHaveLength(0)
+  })
+})
+
+describe('no typed account name (E65)', () => {
+  it('a permission change on a mainnet is sent with one approval; the record asks for nothing typed', async () => {
     network = net('mainnet')
     const s = new Signer(deps())
     const { record, secret } = await s.prepare({ networkId: 'n1', actions: [updateauth('alice', 'bob')] })
-    expect(record.typedName).toBe('alice')
-    await expect(s.approve(record.id, secret, 'bob')).rejects.toThrow(/Type the account name "alice"/)
-    expect(sent).toHaveLength(0)
+    expect(Object.keys(record)).not.toContain('typedName')
+    await s.approve(record.id, secret)
+    expect(sent).toHaveLength(1)
   })
 
   it('guarded actions naming two accounts in one transaction are refused', async () => {
@@ -317,57 +333,30 @@ describe('typed name', () => {
     await expect(s.prepare({ networkId: 'n1', actions: [updateauth('alice'), updateauth('carol', 'alice')] })).rejects.toThrow(/more than one account/)
   })
 
-  it('missing or wrong typed name is refused (mainnet-like); the right one is sent', async () => {
-    network = net('mainnet')
-    for (const typed of [undefined, '', 'alicE', 'alice ']) {
-      const s = new Signer(deps())
-      const { record, secret } = await s.prepare({ networkId: 'n1', actions: [updateauth('alice')] })
-      await expect(s.approve(record.id, secret, typed)).rejects.toThrow(/Type the account name/)
-    }
-    expect(sent).toHaveLength(0)
-    const s = new Signer(deps())
-    const { record, secret } = await s.prepare({ networkId: 'n1', actions: [updateauth('alice')] })
-    await s.approve(record.id, secret, 'alice')
-    expect(sent).toHaveLength(1)
-  })
-
-  it('deleteauth, linkauth and unlinkauth need the typed account name on mainnet-like networks, not on testnet', async () => {
+  it('deleteauth, linkauth, unlinkauth and Clear Contract Code are sent with one approval on every network', async () => {
     const sys = (name: string, data: Record<string, unknown>): typeof transfer => ({ account: 'eosio', name, authorization: auth('alice'), data: data as never })
     const actions = [
       sys('deleteauth', { account: 'alice', permission: 'claim' }),
       sys('linkauth', { account: 'alice', code: 'eosio.token', type: 'transfer', requirement: 'claim' }),
       sys('unlinkauth', { account: 'alice', code: 'eosio.token', type: 'transfer' })
     ]
-    for (const a of actions) {
-      network = net('mainnet')
-      let s = new Signer(deps())
-      let r = await s.prepare({ networkId: 'n1', actions: [a] })
-      expect(r.record.typedName, a.name).toBe('alice')
-      await expect(s.approve(r.record.id, r.secret, 'bob')).rejects.toThrow(/Type the account name/)
-      network = net('testnet')
-      s = new Signer(deps())
-      r = await s.prepare({ networkId: 'n1', actions: [a] })
-      expect(r.record.typedName, a.name).toBeUndefined()
-      s.cancel(r.record.id)
+    let count = 0
+    for (const kind of ['mainnet', 'testnet'] as const) {
+      for (const a of actions) {
+        network = net(kind)
+        const s = new Signer(deps())
+        const r = await s.prepare({ networkId: 'n1', actions: [a] })
+        await s.approve(r.record.id, r.secret)
+        expect(sent).toHaveLength(++count)
+      }
     }
-    expect(sent).toHaveLength(0)
-  })
-
-  it('Clear Contract Code needs the typed name on a test network too; a transfer there does not', async () => {
     network = net('testnet')
-    let s = new Signer(deps())
-    let p = await s.prepare({ networkId: 'n1', actions: [setcode('alice', ''), setabi('alice', '')], kind: 'clearCode' })
-    expect(p.record.typedName).toBe('alice')
+    const s = new Signer(deps())
+    const p = await s.prepare({ networkId: 'n1', actions: [setcode('alice', ''), setabi('alice', '')], kind: 'clearCode' })
     expect(p.record.title).toBe('Clear contract code of alice')
     expect(p.record.artifacts?.clear).toBe(true)
-    await expect(s.approve(p.record.id, p.secret)).rejects.toThrow(/Type the account name/)
-    expect(sent).toHaveLength(0)
-    p = await s.prepare({ networkId: 'n1', actions: [setcode('alice', ''), setabi('alice', '')], kind: 'clearCode' })
-    await s.approve(p.record.id, p.secret, 'alice')
-    expect(sent).toHaveLength(1)
-    s = new Signer(deps())
-    p = await s.prepare({ networkId: 'n1', actions: [transfer] })
-    expect(p.record.typedName).toBeUndefined()
+    await s.approve(p.record.id, p.secret)
+    expect(sent).toHaveLength(count + 1)
   })
 })
 
