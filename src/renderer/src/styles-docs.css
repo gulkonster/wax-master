@@ -29,7 +29,7 @@
   line-height: var(--lh-small);
 }
 
-/* The enlarged picture: its own size over the window, scroll bars when the window is smaller. */
+/* The enlarged picture: its own size over the window, scroll bars when the window is smaller. The smoke and the blur are on ::before because a backdrop filter on the scrolling layer itself would carry the fixed Close button with it. */
 .md-zoom {
   position: fixed;
   top: var(--titlebar);
@@ -40,8 +40,18 @@
   display: flex;
   overflow: auto;
   padding: var(--sp-6);
-  background: var(--smoke);
   cursor: zoom-out;
+}
+.md-zoom::before {
+  content: '';
+  position: fixed;
+  top: var(--titlebar);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1;
+  background: var(--smoke);
+  backdrop-filter: blur(6px);
   animation: fade-in 150ms ease-out;
 }
 .md-zoom-inner {
@@ -52,6 +62,7 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-dialog);
   overflow: hidden;
+  animation: fade-in 150ms ease-out;
 }
 .md-zoom-inner .md-picture-img {
   display: block;
