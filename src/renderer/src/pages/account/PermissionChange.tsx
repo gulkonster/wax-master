@@ -21,6 +21,7 @@ import { errorText, toast } from '../../lib/toast'
 import { CANCELLED_NOT_SENT, formLineClass, outcomeLine, type FormLine } from '../../lib/tx-outcome'
 import { CommandView, NAME, type WalletContext } from './common'
 import { addEntryWeightHint } from './wallet-form'
+import { Busy } from '../../components/Busy'
 
 /** What the dialog starts from: a form to fill, or a change that needs no fields. */
 export type ChangeStart =
@@ -287,7 +288,7 @@ export function PermissionChangeDialog({
           ) : (
             !sent && (
               <button className="btn primary" disabled={!plan || busy || loading || ctx.viewOnly} onClick={() => void send()}>
-                {busy ? 'Waiting for confirmation...' : 'Send to confirmation'}
+                {busy ? <Busy text="Waiting for confirmation..." /> : 'Send to confirmation'}
               </button>
             )
           )}

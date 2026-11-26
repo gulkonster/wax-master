@@ -12,6 +12,7 @@ import { markNewAccount } from '../pages/account/wallet-form'
 import { useVaultKeys } from './AccountDialogs'
 import { NoBackupLine } from './BackupWarning'
 import { LOCAL_CHAIN_NETWORK_ID } from '../../../shared/local-chain'
+import { Busy } from './Busy'
 
 const NAME = /^[a-z1-5][a-z1-5.]{10}[a-z1-5]$/
 
@@ -91,7 +92,7 @@ export function LocalAccountDialog({ onClose }: { onClose: () => void }): React.
             Close
           </button>
           <button className="btn primary" disabled={!ok || busy} onClick={() => void create()}>
-            {busy ? 'Creating...' : 'Create'}
+            {busy ? <Busy text="Creating..." /> : 'Create'}
           </button>
         </>
       }

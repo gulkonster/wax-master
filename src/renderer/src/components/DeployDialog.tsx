@@ -7,7 +7,9 @@ import { InspectorBody } from './Inspector'
 import { ReadMore } from './HelpButton'
 import { errorText, toast } from '../lib/toast'
 import { networkStore } from '../lib/networks'
-import { useStore } from '../lib/stores'
+import { outputStore, useStore } from '../lib/stores'
+import { cleanLine } from '../../../shared/output-lines'
+import { WorkLine } from './Busy'
 import { ensureBuild } from '../lib/build'
 import { withVault } from '../lib/vault'
 import { emit } from '../lib/bus'
@@ -23,6 +25,15 @@ import { lastDeployPick, preselectAccount, readPlanAfterRamPurchase, rememberDep
 
 function short(h: string | null): string {
   return h ? `${h.slice(0, 16)}…${h.slice(-8)}` : '(none)'
+}
+
+/** The step a long wait is in (E56). */
+type Step = null | 'ensure' | 'build' | 'plan' | 'ram' | 'simulate' | 'deploy'
+
+/** The last lines of the build output, as the Output panel shows them. */
+function lastLines(text: string, n: number): string {
+  const lines = text.split('\n').map(cleanLine).filter((l) => l.trim() !== '')
+  return lines.slice(-n).join('\n')
 }
 
 function clock(t: number | null): string {
@@ -73,7 +84,23 @@ export function DeployDialog({
     setPlan(null)
   }
   const [plan, setPlan] = useState<DeployPlan | null>(null)
-  const [busy, setBusy] = useState<null | 'ensure' | 'rebuild' | 'plan' | 'simulate' | 'deploy'>(null)
+  const [busy, setBusyState] = useState<Step>(null)
+  const [busySince, setBusySince] = useState(0)
+  const busyRef = useRef<Step>(null)
+  const setBusy = (b: Step): void => {
+    busyRef.current = b
+    setBusyState(b)
+    if (b) setBusySince(Date.now())
+  }
+  // The check builds only when the project changed: the main process says when a build starts.
+  useEffect(
+    () =>
+      window.wax.on('output', (e) => {
+        if (e.start && busyRef.current === 'ensure') setBusy('build')
+      }),
+    []
+  )
+  const output = useStore(outputStore)
   const [buildLine, setBuildLine] = useState('')
   const [buyOpen, setBuyOpen] = useState(false)
   const [ramNote, setRamNote] = useState('')
@@ -139,7 +166,7 @@ export function DeployDialog({
     setRamNote('')
     setSendNote('')
     try {
-      setBusy(always ? 'rebuild' : 'ensure')
+      setBusy(always ? 'build' : 'ensure')
       const r = await ensureBuild(showPanel, always)
       if (!r) {
         setError('The build could not start or another build is running; see Output.')
@@ -192,9 +219,9 @@ export function DeployDialog({
     if (!net || !plan) return
     stopRamReads()
     const request = { networkId: net.id, account, permission, target }
-    setBusy('plan')
+    setBusy('ram')
     setError('')
-    setRamNote('RAM bought; reading the account again...')
+    setRamNote('')
     ramReads.current = readPlanAfterRamPurchase(
       plan.ramAvailable,
       () => window.wax.deploy.plan(request),
@@ -276,6 +303,24 @@ export function DeployDialog({
     }
   }
 
+  const stepText = (b: NonNullable<Step>): string => {
+    const where = `${account} on ${net?.name ?? 'the network'}`
+    switch (b) {
+      case 'ensure':
+        return 'Step 1 of 2: checking whether the project changed since its last build...'
+      case 'build':
+        return 'Step 1 of 2: building the project. A big contract can take several minutes...'
+      case 'plan':
+        return `Step 2 of 2: comparing the build with ${where}...`
+      case 'ram':
+        return `RAM bought; reading ${where} again until the purchase shows...`
+      case 'simulate':
+        return `Simulating the deployment to ${where}...`
+      case 'deploy':
+        return 'Waiting for your confirmation, then for the network...'
+    }
+  }
+
   const nothing = plan && !plan.sendWasm && !plan.sendAbi
   const ramShort = plan && plan.ramAvailable >= 0 && plan.ramNeeded > plan.ramAvailable
 
@@ -290,7 +335,7 @@ export function DeployDialog({
         <>
           <div className="left">
             <button className="btn" disabled={!valid || !!busy || !net} title="Compile the project again, then compare with the account" onClick={() => check(true)}>
-              {busy === 'rebuild' ? 'Building...' : busy === 'ensure' || busy === 'plan' ? 'Checking...' : 'Rebuild'}
+              {busy === 'build' ? 'Building...' : busy === 'ensure' || busy === 'plan' || busy === 'ram' ? 'Checking...' : 'Rebuild'}
             </button>
             <button className="btn" disabled={!plan || !!nothing || !!busy} onClick={() => void simulate()}>
               {busy === 'simulate' ? 'Simulating...' : 'Simulate Deploy'}
@@ -341,6 +386,15 @@ export function DeployDialog({
         Deploys {project.config.deploy.target === 'both' ? 'WASM and ABI' : project.config.deploy.target === 'wasm' ? 'WASM only' : 'ABI only'} (Project Settings).{' '}
         {buildLine ? `${buildLine}.` : 'The project is built first if it changed.'}
       </div>
+      {busy && <WorkLine text={stepText(busy)} since={busySince} />}
+      {busy === 'build' && (
+        <>
+          <pre className="work-log" aria-label="Build output">
+            {lastLines(output, 10) || 'Starting the compiler...'}
+          </pre>
+          <div className="hint">The whole build output is in the Output panel; it stays there after this dialog closes.</div>
+        </>
+      )}
       {plan && (
         <div className="deploy-plan">
           {plan.wasmSha256 || plan.wasmFile !== null ? (

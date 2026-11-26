@@ -10,6 +10,7 @@ import { errorText, toast } from '../../lib/toast'
 import { HelpButton } from '../../components/HelpButton'
 import { IconClose, IconRefresh } from '../../components/Icons'
 import { NAME, ViewOnlyLine, type WalletContext } from './common'
+import { Busy } from '../../components/Busy'
 
 const SYMBOL = /^[A-Z]{1,7}$/
 
@@ -137,7 +138,7 @@ export function TokensSection({
           </div>
           <div className="buy-ram-actions">
             <button className="btn primary" disabled={busy} onClick={() => void add()}>
-              {busy ? 'Checking...' : 'Add'}
+              {busy ? <Busy text="Checking..." /> : 'Add'}
             </button>
             <button className="btn" disabled={busy} onClick={() => (setAdding(false), setAddError(''))}>
               Cancel

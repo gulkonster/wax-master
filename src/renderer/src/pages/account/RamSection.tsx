@@ -8,6 +8,7 @@ import { BuyRamPanel, useRamMarket } from '../../components/BuyRamPanel'
 import { PermissionPicker } from '../../components/AccountPicker'
 import { HelpButton } from '../../components/HelpButton'
 import { CommandView, fmtBytes, FormSwitch, Gauge, NAME, pct, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
+import { Busy } from '../../components/Busy'
 
 export function RamSection({ ctx }: { ctx: WalletContext }): React.JSX.Element {
   const { view } = ctx
@@ -124,7 +125,7 @@ function SellRam({ ctx, free }: { ctx: WalletContext; free: number }): React.JSX
       </div>
       <div className="buy-ram-actions">
         <button className="btn primary" disabled={busy || ctx.viewOnly || !action} onClick={() => void sell()}>
-          {busy ? 'Waiting for confirmation...' : 'Sell RAM'}
+          {busy ? <Busy text="Waiting for confirmation..." /> : 'Sell RAM'}
         </button>
       </div>
       <ViewOnlyLine ctx={ctx} />

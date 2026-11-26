@@ -152,8 +152,8 @@ function describeEntries(entries: Entry[]): string {
     .join('\n')
 }
 
-function describeRaw(client: EngineClient): string {
-  return [CPP, HPP]
+function describeRaw(client: EngineClient, files: string[] = [CPP, HPP]): string {
+  return files
     .map((rel) => {
       const list = client.published.get(rel)?.diagnostics ?? []
       const rows = list
@@ -220,6 +220,65 @@ describe.skipIf(!AVAILABLE)('editor engine: baseline', () => {
       }
     }, 240000)
   }
+})
+
+// E57: a contract written with the eosio macros (ACTION, TABLE, CONTRACT, EOSIO_DISPATCH)
+// shows no "Unknown attribute" warning; the compiler gives none for it either.
+const MACRO_HPP = [
+  '#include <eosio/eosio.hpp>',
+  'using namespace eosio;',
+  '',
+  'CONTRACT macrotest : public contract {',
+  'public:',
+  '  using contract::contract;',
+  '  ACTION setlistener(name listener);',
+  '  ACTION tick();',
+  '  TABLE state {',
+  '    name listener;',
+  '    uint64_t primary_key() const { return listener.value; }',
+  '  };',
+  '  typedef multi_index<"state"_n, state> states;',
+  '};',
+  ''
+].join('\n')
+const MACRO_CPP = [
+  '#include <macrotest.hpp>',
+  '',
+  'ACTION macrotest::setlistener(name listener) {',
+  '  require_auth(get_self());',
+  '  check(is_account(listener), "no such account");',
+  '}',
+  '',
+  'ACTION macrotest::tick() {',
+  '  require_auth(get_self());',
+  '}',
+  '',
+  'EOSIO_DISPATCH(macrotest, (setlistener)(tick))',
+  ''
+].join('\n')
+
+describe.skipIf(!AVAILABLE)('editor engine: the eosio macros', () => {
+  it('a contract written with ACTION, TABLE, CONTRACT and EOSIO_DISPATCH shows no error and no warning', async () => {
+    const project = makeProject('hello', 'macrotest', {}, (files) => {
+      for (const k of Object.keys(files)) if (/\.(c|h)pp$/.test(k)) delete files[k]
+      files['src/macrotest.cpp'] = MACRO_CPP
+      files['include/macrotest.hpp'] = MACRO_HPP
+    })
+    const client = new EngineClient(project, DISTRO)
+    try {
+      await client.start()
+      await client.open(project.cpp, project.files[project.cpp])
+      await client.open(project.hpp, project.files[project.hpp])
+      await client.settle(1500)
+      const entries = [project.cpp, project.hpp].flatMap((rel) => shown(client, rel))
+      const bad = entries.filter((e) => e.severity !== 'hint')
+      console.log(`eosio macros: ${bad.length === 0 ? 'ok' : 'FAIL'}\n${describeRaw(client, [project.cpp, project.hpp])}`)
+      expect(bad, `${describeEntries(bad)}\n${describeRaw(client, [project.cpp, project.hpp])}`).toEqual([])
+    } finally {
+      await client.stop()
+      project.dispose()
+    }
+  }, 240000)
 })
 
 describe.skipIf(!AVAILABLE)('editor engine: the 52 slips on the Token template', () => {

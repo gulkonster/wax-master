@@ -5,6 +5,7 @@ import './confirm.css'
 import { checkPassword } from '../../../shared/password'
 import { confirmPageKind, notSentText, type SendFailure } from './not-sent'
 import { approveLabel } from './approve-label'
+import { Busy } from '../components/Busy'
 
 interface Blob {
   field: 'code' | 'abi'
@@ -250,7 +251,11 @@ function Confirm(): React.JSX.Element {
               Cancel
             </button>
             <button className={`btn ${mainnet ? 'danger' : 'success'}`} disabled={!canApprove} onClick={() => void approve()}>
-              {approveLabel({ sending: state === 'sending', armed, focused, waitMs, expired, blocked: !!a.blocked })}
+              {state === 'sending' ? (
+                <Busy text={approveLabel({ sending: true, armed, focused, waitMs, expired, blocked: !!a.blocked })} />
+              ) : (
+                approveLabel({ sending: false, armed, focused, waitMs, expired, blocked: !!a.blocked })
+              )}
             </button>
           </>
         )}
@@ -443,7 +448,7 @@ function Backup(): React.JSX.Element {
         </button>
         {!saved && (
           <button className="btn danger" disabled={!pw || busy} onClick={() => void save()}>
-            {busy ? 'Saving...' : 'Save as text file...'}
+            {busy ? <Busy text="Saving..." /> : 'Save as text file...'}
           </button>
         )}
       </Foot>
@@ -736,7 +741,7 @@ function Recover(): React.JSX.Element {
         </button>
         {path === 'code' ? (
           <button className="btn primary" disabled={!canRecover} onClick={() => void recover()}>
-            {busy ? 'Opening...' : 'Set new password'}
+            {busy ? <Busy text="Opening..." /> : 'Set new password'}
           </button>
         ) : (
           <button className="btn danger" disabled={typed !== 'RESET' || busy} onClick={() => void reset()}>

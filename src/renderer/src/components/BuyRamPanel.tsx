@@ -16,6 +16,7 @@ import { withVault } from '../lib/vault'
 import { errorText, toast } from '../lib/toast'
 import { ACCOUNT_NAME, AccountPicker, PermissionPicker, usePickList } from './AccountPicker'
 import { FaucetButton, isWaxTestnet } from './FaucetButton'
+import { Busy } from './Busy'
 
 /** Accounts whose balance is read to choose a payer. */
 const MAX_CANDIDATES = 10
@@ -341,7 +342,7 @@ export function BuyRamPanel({
       <div className="buy-ram-actions">
         {faucetFirst && faucet}
         <button className={`btn${faucetFirst ? '' : ' primary'}`} disabled={busy || !market || !ACCOUNT_NAME.test(payer) || !!blockedReason} onClick={() => void buy()}>
-          {busy ? 'Waiting for confirmation...' : 'Buy RAM'}
+          {busy ? <Busy text="Waiting for confirmation..." /> : 'Buy RAM'}
         </button>
         {!faucetFirst && faucet}
         {onClose && (

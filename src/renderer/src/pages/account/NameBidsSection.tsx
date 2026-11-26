@@ -25,6 +25,7 @@ import { PermissionPicker } from '../../components/AccountPicker'
 import { HelpButton } from '../../components/HelpButton'
 import { CommandView, fmtTime, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
 import { amountNote, CLEARED_FIELD, type AmountField } from './wallet-form'
+import { Busy } from '../../components/Busy'
 
 /** Why Bid is off in a state that allows no bid ('' when a bid is possible). */
 function noBidReason(s: NameBidState, name: string, account: string): string {
@@ -210,7 +211,7 @@ export function NameBidsSection({ ctx, onCreate }: { ctx: WalletContext; onCreat
         </div>
         <div className="buy-ram-actions">
           <button className="btn" disabled={reading} onClick={readAgain}>
-            {reading ? 'Reading...' : 'Read again'}
+            {reading ? <Busy text="Reading..." /> : 'Read again'}
           </button>
         </div>
         {lookupError && <div className="error-text">The name could not be read: {lookupError}</div>}
@@ -270,7 +271,7 @@ export function NameBidsSection({ ctx, onCreate }: { ctx: WalletContext; onCreat
                   title={ctx.viewOnly ? ctx.reason : 'Sends eosio::bidrefund'}
                   onClick={() => void claim()}
                 >
-                  {refund.busy ? 'Waiting for confirmation...' : 'Claim refund'}
+                  {refund.busy ? <Busy text="Waiting for confirmation..." /> : 'Claim refund'}
                 </button>
               </span>
             </div>
@@ -327,7 +328,7 @@ export function NameBidsSection({ ctx, onCreate }: { ctx: WalletContext; onCreat
               title={ctx.viewOnly ? ctx.reason : !canBid ? reason : undefined}
               onClick={() => void submit()}
             >
-              {bid.busy ? 'Waiting for confirmation...' : 'Bid'}
+              {bid.busy ? <Busy text="Waiting for confirmation..." /> : 'Bid'}
             </button>
           </div>
           <ViewOnlyLine ctx={ctx} />

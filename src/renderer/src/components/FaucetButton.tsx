@@ -9,6 +9,7 @@ import { WAX_TESTNET_CHAIN_ID } from '../../../shared/ram-market'
 import { networkStore } from '../lib/networks'
 import { useStore } from '../lib/stores'
 import { errorText } from '../lib/toast'
+import { Busy } from './Busy'
 
 export function isWaxTestnet(net: NetworkInfo | null | undefined): boolean {
   return net?.chainId === WAX_TESTNET_CHAIN_ID
@@ -49,7 +50,7 @@ export function FaucetButton({
   return (
     <span className="faucet-btn">
       <button className={`btn${primary ? ' primary' : ''}`} disabled={busy || !account} onClick={() => void request()}>
-        {busy ? 'Asking the faucet...' : 'Request testnet tokens'}
+        {busy ? <Busy text="Asking the faucet..." /> : 'Request testnet tokens'}
       </button>
       {message && <span className="faucet-msg">{message}</span>}
     </span>

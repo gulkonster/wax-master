@@ -17,6 +17,7 @@ import { ReadMore } from './HelpButton'
 import { lastOpened } from './ChainButtons'
 import { networkStore } from '../lib/networks'
 import { defaultContractSigner, lastContractSigner, rememberContractSigner } from '../lib/contract-signer'
+import { Busy } from './Busy'
 
 // ---------------------------------------------------------------- shared dropdown
 
@@ -536,7 +537,13 @@ export function ActionForm({ account, view, network }: { account: string; view: 
           }
         </PickMenu>
         <button className="btn primary" disabled={!action || !!running} title="Run (sign and send after confirmation)" onClick={() => void run()}>
-          <IconPlay /> Run
+          {running === 'run' ? (
+            <Busy text="Running..." />
+          ) : (
+            <>
+              <IconPlay /> Run
+            </>
+          )}
         </button>
         <button
           className="btn"
@@ -549,7 +556,7 @@ export function ActionForm({ account, view, network }: { account: string; view: 
                 : 'Simulate without sending (unsigned)'
           }
           onClick={() => void sim()}>
-          {running === 'simulate' ? 'Simulating...' : 'Simulate'}
+          {running === 'simulate' ? <Busy text="Simulating..." /> : 'Simulate'}
         </button>
         <div className="spacer" />
         <SavedMenus

@@ -9,6 +9,7 @@ import { WAX_TESTNET_CHAIN_ID } from '../../../shared/ram-market'
 import { useStore } from '../lib/stores'
 import { emit } from '../lib/bus'
 import { LOCAL_CHAIN_NETWORK_ID } from '../../../shared/local-chain'
+import { Busy } from './Busy'
 
 function isLocalUrl(u: string): boolean {
   try {
@@ -170,7 +171,7 @@ export function AddNetworkDialog({ onClose }: { onClose: () => void }): React.JS
               Cancel
             </button>
             <button className="btn primary" disabled={busy || !url.trim()} onClick={() => void connect()}>
-              {busy ? 'Connecting...' : 'Connect'}
+              {busy ? <Busy text="Connecting..." /> : 'Connect'}
             </button>
           </>
         )

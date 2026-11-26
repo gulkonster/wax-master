@@ -256,6 +256,26 @@ describe('unknown attributes and unused includes', () => {
     expect(keepDiagnostic(attr('acton'), uri, 'x32', { cdtVersion: '4.0.0', underlined: 'eosio::acton' })).toBe(false)
     expect(keepDiagnostic(attr('action'), uri, 'x32', { cdtVersion: '', underlined: 'eosio::action' })).toBe(false)
   })
+  it('drops known eosio attributes written through the eosio macros (E57)', () => {
+    for (const [macro, name] of [
+      ['ACTION', 'action'],
+      ['TABLE', 'table'],
+      ['CONTRACT', 'contract'],
+      ['EOSIO_DISPATCH', 'wasm_entry']
+    ]) {
+      for (const v of [V, '4.0.0']) {
+        expect(keepDiagnostic(attr(name), uri, 'x32', { cdtVersion: v, underlined: macro }), macro).toBe(false)
+        expect(keepDiagnostic(attr(`eosio::${name}`), uri, 'x32', { cdtVersion: v, underlined: macro }), macro).toBe(false)
+      }
+    }
+  })
+  it('still shows an unknown attribute that a macro carries, and a bare known name written by hand', () => {
+    const d = attr('acton')
+    const ctx = { cdtVersion: V, underlined: 'MY_ACTION' }
+    expect(keepDiagnostic(d, uri, 'x32', ctx)).toBe(true)
+    expect(rewriteDiagnostic(d, ctx)).toBe(d)
+    expect(keepDiagnostic(attr('action'), uri, 'x32', { cdtVersion: V, underlined: 'action' })).toBe(true)
+  })
   it('leaves an attribute that is not eosio alone', () => {
     const ctx = { cdtVersion: V, underlined: 'gnu::foo' }
     const d = attr('gnu::foo')

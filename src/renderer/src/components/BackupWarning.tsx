@@ -9,6 +9,7 @@ import { networkStore, isMainnetLike } from '../lib/networks'
 import { vaultStore } from '../lib/vault'
 import { useStore } from '../lib/stores'
 import type { VaultKeyEntry } from '../../../shared/api'
+import { Busy } from './Busy'
 
 /** Vault keys among the given public keys whose only copy is the vault. */
 async function keysWithoutBackup(publicKeys: string[]): Promise<VaultKeyEntry[]> {
@@ -100,7 +101,7 @@ export function useNoBackupGate(): { gate: (publicKeys: string[]) => Promise<boo
             Continue without backup
           </button>
           <button className="btn primary" disabled={busy} onClick={() => void backUpNow()}>
-            {busy ? 'Waiting for the backup window...' : 'Back up now'}
+            {busy ? <Busy text="Waiting for the backup window..." /> : 'Back up now'}
           </button>
         </>
       }

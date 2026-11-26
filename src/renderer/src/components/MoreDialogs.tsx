@@ -11,6 +11,7 @@ import { withVault } from '../lib/vault'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
 import { CANCELLED_NOT_SENT, formLineClass, outcomeLine, type FormLine } from '../lib/tx-outcome'
 import { AccountPicker, PermissionPicker } from './AccountPicker'
+import { Busy } from './Busy'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
@@ -62,7 +63,7 @@ export function ClearCodeDialog({ onClose, initialAccount = '' }: { onClose: () 
             Close
           </button>
           <button className="btn danger" disabled={busy || cleared || !NAME.test(account)} onClick={() => void go()}>
-            {busy ? 'Waiting for confirmation...' : 'Clear code'}
+            {busy ? <Busy text="Waiting for confirmation..." /> : 'Clear code'}
           </button>
         </>
       }

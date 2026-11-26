@@ -149,6 +149,8 @@ export async function runBuild(sender: WebContents): Promise<BuildResult> {
   const emit = (text: string): void => {
     if (!sender.isDestroyed()) sender.send('output', { source: 'build', text })
   }
+  // The window clears Output, shows it and says that a build runs (Deploy's check builds too).
+  if (!sender.isDestroyed()) sender.send('output', { source: 'build', text: '', start: true })
   try {
     const tc = toolchainForProject(p.config.cdt)
     if (tc.fallback) emit(`The toolchain "${p.config.cdt}" is not installed; building with the default toolchain.\n`)

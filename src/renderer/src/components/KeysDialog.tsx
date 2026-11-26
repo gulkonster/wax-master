@@ -16,6 +16,7 @@ import { checkPassword } from '../../../shared/password'
 import type { VaultKeyEntry } from '../../../shared/api'
 import { useStore } from '../lib/stores'
 import { IconCheck, IconChevronDown, IconCopy, IconLock, IconMore } from './Icons'
+import { Busy } from './Busy'
 
 type KeyEntry = VaultKeyEntry
 
@@ -437,7 +438,7 @@ function CreateVault({ onClose }: { onClose: () => void }): React.JSX.Element {
             Cancel
           </button>
           <button className="btn primary" disabled={busy || !checkPassword(a).allowed || a !== b} onClick={() => void create()}>
-            {busy ? 'Creating...' : 'Create vault'}
+            {busy ? <Busy text="Creating..." /> : 'Create vault'}
           </button>
         </>
       }
@@ -496,7 +497,7 @@ export function BackupStep({ entry, testKeys, onDone }: { entry: KeyEntry; testK
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
         <button className="btn" disabled={busy} onClick={() => void saveFile()}>
-          {busy ? 'Waiting for the backup window...' : 'Save a backup file...'}
+          {busy ? <Busy text="Waiting for the backup window..." /> : 'Save a backup file...'}
         </button>
         <button className="btn" disabled={busy} onClick={() => void show()}>
           Show the key so I can write it down

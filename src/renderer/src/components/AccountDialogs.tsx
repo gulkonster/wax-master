@@ -14,6 +14,7 @@ import { AccountPicker, PermissionPicker, refreshPickLists, usePickList } from '
 import { markNewAccount, scheduleReadsAfterSend } from '../pages/account/wallet-form'
 import { NoBackupLine, useNoBackupGate } from './BackupWarning'
 import { stakeProblem, stakeQuantity } from '../../../shared/wallet'
+import { Busy } from './Busy'
 
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
@@ -248,7 +249,7 @@ export function CreateAccountDialog({ onClose }: { onClose: () => void }): React
             Close
           </button>
           <button className="btn primary" disabled={!ok || busy} onClick={() => void create()}>
-            {busy ? 'Waiting for confirmation...' : 'Create'}
+            {busy ? <Busy text="Waiting for confirmation..." /> : 'Create'}
           </button>
         </>
       }
@@ -341,7 +342,7 @@ export function ChangeKeyDialog({
             Close
           </button>
           <button className="btn danger" disabled={!newKey || !oldKey || busy || changed} onClick={() => void change()}>
-            {busy ? 'Waiting for confirmation...' : 'Change key'}
+            {busy ? <Busy text="Waiting for confirmation..." /> : 'Change key'}
           </button>
         </>
       }

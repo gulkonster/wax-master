@@ -12,6 +12,7 @@ import { AccountPicker, PermissionPicker } from '../../components/AccountPicker'
 import { HelpButton } from '../../components/HelpButton'
 import { CommandView, fmtBytes, fmtTime, fmtUs, FormSwitch, Gauge, NAME, pct, recipientProblem, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
 import { amountNote, CLEARED_FIELD, refundBlocked, refundTimeText, type AmountField } from './wallet-form'
+import { Busy } from '../../components/Busy'
 
 interface Delegation {
   to: string
@@ -174,7 +175,7 @@ export function Refund({ ctx }: { ctx: WalletContext }): React.JSX.Element | nul
           title={blocked ? 'The refund is not due yet' : undefined}
           onClick={() => action && void send([action], 'Refund claimed.')}
         >
-          {busy ? 'Waiting for confirmation...' : 'Claim refund'}
+          {busy ? <Busy text="Waiting for confirmation..." /> : 'Claim refund'}
         </button>
       </div>
       {blocked && !ctx.viewOnly && <div className="acct-note">Claim refund is possible once the refund time has passed.</div>}
@@ -264,7 +265,7 @@ function Stake({ ctx, symbol, precision }: { ctx: WalletContext; symbol: string;
       {tooMuch && <div className="acct-note bad">More than the available balance of {from}.</div>}
       <div className="buy-ram-actions">
         <button className="btn primary" disabled={busy || ctx.viewOnly || !action || tooMuch} onClick={() => void submit()}>
-          {busy ? 'Waiting for confirmation...' : 'Stake'}
+          {busy ? <Busy text="Waiting for confirmation..." /> : 'Stake'}
         </button>
       </div>
       <ViewOnlyLine ctx={ctx} />
@@ -399,7 +400,7 @@ function Unstake({ ctx, symbol, precision, fill }: { ctx: WalletContext; symbol:
       {view.refundRequested && <div className="acct-note warn">A new unstake starts the waiting time again for the whole refund.</div>}
       <div className="buy-ram-actions">
         <button className="btn primary" disabled={busy || ctx.viewOnly || !action} onClick={() => void submit()}>
-          {busy ? 'Waiting for confirmation...' : 'Unstake'}
+          {busy ? <Busy text="Waiting for confirmation..." /> : 'Unstake'}
         </button>
       </div>
       <ViewOnlyLine ctx={ctx} />

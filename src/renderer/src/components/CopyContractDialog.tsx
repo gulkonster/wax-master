@@ -13,6 +13,7 @@ import { emit } from '../lib/bus'
 import { withVault } from '../lib/vault'
 import { isUnlockCancelled } from '../../../shared/vault-locked'
 import { LOCAL_CHAIN_NETWORK_ID } from '../../../shared/local-chain'
+import { Busy } from './Busy'
 
 const NAME = /^[a-z1-5.]{1,12}$/
 const api = (): typeof window.wax.localChain => window.wax.localChain
@@ -112,11 +113,11 @@ export function CopyContractDialog({ onClose }: { onClose: () => void }): React.
           </button>
           {same !== null ? null : read ? (
             <button className="btn primary" disabled={!ready || busy} onClick={() => void doCopy()}>
-              {busy ? 'Copying...' : 'Copy'}
+              {busy ? <Busy text="Copying..." /> : 'Copy'}
             </button>
           ) : (
             <button className="btn primary" disabled={!source || !accountOk || !targetOk || busy} onClick={() => void doRead()}>
-              {busy ? 'Reading...' : 'Read'}
+              {busy ? <Busy text="Reading..." /> : 'Read'}
             </button>
           )}
         </>

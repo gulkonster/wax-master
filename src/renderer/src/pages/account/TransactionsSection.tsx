@@ -12,6 +12,7 @@ import { errorText } from '../../lib/toast'
 import { HelpButton } from '../../components/HelpButton'
 import { IconRefresh } from '../../components/Icons'
 import { fmtTime } from './common'
+import { Busy } from '../../components/Busy'
 
 /** `refresh` grows with the last read after a sent transaction: the list is read again then. */
 export function TransactionsSection({ name, refresh = 0 }: { name: string; refresh?: number }): React.JSX.Element {
@@ -165,7 +166,7 @@ export function TransactionsSection({ name, refresh = 0 }: { name: string; refre
             {pages > 0 ? ` of ${pages}` : ''}
           </span>
           <button className="btn subtle" disabled={loading || !more} onClick={() => void loadPage(page + 1)}>
-            {loading ? 'Loading...' : 'Older'}
+            {loading ? <Busy text="Loading..." /> : 'Older'}
           </button>
         </div>
       )}

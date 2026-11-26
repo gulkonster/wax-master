@@ -14,6 +14,7 @@ import { emit } from '../lib/bus'
 import { markNewAccount } from '../pages/account/wallet-form'
 import { BackupStep } from './KeysDialog'
 import type { VaultKeyEntry } from '../../../shared/api'
+import { Busy } from './Busy'
 
 export function TestnetAccountDialog({ onClose }: { onClose: () => void }): React.JSX.Element {
   const nets = useStore(networkStore)
@@ -117,7 +118,7 @@ export function TestnetAccountDialog({ onClose }: { onClose: () => void }): Reac
               Close
             </button>
             <button className="btn primary" disabled={busy || !onTestnet} onClick={() => void create()}>
-              {busy ? 'Asking the faucet...' : 'Create account'}
+              {busy ? <Busy text="Asking the faucet..." /> : 'Create account'}
             </button>
           </>
         )

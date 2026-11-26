@@ -4,6 +4,7 @@
 import { HelpButton } from '../../components/HelpButton'
 import { useCreateAccountForm } from '../../components/AccountDialogs'
 import { type WalletContext } from './common'
+import { Busy } from '../../components/Busy'
 
 export function CreateAccountSection({ ctx, initialName = '' }: { ctx: WalletContext; initialName?: string }): React.JSX.Element {
   const { body, ok, busy, create, signProblem } = useCreateAccountForm(ctx.view.name, initialName)
@@ -23,7 +24,7 @@ export function CreateAccountSection({ ctx, initialName = '' }: { ctx: WalletCon
         {body}
         <div>
           <button className="btn primary" disabled={!ok || busy || !!signProblem} title={signProblem || undefined} onClick={() => void create()}>
-            {busy ? 'Waiting for confirmation...' : 'Create'}
+            {busy ? <Busy text="Waiting for confirmation..." /> : 'Create'}
           </button>
         </div>
         {signProblem && <div className="acct-note">{signProblem}</div>}

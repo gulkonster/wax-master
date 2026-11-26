@@ -62,6 +62,24 @@ function eosioAttributeName(underlined: string): string | null {
   return m ? m[1] : null
 }
 
+/**
+ * The attribute name in the engine's words ("Unknown attribute 'action' ignored"), without
+ * a leading `eosio::`; null when the words do not name one.
+ */
+function messageAttributeName(message: string): string | null {
+  const m = /unknown attribute '(?:eosio::)?(\w+)'/i.exec(message)
+  return m ? m[1] : null
+}
+
+/**
+ * True when the underlined text is a macro name (one identifier, not the attribute itself),
+ * as with `ACTION`, `TABLE`, `CONTRACT` or `EOSIO_DISPATCH`: the attribute is in the macro.
+ */
+function isMacroName(underlined: string, attribute: string): boolean {
+  const t = underlined.trim()
+  return /^[A-Za-z_]\w*$/.test(t) && t !== attribute
+}
+
 function isUnknownAttribute(d: LspDiagnostic): boolean {
   return d.code === 'unknown-attributes' || /^unknown attribute '[^']*' ignored/i.test(d.message)
 }
@@ -122,6 +140,10 @@ export function keepDiagnostic(d: LspDiagnostic, docUri: string, setup: FlagSetu
       // Known to the compiler: no warning. Unknown: shown only where the attribute list is known.
       if (KNOWN_EOSIO_ATTRIBUTES.includes(name)) return false
       if (ctx.cdtVersion !== ATTRIBUTE_CDT_VERSION) return false
+    } else {
+      // Written through a macro: the underline is on the macro name, the attribute is in the words.
+      const inMessage = messageAttributeName(d.message)
+      if (inMessage !== null && KNOWN_EOSIO_ATTRIBUTES.includes(inMessage) && isMacroName(ctx.underlined, inMessage)) return false
     }
   }
   return true

@@ -14,6 +14,7 @@ import { AccountPicker, PermissionPicker } from '../../components/AccountPicker'
 import { HelpButton } from '../../components/HelpButton'
 import { CommandView, fmtUs, NAME, recipientProblem, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
 import { amountNote, CLEARED_FIELD, type AmountField } from './wallet-form'
+import { Busy } from '../../components/Busy'
 
 function units(f: AmountField, precision: number): bigint | null {
   return f.text.trim() === '' ? 0n : amountUnits(f.text, precision)
@@ -221,7 +222,7 @@ export function PowerupSection({ ctx }: { ctx: WalletContext }): React.JSX.Eleme
             {problem && <div className="acct-note bad">{problem}</div>}
             <div className="buy-ram-actions">
               <button className="btn primary" disabled={busy || ctx.viewOnly || !action || tooMuch} onClick={() => void submit()}>
-                {busy ? 'Waiting for confirmation...' : 'PowerUp'}
+                {busy ? <Busy text="Waiting for confirmation..." /> : 'PowerUp'}
               </button>
             </div>
             <ViewOnlyLine ctx={ctx} />

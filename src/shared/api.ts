@@ -264,6 +264,8 @@ export interface SetupStatus {
 export interface OutputEvent {
   source: 'build' | 'setup' | 'deploy' | 'transaction'
   text: string
+  /** Sent once with empty text when a build starts (also inside Deploy's check), before its first line. */
+  start?: boolean
 }
 
 export interface TxAction {

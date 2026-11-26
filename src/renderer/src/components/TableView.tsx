@@ -8,6 +8,7 @@ import { IconCheck, IconChevronDown, IconTable } from './Icons'
 import { PickMenu, SavedMenus } from './ActionForm'
 import { rememberTypedScope, scopeForTable, type TypedScopes } from '../lib/table-scope'
 import { createLatestGate } from '../lib/latest-query'
+import { Busy } from './Busy'
 
 const KEY_TYPES = ['i64', 'i128', 'i256', 'float64', 'float128', 'sha256', 'ripemd160', 'name']
 const MAX_ROWS = 10_000
@@ -312,7 +313,7 @@ export function TableView({ account, view }: { account: string; view: ContractAb
             </table>
             {more && rows.length < MAX_ROWS && (
               <button className="btn load-more" disabled={loading} onClick={() => void run(table, q, true)}>
-                {loading ? 'Loading...' : 'Load More'}
+                {loading ? <Busy text="Loading..." /> : 'Load More'}
               </button>
             )}
           </>

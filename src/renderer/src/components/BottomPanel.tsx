@@ -22,7 +22,20 @@ export function BottomPanel({ terminal }: { terminal?: React.ReactNode }): React
   const problems = useStore(mergedProblemsStore)
   const bodyRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => window.wax.on('output', (e) => appendOutput(e.text)), [])
+  // A build that starts anywhere (Build, Rebuild, or Deploy's check) shows its output from the first line.
+  const showOutput = useRef(actions.showPanel)
+  showOutput.current = actions.showPanel
+  useEffect(
+    () =>
+      window.wax.on('output', (e) => {
+        if (e.start) {
+          clearOutput()
+          showOutput.current('output')
+        }
+        appendOutput(e.text)
+      }),
+    []
+  )
 
   const projectPath = state.project?.path ?? null
   useEffect(() => {

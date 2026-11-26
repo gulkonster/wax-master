@@ -11,6 +11,7 @@ import { errorText } from '../../lib/toast'
 import { AccountPicker, PermissionPicker } from '../../components/AccountPicker'
 import { HelpButton } from '../../components/HelpButton'
 import { CommandView, FormSwitch, recipientProblem, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
+import { Busy } from '../../components/Busy'
 
 /** The system contract refuses a vote from an account without a row in the voters table (it has never staked). */
 const NO_STAKE = 'Stake CPU or NET first: the chain accepts a vote only from an account that has staked.'
@@ -236,7 +237,7 @@ function VoteProducers({ ctx, data }: { ctx: WalletContext; data: VotingView }):
           disabled={busy || ctx.viewOnly || !action}
           onClick={() => action && void send([action], removing ? 'Vote removed.' : `Voted for ${chosen.size} producer${chosen.size === 1 ? '' : 's'}.`)}
         >
-          {busy ? 'Waiting for confirmation...' : removing ? 'Remove the vote' : 'Vote'}
+          {busy ? <Busy text="Waiting for confirmation..." /> : removing ? 'Remove the vote' : 'Vote'}
         </button>
       </div>
       <ViewOnlyLine ctx={ctx} />
@@ -295,7 +296,7 @@ function VoteProxy({ ctx, current, blocked }: { ctx: WalletContext; current: str
       {blocked && <div className="acct-note bad">{blocked}</div>}
       <div className="buy-ram-actions">
         <button className="btn primary" disabled={busy || ctx.viewOnly || !action} onClick={() => void submit()}>
-          {busy ? 'Waiting for confirmation...' : 'Vote through proxy'}
+          {busy ? <Busy text="Waiting for confirmation..." /> : 'Vote through proxy'}
         </button>
       </div>
       <ViewOnlyLine ctx={ctx} />

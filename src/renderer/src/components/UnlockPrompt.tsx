@@ -11,6 +11,7 @@ import { errorText, toast } from '../lib/toast'
 import { refreshVault, unlockPromptStore, vaultStore } from '../lib/vault'
 import { useStore } from '../lib/stores'
 import { MIN_PASSWORD_LENGTH, checkPassword } from '../../../shared/password'
+import { Busy } from './Busy'
 
 /** The text under a new-password field: nothing, too short, the weak-password warning (yellow) or "Good". */
 export function PasswordHint({ password }: { password: string }): React.JSX.Element | null {
@@ -109,7 +110,7 @@ export function UnlockPrompt({
             Cancel
           </button>
           <button className="btn primary" disabled={!ready || busy} onClick={() => void submit()}>
-            {busy ? (create ? 'Creating...' : 'Unlocking...') : create ? 'Create vault' : 'Unlock'}
+            {busy ? <Busy text={create ? 'Creating...' : 'Unlocking...'} /> : create ? 'Create vault' : 'Unlock'}
           </button>
         </>
       }

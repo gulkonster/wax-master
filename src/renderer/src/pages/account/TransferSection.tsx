@@ -14,6 +14,7 @@ import { AccountPicker, PermissionPicker } from '../../components/AccountPicker'
 import { HelpButton } from '../../components/HelpButton'
 import { CommandView, NAME, recipientProblem, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
 import { amountNote, CLEARED_FIELD, type AmountField } from './wallet-form'
+import { Busy } from '../../components/Busy'
 
 type ChainBalance = { status: 'reading' } | { status: 'ok'; balance: string; precision: number } | { status: 'error'; text: string } | { status: 'none' }
 
@@ -168,7 +169,7 @@ export function TransferSection({ ctx, tokens, initial }: { ctx: WalletContext; 
         </div>
         <div className="buy-ram-actions">
           <button className="btn primary" disabled={busy || ctx.viewOnly || !action || tooMuch} onClick={() => void submit()}>
-            {busy ? 'Waiting for confirmation...' : 'Transfer'}
+            {busy ? <Busy text="Waiting for confirmation..." /> : 'Transfer'}
           </button>
         </div>
         <ViewOnlyLine ctx={ctx} />
