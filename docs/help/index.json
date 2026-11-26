@@ -88,7 +88,7 @@
       "title": "Contracts on the chain",
       "topics": [
         { "id": "deploy", "title": "Deploy", "keywords": ["deploy", "setcode", "setabi", "hash", "ram", "buy ram"] },
-        { "id": "network-builds", "title": "Testnet and mainnet builds", "keywords": ["testnet", "mainnet", "build", "ifdef", "WAXMASTER_TESTNET", "WAXMASTER_MAINNET", "macro", "per network"] },
+        { "id": "network-builds", "title": "Testnet and mainnet builds", "keywords": ["testnet", "mainnet", "build", "ifdef", "WAXMASTER_TESTNET", "WAXMASTER_MAINNET", "macro", "per network", "guard", "#error", "ifndef", "EOS Studio", "other compiler"] },
         { "id": "run-actions", "title": "Run actions", "keywords": ["action", "run", "contract page", "eosio.code", "linkauth", "unlinkauth", "updateauth", "permission"] },
         { "id": "read-tables", "title": "Read tables", "keywords": ["table", "rows", "scope", "query", "get_table_rows"] },
         { "id": "simulate-inspector", "title": "The transaction view: Actions, Traces, RAM Deltas, Raw", "keywords": ["simulate", "inspector", "trace", "traces", "ram deltas", "raw", "inline", "notification", "logmint", "explorer", "tree", "console", "refused", "cpu", "net"] },

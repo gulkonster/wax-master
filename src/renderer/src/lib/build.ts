@@ -27,6 +27,12 @@ function firstError(r: BuildResult): string {
   return `${errors.length} error(s). First: ${where}${e.message}`
 }
 
+/** E68: the notice of a finished build names the testnet/mainnet guard warnings. */
+function networkBuildWarnings(r: BuildResult): string {
+  const n = r.problems.filter((p) => p.severity === 'warning' && p.source === 'build' && p.message.includes('WAXMASTER_')).length
+  return n ? `. ${n} warning(s) about the testnet/mainnet build: see Problems.` : ''
+}
+
 /** Replaces the "Building..." notice with the result. */
 function buildEnded(r: BuildResult | null, startError?: string): void {
   const name = buildingName ? `${buildingName}: ` : ''
@@ -34,7 +40,7 @@ function buildEnded(r: BuildResult | null, startError?: string): void {
   else if (!r) return
   else if (r.needsApproval) toast('Build cancelled', 'The custom build command was not approved.', 'info', BUILD_NOTICE)
   else if (r.outcome === 'abi-not-deployable') toast('Built, ABI not deployable', `${name}the ABI check explains the cause and the fix in Output and Problems.`, 'error', BUILD_NOTICE)
-  else if (r.ok) toast('Build completed', `${name}${r.outputs.join(', ')} (${(r.durationMs / 1000).toFixed(1)} s)`, 'success', BUILD_NOTICE)
+  else if (r.ok) toast('Build completed', `${name}${r.outputs.join(', ')} (${(r.durationMs / 1000).toFixed(1)} s)${networkBuildWarnings(r)}`, 'success', BUILD_NOTICE)
   else toast('Build failed', name + firstError(r), 'error', BUILD_NOTICE)
 }
 

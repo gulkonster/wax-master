@@ -56,6 +56,13 @@ const FULL_FORMS = {
   ]
 }
 
+/** The builds of a sample that uses WAXMASTER_TESTNET / WAXMASTER_MAINNET. */
+const NETWORK_VARIANTS = [
+  { suffix: ':testnet', label: ' (testnet build)', flags: ['-DWAXMASTER_TESTNET'] },
+  { suffix: ':mainnet', label: ' (mainnet build)', flags: ['-DWAXMASTER_MAINNET'] },
+  { suffix: ':none', label: ' (no flag)', flags: [], expectError: 'Build with WAX Master' }
+]
+
 function argValue(flag, fallback) {
   const i = process.argv.indexOf(flag)
   return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback
@@ -149,8 +156,8 @@ function run(args, cwd) {
   })
 }
 
-async function build(distro, dir, contract) {
-  const args = ['-d', distro, '--cd', dir, '--exec', 'cdt-cpp', '-abigen', '-I', './include', '-R', './resource', '-contract', contract, '-o', `./${contract}.wasm`, `src/${contract}.cpp`]
+async function build(distro, dir, contract, flags = []) {
+  const args = ['-d', distro, '--cd', dir, '--exec', 'cdt-cpp', '-abigen', '-I', './include', '-R', './resource', ...flags, '-contract', contract, '-o', `./${contract}.wasm`, `src/${contract}.cpp`]
   const started = Date.now()
   const r = await run(args, dir)
   const built = r.code === 0 && existsSync(join(dir, `${contract}.wasm`)) && existsSync(join(dir, `${contract}.abi`))
@@ -189,10 +196,16 @@ async function main() {
       const name = contractName(code)
       if (!name) return
       const key = `${page}#${i + 1}`
-      const dir = join(work, key.replace(/[^a-z0-9-]/gi, '_'))
-      builds.set(key, { dir, contract: name, prepare: () => projectFromBlock(dir, name, code) })
-      fulls.push({ label: `block ${i + 1}`, text: code, buildKey: key })
-      rows.push({ page, block: i + 1, kind: 'contract', sample: name, buildKey: key })
+      // A sample that uses the network macros (E64, E68) is built as the testnet build, as the
+      // mainnet build, and without either flag, where its guard must stop the build.
+      const variants = code.includes('WAXMASTER_') ? NETWORK_VARIANTS : [{ suffix: '', label: '', flags: [] }]
+      for (const v of variants) {
+        const vkey = key + v.suffix
+        const dir = join(work, vkey.replace(/[^a-z0-9-]/gi, '_'))
+        builds.set(vkey, { dir, contract: name, flags: v.flags, expectError: v.expectError, prepare: () => projectFromBlock(dir, name, code) })
+        rows.push({ page, block: i + 1, kind: 'contract', sample: name + v.label, buildKey: vkey })
+      }
+      fulls.push({ label: `block ${i + 1}`, text: code, buildKey: key + variants[0].suffix })
       complete.add(page)
     })
     for (const f of FULL_FORMS[page] ?? []) {
@@ -229,7 +242,7 @@ async function main() {
     for (let next = queue.shift(); next; next = queue.shift()) {
       const [key, b] = next
       b.prepare()
-      results.set(key, { ...(await build(distro, b.dir, b.contract)), expectError: b.expectError })
+      results.set(key, { ...(await build(distro, b.dir, b.contract, b.flags)), expectError: b.expectError })
       process.stdout.write('.')
     }
   }

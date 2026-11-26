@@ -9,7 +9,7 @@ import type { AbiFinding, BuildCheck, BuildOutcome, BuildResult, BuildVariant, P
 import { classifyLine, cleanLine, placeToolchainProblems, problemSeverity, uniqueProblems } from '../shared/output-lines'
 import { effectiveInclude, effectiveOutput, effectiveResource, type ProjectConfig } from '../shared/project'
 import { abiProblems, checkAbi, describeAbi, moreFindingsLine, readSources } from './abi-check'
-import { buildForKind, usesNetworkMacros, variantEnv, variantFlags, variantLabel, variantOf, type BuildFor } from './build-variant'
+import { buildForKind, checkNetworkMacros, macroProblems, usesNetworkMacros, variantEnv, variantFlags, variantLabel, variantOf, type BuildFor } from './build-variant'
 import { currentNetwork, effectiveKind, getNetwork } from './networks'
 import { BuildStateStore, projectFingerprint, type StoredBuild } from './build-state'
 import { log } from './log'
@@ -171,15 +171,19 @@ export async function runBuild(sender: WebContents, networkId?: string): Promise
     const tc = toolchainForProject(p.config.cdt)
     if (tc.fallback) emit(`The toolchain "${p.config.cdt}" is not installed; building with the default toolchain.\n`)
     const target = networkOf(networkId)
-    const variant = await variantFor(p.root, target.buildFor)
+    const sources = await readSources(p.root).catch(() => [])
+    const variant = variantOf(usesNetworkMacros(sources), target.buildFor)
     const shownCommand = buildCommandText(p.config, variant)
     emit(variant === 'any' ? `Build: ${variantLabel(variant)} (the sources use neither WAXMASTER_TESTNET nor WAXMASTER_MAINNET).\n` : `Build: the ${variantLabel(variant)}, for ${target.name}.\n`)
+    // E68: warn when another compiler could build these sources silently; it never blocks the build.
+    const macroFindings = variant === 'any' ? [] : checkNetworkMacros(sources)
+    for (const f of macroFindings) emit(`${f.detail}\n`)
     emit(`> ${shownCommand}\n`)
     // A custom command is told which build it is (WAXMASTER_NETWORK, WAXMASTER_BUILD_FLAG).
     const r = custom
       ? await buildProjectShell(p.root, custom, emit, tc.id, variantEnv(target.buildFor))
       : await buildProject(p.root, defaultBuildArgs(variant), emit, tc.id)
-    const problems = parseProblems(r.output, p.root)
+    const problems = [...parseProblems(r.output, p.root), ...macroProblems(macroFindings)]
     const ok = r.code === 0
     const { wasm, abi } = outputFiles(p.config)
     const outputs = [wasm, abi].filter((f) => existsSync(join(p.root, f)))

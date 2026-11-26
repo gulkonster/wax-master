@@ -83,6 +83,9 @@ export function compileFlags(setup: FlagSetup, cdtRoot: string, cdtVersion: stri
     '-D_GNU_SOURCE=1',
     '-DBOOST_DISABLE_ASSERTS',
     '-DBOOST_EXCEPTION_DISABLE',
+    // E68: the editor reads the code as the testnet build, so the guard of a project that uses
+    // WAXMASTER_TESTNET / WAXMASTER_MAINNET does not show its #error in the editor.
+    '-DWAXMASTER_TESTNET',
     '-U__APPLE__',
     ...includeDirs.map((d) => `-I${d}`),
     ...toolchainIncludeDirs(cdtRoot).flatMap((d) => ['-isystem', d])
