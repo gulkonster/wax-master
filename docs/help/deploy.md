@@ -2,6 +2,8 @@
 
 Deploying puts your contract on an account. Two system actions do it: `eosio::setcode` sends the WASM (the code the chain runs) and `eosio::setabi` sends the ABI (the description of actions and tables). After that, anyone can call the account's actions.
 
+![The Deploy dialog: the account, what is on it now, what will be sent and the RAM it needs.](img:deploy)
+
 ## How to do it here
 
 1. Open the project and press Contract > Deploy (or the **Deploy** button above the file tree).

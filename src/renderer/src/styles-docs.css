@@ -1,0 +1,66 @@
+/* Pictures of a documentation topic (lib/markdown.tsx). Only theme tokens. */
+
+.md-figure {
+  margin: 0 0 var(--sp-4);
+}
+/* The picture is at most as wide as the text column and never larger than its own size. */
+.md-picture {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg-surface);
+  border: var(--bw) solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: zoom-in;
+}
+.md-picture:hover {
+  border-color: var(--border-control);
+}
+.md-picture .md-picture-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.md-figure figcaption {
+  margin-top: var(--sp-2);
+  color: var(--text-2);
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+}
+
+/* The enlarged picture: its own size over the window, scroll bars when the window is smaller. */
+.md-zoom {
+  position: fixed;
+  top: var(--titlebar);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  overflow: auto;
+  padding: var(--sp-6);
+  background: var(--smoke);
+  cursor: zoom-out;
+  animation: fade-in 150ms ease-out;
+}
+.md-zoom-inner {
+  margin: auto;
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border: var(--bw) solid var(--border-control);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-dialog);
+  overflow: hidden;
+}
+.md-zoom-inner .md-picture-img {
+  display: block;
+  max-width: none;
+}
+.md-zoom-close {
+  position: fixed;
+  top: calc(var(--titlebar) + var(--sp-2));
+  right: var(--sp-2);
+  background: var(--bg-flyout);
+  border: var(--bw) solid var(--border-control);
+}

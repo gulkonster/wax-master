@@ -2,14 +2,19 @@
 // every piece of file text is passed as a text child, so nothing in a topic
 // can become markup. Links: doc:<topic> moves inside the viewer, https opens
 // through the app's "show the address first" question, app:<command> is a
-// button that runs one menu command.
+// button that runs one menu command. A picture names one of the pictures
+// built into the app; its address comes only from doc-pictures.ts.
 
-import { useState } from 'react'
-import type { MenuCommand } from '../../../shared/api'
+import { useEffect, useRef, useState } from 'react'
+import type { MenuCommand, ResolvedTheme } from '../../../shared/api'
 import type { Block, Inline, MdDocument } from '../../../shared/markdown'
-import { IconCopy } from '../components/Icons'
+import { IconClose, IconCopy } from '../components/Icons'
 import { copyText } from './clipboard'
+import { popLayer, pushLayer, takeEscape } from './dialog-stack'
+import { pictureUrl } from './doc-pictures'
+import { currentTheme, onThemeChange } from './theme'
 import { errorText, toast } from './toast'
+import '../styles-docs.css'
 
 export interface MarkdownHandlers {
   onDoc(topic: string): void
@@ -77,6 +82,73 @@ function CodeBlock({ text }: { text: string }): React.JSX.Element {
         <IconCopy />
       </button>
     </div>
+  )
+}
+
+/** The file of a picture in one theme; nothing when the app holds no such file. */
+function PictureFile({ name, theme, caption }: { name: string; theme: ResolvedTheme; caption: string }): React.JSX.Element | null {
+  const url = pictureUrl(name, theme)
+  return url ? <img className="md-picture-img" src={url} alt={caption} draggable={false} /> : null
+}
+
+/** z-index of .modal-backdrop in styles.css; the enlarged picture goes one above the top dialog. */
+const DIALOG_Z = 100
+
+/** The picture at its own size over the window. Esc, a click or Close closes it, and only it. */
+function PictureZoom({ name, theme, caption, onClose }: { name: string; theme: ResolvedTheme; caption: string; onClose(): void }): React.JSX.Element {
+  const [layer, setLayer] = useState(0)
+  const closeRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    const l = pushLayer()
+    setLayer(l)
+    closeRef.current?.focus()
+    const key = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && takeEscape(e, l)) onClose()
+    }
+    window.addEventListener('keydown', key)
+    return () => {
+      window.removeEventListener('keydown', key)
+      popLayer(l)
+    }
+  }, [onClose])
+  return (
+    <div className="md-zoom" role="dialog" aria-modal="true" aria-label={caption} style={layer ? { zIndex: DIALOG_Z + layer } : undefined} onClick={onClose}>
+      <div className="md-zoom-inner">
+        <PictureFile name={name} theme={theme} caption={caption} />
+      </div>
+      <button ref={closeRef} type="button" className="icon-btn md-zoom-close" title="Close" onClick={onClose}>
+        <IconClose />
+      </button>
+    </div>
+  )
+}
+
+/** A picture with its caption, in the file of the current theme; a click enlarges it. */
+function Picture({ name, caption }: { name: string; caption: string }): React.JSX.Element {
+  // Drawn outside a page (the drawing tests) there is no document; the dark theme is the default.
+  const [theme, setTheme] = useState<ResolvedTheme>(() => (typeof document === 'undefined' ? 'dark' : currentTheme()))
+  const [open, setOpen] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    setTheme(currentTheme())
+    return onThemeChange(setTheme)
+  }, [])
+  const close = useRef(() => {
+    setOpen(false)
+    // The keyboard focus goes back to the picture.
+    setTimeout(() => buttonRef.current?.focus(), 0)
+  }).current
+  const has = pictureUrl(name, theme) !== null
+  return (
+    <figure className="md-figure">
+      {has && (
+        <button ref={buttonRef} type="button" className="md-picture" title="Enlarge" onClick={() => setOpen(true)}>
+          <PictureFile name={name} theme={theme} caption={caption} />
+        </button>
+      )}
+      <figcaption>{caption}</figcaption>
+      {open && has && <PictureZoom name={name} theme={theme} caption={caption} onClose={close} />}
+    </figure>
   )
 }
 
@@ -149,6 +221,8 @@ function BlockView({ b, h }: { b: Block; h: MarkdownHandlers }): React.JSX.Eleme
           ))}
         </div>
       )
+    case 'picture':
+      return <Picture name={b.name} caption={b.caption} />
   }
 }
 

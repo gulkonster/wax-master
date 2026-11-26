@@ -2,6 +2,8 @@
 
 **Simulate** runs a transaction on the node without signing it and without sending it to the chain. The **transaction view** shows such a result, the result of a transaction you just sent, and a transaction you open later, always in the same four parts: **Actions**, **Traces**, **RAM Deltas** and **Raw**. It is the view of an explorer page, inside the app.
 
+![The transaction view on Traces: the action and, under it, the notifications it caused.](img:transaction-view)
+
 ## How to do it here
 
 Simulate an action:

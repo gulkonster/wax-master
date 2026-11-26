@@ -2,6 +2,8 @@
 
 Nothing is signed without the confirmation window. It is a separate window, opened by the part of the app that holds the keys, and it shows exactly what will be signed and where it will be sent. On a mainnet network it is red and asks for more care.
 
+![The confirmation window for a transfer on a test network: where it goes, who signs, and every action with its data. On a mainnet the header is red.](img:confirm)
+
 ## What the window shows
 
 | Row | Meaning |

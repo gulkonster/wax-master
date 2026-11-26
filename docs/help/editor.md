@@ -25,6 +25,8 @@ When the compiler has a fix for a mistake, a light bulb appears at the line, and
 
 ## Completion and snippets
 
+![The editor completes contract code: after a dot the list shows what the value offers, read from the CDT headers.](img:editor-completion)
+
 - Completion opens while you type; Ctrl+Space opens it by hand. The names a contract developer needs come first. The library's internals (names in `detail::`, `bluegrass::`, `internal_use_do_not_use::`, names that start with two underscores, and the macros the app's own build flags define) are left out.
 - Inside the lambda of `emplace` or `modify` written with `auto&`, as in `table.emplace(get_self(), [&](auto& row) { row. })`, the compiler cannot tell what `row` is. The editor then looks up the row type of the table and offers its fields and functions after `row.` (the detail says `field of ...` or `function of ...`).
 - Snippets are offered with the other items when the line holds only spaces and at most one word before the cursor. Type the word and choose the snippet. The default texts are marked; overtype them, and Tab moves to the next.

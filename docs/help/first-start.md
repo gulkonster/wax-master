@@ -12,6 +12,8 @@ The Setup page opens at the first start. You can open it again with Help > Setup
 4. **Test build**: press **Run test build**. It builds a sample contract and checks that the editor engine answers.
 5. When all four rows are green, press **Done**.
 
+![The Setup screen after all four checks have passed: Windows, WSL, the toolchain and a test build.](img:setup)
+
 If the toolchain install fails because virtualization is turned off on your computer, use **Use compatibility mode (WSL 1)** instead of Install toolchain.
 
 [Open the Setup page](app:setup)

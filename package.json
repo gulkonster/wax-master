@@ -16,7 +16,8 @@
     "test": "vitest run",
     "dist": "node scripts/dist.mjs",
     "check:doc-samples": "node scripts/check-doc-samples.mjs",
-    "check:editor": "vitest run --config vitest.live.config.ts"
+    "check:editor": "vitest run --config vitest.live.config.ts",
+    "shots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@noble/curves": "2.4.0",

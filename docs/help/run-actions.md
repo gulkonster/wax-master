@@ -2,6 +2,8 @@
 
 An action is a function of a contract that you call with a transaction. The Contract page builds the form for any action from the contract's ABI, so you can call your own contract, `eosio.token`, or the system contract `eosio` without a terminal or an explorer.
 
+![The Contract page: each action of a contract is a form with a field for every argument.](img:contract-actions)
+
 ## How to do it here
 
 1. Press the **Contracts** button in the top bar (or **Open as contract** on the Account page). Type the contract account and press Enter. Each contract opens in its own tab.

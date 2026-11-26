@@ -8,6 +8,8 @@ The file is `%APPDATA%\WAX Master\vault.json`.
 
 Create the vault:
 
+![Manage Keypairs: the keys in the vault, each with its label and its public key.](img:keys)
+
 1. Accounts > Create Vault... (or any action that needs a key: the app asks right there).
 2. Enter a password twice. At least 6 characters. A password under 10 characters, a common one or a keyboard run gets a "Weak password" warning; you can still use it, but anyone who copies the vault file could guess it.
 3. A separate window shows the **recovery code** once. Save it as a text file or write it down, keep it away from this computer, then press **I saved it**.

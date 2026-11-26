@@ -2,8 +2,9 @@
 // builds interface elements from this data only; no text of a file is ever
 // treated as markup. Supported: headings (#, ##, ###), paragraphs, **bold**,
 // `inline code`, fenced code blocks, lists (- or * , and 1.), tables, links
-// (doc:<topic>, https://..., app:<menu command>) and notes (lines starting
-// with >). Anything else stays visible as plain text and is reported as a
+// (doc:<topic>, https://..., app:<menu command>), notes (lines starting
+// with >) and pictures (a line `![caption](img:<name>)` on its own, naming one
+// of the pictures built into the app). Anything else stays visible as plain text and is reported as a
 // problem, which the documentation tests refuse.
 
 import type { MenuCommand } from './api'
@@ -24,6 +25,7 @@ export type Block =
   | { t: 'list'; ordered: boolean; start: number; items: Inline[][] }
   | { t: 'table'; header: Inline[][]; rows: Inline[][][] }
   | { t: 'note'; paragraphs: Inline[][] }
+  | { t: 'picture'; name: string; caption: string }
 
 export interface MdProblem {
   line: number
@@ -36,6 +38,34 @@ export interface MdDocument {
 }
 
 const COMMANDS = docsCommands()
+
+/** A picture name: lower-case letters, digits and single hyphens, at most 40 characters. */
+export function isPictureName(name: unknown): name is string {
+  return typeof name === 'string' && name.length <= 40 && /^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)
+}
+
+/** The problem text of a picture line that is not of the one supported form. */
+export const PICTURE_FORM = 'pictures are written ![caption](img:<name>)'
+
+const PICTURE_LINE = /^!\[(.*)\]\(([^()\s]*)\)$/
+
+/** A line meant as a picture: the whole line is `![...](...)`, or it names an img: target. */
+function looksLikePicture(line: string): boolean {
+  return line.startsWith('![') && (PICTURE_LINE.test(line) || line.includes('](img:'))
+}
+
+/** The picture of a line that is exactly `![caption](img:<name>)`, or null. */
+function pictureOf(line: string): { name: string; caption: string } | null {
+  const m = PICTURE_LINE.exec(line)
+  if (!m || !m[2].startsWith('img:')) return null
+  const name = m[2].slice(4)
+  const caption = m[1]
+  if (!isPictureName(name)) return null
+  // Plain text only: 1 to 200 characters, no markup, no bracket, no entity.
+  if (caption.trim() === '' || caption !== caption.trim() || caption.length > 200) return null
+  if (/[[\]`*<>\\]/.test(caption) || /&#?[A-Za-z0-9]+;/.test(caption)) return null
+  return { name, caption }
+}
 
 /** How a link target is read: one of the three kinds, or null (the link stays text). */
 export function linkTarget(target: string): { t: 'doc'; topic: string } | { t: 'https'; url: string } | { t: 'app'; command: MenuCommand } | null {
@@ -177,6 +207,9 @@ export function parseMarkdown(source: string): MdDocument {
     return FENCE.test(t) || HEADING.test(t) || UL.test(t) || OL.test(t) || t.startsWith('>') || (t.startsWith('|') && next !== undefined && TABLE_SEP.test(next.trim()))
   }
 
+  // Lines read and reported as a picture line; every other line meant as a picture is reported below.
+  const pictureLines = new Set<number>()
+
   let i = 0
   while (i < lines.length) {
     const raw = lines[i]
@@ -187,6 +220,22 @@ export function parseMarkdown(source: string): MdDocument {
     }
     const indent = raw.length - raw.trimStart().length
     const line = raw.trim()
+
+    // A picture: the line on its own, with a blank line (or the start or end of the file) around it.
+    if (indent < 4 && isBlank(lines[i - 1]) && isBlank(lines[i + 1]) && PICTURE_LINE.test(line)) {
+      const pic = pictureOf(line)
+      pictureLines.add(i)
+      if (pic) {
+        blocks.push({ t: 'picture', name: pic.name, caption: pic.caption })
+      } else {
+        // Another target, a bad name or caption: the line stays text as it is.
+        report(ln, 'images are not supported')
+        report(ln, PICTURE_FORM)
+        blocks.push({ t: 'paragraph', children: [{ t: 'text', text: line }] })
+      }
+      i++
+      continue
+    }
 
     // Fenced code block: the text is kept exactly.
     const fence = FENCE.exec(raw.trimStart())
@@ -307,6 +356,15 @@ export function parseMarkdown(source: string): MdDocument {
     }
     blocks.push({ t: 'paragraph', children: inline(para.join(' '), ln) })
   }
+
+  // A line meant as a picture that is not one stays text (as read above) and is reported.
+  let inCode = false
+  for (let n = 0; n < lines.length; n++) {
+    const t = lines[n].trim()
+    if (!inCode && FENCE.test(lines[n].trimStart())) inCode = true
+    else if (inCode && t === '```') inCode = false
+    else if (!inCode && !pictureLines.has(n) && looksLikePicture(t)) report(n + 1, PICTURE_FORM)
+  }
   return { blocks, problems }
 }
 
@@ -352,6 +410,9 @@ export function documentText(doc: MdDocument): { headings: string; body: string 
         break
       case 'note':
         for (const p of b.paragraphs) parts.push(inlineText(p))
+        break
+      case 'picture':
+        parts.push(b.caption)
         break
     }
   }

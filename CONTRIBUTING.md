@@ -35,6 +35,23 @@ No C++ compiler is needed: the only native module (`node-pty`) ships prebuilt bi
 - Changes to serialization or signing need tests against the independent implementation in `test/chain-core/criterion-1.test.ts`.
 - Run `npm run typecheck` and `npm test` before opening a pull request.
 
+## Documentation pictures
+
+The pictures in `docs/help/img` (each screen in the dark and the light theme) are made by one command, never by hand:
+
+```powershell
+npm run build
+npm run shots                    # all screens, a few minutes
+npm run shots -- --only deploy   # some screens (names joined by commas); the run still goes through the steps before them
+```
+
+- It needs Windows with WSL 2 and Help > Setup done once on the computer (the toolchain installed). Close WAX Master first: the run stops when another WAX Master is open.
+- It starts the development build with its own data folder `C:\wax-shots\data` and projects folder `C:\wax-shots\projects`, and deletes both at the end. Its vault password is made at random and kept only in memory.
+- It uses the local chain of the computer as it finds it and never resets it. It adds the accounts `gameaccount<c>`, `player<cccccc>` and `shopaccount<c>` (the first set that is still free: the last character is 1 to 5, then a to z; after those, `gameacct<cdcd>`, `player<cdcdcd>` and `shopacct<cdcd>` with two such characters) and the token `GOLD`, and signs only there. A stopped chain is stopped again at the end; a chain that was not set up is set up and removed again. When no set is free, the run stops and asks for a Reset of the chain by hand.
+- Every step has a time limit. On a failure the run names the step, saves a picture of the window to `C:\wax-shots\failed.png` and closes the app.
+
+A change that alters a screen shown in the documentation retakes its picture in the same change.
+
 ## Releases
 
 Releases are built only by the release workflow from a version tag. See the README section "Verify your download".

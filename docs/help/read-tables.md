@@ -2,6 +2,8 @@
 
 A contract keeps its data in tables. Each table is split into **scopes**: one table name can hold many separate groups of rows, for example one group per account. A query reads the rows of one table in one scope. Reading needs no key and costs nothing.
 
+![The Contract page reading a table: the accounts table of the token with one balance row.](img:contract-tables)
+
 ## How to do it here
 
 1. Open the contract on the Contract page. The tables are on the right half.

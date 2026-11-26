@@ -18,6 +18,8 @@ What it does not have:
 
 ## How to do it here
 
+![The Local Chain dialog while the private chain runs on this computer.](img:local-chain)
+
 ### Set up
 
 1. Open Network > Local Chain...

@@ -2,6 +2,8 @@
 
 The Account page shows one account's money and resources and lets you manage them here, without an explorer. You can open any account on the network. What you can do with it depends on whether the vault holds keys for it.
 
+![The Account page: balances and resources at the top, the wallet sections below.](img:account-page)
+
 ## How to do it here
 
 Press the **Account** button in the top bar and choose or type an account name.

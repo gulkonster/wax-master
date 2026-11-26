@@ -2,6 +2,8 @@
 
 The window has a menu bar, a top bar with four buttons, the page in the middle, a bottom panel and a status bar. This page names each part and what it is for.
 
+![The window with a project open: the menu bar and the top bar, the file tree with Build and Deploy, the editor, the bottom panel on Output after a build, and the status bar.](img:window)
+
 ## Menu bar
 
 | Menu | What is in it |

@@ -2,6 +2,8 @@
 
 A network is one chain, reached through one or more API endpoints and known by its chain id. Every network in WAX Master has a kind:
 
+![The Network button lists your networks with their kind. The dot shows whether the endpoint answers.](img:network-menu)
+
 | Kind | Meaning | Signing |
 |---|---|---|
 | mainnet | Tokens have real value | Red confirmation; deploys and permission changes need the account name typed |

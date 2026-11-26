@@ -2,6 +2,8 @@
 
 The Network page shows the state of the selected chain: where you are connected, how far the chain is, its token and its resource prices. It reads only; it changes nothing.
 
+![The Network page: the endpoint and chain id, the state of the chain, the system token, the resources and the latest blocks.](img:network-page)
+
 ## How to do it here
 
 Open it with the main part of the **Network** button in the top bar, or Network > Network Page.

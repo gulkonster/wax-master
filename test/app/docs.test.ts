@@ -1,6 +1,6 @@
 // The documentation: the Markdown subset, the index format, the search, and the
 // checks that keep the shipped topics current (topic ids, links, commands,
-// subset, and the table of features with their topics).
+// subset, pictures, and the table of features with their topics).
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -21,7 +21,7 @@ import {
   topicFile,
   type SearchDoc
 } from '../../src/shared/docs'
-import { documentLinks, documentText, inlineText, parseMarkdown, type Block, type Inline } from '../../src/shared/markdown'
+import { PICTURE_FORM, documentLinks, documentText, inlineText, isPictureName, parseMarkdown, type Block, type Inline } from '../../src/shared/markdown'
 import { MENU_MODEL } from '../../src/shared/menu-model'
 import { HELP_TOPICS } from '../../src/renderer/src/lib/help-topics'
 
@@ -48,6 +48,8 @@ function blockTexts(blocks: readonly Block[]): string[] {
         return [...b.header, ...b.rows.flat()].flatMap(texts)
       case 'note':
         return b.paragraphs.flatMap(texts)
+      case 'picture':
+        return [b.caption]
     }
   })
 }
@@ -165,6 +167,70 @@ describe('Markdown subset', () => {
     }
   })
 
+  it('reads a picture line on its own as a picture, with its caption in the search text', () => {
+    const doc = parseMarkdown('Before.\n\n![The Deploy dialog before Deploy is pressed.](img:deploy)\n\nAfter.')
+    expect(doc.problems).toEqual([])
+    expect(doc.blocks).toEqual([
+      { t: 'paragraph', children: [{ t: 'text', text: 'Before.' }] },
+      { t: 'picture', name: 'deploy', caption: 'The Deploy dialog before Deploy is pressed.' },
+      { t: 'paragraph', children: [{ t: 'text', text: 'After.' }] }
+    ])
+    expect(documentText(doc).body).toBe('Before.\nThe Deploy dialog before Deploy is pressed.\nAfter.')
+    expect(blockTexts(doc.blocks)).toContain('The Deploy dialog before Deploy is pressed.')
+    // At the start and the end of a file.
+    expect(parseMarkdown('![A.](img:a-1)').blocks).toEqual([{ t: 'picture', name: 'a-1', caption: 'A.' }])
+    // A caption of 200 characters is the longest.
+    expect(parseMarkdown(`![${'a'.repeat(200)}](img:x)`).blocks[0].t).toBe('picture')
+  })
+
+  it('keeps every other picture line as text and reports it', () => {
+    // A line of its own with another target, a bad name or a bad caption: plain text, both problems.
+    const lines = [
+      '![A caption.](https://example.com/a.png)',
+      '![A caption.](img/deploy-dark.png)',
+      '![A caption.](../img/deploy-dark.png)',
+      '![A caption.](img:Deploy)',
+      '![A caption.](img:deploy--two)',
+      '![A caption.](img:../deploy)',
+      `![A caption.](img:${'a'.repeat(41)})`,
+      '![A caption.](img:)',
+      '![](img:deploy)',
+      '![  ](img:deploy)',
+      '![A ] caption.](img:deploy)',
+      '![A **bold** caption.](img:deploy)',
+      '![A `code` caption.](img:deploy)',
+      '![A &lt; caption.](img:deploy)',
+      `![${'a'.repeat(201)}](img:deploy)`
+    ]
+    for (const src of lines) {
+      const doc = parseMarkdown(`Text.\n\n${src}\n\nMore text.`)
+      expect(doc.blocks[1], src).toEqual({ t: 'paragraph', children: [{ t: 'text', text: src }] })
+      expect(doc.problems, src).toEqual([
+        { line: 3, message: 'images are not supported' },
+        { line: 3, message: PICTURE_FORM }
+      ])
+    }
+    // Text on the same line or right above or below: read as today, and the picture form is named.
+    for (const src of ['![A caption.](img:deploy) and more text', 'Text right above.\n![A caption.](img:deploy)', '![A caption.](img:deploy)\nText right below.']) {
+      const doc = parseMarkdown(src)
+      expect(doc.blocks.some((b) => b.t === 'picture'), src).toBe(false)
+      expect(doc.problems.map((p) => p.message), src).toContain('images are not supported')
+      expect(doc.problems.map((p) => p.message), src).toContain(PICTURE_FORM)
+      expect(blockTexts(doc.blocks).join(' '), src).toContain('!')
+    }
+    // Any other image is reported as before.
+    expect(parseMarkdown('Some text with ![an image](https://example.com/a.png) inside.').problems.map((p) => p.message)).toEqual(['images are not supported'])
+    // Inside a code block a picture line is code.
+    const code = parseMarkdown('```\n![A caption.](https://example.com/a.png)\n```')
+    expect(code.problems).toEqual([])
+    expect(code.blocks).toEqual([{ t: 'code', lang: '', text: '![A caption.](https://example.com/a.png)' }])
+  })
+
+  it('names pictures only by lower-case letters, digits and single hyphens, at most 40 characters', () => {
+    for (const ok of ['setup', 'editor-completion', 'a1', 'x'.repeat(40)]) expect(isPictureName(ok), ok).toBe(true)
+    for (const bad of ['', 'Setup', 'a_b', 'a--b', '-a', 'a-', 'a.png', 'a/b', '../a', 'x'.repeat(41), 7, null]) expect(isPictureName(bad), String(bad)).toBe(false)
+  })
+
   it('offers as buttons only the menu commands, none of which takes a parameter', () => {
     const commands = docsCommands()
     const fromMenu: string[] = []
@@ -189,6 +255,25 @@ describe('Markdown subset', () => {
     }
     // External addresses go through the app's question that shows the address first.
     expect(src).toContain('window.wax.app.openExternal(n.url)')
+  })
+
+  it('an <img> gets its address only from doc-pictures.ts', () => {
+    const src = readFileSync(join(RENDERER, 'lib/markdown.tsx'), 'utf8').replace(/\r\n/g, '\n')
+    // One address attribute in the renderer, fed from the picture map.
+    expect(src.match(/\bsrc=/g)).toEqual(['src='])
+    expect(src).toContain("import { pictureUrl } from './doc-pictures'")
+    expect(src).toMatch(/const url = pictureUrl\(name, theme\)\n\s+return url \? <img className="md-picture-img" src=\{url\} alt=\{caption\} draggable=\{false\} \/> : null/)
+    // No other part of the program draws a picture or reads the map.
+    for (const f of sources(RENDERER)) {
+      if (f.endsWith(join('lib', 'markdown.tsx')) || f.endsWith(join('lib', 'doc-pictures.ts'))) continue
+      const text = readFileSync(f, 'utf8')
+      expect(/<img\b/.test(text), f).toBe(false)
+      expect(text.includes('doc-pictures'), f).toBe(false)
+    }
+    // The map is built from the picture folder only, when the app is built.
+    const map = readFileSync(join(RENDERER, 'lib/doc-pictures.ts'), 'utf8')
+    expect(map).toContain("import.meta.glob<string>('../../../../docs/help/img/*.png', { eager: true, query: '?url', import: 'default' })")
+    expect(map).toContain('isPictureName(m[1])')
   })
 })
 
@@ -390,6 +475,45 @@ describe('documentation search', () => {
 
 // ------------------------------------------------------------------ the checks of the shipped topics
 
+const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])
+const PICTURE_MAX = { width: 1280, height: 800, bytes: 300 * 1024, total: 6 * 1024 * 1024 }
+const PICTURE_FILE = /^(.+)-(dark|light)\.png$/
+
+/** Every problem of the picture files of a folder (its img folder), given the picture names its pages show. */
+function pictureProblems(files: { file: string; bytes: Buffer }[], used: ReadonlySet<string>): string[] {
+  const out: string[] = []
+  const themes = new Map<string, Set<string>>()
+  let total = 0
+  for (const { file, bytes } of files) {
+    total += bytes.length
+    const m = PICTURE_FILE.exec(file)
+    if (!m || !isPictureName(m[1])) {
+      out.push(`img/${file}: not <name>-dark.png or <name>-light.png`)
+      continue
+    }
+    themes.set(m[1], (themes.get(m[1]) ?? new Set<string>()).add(m[2]))
+    if (bytes.length < 24 || !bytes.subarray(0, 8).equals(PNG_SIGNATURE) || bytes.toString('latin1', 12, 16) !== 'IHDR') {
+      out.push(`img/${file}: not a PNG file`)
+    } else {
+      const w = bytes.readUInt32BE(16)
+      const h = bytes.readUInt32BE(20)
+      if (w > PICTURE_MAX.width || h > PICTURE_MAX.height) out.push(`img/${file}: ${w} x ${h} is larger than 1280 x 800`)
+    }
+    if (bytes.length > PICTURE_MAX.bytes) out.push(`img/${file}: ${Math.ceil(bytes.length / 1024)} KB is over 300 KB`)
+    if (!used.has(m[1])) out.push(`img/${file}: no page shows the picture ${m[1]}`)
+  }
+  if (total > PICTURE_MAX.total) out.push(`img: ${(total / 1024 / 1024).toFixed(1)} MB together is over 6 MB`)
+  for (const [name, t] of themes) for (const theme of ['dark', 'light']) if (!t.has(theme)) out.push(`img: ${name} has no file ${name}-${theme}.png`)
+  return out
+}
+
+/** The files of the img folder of a documentation folder (none when there is no such folder). */
+function pictureFiles(dir: string): { file: string; bytes: Buffer }[] {
+  const img = join(dir, 'img')
+  if (!existsSync(img)) return []
+  return readdirSync(img).map((file) => ({ file, bytes: statSync(join(img, file)).isFile() ? readFileSync(join(img, file)) : Buffer.alloc(0) }))
+}
+
 /** Every problem of one documentation folder, as readable lines. */
 function checkDocs(dir: string): string[] {
   const out: string[] = []
@@ -401,6 +525,9 @@ function checkDocs(dir: string): string[] {
   }
   const ids = new Set(topics.map((t) => t.id))
   const commands = docsCommands()
+  const pictures = pictureFiles(dir)
+  const present = new Set(pictures.map((p) => p.file))
+  const used = new Set<string>()
   for (const t of topics) {
     const file = join(dir, topicFile(t.id))
     if (!existsSync(file)) {
@@ -416,7 +543,13 @@ function checkDocs(dir: string): string[] {
     // Every app: target in the raw text is exactly one menu command, nothing after it.
     for (const m of text.matchAll(/\]\(app:([^)\s]*)\)/g)) if (!commands.has(m[1] as never)) out.push(`${t.id}: app:${m[1]} is not a menu command without parameters`)
     if (documentText(doc).body.trim() === '') out.push(`${t.id}: the topic is empty`)
+    for (const b of doc.blocks) {
+      if (b.t !== 'picture') continue
+      used.add(b.name)
+      for (const theme of ['dark', 'light']) if (!present.has(`${b.name}-${theme}.png`)) out.push(`${t.id}: img:${b.name} has no file img/${b.name}-${theme}.png`)
+    }
   }
+  out.push(...pictureProblems(pictures, used))
   return out
 }
 
@@ -434,18 +567,79 @@ describe('the checks find what they look for (fixtures)', () => {
     expect(found.some((f) => f.startsWith('broken:7: link target "http://example.com"'))).toBe(true)
     expect(found).toContain('broken:7: link not understood (shown as text)')
     expect(found).toContain('broken:9: only headings #, ## and ### are supported')
+    expect(found).toContain(`broken:11: ${PICTURE_FORM}`)
+    expect(found).toContain('broken: img:no-files has no file img/no-files-dark.png')
+    expect(found).toContain('broken: img:no-files has no file img/no-files-light.png')
+  })
+  it('reads the picture of the correct folder with its two files', () => {
+    const doc = parseMarkdown(readFileSync(join(FIXTURES, 'good/ram-basics.md'), 'utf8'))
+    expect(doc.blocks.filter((b) => b.t === 'picture')).toEqual([{ t: 'picture', name: 'ram-row', caption: 'A table row and the account that pays for its RAM.' }])
+    expect(readdirSync(join(FIXTURES, 'good/img')).sort()).toEqual(['ram-row-dark.png', 'ram-row-light.png'])
+  })
+  it('finds every fault of the picture files', () => {
+    const png = (w: number, h: number, size = 33): Buffer => {
+      const b = Buffer.alloc(size)
+      PNG_SIGNATURE.copy(b)
+      b.writeUInt32BE(13, 8)
+      b.write('IHDR', 12, 'latin1')
+      b.writeUInt32BE(w, 16)
+      b.writeUInt32BE(h, 20)
+      return b
+    }
+    const used = new Set(['a', 'b', 'c', 'd'])
+    expect(pictureProblems([{ file: 'a-dark.png', bytes: png(1280, 800) }, { file: 'a-light.png', bytes: png(10, 10) }], used)).toEqual([])
+    const found = pictureProblems(
+      [
+        { file: 'a-dark.png', bytes: Buffer.from('GIF89a, not a PNG file at all') },
+        { file: 'a-light.png', bytes: png(1281, 800) },
+        { file: 'b-dark.png', bytes: png(1280, 801) },
+        { file: 'b-light.png', bytes: png(100, 100, 300 * 1024 + 1) },
+        { file: 'c-dark.png', bytes: png(10, 10) },
+        { file: 'unused-dark.png', bytes: png(10, 10) },
+        { file: 'unused-light.png', bytes: png(10, 10) },
+        { file: 'Bad_Name-dark.png', bytes: png(10, 10) },
+        { file: 'd-dim.png', bytes: png(10, 10) },
+        { file: 'notes.txt', bytes: Buffer.from('x') }
+      ],
+      used
+    )
+    expect(found).toEqual([
+      'img/a-dark.png: not a PNG file',
+      'img/a-light.png: 1281 x 800 is larger than 1280 x 800',
+      'img/b-dark.png: 1280 x 801 is larger than 1280 x 800',
+      'img/b-light.png: 301 KB is over 300 KB',
+      'img/unused-dark.png: no page shows the picture unused',
+      'img/unused-light.png: no page shows the picture unused',
+      'img/Bad_Name-dark.png: not <name>-dark.png or <name>-light.png',
+      'img/d-dim.png: not <name>-dark.png or <name>-light.png',
+      'img/notes.txt: not <name>-dark.png or <name>-light.png',
+      'img: c has no file c-light.png'
+    ])
+    // All files together at most 6 MB.
+    const many = Array.from({ length: 22 }, (_, i) => ({ file: `p${i >> 1}-${i % 2 ? 'light' : 'dark'}.png`, bytes: png(10, 10, 290 * 1024) }))
+    const names = new Set(many.map((m) => m.file.replace(/-(dark|light)\.png$/, '')))
+    expect(pictureProblems(many, names)).toEqual(['img: 6.2 MB together is over 6 MB'])
   })
 })
 
 describe('shipped documentation (docs/help)', () => {
-  it('has an index, and the folder holds only the index and topic files', () => {
+  it('has an index, and the folder holds only the index and topic files and the one folder img of pictures', () => {
     expect(existsSync(join(REAL_DOCS, 'index.json'))).toBe(true)
     for (const name of readdirSync(REAL_DOCS)) {
+      if (name === 'img') {
+        expect(statSync(join(REAL_DOCS, name)).isDirectory(), name).toBe(true)
+        for (const file of readdirSync(join(REAL_DOCS, 'img'))) {
+          expect(statSync(join(REAL_DOCS, 'img', file)).isFile(), file).toBe(true)
+          const m = PICTURE_FILE.exec(file)
+          expect(m !== null && isPictureName(m[1]), file).toBe(true)
+        }
+        continue
+      }
       expect(statSync(join(REAL_DOCS, name)).isFile(), name).toBe(true)
       expect(isDocsFileName(name), name).toBe(true)
     }
   })
-  it('every topic id is unique and has its file; every doc: link resolves; every app: command exists without parameters; only the subset is used', () => {
+  it('every topic id is unique and has its file; every doc: link resolves; every app: command exists without parameters; only the subset is used; every picture has its two files within the limits and every file is shown', () => {
     expect(checkDocs(REAL_DOCS)).toEqual([])
   })
 })

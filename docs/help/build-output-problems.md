@@ -2,6 +2,8 @@
 
 A build compiles the project's C++ source into two files: the WASM (the code the chain runs) and the ABI (the JSON description of the contract's actions and tables). The compiler's lines go to the Output panel; its errors and warnings also go to the Problems list.
 
+![A mistake is underlined while you type and listed in the Problems tab of the bottom panel.](img:problems)
+
 ## How to do it here
 
 1. Open the project.
