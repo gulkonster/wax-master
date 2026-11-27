@@ -4,7 +4,7 @@
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const h = vi.hoisted(() => {
   type Fn = (e: unknown, ...a: unknown[]) => Promise<unknown>
@@ -206,6 +206,7 @@ describe('malformed input', () => {
     ['keys:removeRecoveryCode', ['wrong password!']],
     ['app:clearData', ['yes']],
     ['app:clearData', [true, 'wrong words']],
+    ['keys:remove', ['no-such-key', 'delete']],
     ['app:clearData', [true, 5]],
     ['toolchains:add', [5, 1]],
     ['toolchains:add', ['unknown-token', 1]],
@@ -221,7 +222,31 @@ describe('malformed input', () => {
   }
 })
 
-describe('keys:remove asks in the main process', () => {
+async function typedSetting(on: boolean): Promise<void> {
+  await call('settings:set', { typedDeleteConfirm: on })
+}
+
+describe('keys:remove with the typed word (E73, setting on by default)', () => {
+  it('the setting is on by default', async () => {
+    expect(((await call('settings:get')) as { typedDeleteConfirm: boolean }).typedDeleteConfirm).toBe(true)
+  })
+  it('a missing or wrong word removes nothing; "delete" removes the key at once, with no question after it', async () => {
+    await call('keys:unlock', PW)
+    const entry = (await call('keys:import', newKeyText(), 'typed one')) as { id: string }
+    for (const word of [undefined, '', 'Delete', 'delete ', 'yes']) {
+      await expect(call('keys:remove', entry.id, word)).rejects.toThrow(/Type "delete"/)
+    }
+    await expect(call('keys:remove', entry.id, 5)).rejects.toThrow()
+    expect(vault().list().some((k) => k.id === entry.id)).toBe(true)
+    await call('keys:remove', entry.id, 'delete')
+    expect(vault().list().some((k) => k.id === entry.id)).toBe(false)
+    expect(h.dialogCalls).toHaveLength(0)
+  })
+})
+
+describe('keys:remove asks in the main process (setting off)', () => {
+  beforeAll(() => typedSetting(false))
+  afterAll(() => typedSetting(true))
   it('Cancel removes nothing; the dialog shows label and public key', async () => {
     await call('keys:unlock', PW)
     const entry = (await call('keys:import', newKeyText(), 'my label')) as { id: string; publicKey: string }
@@ -246,7 +271,34 @@ describe('keys:remove asks in the main process', () => {
   })
 })
 
-describe('app:clearData asks in the main process', () => {
+describe('app:clearData with the vault and the typed words (E73, setting on)', () => {
+  it('wrong words remove nothing; "delete my keys" clears with the vault at once, with no question after them', async () => {
+    const dir = h.dataDir
+    writeFileSync(join(dir, 'settings.json'), '{}')
+    if (!existsSync(join(dir, 'vault.json'))) writeFileSync(join(dir, 'vault.json'), '{}')
+    await expect(call('app:clearData', true, 'delete my key')).rejects.toThrow(/Type "delete my keys"/)
+    await expect(call('app:clearData', true, '')).rejects.toThrow(/Type "delete my keys"/)
+    expect(existsSync(join(dir, 'vault.json'))).toBe(true)
+    await call('app:clearData', true, 'delete my keys')
+    expect(h.dialogCalls).toHaveLength(0)
+    expect(existsSync(join(dir, 'vault.json'))).toBe(false)
+    expect(existsSync(join(dir, 'settings.json'))).toBe(false)
+    expect(h.exit).toHaveBeenCalledWith(0)
+    // A fresh vault for the suites below.
+    ;(vault() as unknown as { data: unknown }).data = null
+    await call('keys:create', PW, PW)
+  })
+  it('without the vault the normal question is still asked (no word to type)', async () => {
+    h.answers.push(0)
+    await call('app:clearData', false, '')
+    expect(h.dialogCalls).toHaveLength(1)
+    expect(h.exit).not.toHaveBeenCalled()
+  })
+})
+
+describe('app:clearData asks in the main process (setting off)', () => {
+  beforeAll(() => typedSetting(false))
+  afterAll(() => typedSetting(true))
   function seed(): string {
     const dir = h.dataDir
     writeFileSync(join(dir, 'settings.json'), '{}')

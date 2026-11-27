@@ -1,5 +1,7 @@
-// Contract build: the default command, or the project's custom command, which
-// always needs the user's approval for this folder and this exact text.
+// Contract build: the default command, or the project's custom command. A custom
+// command of a project that came from outside needs the user's approval for this
+// folder and this exact text; a project the app created on this computer runs it
+// without asking (E70). The record lives in the app's own settings, not in the project.
 
 import { BrowserWindow, dialog, type WebContents } from 'electron'
 import { createHash } from 'node:crypto'
@@ -15,7 +17,7 @@ import { BuildStateStore, projectFingerprint, type StoredBuild } from './build-s
 import { log } from './log'
 import { dataDir } from './paths'
 import { currentProject } from './projects'
-import { isCommandTrusted, trustCommand } from './store'
+import { findProject, isCommandTrusted, trustCommand } from './store'
 import { buildProject, buildProjectShell, fromWslPath, toolchainForProject } from './toolchain'
 
 let building = false
@@ -211,8 +213,8 @@ export async function runBuild(sender: WebContents, networkId?: string): Promise
   if (building) throw new Error('A build is already running')
   const custom = p.config.buildCommand.trim()
   if (custom) {
-    // Every custom command needs approval per folder and exact text; no exemption.
-    const trusted = isCommandTrusted(p.root, custom)
+    // A project created here runs its command; any other needs approval per folder and exact text.
+    const trusted = findProject(p.root)?.createdHere === true || isCommandTrusted(p.root, custom)
     if (!trusted) {
       if (!(await askApproval(sender, p.root, custom))) {
         return { ok: false, needsApproval: true, command: custom, problems: [], durationMs: 0, outputs: [] }

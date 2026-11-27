@@ -75,6 +75,13 @@ function wire(): void {
   if (wired) return
   wired = true
   onPtyMessage((m) => {
+    // The helper ended: every shell it ran ended with it.
+    if (m.type === 'pty-exit' && m.id === '*') {
+      const all = [...terms.values()]
+      terms.clear()
+      for (const t of all) sendToFrame(t.frame, 'terminal-exit', t.id, m.code ?? -1, m.error ?? '')
+      return
+    }
     const t = terms.get(m.id)
     if (!t) return
     if (m.type === 'pty-data') sendToFrame(t.frame, 'terminal-data', m.id, m.data)

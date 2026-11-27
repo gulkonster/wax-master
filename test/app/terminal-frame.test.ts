@@ -73,14 +73,21 @@ function frame(url: string, parent: Frame | null): Frame {
 interface Page {
   main: Frame
   sent: unknown[][]
+  pasted: number
   event(f: Frame): unknown
 }
 
 function page(mainUrl = 'app://bundle/index.html'): Page {
   const main = frame(mainUrl, null)
   const sent: unknown[][] = []
-  const sender = { mainFrame: main, send: (...a: unknown[]) => void sent.push(a), isDestroyed: () => false }
-  return { main, sent, event: (f: Frame) => ({ senderFrame: f, sender }) }
+  const p: Page = { main, sent, pasted: 0, event: (f: Frame) => ({ senderFrame: f, sender }) }
+  const sender = {
+    mainFrame: main,
+    send: (...a: unknown[]) => void sent.push(a),
+    paste: () => void p.pasted++,
+    isDestroyed: () => false
+  }
+  return p
 }
 
 const editor = page()
@@ -164,6 +171,19 @@ describe('terminal and clipboard calls: accepted from the terminal frame', () =>
     expect(editor.sent).toEqual([])
     expect(editor.main.sent).toEqual([])
   })
+  it('when the helper process ends, every open shell is reported ended and takes no more input', async () => {
+    const a = (await invoke('terminal:create', ev(), 'cmd', null, 80, 24)) as string
+    const b = (await invoke('terminal:create', ev(), 'powershell', null, 80, 24)) as string
+    terminalFrame.sent.length = 0
+    h.written.length = 0
+    h.ptyListener!({ type: 'pty-exit', id: '*', code: -1, error: 'Helper process ended' } as never)
+    expect(terminalFrame.sent).toEqual([
+      ['terminal-exit', a, -1, 'Helper process ended'],
+      ['terminal-exit', b, -1, 'Helper process ended']
+    ])
+    await invoke('terminal:write', ev(), a, 'dir\r')
+    expect(h.written).toEqual([])
+  })
   it('still validates the arguments', async () => {
     await expect(invoke('terminal:create', ev(), 'bash', null, 80, 24)).rejects.toThrow()
     await expect(invoke('terminal:create', ev(), 'cmd', '../outside', 80, 24)).rejects.toThrow()
@@ -172,6 +192,21 @@ describe('terminal and clipboard calls: accepted from the terminal frame', () =>
   it('the terminal frame cannot call the editor handlers', async () => {
     await expect(invoke('settings:get', ev())).rejects.toThrow('Refused')
     await expect(invoke('files:read', ev(), 'a.cpp')).rejects.toThrow('Refused')
+  })
+})
+
+describe('Edit > Paste from the drawn menu', () => {
+  it('runs the window paste command (the one Ctrl+V runs) for the editor page', async () => {
+    const p = page()
+    await invoke('app:paste', p.event(p.main))
+    expect(p.pasted).toBe(1)
+  })
+  it('is refused from the terminal frame and from other pages', async () => {
+    const p = page()
+    await expect(invoke('app:paste', p.event(frame('app://terminal/terminal.html', p.main)))).rejects.toThrow('Refused')
+    const foreign = page('https://example.com/index.html')
+    await expect(invoke('app:paste', foreign.event(foreign.main))).rejects.toThrow('Refused')
+    expect(p.pasted + foreign.pasted).toBe(0)
   })
 })
 

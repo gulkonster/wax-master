@@ -139,7 +139,7 @@ Existing EOS Studio projects open as they are (File > Open Project); settings ar
 - Keep the owner keys of valuable accounts out of the app. Use dedicated permissions for deploying and daily actions.
 - When the vault is created you get a recovery code, shown once: keep it away from this computer. With it, "Forgot password?" on the unlock prompt sets a new password. Without the password and the code the keys cannot be opened, so also export a backup (Manage Keypairs > Vault > Export vault; it opens with the same password or the recovery code) or back up single keys. A single-key backup file holds the private key as readable text: keep it off this computer.
 - The terminal is your own shell; commands you run there act with your rights.
-- A project's custom build command runs only after you approve it, and runs with your rights inside the toolchain environment.
+- The custom build command of a project that came from somewhere else runs only after you approve it; a project created in the app on this computer runs its own command without asking. The command runs with your rights inside the toolchain environment.
 - Simulation runs against the current chain state and skips authorization checks, so a real transaction can still fail.
 - Verify installers as described above before first use.
 - A copied private key stays in Windows clipboard history (Win+V) or in clipboard tools if you use them; the app clears only the normal clipboard after 30 seconds.

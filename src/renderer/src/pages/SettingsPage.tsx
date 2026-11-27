@@ -4,6 +4,7 @@ import { useApp } from '../state'
 import { Modal } from '../components/Modal'
 import { errorText, toast } from '../lib/toast'
 import { HelpButton } from '../components/HelpButton'
+import { TypedWord, typedWordMatches } from '../components/TypedWord'
 import { settingId, takeRequestedSetting } from '../lib/open-setting'
 
 const VAULT_WORDS = 'delete my keys'
@@ -118,9 +119,24 @@ export function SettingsPage(): React.JSX.Element {
           </select>
           <div className="hint">The vault always locks when Windows sleeps, when you lock Windows (Win+L) and when the app closes.</div>
         </div>
-        <label className="check-label">
-          <input type="checkbox" checked={s.lockAfterSignature} onChange={(e) => set({ lockAfterSignature: e.target.checked })} /> Lock the vault after every signature
+        <div className="field">
+          <label className="check-label">
+            <input type="checkbox" checked={s.lockAfterSignature} onChange={(e) => set({ lockAfterSignature: e.target.checked })} /> Lock the vault after every signature
+          </label>
+        </div>
+        <label className={`check-label${flash === 'typedDeleteConfirm' ? ' flash' : ''}`}>
+          <input
+            id={settingId('typedDeleteConfirm')}
+            type="checkbox"
+            checked={s.typedDeleteConfirm}
+            onChange={(e) => set({ typedDeleteConfirm: e.target.checked })}
+          />{' '}
+          Ask to type a word before deleting
         </label>
+        <div className="hint">
+          Clear Contract Code (the account name), Delete key (delete), Reset the vault (RESET) and Clear All App Data with the vault (delete my
+          keys). A copy button stands next to the word. Off: these show only their normal confirmation.
+        </div>
         </div>
         <h2 className="with-help">
           Updates
@@ -150,6 +166,8 @@ export function SettingsPage(): React.JSX.Element {
 }
 
 function ClearData({ onClose }: { onClose: () => void }): React.JSX.Element {
+  // E73: with the setting on, the typed words are the confirmation of a clear with the vault; off, the main process asks.
+  const askWord = useApp().state.settings?.typedDeleteConfirm !== false
   const [vault, setVault] = useState(false)
   const [typed, setTyped] = useState('')
   const [error, setError] = useState('')
@@ -167,10 +185,10 @@ function ClearData({ onClose }: { onClose: () => void }): React.JSX.Element {
           </button>
           <button
             className="btn danger"
-            disabled={vault && typed !== VAULT_WORDS}
+            disabled={vault && askWord && !typedWordMatches(typed, VAULT_WORDS)}
             onClick={async () => {
               try {
-                await window.wax.app.clearData(vault, vault ? typed : '')
+                await window.wax.app.clearData(vault, vault && askWord ? typed : '')
                 onClose()
               } catch (e) {
                 setError(errorText(e))
@@ -182,16 +200,16 @@ function ClearData({ onClose }: { onClose: () => void }): React.JSX.Element {
         </>
       }
     >
-      <p style={{ marginTop: 0 }}>Removes settings, networks, stars, added tokens, saved queries, the build record, the log files and the installed toolchains, then restarts WAX Master after a separate confirmation; your projects are not touched.</p>
+      <p style={{ marginTop: 0 }}>Removes settings, networks, stars, added tokens, saved queries, the build record, the log files, the installed toolchains and the local chain (when set up), then restarts WAX Master; your projects are not touched.{' '}
+        {vault && askWord ? 'With the vault, the typed words are the confirmation.' : 'A separate confirmation follows.'}
+      </p>
       <label className="check-label">
         <input type="checkbox" checked={vault} onChange={(e) => setVault(e.target.checked)} /> Also delete the key vault
       </label>
       {vault && (
-        <div className="field" style={{ marginTop: 'var(--sp-2h)' }}>
-          <label>
-            The private keys in the vault are lost unless you have an exported copy. Type <b>{VAULT_WORDS}</b>:
-          </label>
-          <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} />
+        <div style={{ marginTop: 'var(--sp-2h)' }}>
+          <p style={{ marginTop: 0 }}>The private keys in the vault are lost unless you have an exported copy.</p>
+          {askWord && <TypedWord word={VAULT_WORDS} value={typed} onChange={setTyped} after="to delete the vault too:" />}
         </div>
       )}
       {error && <div className="error-text">{error}</div>}

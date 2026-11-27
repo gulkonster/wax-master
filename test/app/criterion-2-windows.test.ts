@@ -171,6 +171,7 @@ import { setLogSink } from '../../src/main/log'
 import { chain } from '../../src/main/rpc'
 import { FILE_EXISTS } from '../../src/main/key-backup'
 import { WRONG_CODE, WRONG_PASSWORD } from '../../src/main/vault'
+import { updateSettings } from '../../src/main/store'
 import { approveLabel } from '../../src/renderer/src/confirm/approve-label'
 
 const PW = 'correct horse battery staple'
@@ -740,6 +741,29 @@ describe('recovery code, recovery password and key backup stay out of the editor
     expect(vault().exists()).toBe(false)
     expect(vault().isUnlocked()).toBe(false)
     // The suite's vault again (other suites of this file ran before).
+    await call('keys:create', editor(), PW, PW)
+  })
+
+  it('E73: the recovery window learns whether the word is asked; with the setting off a normal question is asked instead', async () => {
+    await fromEditor('keys:forgot')
+    const recoverWin = lastWindow()
+    expect(await call('keywin:load', winEvent(recoverWin))).toMatchObject({ mode: 'recover', typedWord: true })
+    updateSettings({ typedDeleteConfirm: false })
+    try {
+      expect(await call('keywin:load', winEvent(recoverWin))).toMatchObject({ mode: 'recover', typedWord: false })
+      // Cancel in the question: nothing happens.
+      h.answer = 0
+      expect(await call('keywin:reset', winEvent(recoverWin), '')).toEqual({ file: '' })
+      expect(vault().exists()).toBe(true)
+      // Confirmed: the reset needs no word.
+      h.answer = 1
+      const { file } = (await call('keywin:reset', winEvent(recoverWin), '')) as { file: string }
+      expect(file).toMatch(/^vault-old-\d{4}-\d{2}-\d{2}(-\d+)?\.json$/)
+      expect(vault().exists()).toBe(false)
+    } finally {
+      h.answer = 0
+      updateSettings({ typedDeleteConfirm: true })
+    }
     await call('keys:create', editor(), PW, PW)
   })
 })

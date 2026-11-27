@@ -25,7 +25,8 @@ function defaults(): StoreData {
       setupDismissed: false,
       theme: 'system',
       dialogSizes: {},
-      autoBuildOnDeploy: true
+      autoBuildOnDeploy: true,
+      typedDeleteConfirm: true
     },
     projects: [],
     trustedCommands: []
@@ -40,7 +41,8 @@ function cleanSettings(s: Settings, d: Settings): Settings {
     ...s,
     theme: isThemeSetting(s.theme) ? s.theme : d.theme,
     dialogSizes: cleanDialogSizes(s.dialogSizes),
-    autoBuildOnDeploy: typeof s.autoBuildOnDeploy === 'boolean' ? s.autoBuildOnDeploy : d.autoBuildOnDeploy
+    autoBuildOnDeploy: typeof s.autoBuildOnDeploy === 'boolean' ? s.autoBuildOnDeploy : d.autoBuildOnDeploy,
+    typedDeleteConfirm: typeof s.typedDeleteConfirm === 'boolean' ? s.typedDeleteConfirm : d.typedDeleteConfirm
   }
 }
 
@@ -63,6 +65,11 @@ export function load(): StoreData {
 
 export function save(): void {
   if (cache) writeJson(file(), cache)
+}
+
+/** E73: the four delete actions ask for a typed word (read here, in the main process, never taken from a window). */
+export function typedDeleteConfirm(): boolean {
+  return load().settings.typedDeleteConfirm !== false
 }
 
 export function getSettings(): Settings {

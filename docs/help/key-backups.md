@@ -8,24 +8,24 @@ Manage Keypairs shows a yellow **No backup** tag on every key that exists only i
 
 ## How to do it here
 
-After Create Keypair (and after Create Testnet Account) a **Back up this key** step offers three answers:
+After Create Keypair (and after Create Testnet Account) a **Back up this key** step says that the key is not backed up yet and offers two ways to back it up. Nothing is forced: **Close** (or Escape) leaves the key without a backup, and it keeps its **No backup** tag until you back it up later.
 
-1. **Save a backup file...**: a separate window asks for the vault password again and warns that the file holds the private key as readable text. Choose where to save it. The app never replaces an existing file, and asks once more if the folder is synced to a cloud service (OneDrive, Dropbox and the like).
+1. **Save a backup file...**: a separate window asks for the vault password again and warns that the file holds the private key as readable text. Choose where to save it. The app never replaces an existing file. A folder synced to a cloud service (OneDrive, Dropbox and the like) copies the file there too, so prefer a folder that is not synced.
 2. **Show the key so I can write it down**: the private key is shown in a separate window after the password.
-3. **Skip**: you accept that losing the vault or its password loses this key.
 
 Later, in Accounts > Manage Keypairs:
 
 - **Back up** on a key's row: the same backup file as above.
 - **Show private key**: the key in a separate window after the password; it hides after 30 seconds.
 - **Back up...** in the banner: Export vault for all keys at once, or one key at a time.
+- **Delete...** in a key's menu removes the key from the vault. With **Ask to type a word before deleting** on (File > Settings > Key vault, the default), type `delete` (the copy button next to the word copies it) and **Delete key** deletes at once; with it off, a normal question asks first.
 - **Vault > Export vault...**: one encrypted file with every key. It opens with the vault password or the recovery code. **Vault > Import vault...** reads such a file back (password or recovery code of that file).
 
 [Manage Keypairs](app:manage-keypairs)
 
 ## Example
 
-You created a deploy key on WAX Testnet and skipped the backup. Manage Keypairs shows "1 key exists only in this vault." Press **Back up...**, then **Export vault...**, and save the file to a USB stick. The tag disappears.
+You created a deploy key on WAX Testnet and closed the backup step. Manage Keypairs shows "1 key exists only in this vault." Press **Back up...**, then **Export vault...**, and save the file to a USB stick. The tag disappears.
 
 ## What is needed
 

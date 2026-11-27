@@ -3,7 +3,7 @@
 import { app, type BrowserWindow } from 'electron'
 import { existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { bool, str } from '../shared/validate'
+import { bool, optStr } from '../shared/validate'
 import { handle } from './ipc'
 import { dataDir } from './paths'
 import { NETWORKS_V1_BACKUP } from './networks'
@@ -15,6 +15,7 @@ import { isLocalChainSetUp, remove as removeLocalChain } from './local-chain'
 import { confirmNative, vault } from './keys-service'
 import { log } from './log'
 import { keptVaultCopies } from './vault'
+import { typedDeleteConfirm } from './store'
 
 export const VAULT_DELETE_WORDS = 'delete my keys'
 
@@ -44,22 +45,28 @@ export function registerAppIpc(getWindow: () => BrowserWindow | null): void {
 
   handle('app:clearData', async (_e, includeVault, typed) => {
     const withVault = bool(includeVault, 'includeVault')
-    if (withVault && str(typed, 'typed', 100) !== VAULT_DELETE_WORDS) {
+    const words = optStr(typed, 'typed', 100) ?? ''
+    // E73: with the setting on, the typed words are the confirmation of a clear with the vault and nothing
+    // else is asked after them; off (and without the vault), the normal questions are asked here, in the
+    // main process, where the window cannot answer them.
+    const typedConfirm = withVault && typedDeleteConfirm()
+    if (typedConfirm && words !== VAULT_DELETE_WORDS) {
       throw new Error(`Type "${VAULT_DELETE_WORDS}" to delete the vault too`)
     }
-    // Both questions are asked here, in the main process; the window cannot answer them.
     const toolchains = installedToolchains()
     const list = toolchains.length ? toolchains.map((t) => `  ${t.id}`).join('\n') : '  (none installed)'
     const localChain = isLocalChainSetUp()
     const win = getWindow()
-    const first = await confirmNative(
-      win,
-      'Clear all app data?',
-      `This removes:\n- settings, networks, stars, added tokens, saved queries, the build record and the kept answers of sent transactions\n- the log files\n- the installed toolchains:\n${list}${localChain ? '\n- the local chain (accounts and contracts on it)' : ''}\n\nProjects are not touched. WAX Master restarts afterwards.`,
-      'Clear data'
-    )
+    const first =
+      typedConfirm ||
+      (await confirmNative(
+        win,
+        'Clear all app data?',
+        `This removes:\n- settings, networks, stars, added tokens, saved queries, the build record and the kept answers of sent transactions\n- the log files\n- the installed toolchains:\n${list}${localChain ? '\n- the local chain (accounts and contracts on it)' : ''}\n\nProjects are not touched. WAX Master restarts afterwards.`,
+        'Clear data'
+      ))
     if (!first) return
-    if (withVault) {
+    if (withVault && !typedConfirm) {
       let count = 0
       try {
         count = vault().list().length

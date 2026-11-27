@@ -21,7 +21,7 @@ If WAX Testnet is not in the list, open Network > Manage Networks and press **Re
 2. Press **Create account**.
 3. If you have no vault yet, the app asks for a new vault password right there (at least 6 characters, twice). A separate window then shows your **recovery code** once: save it (Save as text file or write it down), then press **I saved it**. See [The vault](doc:vault).
 4. The faucet creates the account and its two keys. The keys go straight into your vault.
-5. A **Back up this key** step follows for each of the two keys. Choose one of the three answers. See [Backing up keys](doc:key-backups).
+5. A **Back up this key** step follows for each of the two keys. Save a backup file or show the key to write it down, or close it and back up later. See [Backing up keys](doc:key-backups).
 6. Press **Open account**. The Account page shows the new account.
 7. Press the **star** in the address field of the Account page. Deploy offers starred accounts only.
 

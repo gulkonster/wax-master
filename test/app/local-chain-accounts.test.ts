@@ -116,11 +116,27 @@ describe('amounts and names', () => {
     expect(tokenQuantity(1000)).toBe('1000.00000000 WAX')
     expect(tokenQuantity(0.5)).toBe('0.50000000 WAX')
     expect(tokenQuantity(1_000_000)).toBe('1000000.00000000 WAX')
-    expect(() => tokenQuantity(1_000_000.01)).toThrow('At most 1,000,000 WAX')
+    // No app limit per request: any valid asset amount.
+    expect(tokenQuantity(1_000_000.01)).toBe('1000000.01000000 WAX')
+    expect(tokenQuantity(5_000_000_000)).toBe('5000000000.00000000 WAX')
     expect(() => tokenQuantity(0)).toThrow()
     expect(() => tokenQuantity(-1)).toThrow()
     expect(() => tokenQuantity(Number.NaN)).toThrow()
     expect(() => tokenQuantity(0.000000001)).toThrow()
+    // Above the chain's largest asset amount (2^62 - 1 units).
+    expect(() => tokenQuantity(1e11)).toThrow(/asset/)
+  })
+
+  it('takes a typed amount text by its digits', () => {
+    expect(tokenQuantity('123456789.12345678')).toBe('123456789.12345678 WAX')
+    expect(tokenQuantity(' 2000000 ')).toBe('2000000.00000000 WAX')
+    expect(tokenQuantity('46116860184.27387903')).toBe('46116860184.27387903 WAX')
+    expect(() => tokenQuantity('46116860184.27387904')).toThrow(/asset/)
+    expect(() => tokenQuantity('1.123456789')).toThrow(/8 decimals/)
+    expect(() => tokenQuantity('1,5')).toThrow(/point/)
+    expect(() => tokenQuantity('0')).toThrow(/greater than 0/)
+    expect(() => tokenQuantity('-1')).toThrow()
+    expect(() => tokenQuantity('1e3')).toThrow()
   })
 
   it('takes 12-character names only', () => {
@@ -199,11 +215,18 @@ describe('give tokens and the free check', () => {
     expect(t.trx.actions.map((a) => `${a.account}:${a.name}`)).toEqual(['eosio.token:transfer'])
   })
 
-  it('refuses a missing account and an amount over the limit', async () => {
+  it('refuses a missing account and an amount that is not a valid asset', async () => {
     const c = fakeChain()
     await expect(giveLocalTokens({ account: 'nobody123451', amount: 10 }, c.deps)).rejects.toThrow('does not exist on the local chain')
-    await expect(giveLocalTokens({ account: 'eosio', amount: 2_000_000 }, c.deps)).rejects.toThrow('At most')
+    await expect(giveLocalTokens({ account: 'eosio', amount: '1.123456789' }, c.deps)).rejects.toThrow('8 decimals')
+    await expect(giveLocalTokens({ account: 'eosio', amount: 1e11 }, c.deps)).rejects.toThrow('asset')
     expect(c.sent.some((s) => s.path === '/v1/chain/send_transaction')).toBe(false)
+  })
+
+  it('sends more than 1,000,000 WAX in one request (no app limit)', async () => {
+    const c = fakeChain()
+    await expect(giveLocalTokens({ account: 'eosio', amount: '2000000' }, c.deps)).resolves.toBeTruthy()
+    expect(c.sent.some((s) => s.path === '/v1/chain/send_transaction')).toBe(true)
   })
 
   it('tells a free name from a taken one', async () => {

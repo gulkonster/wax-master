@@ -83,6 +83,7 @@ const api: WaxApi = {
   app: {
     info: call('app:info'),
     openExternal: call('app:openExternal'),
+    paste: call('app:paste'),
     setDirty: call('app:setDirty'),
     checkUpdates: call('app:checkUpdates'),
     downloadUpdate: call('app:downloadUpdate'),

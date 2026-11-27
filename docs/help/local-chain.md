@@ -48,7 +48,7 @@ If port 8888 is taken by another program, the chain uses the next free one up to
 
 You sign nothing here: the system account belongs to the chain, not to you, and its key is never shown. Everything your own accounts do is signed with your keys from the vault, with the normal confirmation.
 
-**Give tokens**, in the **Local tokens** section of an account's page on the local chain, sends WAX to that account. The amount starts at 1,000; the most is 1,000,000 WAX.
+**Give tokens**, in the **Local tokens** section of an account's page on the local chain, sends WAX to that account. The amount starts at 1,000. Any amount with at most 8 decimals that the chain can hold as an asset can be sent; the chain refuses an amount above the balance of its own account `eosio`, and its answer is shown.
 
 ### Deploy and try the Token template
 

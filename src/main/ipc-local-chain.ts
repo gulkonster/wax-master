@@ -135,7 +135,7 @@ export function registerLocalChainIpc(getWindow: () => BrowserWindow | null): vo
   })
   handle('localChain:giveTokens', async (_e, input) => {
     const i = obj(input, 'input')
-    if (typeof i.amount !== 'number') throw new Error('amount: must be a number')
+    if (typeof i.amount !== 'number' && (typeof i.amount !== 'string' || i.amount.length > 64)) throw new Error('amount: must be a number or an amount text')
     return giveLocalTokens({ account: chainName(i.account, 'account'), amount: i.amount })
   })
   // Read on the source network (nothing is signed there); a missing target is made by

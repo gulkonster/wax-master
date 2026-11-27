@@ -11,7 +11,7 @@ import { errorText } from '../../lib/toast'
 import { AccountPicker, PermissionPicker } from '../../components/AccountPicker'
 import { HelpButton } from '../../components/HelpButton'
 import { CommandView, fmtBytes, fmtTime, fmtUs, FormSwitch, Gauge, NAME, pct, recipientProblem, SendLine, useSend, ViewOnlyLine, type WalletContext } from './common'
-import { amountNote, CLEARED_FIELD, refundBlocked, refundTimeText, type AmountField } from './wallet-form'
+import { amountNote, CLEARED_FIELD, refundTimeText, type AmountField } from './wallet-form'
 import { Busy } from '../../components/Busy'
 
 interface Delegation {
@@ -151,7 +151,6 @@ export function Refund({ ctx }: { ctx: WalletContext }): React.JSX.Element | nul
   const dueText = view.refundDue
     ? fmtTime(view.refundDue)
     : fmtTime(new Date(readAt + Math.max(0, view.refundSecondsLeft) * 1000).toISOString())
-  const blocked = refundBlocked(view.refundExact, view.refundSecondsLeft, since)
   const action: TxAction | null = NAME.test(permission)
     ? { account: 'eosio', name: 'refund', authorization: [{ actor: view.name, permission }], data: { owner: view.name } }
     : null
@@ -171,15 +170,13 @@ export function Refund({ ctx }: { ctx: WalletContext }): React.JSX.Element | nul
         </div>
         <button
           className="btn"
-          disabled={busy || ctx.viewOnly || blocked || !action}
-          title={blocked ? 'The refund is not due yet' : undefined}
+          disabled={busy || ctx.viewOnly || !action}
           onClick={() => action && void send([action], 'Refund claimed.')}
         >
           {busy ? <Busy text="Waiting for confirmation..." /> : 'Claim refund'}
         </button>
       </div>
-      {blocked && !ctx.viewOnly && <div className="acct-note">Claim refund is possible once the refund time has passed.</div>}
-      {!view.refundExact && <div className="acct-note">The chain refuses the claim while its waiting time runs.</div>}
+      {!(view.refundExact && isDue) && <div className="acct-note">The chain refuses the claim while its waiting time runs; its answer is shown here.</div>}
       <ViewOnlyLine ctx={ctx} />
       <SendLine message={message} />
       <CommandView action={action} />

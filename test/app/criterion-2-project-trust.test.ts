@@ -1,5 +1,6 @@
-// Release criterion 2: opening a project runs nothing, and a project's own
-// build command never runs without the main-process approval.
+// Release criterion 2: opening a project runs nothing, and the build command of a
+// project from outside never runs without the main-process approval. A project the
+// app created on this computer runs its own command without asking (E70).
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -84,13 +85,25 @@ describe('project trust', () => {
     expect(runs.filter((x) => x.shell === 'echo two')).toHaveLength(0)
   })
 
-  it('a project created here gets no exemption', async () => {
+  it('a project created here runs its custom command without asking', async () => {
     const parent = mkdtempSync(join(tmpdir(), 'wm-new-'))
     const p = createProject('hello', 'mine', parent)
-    writeFileSync(join(p.path, 'waxmaster.json'), JSON.stringify({ main: 'src/mine.cpp', contract: 'mine', buildCommand: 'echo sneaky' }))
+    writeFileSync(join(p.path, 'waxmaster.json'), JSON.stringify({ main: 'src/mine.cpp', contract: 'mine', buildCommand: 'echo mine' }))
     openProject(p.path)
-    answers.push(0)
     await runBuild(sender)
+    expect(shown).toHaveLength(0)
+    expect(runs.at(-1)?.shell).toBe('echo mine')
+  })
+
+  it('a project in the list that the app did not create still asks', async () => {
+    const root = copiedProject('echo outside')
+    openProject(root)
+    const { upsertProject, findProject } = await import('../../src/main/store')
+    upsertProject({ path: root, name: 'evil', lastOpened: Date.now() })
+    expect(findProject(root)?.createdHere).toBe(false)
+    answers.push(0)
+    const r = await runBuild(sender)
+    expect(r.needsApproval).toBe(true)
     expect(shown).toHaveLength(1)
     expect(runs).toHaveLength(0)
   })

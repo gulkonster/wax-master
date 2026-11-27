@@ -51,11 +51,6 @@ export function addEntryWeightHint(permission: string, threshold: number | undef
     : `${head} With weight ${weight} the new entry cannot sign alone: with the other signers the weights must add up to ${threshold}.`
 }
 
-/** Whether Claim refund is disabled by the time: only on the WAX chains, until the chain's time reaches the due time. */
-export function refundBlocked(exact: boolean, secondsLeft: number, secondsSinceRead: number): boolean {
-  return exact && secondsSinceRead < secondsLeft
-}
-
 /**
  * When the account is read again after a sent transaction: at once, after 1.5 s
  * and after 4 s. A read right after the node's answer can still see the block

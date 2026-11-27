@@ -20,6 +20,7 @@ Unlock and lock:
 - Accounts > Unlock Vault... or the status bar's "Vault locked" also unlock.
 - Accounts > Lock Vault or **Lock** in the status bar lock it at once.
 - The vault always locks when Windows sleeps, when you lock Windows (Win+L) and when the app closes. It also locks after 5, 15 (default) or 60 minutes without use: File > Settings > Key vault. There you can also choose to lock after every signature.
+- **Ask to type a word before deleting** (File > Settings > Key vault, on by default): Clear Contract Code asks for the account name, Delete key for `delete`, Reset the vault for `RESET` and Clear All App Data with the vault for `delete my keys`. A copy button next to the word copies it, and the button of the action works as soon as the field holds the word, with no further question. Off: these actions show only their normal confirmation.
 
 [Vault: create, unlock or lock](app:vault)
 
@@ -27,7 +28,7 @@ Unlock and lock:
 
 1. On the unlock prompt press **Forgot password?**. A separate window opens.
 2. Choose **I have the recovery code**, enter the code and a new password twice, press **Set new password**. A new recovery code is shown once; the old one stops working.
-3. Without the code, choose **Reset the vault** and type `RESET`. You get an empty vault. The old file is not deleted: it is moved to `vault-old-<date>.json` in the data folder, and Import vault with the old password brings its keys back if you remember the password later.
+3. Without the code, choose **Reset the vault**, type `RESET` (the copy button next to the word copies it) and press **Reset the vault**. With **Ask to type a word before deleting** off in File > Settings > Key vault, there is no word to type: a normal question asks first. You get an empty vault. The old file is not deleted: it is moved to `vault-old-<date>.json` in the data folder, and Import vault with the old password brings its keys back if you remember the password later.
 
 ## Password and recovery code later
 

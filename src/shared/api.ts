@@ -78,6 +78,8 @@ export interface Settings {
   dialogSizes: Record<string, DialogSize>
   /** Deploy builds the contract for the network it deploys to by itself (E69); off: it sends the files of the last build. */
   autoBuildOnDeploy: boolean
+  /** E73: Clear Contract Code, Delete key, Reset the vault and Clear All App Data with the vault ask for a typed word; off: only their normal confirmation. */
+  typedDeleteConfirm: boolean
 }
 
 export type ThemeSetting = 'system' | 'dark' | 'light'
@@ -414,6 +416,8 @@ export interface WaxApi {
   app: {
     info(): Promise<AppInfo>
     openExternal(url: string): Promise<boolean>
+    /** Runs the window's paste command (what Ctrl+V runs) on what has the focus. */
+    paste(): Promise<void>
     setDirty(count: number): Promise<void>
     checkUpdates(): Promise<UpdateResult>
     /** Downloads the latest release's installer and checks it against its SHA256SUMS.txt (E58). */
@@ -582,7 +586,8 @@ export interface WaxApi {
     discardPending(): Promise<void>
     import(privateKey: string, label: string): Promise<VaultKeyEntry>
     setLabel(id: string, label: string): Promise<void>
-    remove(id: string): Promise<void>
+    /** Deletes a key; `typed` is the word `delete` when Settings asks for a typed word (E73), otherwise the main process asks. */
+    remove(id: string, typed?: string): Promise<void>
     reveal(id: string): Promise<void>
     accounts(keys: string[]): Promise<{ account: string; permission: string; key: string }[]>
     exportVault(): Promise<boolean>

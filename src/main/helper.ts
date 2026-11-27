@@ -45,6 +45,7 @@ function ensure(): UtilityProcess {
     log.warn(`Helper process ended (${code})`)
     proc = null
     lspListener?.({ type: 'lsp-exit', id: '*', code: -1, error: 'Helper process ended' })
+    ptyListener?.({ type: 'pty-exit', id: '*', code: -1, error: 'Helper process ended' })
     for (const [id, w] of waiters) {
       waiters.delete(id)
       w.done({ code: -1, output: w.out.join(''), error: 'Helper process ended' })
@@ -93,6 +94,7 @@ export function stopHelper(): void {
 
 export interface PtyMessage {
   type: string
+  /** Terminal id; "*" when the helper itself ended and every shell with it. */
   id: string
   data?: string
   code?: number

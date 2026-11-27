@@ -17,6 +17,8 @@ import type { VaultKeyEntry } from '../../../shared/api'
 import { useStore } from '../lib/stores'
 import { IconCheck, IconChevronDown, IconCopy, IconLock, IconMore } from './Icons'
 import { Busy } from './Busy'
+import { TypedWord, typedWordMatches } from './TypedWord'
+import { useApp } from '../state'
 
 type KeyEntry = VaultKeyEntry
 
@@ -460,8 +462,9 @@ function CreateVault({ onClose }: { onClose: () => void }): React.JSX.Element {
 }
 
 /**
- * The second step of Create Keypair, "Back up this key": one of three choices
- * must be taken before it closes (no close button, no Escape).
+ * The second step of Create Keypair, "Back up this key": it offers a backup
+ * file or showing the key, and a clear warning that the key has no backup yet.
+ * Nothing is forced (E70): Close and Escape leave it without a backup.
  */
 export function BackupStep({ entry, testKeys, onDone }: { entry: KeyEntry; testKeys?: boolean; onDone: () => void }): React.JSX.Element {
   const [error, setError] = useState('')
@@ -487,12 +490,24 @@ export function BackupStep({ entry, testKeys, onDone }: { entry: KeyEntry; testK
     }
   }
   return (
-    <Modal size="m" name="backup-key" help="keyBackup" title="Back up this key">
-      <p style={{ marginTop: 0 }}>
-        The private key of <b>{entry.label || 'this key'}</b> exists only in this vault.
+    <Modal
+      size="m"
+      name="backup-key"
+      help="keyBackup"
+      title="Back up this key"
+      onClose={busy ? undefined : onDone}
+      footer={
+        <button className="btn" disabled={busy} onClick={onDone}>
+          Close
+        </button>
+      }
+    >
+      <div className="banner warn" style={{ marginTop: 0 }}>
+        This key is not backed up. The private key of <b>{entry.label || 'this key'}</b> exists only in this vault: losing the vault or its
+        password loses the key.
         {testKeys && ' These are test keys of WAX Testnet; a backup still keeps the test account usable.'}
-      </p>
-      <div className="mono-small" style={{ whiteSpace: 'nowrap', overflowX: 'auto' }}>
+      </div>
+      <div className="mono-small" style={{ whiteSpace: 'nowrap', overflowX: 'auto', marginTop: 'var(--sp-2)' }}>
         {entry.publicKey}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--sp-2)', marginTop: 'var(--sp-3)' }}>
@@ -502,9 +517,9 @@ export function BackupStep({ entry, testKeys, onDone }: { entry: KeyEntry; testK
         <button className="btn" disabled={busy} onClick={() => void show()}>
           Show the key so I can write it down
         </button>
-        <button className="btn" disabled={busy} onClick={onDone}>
-          Skip: I understand that losing the vault or its password loses this key
-        </button>
+      </div>
+      <div className="hint" style={{ marginTop: 'var(--sp-2)' }}>
+        You can back it up later in Manage Keypairs (Back up); the key shows "No backup" until then.
       </div>
       {error && <div className="error-text">{error}</div>}
     </Modal>
@@ -819,9 +834,28 @@ function ImportVault({ onClose }: { onClose: () => void }): React.JSX.Element {
   )
 }
 
+/**
+ * Delete key. E73: while Settings asks for a typed word, the word `delete` is
+ * the confirmation and the key goes at once; off, the main process asks its
+ * normal question.
+ */
 function DeleteKey({ entry, onClose }: { entry: KeyEntry; onClose: () => void }): React.JSX.Element {
+  const { state } = useApp()
+  const askWord = state.settings?.typedDeleteConfirm !== false
   const [typed, setTyped] = useState('')
+  const [error, setError] = useState('')
   const word = 'delete'
+  const ready = !askWord || typedWordMatches(typed, word)
+  const remove = async (): Promise<void> => {
+    if (!ready) return
+    setError('')
+    try {
+      await window.wax.keys.remove(entry.id, askWord ? typed : undefined)
+      onClose()
+    } catch (e) {
+      setError(errorText(e))
+    }
+  }
   return (
     <Modal
       size="s"
@@ -834,14 +868,7 @@ function DeleteKey({ entry, onClose }: { entry: KeyEntry; onClose: () => void })
           <button className="btn" onClick={onClose}>
             Cancel
           </button>
-          <button
-            className="btn danger"
-            disabled={typed !== word}
-            onClick={async () => {
-              await window.wax.keys.remove(entry.id)
-              onClose()
-            }}
-          >
+          <button className="btn danger" disabled={!ready} onClick={() => void remove()}>
             Delete key
           </button>
         </>
@@ -851,12 +878,8 @@ function DeleteKey({ entry, onClose }: { entry: KeyEntry; onClose: () => void })
         The private key of <span className="code-tag">{entry.publicKey}</span> ({entry.label || 'no label'}) is removed from the
         vault. Without a backup it cannot be recovered.
       </p>
-      <div className="field">
-        <label>
-          Type <b>{word}</b> to confirm
-        </label>
-        <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} />
-      </div>
+      {askWord && <TypedWord word={word} value={typed} onChange={setTyped} after="to delete the key" onEnter={() => void remove()} />}
+      {error && <div className="error-text">{error}</div>}
     </Modal>
   )
 }

@@ -6,6 +6,7 @@ import { checkPassword } from '../../../shared/password'
 import { confirmPageKind, notSentText, type SendFailure } from './not-sent'
 import { approveLabel } from './approve-label'
 import { Busy } from '../components/Busy'
+import { TypedWord, typedWordMatches } from '../components/TypedWord'
 
 interface Blob {
   field: 'code' | 'abi'
@@ -38,13 +39,15 @@ interface Approval {
   sequence?: { index: number; count: number; parts: string[] }
   /** Which build of the project is sent (E64). */
   build?: 'testnet' | 'mainnet' | 'any'
+  /** E73: Clear Contract Code with the setting on: the account name to type. */
+  typedName?: string
 }
 
 declare global {
   interface Window {
     confirmation: {
       load(): Promise<Approval>
-      approve(id: string): Promise<{ ok: boolean; transactionId?: string; error?: string; failure?: SendFailure }>
+      approve(id: string, typedName?: string): Promise<{ ok: boolean; transactionId?: string; error?: string; failure?: SendFailure }>
       cancel(id: string): Promise<boolean>
       revealLoad(): Promise<{ label: string; publicKey: string }>
       revealShow(password: string): Promise<string>
@@ -89,6 +92,7 @@ function Confirm(): React.JSX.Element {
   const [state, setState] = useState<'ready' | 'sending' | 'done' | 'failed'>('ready')
   const [showHex, setShowHex] = useState(false)
   const [note, setNote] = useState('')
+  const [typed, setTyped] = useState('')
 
   useEffect(() => {
     window.confirmation
@@ -111,13 +115,13 @@ function Confirm(): React.JSX.Element {
 
   const mainnet = a.network.kind !== 'testnet' && a.network.kind !== 'local'
   const expired = left <= 0
-  // E65: one click on Approve and send; no typed name and no wait.
-  const canApprove = state === 'ready' && !expired && !a.blocked
+  // E65: one click on Approve and send, no wait. E73: only Clear Contract Code asks for the account name, while the setting is on.
+  const canApprove = state === 'ready' && !expired && !a.blocked && (!a.typedName || typedWordMatches(typed, a.typedName))
 
   const approve = async (): Promise<void> => {
     setState('sending')
     setNote('')
-    const r = await window.confirmation.approve(a.id)
+    const r = await window.confirmation.approve(a.id, a.typedName ? typed : undefined)
     if (r.ok) setState('done')
     else {
       setState('failed')
@@ -228,6 +232,18 @@ function Confirm(): React.JSX.Element {
         {state !== 'failed' && state !== 'done' && (
           <div className="c-foot-notes">
             {a.blocked && <div className="c-blocked">{a.blocked}</div>}
+            {a.typedName && !a.blocked && (
+              <TypedWord
+                word={a.typedName}
+                value={typed}
+                onChange={setTyped}
+                after={<>to clear its contract code on {a.network.name}:</>}
+                onEnter={() => {
+                  if (canApprove) void approve()
+                }}
+                mono
+              />
+            )}
           </div>
         )}
         <div className="c-foot-actions">
@@ -575,7 +591,7 @@ function Code({ given }: { given?: string }): React.JSX.Element {
 
 /** Forgotten password: the recovery code and a new password, or a reset that keeps the old file. */
 function Recover(): React.JSX.Element {
-  const [info, setInfo] = useState<{ keys: number; recovery: boolean } | null>(null)
+  const [info, setInfo] = useState<{ keys: number; recovery: boolean; typedWord?: boolean } | null>(null)
   const [path, setPath] = useState<'code' | 'reset'>('code')
   const [code, setCode] = useState('')
   const [pw, setPw] = useState('')
@@ -591,7 +607,7 @@ function Recover(): React.JSX.Element {
     window.confirmation
       .keyLoad()
       .then((r) => {
-        const i = r as { keys: number; recovery: boolean }
+        const i = r as { keys: number; recovery: boolean; typedWord?: boolean }
         setInfo(i)
         if (!i.recovery) setPath('reset')
       })
@@ -618,13 +634,17 @@ function Recover(): React.JSX.Element {
       setBusy(false)
     }
   }
+  // E73: the word RESET while the setting is on; off, the main process asks its normal question.
+  const askWord = info?.typedWord !== false
+  const canReset = (!askWord || typedWordMatches(typed, 'RESET')) && !busy && info !== null
   const reset = async (): Promise<void> => {
-    if (typed !== 'RESET' || busy) return
+    if (!canReset) return
     setBusy(true)
     setError('')
     try {
-      const r = (await window.confirmation.reset(typed)) as { file: string }
-      setResetFile(r.file)
+      const r = (await window.confirmation.reset(askWord ? typed : '')) as { file: string }
+      // An empty name: the question was answered with Cancel.
+      if (r.file) setResetFile(r.file)
     } catch (e) {
       setError(reason(e))
     } finally {
@@ -709,18 +729,7 @@ function Recover(): React.JSX.Element {
               reset starts an empty vault. Accounts whose only key is in the old vault can no longer be controlled from here.
             </p>
             <p>The old file is not deleted: it is moved to vault-old-&lt;date&gt;.json in the data folder.</p>
-            <div className="field">
-              <label>
-                Type <b>RESET</b> to reset the vault
-              </label>
-              <input
-                className="input"
-                spellCheck={false}
-                value={typed}
-                onChange={(e) => setTyped(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && void reset()}
-              />
-            </div>
+            {askWord && <TypedWord word="RESET" value={typed} onChange={setTyped} after="to reset the vault" onEnter={() => void reset()} />}
           </>
         )}
         {error && <div className="error-text">{error}</div>}
@@ -734,7 +743,7 @@ function Recover(): React.JSX.Element {
             {busy ? <Busy text="Opening..." /> : 'Set new password'}
           </button>
         ) : (
-          <button className="btn danger" disabled={typed !== 'RESET' || busy} onClick={() => void reset()}>
+          <button className="btn danger" disabled={!canReset} onClick={() => void reset()}>
             Reset the vault
           </button>
         )}

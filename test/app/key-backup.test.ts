@@ -1,11 +1,12 @@
-// Plain-text backup helpers: file name, content, the sync-folder check and the
-// write that never replaces a file. Keys are made in the test and never printed.
+// Plain-text backup helpers: file name, content and the write that never
+// replaces a file (a synchronized folder asks nothing more, E70). Keys are made in the test and never printed.
 
 import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve, sep } from 'node:path'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { KEY_BACKUP_WARNING, keyBackupFileName, keyBackupText, recoveryCodeText, syncFolderOf, writeNewFile } from '../../src/main/key-backup'
+import * as keyBackup from '../../src/main/key-backup'
+import { KEY_BACKUP_WARNING, keyBackupFileName, keyBackupText, recoveryCodeText, writeNewFile } from '../../src/main/key-backup'
 
 describe('key backup file', () => {
   it('default name: label and the first 8 characters of the key after its prefix', () => {
@@ -73,30 +74,8 @@ describe('key backup file', () => {
   })
 })
 
-describe('sync folder check', () => {
-  const home = resolve(tmpdir(), 'home-user')
-  const env = { USERPROFILE: home, OneDrive: join(home, 'OneDrive') }
-  const cases: [string, string | null][] = [
-    [join(home, 'OneDrive', 'Documents', 'k.txt'), 'OneDrive'],
-    [join(home, 'onedrive', 'k.txt'), 'OneDrive'],
-    [join(home, 'OneDrive - Contoso', 'k.txt'), 'OneDrive'],
-    [join(home, 'Dropbox', 'keys', 'k.txt'), 'Dropbox'],
-    [join(home, 'Dropbox (Personal)', 'k.txt'), 'Dropbox'],
-    [join(resolve(tmpdir(), 'G'), 'My Drive', 'k.txt'), 'Google Drive'],
-    [join(home, 'Google Drive', 'k.txt'), 'Google Drive'],
-    [join(home, 'iCloudDrive', 'k.txt'), 'iCloud Drive'],
-    [join(home, 'Documents', 'k.txt'), null],
-    [join(home, 'OneDriveBackupNotes', 'k.txt'), null],
-    [join(resolve(tmpdir(), 'usb'), 'keys', 'k.txt'), null]
-  ]
-  for (const [path, want] of cases) {
-    it(`${path.split(sep).slice(-3).join('/')}: ${want ?? 'not synchronized'}`, () => {
-      expect(syncFolderOf(path, env)).toBe(want)
-    })
-  }
-  it('a OneDrive folder named only by the environment is found too', () => {
-    const custom = resolve(tmpdir(), 'cloud-x')
-    expect(syncFolderOf(join(custom, 'k.txt'), { OneDriveCommercial: custom })).toBe('OneDrive')
-    expect(syncFolderOf(join(custom, 'k.txt'), {})).toBeNull()
+describe('synchronized folders (E70)', () => {
+  it('no sync-folder check is left: a backup in a OneDrive, Dropbox, Google Drive or iCloud folder asks nothing more', () => {
+    expect(Object.keys(keyBackup)).not.toContain('syncFolderOf')
   })
 })

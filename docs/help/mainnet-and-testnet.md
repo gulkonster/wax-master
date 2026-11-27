@@ -25,7 +25,7 @@ The app decides the kind from the chain, not from the name you give:
 
 1. Press the arrow of the **Network** button in the top bar. Each network shows its kind; mainnet networks are orange.
 2. Click a network to select it. The Account page, Contract page, Deploy and all forms work on the selected network.
-3. The kind of a network you added yourself can be changed in Network > Manage Networks > **Edit**. The kind of a known chain is fixed.
+3. The kind of a network, the default ones included, can be changed in Network > Manage Networks > **Edit**. A known main chain (such as WAX Mainnet) always counts as mainnet, whatever kind is chosen.
 
 [Manage Networks](app:manage-networks)
 

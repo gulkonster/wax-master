@@ -128,7 +128,7 @@ export function ProjectSettings({
             value={cfg.buildCommand}
             onChange={(e) => set('buildCommand', e.target.value)}
           />
-          <div className="hint">A custom command always asks for your approval before its first run, and again whenever it changes.</div>
+          <div className="hint">In a project made here with New Project, a custom command runs without asking. A project from somewhere else asks for your approval before its first run, and again whenever the command changes.</div>
         </div>
         </div>
         <h2>Deploy Settings</h2>

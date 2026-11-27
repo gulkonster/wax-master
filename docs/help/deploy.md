@@ -27,7 +27,7 @@ The rule of [Testnet and mainnet builds](doc:network-builds) stays: a testnet bu
 
 Footer buttons: **Rebuild** compiles again and compares; **Simulate Deploy** runs the deployment without sending it (see [Simulate and the transaction inspector](doc:simulate-inspector)).
 
-Other commands in the Contract menu: **Deploy to Account...** (the same dialog, the account not saved to the project) and **Simulate Deploy** (opens the Deploy dialog, where Simulate Deploy is in the footer). Accounts > **Clear Contract Code...** removes code and ABI from an account; its tables stay, and the account name must be typed in the confirmation on every network.
+Other commands in the Contract menu: **Deploy to Account...** (the same dialog, the account not saved to the project) and **Simulate Deploy** (opens the Deploy dialog, where Simulate Deploy is in the footer). Accounts > **Clear Contract Code...** removes code and ABI from an account; its tables stay, and the account name must be typed in the confirmation on every network while **Ask to type a word before deleting** is on in Settings (the default).
 
 [Deploy](app:deploy) [Deploy to Account](app:deploy-to-account)
 

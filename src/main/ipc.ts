@@ -96,6 +96,9 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     platform: `${process.platform} ${process.arch}`
   }))
   handle('app:openExternal', (_e, url) => openExternalConfirmed(getWindow(), str(url, 'url', 2048)))
+  // Edit > Paste in the drawn menu: the same paste command Ctrl+V runs (the
+  // Edit menu's paste role), for whatever has the focus in the window.
+  handle('app:paste', (e) => e.sender.paste())
 
   handle('settings:get', () => store.getSettings())
   handle('settings:set', (_e, patchRaw) => {
@@ -111,6 +114,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     if ('lockAfterSignature' in p) patch.lockAfterSignature = bool(p.lockAfterSignature, 'lockAfterSignature')
     if ('updateCheck' in p) patch.updateCheck = bool(p.updateCheck, 'updateCheck')
     if ('autoBuildOnDeploy' in p) patch.autoBuildOnDeploy = bool(p.autoBuildOnDeploy, 'autoBuildOnDeploy')
+    if ('typedDeleteConfirm' in p) patch.typedDeleteConfirm = bool(p.typedDeleteConfirm, 'typedDeleteConfirm')
     if ('terminalProfile' in p) patch.terminalProfile = oneOf(p.terminalProfile, 'terminalProfile', ['powershell', 'cmd', 'toolchain'] as const)
     if ('setupDismissed' in p) patch.setupDismissed = bool(p.setupDismissed, 'setupDismissed')
     if ('theme' in p) patch.theme = oneOf(p.theme, 'theme', THEME_SETTINGS)

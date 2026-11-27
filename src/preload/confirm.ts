@@ -34,7 +34,7 @@ ipcRenderer.on('theme', (_e, theme: unknown) => applyTheme(theme))
 
 contextBridge.exposeInMainWorld('confirmation', {
   load: (): Promise<unknown> => ipcRenderer.invoke('confirm:load'),
-  approve: (id: string): Promise<unknown> => ipcRenderer.invoke('confirm:approve', id),
+  approve: (id: string, typedName?: string): Promise<unknown> => ipcRenderer.invoke('confirm:approve', id, typedName),
   cancel: (id: string): Promise<unknown> => ipcRenderer.invoke('confirm:cancel', id),
   revealLoad: (): Promise<unknown> => ipcRenderer.invoke('reveal:load'),
   revealShow: (password: string): Promise<unknown> => ipcRenderer.invoke('reveal:show', password),

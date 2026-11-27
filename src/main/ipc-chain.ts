@@ -109,8 +109,8 @@ export function registerChainIpc(getWindow: () => BrowserWindow | null): void {
       cancelId: 1,
       noLink: true,
       title: 'Test network',
-      message: 'Treat this network as a test network? Signing there skips the mainnet steps.',
-      detail: `Name: ${n.name}\nChain id: ${n.chainId}\nEndpoint: ${n.endpoint}\n\nThe mainnet steps are the red confirmation and typing the account name before deploys and permission changes.`
+      message: 'Treat this network as a test network? Signing there skips the mainnet step.',
+      detail: `Name: ${n.name}\nChain id: ${n.chainId}\nEndpoint: ${n.endpoint}\n\nThe mainnet step is the orange mainnet confirmation before every transaction.`
     }
     const win = getWindow()
     const r = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)

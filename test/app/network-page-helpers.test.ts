@@ -1,6 +1,6 @@
 // Helpers of the Network page and the network dialogs: the network selected
-// after a removal (same rule as the main process), suggested names that never
-// take a default network's name, and amounts with thousands separators.
+// after a removal (same rule as the main process), suggested names that are free
+// in the list (a default network's name is not reserved), and amounts with thousands separators.
 
 import { describe, expect, it } from 'vitest'
 import type { NetworkInfo } from '../../src/shared/chain-types'
@@ -30,11 +30,11 @@ describe('network selected after a removal', () => {
 describe('suggested names', () => {
   const main = net('wax-mainnet', 'WAX Mainnet', WAX_MAIN)
   const test = net('wax-testnet', 'WAX Testnet', WAX_TEST)
-  it('a default name is not suggested for a user network, also while the default is removed', () => {
+  it('a name used in the list is not suggested; the name of a removed default is free', () => {
     const probe = { endpoint: 'https://wax.eosphere.io', chainId: WAX_MAIN, knownName: 'WAX Mainnet' }
     expect(suggestNetworkName(probe, [main, test])).toBe('WAX Mainnet (wax.eosphere.io)')
-    expect(suggestNetworkName(probe, [test])).toBe('WAX Mainnet (wax.eosphere.io)')
-    expect(suggestNetworkName({ endpoint: 'https://t.example', chainId: WAX_TEST, knownName: 'WAX Testnet' }, [main])).toBe('WAX Testnet (t.example)')
+    expect(suggestNetworkName(probe, [test])).toBe('WAX Mainnet')
+    expect(suggestNetworkName({ endpoint: 'https://t.example', chainId: WAX_TEST, knownName: 'WAX Testnet' }, [main])).toBe('WAX Testnet')
   })
   it('another chain takes its known name or the host', () => {
     expect(suggestNetworkName({ endpoint: 'https://eos.example', chainId: OTHER, knownName: 'Telos' }, [main, test])).toBe('Telos')

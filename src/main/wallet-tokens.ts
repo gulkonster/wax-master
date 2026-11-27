@@ -12,10 +12,8 @@ import { dataDir } from './paths'
 
 /** At most this many tokens are taken from one history answer. */
 export const MAX_HISTORY_TOKENS = 100
-/** At most this many tokens can be added per network. */
-export const MAX_ADDED_TOKENS = 50
-/** Balances of added tokens are read from the chain, at most this many. */
-const MAX_BALANCE_READS = MAX_ADDED_TOKENS
+/** Balances of added tokens are read from the chain in groups of this many at once (every added token is read). */
+export const BALANCE_READS_AT_ONCE = 50
 /** History rows whose amount is not exact are read from the chain, at most this many per list. */
 export const MAX_HISTORY_READS = 20
 
@@ -170,7 +168,6 @@ export class AddedTokens {
           id,
           list
             .filter(validAdded)
-            .slice(0, MAX_ADDED_TOKENS)
             .map((t) => ({ contract: t.contract, symbol: t.symbol, precision: t.precision }))
         )
       }
@@ -195,7 +192,6 @@ export class AddedTokens {
     const f = this.load()
     const list = f.networks.get(networkId) ?? []
     if (list.some((t) => t.contract === token.contract && t.symbol === token.symbol)) return [...list]
-    if (list.length >= MAX_ADDED_TOKENS) throw new Error(`At most ${MAX_ADDED_TOKENS} tokens can be added per network.`)
     const next = [...list, { contract: token.contract, symbol: token.symbol, precision: token.precision }]
     f.networks.set(networkId, next)
     this.save(f)
@@ -283,21 +279,21 @@ export async function walletTokens(n: NetworkInfo, deps: TokenDeps): Promise<Wal
     }
   }
   const extra = deps.added.filter((t) => !isCore(t.contract, t.symbol) && !rows.some((r) => r.contract === t.contract && r.symbol === t.symbol))
-  const read = await Promise.all(
-    extra.slice(0, MAX_BALANCE_READS).map(async (t): Promise<TokenRow> => {
-      let balance = ''
-      let precision = t.precision
-      try {
-        const b = balanceFromAnswer(await deps.balance(t.contract, t.symbol), t.symbol, t.precision)
-        balance = b.balance
-        if (balance) precision = b.precision
-      } catch {
-        balance = ''
-      }
-      return { contract: t.contract, symbol: t.symbol, precision, balance, source: 'added' }
-    })
-  )
-  rows.push(...read)
+  const readOne = async (t: AddedToken): Promise<TokenRow> => {
+    let balance = ''
+    let precision = t.precision
+    try {
+      const b = balanceFromAnswer(await deps.balance(t.contract, t.symbol), t.symbol, t.precision)
+      balance = b.balance
+      if (balance) precision = b.precision
+    } catch {
+      balance = ''
+    }
+    return { contract: t.contract, symbol: t.symbol, precision, balance, source: 'added' }
+  }
+  for (let i = 0; i < extra.length; i += BALANCE_READS_AT_ONCE) {
+    rows.push(...(await Promise.all(extra.slice(i, i + BALANCE_READS_AT_ONCE).map(readOne))))
+  }
   // The network's symbol on another contract is not the network's token: marked, and last.
   const tag = lookalikeText(n)
   const own = rows.filter((r) => r.source === 'core' || r.symbol !== n.symbol)

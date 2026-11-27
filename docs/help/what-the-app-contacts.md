@@ -37,7 +37,7 @@ Building and editing work without any network. The toolchain installs offline fr
 ## How to do it here
 
 - Turn off the update check: File > Settings > Updates. Help > Check for Updates still works when you press it.
-- Remove all app data: File > Settings > Data > **Clear All App Data...**. Your projects are never touched; the vault is removed only if you tick that option.
+- Remove all app data: File > Settings > Data > **Clear All App Data...**. Your projects are never touched; the vault is removed only if you tick that option. With the vault, type `delete my keys` (the copy button next to the words copies them) and **Clear and restart** clears at once; with **Ask to type a word before deleting** off in Settings > Key vault, there is nothing to type and two normal questions ask first. Without the vault, one normal question asks first.
 
 [Open Settings](app:settings) [Check for Updates](app:check-updates)
 

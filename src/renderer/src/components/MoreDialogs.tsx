@@ -16,8 +16,9 @@ import { Busy } from './Busy'
 const NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
 
 /**
- * Accounts > Clear Contract Code: empty setcode and setabi. The account name
- * is typed in the confirmation window (on every network), not here.
+ * Accounts > Clear Contract Code: empty setcode and setabi. While Settings asks
+ * for a typed word (E73), the account name is typed in the confirmation window
+ * (on every network), not here.
  */
 export function ClearCodeDialog({ onClose, initialAccount = '' }: { onClose: () => void; initialAccount?: string }): React.JSX.Element {
   const net = useStore(networkStore).current

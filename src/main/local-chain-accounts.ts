@@ -26,6 +26,7 @@ import {
 } from '../chain-core'
 import { LOCAL_CHAIN_NETWORK_ID, type LocalAccountInput, type LocalChainStatus, type LocalTokensInput } from '../shared/local-chain'
 import type { LocalAccountResult, LocalTokensResult } from '../shared/api'
+import { amountUnits, ASSET_MAX_UNITS, COMMA_TEXT, formatUnits } from '../shared/wallet'
 import { assertLocalChain } from './local-chain-boot'
 import { request, type ChainInfo } from './rpc'
 import { resourcesDir } from './paths'
@@ -38,7 +39,6 @@ import { log } from './log'
 export const LOCAL_ACCOUNT_RAM_BYTES = 1_048_576
 export const LOCAL_ACCOUNT_STAKE = '100.00000000 WAX'
 export const LOCAL_ACCOUNT_TOKENS = '10000.00000000 WAX'
-export const LOCAL_TOKENS_MAX = 1_000_000
 
 /** The 12-character names of Create Account (a-z, 1-5, dots inside). */
 const NEW_NAME = /^[a-z1-5][a-z1-5.]{10}[a-z1-5]$/
@@ -69,13 +69,27 @@ function normalizeKey(k: string): string {
   }
 }
 
-/** The amount as a WAX quantity with 8 decimals; throws when it is not more than 0 and at most 1,000,000. */
-export function tokenQuantity(amount: number): string {
-  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) throw new Error('Enter an amount of WAX greater than 0.')
-  if (amount > LOCAL_TOKENS_MAX) throw new Error('At most 1,000,000 WAX at a time.')
-  const units = Math.round(amount * 1e8)
-  if (units <= 0) throw new Error('Enter an amount of WAX greater than 0.')
-  return `${(units / 1e8).toFixed(8)} WAX`
+const POSITIVE_TEXT = 'Enter an amount of WAX greater than 0.'
+
+/**
+ * The amount as a WAX quantity with 8 decimals. Text is taken by its digits (at most 8 decimals);
+ * a number is rounded to 8 decimals. Throws when it is not more than 0 or not a valid asset amount.
+ */
+export function tokenQuantity(amount: number | string): string {
+  let units: bigint | null
+  if (typeof amount === 'string') {
+    const t = amount.trim()
+    if (t.includes(',')) throw new Error(COMMA_TEXT)
+    units = amountUnits(t, 8)
+    if (units === null) throw new Error('Enter an amount of WAX with at most 8 decimals, no larger than an asset on the chain can hold.')
+  } else {
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) throw new Error(POSITIVE_TEXT)
+    // A whole number is exact at any size; a fraction is below 2^53 and rounded to 8 decimals.
+    units = Number.isInteger(amount) ? BigInt(amount) * 100_000_000n : amountUnits(amount.toFixed(8), 8)
+    if (units === null || units > ASSET_MAX_UNITS) throw new Error('The amount is larger than an asset on the chain can hold.')
+  }
+  if (units <= 0n) throw new Error(POSITIVE_TEXT)
+  return formatUnits(units, 8, 'WAX')
 }
 
 export function checkNewName(name: string): string {

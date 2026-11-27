@@ -84,13 +84,15 @@ export function registerConfirmWindow(signer: Signer): void {
     if (!p) throw new Error('Refused')
     return p.record
   })
-  ipcMain.handle('confirm:approve', async (e, id: unknown) => {
+  ipcMain.handle('confirm:approve', async (e, id: unknown, typedName: unknown) => {
     const p = fromConfirmWindow(e)
     if (!p || typeof id !== 'string' || id !== p.record.id) throw new Error('Refused')
+    // E73: the account name typed for Clear Contract Code; the signer compares it with its record.
+    if (typedName !== undefined && (typeof typedName !== 'string' || typedName.length > 13)) throw new Error('Refused')
     if (p.busy) throw new Error('Already sending')
     p.busy = true
     try {
-      const result = await signerRef!.approve(p.record.id, p.secret)
+      const result = await signerRef!.approve(p.record.id, p.secret, typedName as string | undefined)
       p.secret.fill(0)
       p.settle({ approved: true, result })
       pendingByWindow.delete(e.sender.id)

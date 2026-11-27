@@ -8,10 +8,10 @@ import { join } from 'node:path'
 import { arr, optStr, str } from '../shared/validate'
 import { handle } from './ipc'
 import { dataDir } from './paths'
-import { Vault, keptVaultCopies, type VaultFile } from './vault'
+import { RESET_WORD, Vault, keptVaultCopies, type VaultFile } from './vault'
 import { Signer, defaultDeps } from './signer'
 import { closeOpenConfirmations, registerConfirmWindow } from './confirm-window'
-import { getSettings } from './store'
+import { getSettings, typedDeleteConfirm } from './store'
 import { chain } from './rpc'
 import { currentNetwork, getNetwork, readCall, stars } from './networks'
 import { pickList } from './account-pick'
@@ -36,7 +36,6 @@ import {
   keyBackupFileName,
   keyBackupText,
   recoveryCodeText,
-  syncFolderOf,
   writeNewFile
 } from './key-backup'
 
@@ -143,6 +142,9 @@ function lockAll(): void {
 /** A native confirmation from the main process; Cancel is the default and the answer to Escape. */
 export const confirmNative = askNative
 
+/** E73: the word Delete key asks for while the setting is on. */
+export const KEY_DELETE_WORD = 'delete'
+
 function documentsDir(): string {
   try {
     return app.getPath('documents')
@@ -152,11 +154,11 @@ function documentsDir(): string {
 }
 
 /**
- * The system Save dialog for a plain-text secret file, then the sync-folder
- * question. Returns the chosen path, or null when the user stopped. An existing
- * file is refused (never replaced).
+ * The system Save dialog for a plain-text secret file. Returns the chosen path,
+ * or null when the user stopped. An existing file is refused (never replaced).
+ * A synchronized folder (OneDrive, Dropbox, ...) asks nothing more (E70).
  */
-async function chooseSecretFile(win: BrowserWindow, title: string, name: string, what: string): Promise<string | null> {
+async function chooseSecretFile(win: BrowserWindow, title: string, name: string): Promise<string | null> {
   const opts: Electron.SaveDialogOptions = {
     title,
     defaultPath: join(documentsDir(), name),
@@ -166,16 +168,6 @@ async function chooseSecretFile(win: BrowserWindow, title: string, name: string,
   // The window closed (a lock) while the dialog was open: nothing is written.
   if (r.canceled || !r.filePath || win.isDestroyed()) return null
   if (existsSync(r.filePath)) throw new Error(FILE_EXISTS)
-  const sync = syncFolderOf(r.filePath, process.env)
-  if (sync) {
-    const go = await askNative(
-      win,
-      `This folder is synchronized by ${sync}.`,
-      `${what} would be copied to ${sync} and to every device that syncs with it. Choose a folder that is not synchronized, for example on a USB stick.`,
-      'Save here anyway'
-    )
-    if (!go || win.isDestroyed()) return null
-  }
   return r.filePath
 }
 
@@ -215,7 +207,7 @@ async function saveKeyBackup(s: KeySession, password: string): Promise<'saved' |
   if (!entry) throw new Error('Unknown key')
   // The password first: a wrong one is refused before any dialog.
   await vault().checkPassword(password)
-  const path = await chooseSecretFile(s.win, 'Save key backup', keyBackupFileName(entry.label, entry.publicKey), 'The private key')
+  const path = await chooseSecretFile(s.win, 'Save key backup', keyBackupFileName(entry.label, entry.publicKey))
   if (!path || s.win.isDestroyed()) return 'cancelled'
   const accounts = await accountsOfKey(entry.publicKey)
   const network = currentNetwork().name
@@ -302,10 +294,19 @@ export function registerKeys(getWindow: () => BrowserWindow | null): void {
   handle('keys:discardPending', () => vault().discardPendingKey())
   handle('keys:import', (_e, key, label) => vault().addKey(str(key, 'privateKey', 200), str(label, 'label', 64)))
   handle('keys:setLabel', (_e, id, label) => vault().setLabel(str(id, 'id', 64), str(label, 'label', 64)))
-  handle('keys:remove', async (_e, id) => {
+  // E73: with the setting on, the typed word `delete` is the confirmation (nothing else is asked);
+  // off, the normal question is asked here.
+  handle('keys:remove', async (_e, id, typed) => {
     const keyId = str(id, 'id', 64)
+    const word = optStr(typed, 'typed', 20)
     const k = vault().list().find((x) => x.id === keyId)
     if (!k) throw new Error('Unknown key')
+    if (typedDeleteConfirm()) {
+      if (word !== KEY_DELETE_WORD) throw new Error(`Type "${KEY_DELETE_WORD}" to delete the key`)
+      vault().removeKey(keyId)
+      closeKeyWindows(['reveal', 'backup'], keyId)
+      return
+    }
     const ok = await confirmNative(
       getWindow(),
       'Delete this key from the vault?',
@@ -466,7 +467,8 @@ function registerKeyWindowCalls(): void {
     } catch {
       keys = 0
     }
-    return { mode: s.mode, keys, recovery: vault().exists() && vault().hasRecoveryCode() }
+    // E73: whether Reset asks for the typed word (the setting is read here, not taken from the window).
+    return { mode: s.mode, keys, recovery: vault().exists() && vault().hasRecoveryCode(), typedWord: typedDeleteConfirm() }
   })
   ipcMain.handle('keywin:backupSave', async (e, p: unknown) => {
     const s = fromKeyWindow(e, 'backup') ?? refused()
@@ -481,7 +483,7 @@ function registerKeyWindowCalls(): void {
   ipcMain.handle('keywin:codeSave', async (e) => {
     const s = fromKeyWindow(e, 'code') ?? refused()
     if (!s.code) throw new Error('No code to save')
-    const path = await chooseSecretFile(s.win, 'Save recovery code', RECOVERY_CODE_FILE, 'The recovery code')
+    const path = await chooseSecretFile(s.win, 'Save recovery code', RECOVERY_CODE_FILE)
     // The code was hidden (a lock) or replaced, or the window closed, while the dialog was open: nothing is written.
     if (!path || !s.code || s.win.isDestroyed()) return 'cancelled'
     writeNewFile(path, recoveryCodeText(s.code, new Date()))
@@ -511,9 +513,21 @@ function registerKeyWindowCalls(): void {
     return { code: next }
   })
   // Forgotten password, path 2: the vault file is moved aside and an empty start follows.
-  ipcMain.handle('keywin:reset', (e, typed: unknown) => {
-    fromKeyWindow(e, 'recover') ?? refused()
-    const name = vault().reset(secret(typed, 20))
+  // E73: with the setting on, the typed word RESET is the confirmation; off, a normal question is asked here.
+  ipcMain.handle('keywin:reset', async (e, typed: unknown) => {
+    const s = fromKeyWindow(e, 'recover') ?? refused()
+    let word = secret(typed, 20)
+    if (!typedDeleteConfirm()) {
+      const ok = await confirmNative(
+        s.win,
+        'Reset the vault?',
+        'A new, empty vault starts. The old vault file is not deleted: it is moved to vault-old-<date>.json in the data folder and can be imported later with its password.',
+        'Reset the vault'
+      )
+      if (!ok || s.win.isDestroyed()) return { file: '' }
+      word = RESET_WORD
+    }
+    const name = vault().reset(word)
     closeRevealWindows()
     closeOpenConfirmations()
     closeOlderCodeWindows()

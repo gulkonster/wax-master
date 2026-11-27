@@ -3,9 +3,6 @@
 
 import type { NetworkInfo } from '../../../shared/chain-types'
 
-/** Names of the default networks: kept for them even while they are removed. */
-export const DEFAULT_NETWORK_NAMES: readonly string[] = ['WAX Mainnet', 'WAX Testnet']
-
 /**
  * The network selected after `removedId` is removed, by the main process's rule:
  * the WAX Testnet default, else an entry on the WAX Testnet chain, else the first.
@@ -17,8 +14,8 @@ export function nextNetworkAfterRemoval(list: NetworkInfo[], removedId: string, 
 
 /**
  * A name for a new network: the known chain's name, the name of a network on
- * the same chain, or the host; made unique in the list. The default networks'
- * names are never suggested for a user's network, even while a default is removed.
+ * the same chain, or the host; made unique in the list. A default network's
+ * name is suggested like any other name when no network of the list uses it.
  */
 export function suggestNetworkName(probe: { endpoint: string; chainId: string; knownName: string | null }, list: NetworkInfo[]): string {
   let host = probe.endpoint
@@ -27,8 +24,7 @@ export function suggestNetworkName(probe: { endpoint: string; chainId: string; k
   } catch {
     // keep the text as given
   }
-  const taken = (name: string): boolean =>
-    list.some((n) => n.name.toLowerCase() === name.toLowerCase()) || DEFAULT_NETWORK_NAMES.some((d) => d.toLowerCase() === name.toLowerCase())
+  const taken = (name: string): boolean => list.some((n) => n.name.toLowerCase() === name.toLowerCase())
   const base = probe.knownName ?? list.find((n) => n.chainId === probe.chainId)?.name ?? host
   if (!taken(base)) return base
   if (!taken(`${base} (${host})`)) return `${base} (${host})`

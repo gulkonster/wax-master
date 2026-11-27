@@ -26,7 +26,6 @@ import { isUnknownAccount, plainAccountError } from './account-pick'
 import { linksFromAccount, linksFromHistory, parsePermissionIntent, planPermissionChange, readPermissions, type PlanContext } from './wallet-permissions'
 
 const ACTION_NAME = /^[a-z1-5.]{1,12}[a-j1-5]?$/
-/** Same limit as contract:pack. */
 
 export function parseActions(raw: unknown): ActionRequest[] {
   return arr(raw, 'actions', 20).map((a, i) => {

@@ -1,9 +1,8 @@
 // Plain-text backup files (one key, or the vault recovery code): names,
-// contents, the sync-folder check and a write that never replaces a file.
+// contents and a write that never replaces a file.
 // Only the main process builds and writes these files.
 
 import { writeFileSync } from 'node:fs'
-import { resolve, sep } from 'node:path'
 import { cleanLabel } from './vault'
 
 export const KEY_BACKUP_WARNING =
@@ -78,41 +77,6 @@ export function recoveryCodeText(code: string, date: Date): string {
     'With this code the vault can be opened without the password. Keep it away from this computer.',
     ''
   ].join('\r\n')
-}
-
-const SEGMENTS: [RegExp, string][] = [
-  [/^onedrive( - .+)?$/i, 'OneDrive'],
-  [/^dropbox( \(.+\))?$/i, 'Dropbox'],
-  [/^(google ?drive|my drive|googledrive)$/i, 'Google Drive'],
-  [/^(icloud ?drive|iclouddrive)$/i, 'iCloud Drive']
-]
-
-/**
- * The sync service whose folder holds `path`, or null: from the folders the
- * environment names (OneDrive variables, the user profile's Dropbox, Google
- * Drive and iCloud Drive folders) and from the folder names in the path.
- */
-export function syncFolderOf(path: string, env: Record<string, string | undefined>): string | null {
-  const full = resolve(path)
-  const lower = full.toLowerCase()
-  const profile = env.USERPROFILE ?? env.HOME
-  const roots: [string | undefined, string][] = [
-    [env.OneDrive, 'OneDrive'],
-    [env.OneDriveConsumer, 'OneDrive'],
-    [env.OneDriveCommercial, 'OneDrive'],
-    [profile && `${profile}${sep}Dropbox`, 'Dropbox'],
-    [profile && `${profile}${sep}Google Drive`, 'Google Drive'],
-    [profile && `${profile}${sep}iCloudDrive`, 'iCloud Drive']
-  ]
-  for (const [root, name] of roots) {
-    if (!root) continue
-    const r = resolve(root).toLowerCase()
-    if (lower === r || lower.startsWith(r.endsWith(sep) ? r : r + sep)) return name
-  }
-  for (const seg of full.split(/[\\/]+/)) {
-    for (const [re, name] of SEGMENTS) if (re.test(seg)) return name
-  }
-  return null
 }
 
 /** Writes a new file; refuses when the file exists (never replaces one). */

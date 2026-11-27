@@ -839,6 +839,10 @@ h3 {
 .icon-btn.on {
   color: var(--warn-text);
 }
+/* E73: the copy button next to a word to type. */
+.typed-word label .typed-word-copy {
+  vertical-align: middle;
+}
 
 /* ------------------------------------------------------------------ inputs */
 

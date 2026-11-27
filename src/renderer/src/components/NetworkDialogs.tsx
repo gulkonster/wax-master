@@ -45,7 +45,7 @@ function KindField({
       <div className="hint">
         {note ??
           (kind === 'local'
-            ? 'A chain on this computer: normal confirmation, no typed names.'
+            ? 'A chain on this computer: normal confirmation.'
             : 'A network counts as mainnet until it is marked as a test network; for a chain the app does not know, WAX Master asks you to confirm that in its own dialog.')}
       </div>
     </div>
@@ -433,7 +433,7 @@ export function ManageNetworksDialog({ onClose }: { onClose: () => void }): Reac
   )
 }
 
-/** Edit a network: endpoints and history for every network; name and kind for the user's own. The chain id never changes. */
+/** Edit a network: name, kind, endpoints and history, also for a default network. The chain id never changes. */
 export function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; onClose: () => void }): React.JSX.Element {
   const [name, setName] = useState(network.name)
   const [kind, setKind] = useState<NetworkKind>(network.kind)
@@ -445,7 +445,7 @@ export function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; 
       const eps = endpoints.split(/\s+/).filter(Boolean)
       await window.wax.networks.update(
         network.id,
-        network.preset ? { endpoints: eps, history: historyUrl.trim() || null } : { name, kind, endpoints: eps, history: historyUrl.trim() || null }
+        { name, kind, endpoints: eps, history: historyUrl.trim() || null }
       )
       await refreshNetworks()
       onClose()
@@ -473,20 +473,13 @@ export function EditNetworkDialog({ network, onClose }: { network: NetworkInfo; 
     >
       <div className="field">
         <label>Name</label>
-        {network.preset ? (
-          <>
-            <div className="chip ui">{network.name}</div>
-            <div className="hint">The name and kind of a default network are fixed; its endpoints and history service can be changed.</div>
-          </>
-        ) : (
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
-        )}
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <div className="field">
         <label>Chain ID</label>
         <div className="chip" style={{ userSelect: 'text' }}>{network.chainId}</div>
       </div>
-      {!network.preset && <KindField kind={kind} setKind={setKind} note={network.kindNote} localAllowed={endpoints.split(/\s+/).filter(Boolean).every(isLocalUrl)} />}
+      <KindField kind={kind} setKind={setKind} note={network.kindNote} localAllowed={endpoints.split(/\s+/).filter(Boolean).every(isLocalUrl)} />
       <div className="field">
         <label>Endpoints (one per line; same chain id)</label>
         <textarea className="textarea mono" value={endpoints} onChange={(e) => setEndpoints(e.target.value)} />

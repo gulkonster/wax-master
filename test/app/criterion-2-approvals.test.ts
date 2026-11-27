@@ -360,6 +360,47 @@ describe('no typed account name (E65)', () => {
   })
 })
 
+describe('typed account name for Clear Contract Code only (E73)', () => {
+  it('with the setting on, clearing code asks for the account name on every network kind; a wrong or missing name sends nothing', async () => {
+    for (const kind of ['mainnet', 'testnet', 'local'] as const) {
+      network = kind === 'local' ? { ...net('local', OTHER_CHAIN, 'http://127.0.0.1:8888'), endpoints: ['http://127.0.0.1:8888'] } : net(kind)
+      const before = sent.length
+      let s = new Signer(deps({ typedDeleteConfirm: () => true }))
+      let p = await s.prepare({ networkId: 'n1', actions: [setcode('alice', ''), setabi('alice', '')], kind: 'clearCode' })
+      expect(p.record.typedName).toBe('alice')
+      await expect(s.approve(p.record.id, p.secret)).rejects.toThrow(/Type the account name "alice"/)
+      expect(sent).toHaveLength(before)
+      s = new Signer(deps({ typedDeleteConfirm: () => true }))
+      p = await s.prepare({ networkId: 'n1', actions: [setcode('alice', ''), setabi('alice', '')], kind: 'clearCode' })
+      await expect(s.approve(p.record.id, p.secret, 'alic')).rejects.toThrow(/Type the account name/)
+      s = new Signer(deps({ typedDeleteConfirm: () => true }))
+      p = await s.prepare({ networkId: 'n1', actions: [setcode('alice', ''), setabi('alice', '')], kind: 'clearCode' })
+      await s.approve(p.record.id, p.secret, 'alice')
+      expect(sent).toHaveLength(before + 1)
+    }
+  })
+
+  it('with the setting off, clearing code asks for nothing typed', async () => {
+    const s = new Signer(deps({ typedDeleteConfirm: () => false }))
+    const p = await s.prepare({ networkId: 'n1', actions: [setcode('alice', ''), setabi('alice', '')], kind: 'clearCode' })
+    expect(Object.keys(p.record)).not.toContain('typedName')
+    await s.approve(p.record.id, p.secret)
+    expect(sent).toHaveLength(1)
+  })
+
+  it('no other transaction asks for a typed name, with the setting on: deploy, permission change, transfer', async () => {
+    network = net('mainnet')
+    const wasm = '0061736d01000000'
+    for (const actions of [[setcode('alice', wasm), setabi('alice', '')], [updateauth('alice')], [transfer]]) {
+      const s = new Signer(deps({ typedDeleteConfirm: () => true }))
+      const p = await s.prepare({ networkId: 'n1', actions, kind: actions[0].name === 'setcode' ? 'deploy' : 'run' })
+      expect(Object.keys(p.record)).not.toContain('typedName')
+      await s.approve(p.record.id, p.secret)
+    }
+    expect(sent).toHaveLength(3)
+  })
+})
+
 describe('deploy hashes come from the signed bytes', () => {
   it('sizes and SHA-256 of code and ABI are those inside the packed transaction; code on the account read in prepare from its endpoint', async () => {
     const wasm = Uint8Array.from([0, 0x61, 0x73, 0x6d, 1, 0, 0, 0, 5, 6, 7])

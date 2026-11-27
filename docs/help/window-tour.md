@@ -42,6 +42,12 @@ Notices slide down at the top of the window, above any open dialog. While a buil
 
 Three tabs: **Terminal** (PowerShell, Command Prompt or the toolchain's Linux shell), **Output** (build and transaction lines) and **Problems** (the editor's live errors and the last build's, in one list; see [The editor](doc:editor)). Ctrl+` opens it on the Terminal tab or closes it; the panel button in the status bar opens or closes it too.
 
+In the Terminal:
+
+- **Copy and paste**: Ctrl+C copies the selected text (with nothing selected it goes to the shell), Ctrl+V or Shift+Insert pastes, and so does Edit > Paste. A right click opens a small menu with **Copy** (the selected text) and **Paste**; Esc or a click elsewhere closes it. Text of several lines is pasted at once, without a question; each line may run as a command.
+- **More terminals**: **+** above the terminal list on the right opens one with the default profile (File > Settings), the arrow beside it opens one with another profile. The **x** of a terminal in the list closes it.
+- **Leaving a shell**: when a shell ends, for example after `exit`, its terminal closes, as its **x** would, whatever its exit code. Only when a shell could not start, or the app's helper process stopped, does its terminal stay in the list with a line that says what happened; typing there does nothing. Close it, or open a new terminal with **+**.
+
 ## Status bar
 
 From left to right: the vault state (click to unlock or to open Manage Keypairs), **Lock** while the vault is open, the network and endpoint with its status dot (click to manage networks), the toolchain of the project (click to choose another), the editor engine state (`C++: ready`; see [The editor](doc:editor)), the cursor place, the error and warning counts (click for Problems) and the panel button.

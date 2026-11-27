@@ -1,7 +1,8 @@
 // The title bar row of the main window: app icon, the menu bar drawn from the
 // shared menu model, and the window title. Windows draws the caption buttons to
 // the right of it. A click on a menu item calls the same function the `menu`
-// event from the main process calls; nothing new reaches the main process.
+// event from the main process calls. Edit > Paste asks the main process to run
+// the window's paste command, the one Ctrl+V runs.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MenuCommand } from '../../../shared/api'
@@ -62,9 +63,20 @@ function captureFocus(): FocusTarget {
   return { element: document.activeElement, editor }
 }
 
+/**
+ * Edit > Paste: the focus goes back to where it was (the editor, a text field
+ * or the terminal frame) and the main process runs the window's paste command,
+ * the same one Ctrl+V runs, so each place pastes the way it does for Ctrl+V.
+ */
+function pasteInto(target: FocusTarget): void {
+  if (target.editor) target.editor.focus()
+  else if (target.element instanceof HTMLElement && target.element.isConnected) target.element.focus()
+  window.wax.app.paste().catch((e: unknown) => toast('Paste failed', e instanceof Error ? e.message : String(e), 'error'))
+}
+
 function runRole(role: MenuRole, target: FocusTarget): void {
   if (role === 'paste') {
-    toast('Paste with Ctrl+V', 'The menu cannot read the clipboard.')
+    pasteInto(target)
     return
   }
   if (target.editor) {

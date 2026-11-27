@@ -8,7 +8,7 @@ vi.mock('electron', () => ({ app: { getPath: () => userData, isPackaged: false, 
 
 import { chainTimePlus, controlledPermissions, REFUND_DELAY_SEC } from '../../src/main/account-view'
 import { signableFrom } from '../../src/main/account-pick'
-import { AddedTokens, MAX_ADDED_TOKENS, MAX_HISTORY_TOKENS, parseHistoryTokens, precisionFromStats, walletTokens } from '../../src/main/wallet-tokens'
+import { AddedTokens, BALANCE_READS_AT_ONCE, MAX_HISTORY_TOKENS, parseHistoryTokens, precisionFromStats, walletTokens } from '../../src/main/wallet-tokens'
 import { generatePrivateKey, publicFromPrivate, publicKeyToString } from '../../src/chain-core'
 import type { NetworkInfo, PermissionView } from '../../src/shared/chain-types'
 import { ramForAmount, ramSellReturn, ramFeeUnits, type RamMarket } from '../../src/shared/ram-market'
@@ -131,7 +131,7 @@ describe('Add token', () => {
     expect(precisionFromStats({ TLM: { supply: '100.0000 XYZ' } }, 'TLM')).toBeNull()
     expect(precisionFromStats(null, 'TLM')).toBeNull()
   })
-  it('keeps tokens per network, without duplicates, up to the limit; a broken file reads as empty', () => {
+  it('keeps tokens per network, without duplicates and without a count limit; a broken file reads as empty', () => {
     const file = join(userData, 'tokens-a.json')
     const s = new AddedTokens(file)
     expect(s.add('net1', { contract: 'alien.worlds', symbol: 'TLM', precision: 4 })).toHaveLength(1)
@@ -139,8 +139,9 @@ describe('Add token', () => {
     expect(s.list('net2')).toEqual([])
     expect(s.remove('net1', 'alien.worlds', 'TLM')).toEqual([])
     expect(() => s.add('net1', { contract: 'BAD', symbol: 'TLM', precision: 4 })).toThrow()
-    for (let i = 0; i < MAX_ADDED_TOKENS; i++) s.add('net3', { contract: 'tok', symbol: String.fromCharCode(65 + Math.floor(i / 26), 65 + (i % 26)), precision: 0 })
-    expect(() => s.add('net3', { contract: 'other', symbol: 'ZZZ', precision: 0 })).toThrow()
+    for (let i = 0; i < 60; i++) s.add('net3', { contract: 'tok', symbol: String.fromCharCode(65 + Math.floor(i / 26), 65 + (i % 26)), precision: 0 })
+    expect(s.add('net3', { contract: 'other', symbol: 'ZZZ', precision: 0 })).toHaveLength(61)
+    expect(s.list('net3')).toHaveLength(61)
     writeFileSync(file, '{ not json')
     expect(s.list('net1')).toEqual([])
     writeFileSync(file, JSON.stringify({ networks: { net1: [{ contract: 'ok', symbol: 'OK', precision: 2 }, { contract: 'x', symbol: 'bad', precision: 2 }] } }))
@@ -151,6 +152,14 @@ describe('Add token', () => {
 
 describe('the token list', () => {
   const n = { id: 'wax-testnet', name: 'WAX Testnet', symbol: 'WAX', precision: 8 } as NetworkInfo
+  it('reads and lists every added token, also more than one group of reads', async () => {
+    const count = BALANCE_READS_AT_ONCE + 11
+    const added = Array.from({ length: count }, (_, i) => ({ contract: 'tok', symbol: String.fromCharCode(65 + Math.floor(i / 26), 65 + (i % 26)), precision: 0 }))
+    const r = await walletTokens(n, { coreBalance: async () => [], balance: async (_c, symbol) => [`7 ${symbol}`], added })
+    const rows = r.rows.filter((x) => x.source === 'added')
+    expect(rows).toHaveLength(count)
+    expect(rows.every((x) => x.balance === `7 ${x.symbol}`)).toBe(true)
+  })
   it('core first, then history tokens, then added ones not already listed', async () => {
     const r = await walletTokens(n, {
       coreBalance: async () => ['56.76675385 WAX'],

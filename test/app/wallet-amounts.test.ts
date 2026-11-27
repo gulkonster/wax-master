@@ -45,7 +45,7 @@ import {
 } from '../../src/main/wallet-tokens'
 import type { NetworkInfo } from '../../src/shared/chain-types'
 import { amountProblem, amountUnits, ASSET_MAX_UNITS, assetUnits, COMMA_TEXT, formatUnits, quantityText, readAsset } from '../../src/shared/wallet'
-import { AFTER_SEND_READS_MS, amountNote, CLEARED_FIELD, refundBlocked, refundTimeText, scheduleReadsAfterSend } from '../../src/renderer/src/pages/account/wallet-form'
+import { AFTER_SEND_READS_MS, amountNote, CLEARED_FIELD, refundTimeText, scheduleReadsAfterSend } from '../../src/renderer/src/pages/account/wallet-form'
 
 const WAX = { id: 'wax-testnet', name: 'WAX Testnet', symbol: 'WAX', precision: 8 } as NetworkInfo
 
@@ -228,9 +228,6 @@ describe('refund time from chain time', () => {
     expect(refundTimeText(true, false, 'T', 'R')).toBe('Can be claimed from T.')
     expect(refundTimeText(true, true, 'T', 'R')).toBe('Can be claimed now.')
     expect(refundTimeText(false, false, 'T', 'R')).toBe('About 3 days after the unstake (R), if this chain uses the standard waiting time.')
-    expect(refundBlocked(true, 100, 50)).toBe(true)
-    expect(refundBlocked(true, 100, 100)).toBe(false)
-    expect(refundBlocked(false, 100, 0)).toBe(false)
   })
 })
 

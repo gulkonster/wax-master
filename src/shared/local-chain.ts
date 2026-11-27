@@ -89,6 +89,6 @@ export interface LocalAccountInput {
 /** Give tokens on the local chain: WAX from `eosio` to an existing account. */
 export interface LocalTokensInput {
   account: string
-  /** Whole WAX, up to 8 decimals; more than 0 and at most 1,000,000. */
-  amount: number
+  /** WAX with up to 8 decimals, more than 0 and a valid asset amount: the typed text ("1000.5"), or a number. */
+  amount: string | number
 }

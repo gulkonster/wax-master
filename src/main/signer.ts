@@ -3,7 +3,7 @@
 //   prepare(request)  builds the transaction with the chain core, decodes the
 //                     packed bytes back for display and stores an immutable
 //                     approval record (bytes, chain id, endpoint, keys).
-//   approve(id, secret)
+//   approve(id, secret, typedName)
 //                     signs exactly the stored bytes and sends them to exactly
 //                     the stored endpoint. Single use; expires with the
 //                     transaction. The secret is held only by the
@@ -44,12 +44,13 @@ import { getNetwork, endpointOf, effectiveKind } from './networks'
 import { chain, request, RpcError, nodeErrorMessage } from './rpc'
 import type { Vault } from './vault'
 import { log } from './log'
+import { typedDeleteConfirm } from './store'
 import { oneLineText } from '../shared/network-info'
 import { LOCKED_MESSAGE } from '../shared/vault-locked'
 
 export const APPROVAL_SECONDS = 120
 
-/** System actions that need the typed account name on mainnet-like networks. */
+/** System actions that change an account's code or permissions (one account per transaction). */
 const SENSITIVE = new Set(['setcode', 'setabi', 'updateauth', 'deleteauth', 'linkauth', 'unlinkauth'])
 
 /** The typed locked-vault error: the editor asks for the password in place and repeats the request. */
@@ -117,6 +118,8 @@ export interface ApprovalRecord {
   sequence?: { index: number; count: number; parts: string[] }
   /** Which build of the project this deployment sends (E64). */
   build?: 'testnet' | 'mainnet' | 'any'
+  /** E73: Clear Contract Code only, when Settings asks for a typed word: the account name to type before Approve. */
+  typedName?: string
   /** Signing on this network is switched off in this build. */
   blocked?: string
 }
@@ -178,6 +181,8 @@ export interface SignerDeps {
   send: (ep: string, body: unknown) => Promise<unknown>
   network: (id: string) => NetworkInfo
   now: () => number
+  /** E73: Settings asks for a typed word on delete actions (read when a request is prepared); absent: off. */
+  typedDeleteConfirm?: () => boolean
 }
 
 export function defaultDeps(vault: Vault): SignerDeps {
@@ -199,7 +204,8 @@ export function defaultDeps(vault: Vault): SignerDeps {
     // repeat is refused as a duplicate, and approve() says so plainly.
     send: (ep, body) => request(ep, '/v1/chain/send_transaction', { body, timeoutMs: 30_000 }),
     network: (id) => getNetwork(id),
-    now: () => Date.now()
+    now: () => Date.now(),
+    typedDeleteConfirm: () => typedDeleteConfirm()
   }
 }
 
@@ -484,7 +490,10 @@ export class Signer {
       signers,
       artifacts,
       sequence: req.sequence ? { index: req.sequence.index, count: req.sequence.count, parts: [...req.sequence.parts] } : undefined,
-      build: req.build
+      build: req.build,
+      // E73: a transaction that clears an account's code asks for that account's name, on every network, while the setting is on.
+      // No other transaction asks for a typed name (E65).
+      ...(guarded && clear && this.deps.typedDeleteConfirm?.() === true ? { typedName: guarded } : {})
     }
     if (this.approvals.size > 0) throw new SignerError(BUSY_MESSAGE)
     const secret = randomBytes(32)
@@ -514,13 +523,17 @@ export class Signer {
     for (const id of [...this.approvals.keys()]) this.cancel(id)
   }
 
-  async approve(id: string, secret: Buffer): Promise<SendResult> {
+  async approve(id: string, secret: Buffer, typedName?: string): Promise<SendResult> {
     const s = this.approvals.get(id)
     if (!s) throw new SignerError('This approval is no longer valid. Start the action again.')
     if (s.secret.length !== secret.length || !timingSafeEqual(s.secret, secret)) {
       throw new SignerError('Approval refused')
     }
     if (s.used) throw new SignerError('This approval was already used')
+    // E73: the account name typed in the confirmation (Clear Contract Code with the setting on).
+    if (s.record.typedName && typedName !== s.record.typedName) {
+      throw new SignerError(`Type the account name "${s.record.typedName}" to clear its contract code`)
+    }
     s.used = true
     this.approvals.delete(id)
     if (this.deps.now() > s.record.expiresAt) throw new SignerError('This approval has expired. Start the action again.')

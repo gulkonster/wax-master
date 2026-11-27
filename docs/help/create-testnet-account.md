@@ -9,7 +9,7 @@ WAX Testnet is a copy of WAX where tokens have no value. Its faucet, a free serv
 3. The **Account name** field holds a random name. Keep it or type your own: exactly 12 characters, a-z and 1-5.
 4. Press **Create account**. If the vault is locked or does not exist, the password is asked right there.
 5. The faucet creates the account with an owner key and an active key. Both are stored in your vault.
-6. A **Back up this key** step follows for each key. See [Backing up keys](doc:key-backups).
+6. A **Back up this key** step follows for each key; it warns that the key is not backed up yet and can be closed without a backup. See [Backing up keys](doc:key-backups).
 7. **Request test tokens** asks the faucet for test WAX for the new account. **Open account** opens it on the Account page.
 
 For accounts without a faucet and without limits, WAX Master can run a chain on this computer: see [The local chain](doc:local-chain).

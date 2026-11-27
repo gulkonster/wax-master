@@ -8,8 +8,8 @@ Open the Account page, then the **CPU / NET** section. It shows what is staked, 
 
 - **Stake**: enter the WAX for CPU and for NET. By default the stake goes to the account itself. You can stake to another account instead; the tokens stay yours. It sends `eosio::delegatebw`. A new stake is taken from a waiting refund first, before the liquid balance.
 - **Unstake**: enter the WAX to take back from CPU and from NET. It sends `eosio::undelegatebw`. The tokens do not return at once. While a refund waits, a new unstake starts the waiting time again for the whole refund.
-- **Refund**: unstaked tokens wait before they are free. The waiting time is 3 days on WAX; it is fixed in the system contract and is not something the chain reports. On WAX the section shows the exact time when the refund can be claimed. On other chains it shows "about 3 days" and leaves the button on; the chain refuses the claim while its own waiting time runs.
-- **Claim refund**: when the time has passed, the button sends `eosio::refund` and the tokens move to the liquid balance.
+- **Refund**: unstaked tokens wait before they are free. The waiting time is 3 days on WAX; it is fixed in the system contract and is not something the chain reports. On WAX the section shows the exact time when the refund can be claimed. On other chains it shows "about 3 days". The **Claim refund** button is always on: the chain refuses a claim while its own waiting time runs, and its answer is shown under the button.
+- **Claim refund**: sends `eosio::refund`; when the time has passed, the tokens move to the liquid balance.
 
 Choose the signer, press **Command** to see the action, and approve in the confirmation window.
 
