@@ -168,4 +168,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 MIT, see [LICENSE](LICENSE). Third-party software: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
+Questions and bug reports: [open an issue](https://github.com/gulkonster/wax-master/issues).
+Pull requests are welcome.
+Like WAX Master? [Sponsor it on GitHub](https://github.com/sponsors/gulkonster).
+
 Built with the help of AI coding tools. Design, decisions and real-device testing by gulkonster.
