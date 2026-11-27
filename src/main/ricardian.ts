@@ -216,6 +216,18 @@ export async function createRicardianFiles(root: string, config: ProjectConfig):
   if (!existsSync(abiAbs)) throw new Error(`${paths.abi} was not found. Build the contract first.`)
   const actions = actionsFromAbi(await readLimited(abiAbs, paths.abi))
 
+  // The link check runs before containedPath: where real file links can be made,
+  // its realpath check would otherwise refuse a link with a different message.
+  for (const rel of [paths.contracts, paths.clauses]) {
+    let st
+    try {
+      st = await fsp.lstat(resolve(root, rel))
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') continue
+      throw e
+    }
+    if (st.isSymbolicLink()) throw new Error(`${rel} is a link; it is not written`)
+  }
   const contractsAbs = containedPath(root, paths.contracts)
   const clausesAbs = containedPath(root, paths.clauses)
   const existed = await existingTarget(contractsAbs, paths.contracts)
