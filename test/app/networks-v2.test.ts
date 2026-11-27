@@ -1,6 +1,6 @@
 // The network list, file version 2: conversion from version 1 (stars and
 // project deploy settings still match), removable and restorable defaults,
-// "at least one", fixed chain id of defaults (name and kind can be edited), and the kind rules.
+// "at least one", fixed name and chain id of defaults, and the kind rules.
 
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -185,32 +185,28 @@ describe('remove and restore', () => {
 })
 
 describe('editing', () => {
-  it('a default keeps its chain id; its name, kind, endpoints and history can be edited', async () => {
+  it('a default keeps its name, kind and chain id; its endpoints and history can be edited', async () => {
     const n = await fresh()
     const t = await n.updateNetwork('wax-testnet', { endpoints: ['https://waxtestnet.greymass.com', 'https://testnet.waxsweden.org'], history: null }, never)
     expect(t).toMatchObject({ name: 'WAX Testnet', kind: 'testnet', chainId: WAX_TEST, history: undefined, preset: true })
     expect(t.endpoints).toEqual(['https://waxtestnet.greymass.com', 'https://testnet.waxsweden.org'])
-    await expect(n.updateNetwork('wax-testnet', { name: 'Renamed' }, never)).resolves.toMatchObject({ name: 'Renamed', chainId: WAX_TEST })
-    await expect(n.updateNetwork('wax-testnet', { kind: 'mainnet' }, never)).resolves.toMatchObject({ kind: 'mainnet' })
-    // Back to testnet: the WAX Testnet chain needs no question.
-    await expect(n.updateNetwork('wax-testnet', { kind: 'testnet' }, never)).resolves.toMatchObject({ kind: 'testnet' })
-    // The WAX Mainnet chain stays mainnet whatever kind is asked (chain id rule).
-    await expect(n.updateNetwork('wax-mainnet', { name: 'Main', kind: 'testnet' }, never)).resolves.toMatchObject({ name: 'Main', kind: 'mainnet' })
+    await expect(n.updateNetwork('wax-testnet', { name: 'Renamed' }, never)).rejects.toThrow(/fixed/)
+    await expect(n.updateNetwork('wax-testnet', { kind: 'mainnet' }, never)).rejects.toThrow(/fixed/)
+    // Sending the same name and kind is not a change.
+    await expect(n.updateNetwork('wax-mainnet', { name: 'WAX Mainnet', kind: 'mainnet', endpoints: ['https://wax.greymass.com'] }, never)).resolves.toMatchObject({
+      name: 'WAX Mainnet'
+    })
   })
 
-  it('the name and kind of a default are kept in the file; its chain id is not taken from it', async () => {
+  it('a name or kind written into the file for a default is ignored', async () => {
     const n = await fresh({
       version: 2,
       current: 'wax-mainnet',
-      networks: [
-        { id: 'wax-mainnet', name: 'Cheap', kind: 'testnet', chainId: OTHER, endpoints: ['https://x.example'], currentEndpoint: 0 },
-        { id: 'wax-testnet', name: 'My test', kind: 'mainnet', chainId: WAX_TEST, endpoints: ['https://t.example'], currentEndpoint: 0 }
-      ],
+      networks: [{ id: 'wax-mainnet', name: 'Cheap', kind: 'testnet', chainId: OTHER, endpoints: ['https://x.example'], currentEndpoint: 0 }],
       removedDefaults: [],
       stars: {}
     })
-    expect(n.getNetwork('wax-mainnet')).toMatchObject({ name: 'Cheap', kind: 'mainnet', chainId: WAX_MAIN, endpoints: ['https://x.example'] })
-    expect(n.getNetwork('wax-testnet')).toMatchObject({ name: 'My test', kind: 'mainnet', chainId: WAX_TEST })
+    expect(n.getNetwork('wax-mainnet')).toMatchObject({ name: 'WAX Mainnet', kind: 'mainnet', chainId: WAX_MAIN, endpoints: ['https://x.example'] })
   })
 
   it('an endpoint is added to an existing network once', async () => {
@@ -255,10 +251,9 @@ describe('kind rules stay as they were', () => {
   it('names stay unique when a network is renamed', async () => {
     const n = await fresh()
     const x = await n.addNetwork({ name: 'X', kind: 'mainnet', endpoint: 'https://x.example', chainId: OTHER, symbol: 'X', precision: 4 }, never)
+    await expect(n.updateNetwork(x.id, { name: 'wax testnet' }, never)).rejects.toThrow(/name of a default network/)
     const y = await n.addNetwork({ name: 'Y', kind: 'mainnet', endpoint: 'https://y.example', chainId: OTHER, symbol: 'X', precision: 4 }, never)
     await expect(n.updateNetwork(y.id, { name: 'x' }, never)).rejects.toThrow(/exists/)
-    // A default network's name may be used by another network, also while the default has it.
-    await expect(n.updateNetwork(x.id, { name: 'wax testnet' }, never)).resolves.toMatchObject({ name: 'wax testnet' })
   })
 
   it('knows the names of the known chains', async () => {
@@ -385,36 +380,21 @@ describe('chain ids and endpoints from the file', () => {
   })
 })
 
-describe('names of the defaults are not reserved', () => {
-  it('a default name, original or current, is accepted while a default has it; other duplicates are refused', async () => {
+describe('names of the defaults stay theirs', () => {
+  it('a removed default name cannot be taken by a user network; restore gives unique names', async () => {
     const n = await fresh()
-    const ask = vi.fn(async () => true)
-    const add = (name: string): Promise<{ id: string; name: string }> =>
-      n.addNetwork({ name, kind: 'mainnet', endpoint: 'https://wax.eosphere.io', chainId: WAX_MAIN, symbol: 'WAX', precision: 8 }, ask)
-    await expect(add('WAX Mainnet')).resolves.toMatchObject({ name: 'WAX Mainnet' })
-    await n.updateNetwork('wax-testnet', { name: 'Test chain' }, ask)
-    // The original name and the default's current name are both accepted.
-    await expect(add('wax testnet')).resolves.toMatchObject({ name: 'wax testnet' })
-    await expect(add('Test chain')).resolves.toMatchObject({ name: 'Test chain' })
-    await add('Mine')
-    await expect(add('mine')).rejects.toThrow(/exists/)
-    // Restore with a default name in use gives two rows with one name.
     n.removeNetwork('wax-mainnet')
+    const ask = vi.fn(async () => true)
+    const add = (name: string): Promise<unknown> =>
+      n.addNetwork({ name, kind: 'mainnet', endpoint: 'https://wax.eosphere.io', chainId: WAX_MAIN, symbol: 'WAX', precision: 8 }, ask)
+    await expect(add('WAX Mainnet')).rejects.toThrow(/name of a default network/)
+    await expect(add('wax mainnet')).rejects.toThrow(/name of a default network/)
+    const own = (await add('WAX Mainnet (wax.eosphere.io)')) as { id: string }
+    await expect(n.updateNetwork(own.id, { name: 'WAX Mainnet' }, ask)).rejects.toThrow(/name of a default network/)
     n.restoreDefaults()
-    expect(n.listNetworks().filter((x) => x.name === 'WAX Mainnet')).toHaveLength(2)
-  })
-
-  it('a user network may take a default name that no network of the list uses', async () => {
-    const n = await fresh()
-    n.removeNetwork('wax-mainnet')
-    const ask = vi.fn(async () => true)
-    const add = (name: string): Promise<{ id: string; name: string }> =>
-      n.addNetwork({ name, kind: 'mainnet', endpoint: 'https://wax.eosphere.io', chainId: WAX_MAIN, symbol: 'WAX', precision: 8 }, ask)
-    const own = await add('WAX Mainnet')
-    expect(own.name).toBe('WAX Mainnet')
-    // Renaming the default WAX Testnet frees its name for another network.
-    await n.updateNetwork('wax-testnet', { name: 'Test chain' }, ask)
-    await expect(n.updateNetwork(own.id, { name: 'WAX Testnet' }, ask)).resolves.toMatchObject({ name: 'WAX Testnet' })
+    const names = n.listNetworks().map((x) => x.name.toLowerCase())
+    expect(new Set(names).size).toBe(names.length)
+    expect(n.listNetworks().map((x) => x.name)).toEqual(['WAX Mainnet', 'WAX Testnet', 'WAX Mainnet (wax.eosphere.io)'])
   })
 })
 

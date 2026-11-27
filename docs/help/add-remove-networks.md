@@ -12,7 +12,7 @@ Add a network:
 4. If the chain is already in your list, **Add this endpoint to** followed by the network name adds the address to that network: its starred accounts and deploy settings stay. **Add as a new network** makes a separate entry.
 5. For a new chain, check the name and kind and press **Add**.
 
-Edit a network: Network > Manage Networks > **Edit**. Name, kind, endpoints (one per line, same chain id) and the history service can be changed for every network, the default WAX Mainnet and WAX Testnet included. A name used by another network of the list is refused, except the names of the default networks: "WAX Mainnet", "WAX Testnet" and the name a default network has now can be used by another network as well, so two rows can show one name. The chain id never changes, and a network on the WAX Mainnet chain always counts as mainnet.
+Edit a network: Network > Manage Networks > **Edit**. Endpoints (one per line, same chain id) and the history service can be changed for every network. Name and kind can be changed only for networks you added. The chain id never changes.
 
 Remove a network: Network > Manage Networks > **Remove** (or **Remove** on the Network page). The question lists the starred accounts and added tokens that are forgotten and which network is selected next. The last network cannot be removed.
 

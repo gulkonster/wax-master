@@ -103,7 +103,7 @@ async function decideKind(
   return { kind: 'mainnet', testnetConfirmed: false }
 }
 
-/** The default networks: chain id fixed; name, kind, endpoints and history can be edited. */
+/** The default networks: name and chain id fixed; endpoints and history can be edited. */
 const DEFAULTS: readonly NetworkInfo[] = [
   {
     id: WAX_MAINNET_ID,
@@ -217,12 +217,8 @@ function cleanNetwork(raw: unknown): NetworkInfo | null {
     history: history ?? undefined,
     currentEndpoint: Math.max(0, Math.min(index, endpoints.length - 1))
   }
-  // A default keeps its fixed chain id; the name and kind the user gave it are kept.
-  if (def) {
-    const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name : def.name
-    const kind = KINDS.includes(raw.kind as NetworkKind) ? (raw.kind as NetworkKind) : def.kind
-    return { ...defaultCopy(def), name, kind, ...(raw.testnetConfirmed === true ? { testnetConfirmed: true } : {}), ...base }
-  }
+  // A default keeps its fixed name, chain id and kind whatever the file says.
+  if (def) return { ...defaultCopy(def), ...base }
   const kind = KINDS.includes(raw.kind as NetworkKind) ? (raw.kind as NetworkKind) : 'mainnet'
   return {
     id: raw.id,
@@ -527,13 +523,14 @@ export async function probeEndpoint(url: string): Promise<{
 }
 
 /**
- * A network name must not be used by another network of the list. A default network's
- * name (its original name or its current one) may be used by another network as well.
+ * A user's network name must be free: not used by another network of the list,
+ * and not the name of a default network, even while that default is removed
+ * (so restoring the defaults never gives two rows with one name).
  */
 function checkNameFree(name: string, exceptId: string | null): void {
   const lower = name.toLowerCase()
-  const defaultNames = [...DEFAULTS.map((d) => d.name), ...listNetworks().filter((n) => isDefaultId(n.id)).map((n) => n.name)]
-  if (defaultNames.some((d) => d.toLowerCase() === lower)) return
+  const def = DEFAULTS.find((d) => d.name.toLowerCase() === lower)
+  if (def && def.id !== exceptId) throw new Error(`"${def.name}" is the name of a default network; choose another name`)
   if (listNetworks().some((n) => n.id !== exceptId && n.name.toLowerCase() === lower)) throw new Error('A network with this name exists')
 }
 
@@ -584,8 +581,10 @@ export async function updateNetwork(
   if (id === LOCAL_CHAIN_NETWORK_ID) throw new Error(LOCAL_CHAIN_EDIT_REFUSAL)
   const found = load().networks.find((x) => x.id === id)
   if (!found) throw new Error('Unknown network')
+  const isDefault = isDefaultId(id)
   let name = found.name
   if (patch.name !== undefined && patch.name.trim() !== found.name) {
+    if (isDefault) throw new Error(`The name of ${found.name} is fixed; its endpoints and history service can be changed`)
     name = patch.name.trim()
     if (!name) throw new Error('Name is required')
     checkNameFree(name, id)
@@ -598,6 +597,7 @@ export async function updateNetwork(
   }
   const history = patch.history === undefined ? found.history : patch.history ? normalizeEndpoint(patch.history) : undefined
   const previous = effectiveKind(found)
+  if (isDefault && patch.kind !== undefined && patch.kind !== previous) throw new Error(`The kind of ${found.name} is fixed`)
   const { kind, testnetConfirmed } = await decideKind(patch.kind ?? previous, { name, chainId: found.chainId, endpoints }, previous, confirmTestnet)
   // Apply all at once, after the question (the list may have changed meanwhile).
   const c = load().networks.find((x) => x.id === id)
